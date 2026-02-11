@@ -59,6 +59,7 @@ function App() {
         activeTab={activeTab}
         setActiveTab={(tab) => { setActiveTab(tab); setMobileMenuOpen(false); }}
         onLogout={handleLogout}
+        className="hidden lg:flex"
       />
 
       {/* Mobile sidebar overlay */}
@@ -71,6 +72,7 @@ function App() {
               activeTab={activeTab}
               setActiveTab={(tab) => { setActiveTab(tab); setMobileMenuOpen(false); }}
               onLogout={handleLogout}
+              onToggleMobileMenu={() => setMobileMenuOpen(false)}
             />
           </div>
         </div>
@@ -82,12 +84,6 @@ function App() {
         <main className="flex-1 p-6 lg:p-10 overflow-y-auto">
           {renderPage()}
         </main>
-        <footer className="border-t border-gray-100 px-6 lg:px-10 py-4 bg-white/50 backdrop-blur-sm">
-          <div className="flex justify-between items-center text-[9px] font-bold text-gray-300 uppercase tracking-[0.25em]">
-            <span>© 2026 Inmotika Field Service v1.0</span>
-            <span>ISO 9001 · ISO 27001</span>
-          </div>
-        </footer>
       </div>
     </div>
   );

@@ -38,17 +38,17 @@ const SignaturePad = ({ label }) => {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex justify-between items-center">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">
+        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">
           {label || 'Firma del Responsable'}
         </label>
       </div>
-      <div className="relative border-2 border-gray-100 rounded-[1.5rem] bg-gray-50 h-32 overflow-hidden touch-none">
+      <div className="relative border-2 border-gray-100 rounded-md bg-gray-50 h-24 overflow-hidden touch-none">
         <canvas
           ref={canvasRef}
           width={600}
-          height={128}
+          height={96}
           onMouseDown={startDrawing}
           onMouseUp={stopDrawing}
           onMouseMove={draw}

@@ -17,8 +17,8 @@ const LoginPage = ({ onLogin }) => {
           <div className="w-20 h-20 bg-[#D32F2F] rounded-3xl mx-auto mb-6 flex items-center justify-center text-white shadow-xl shadow-red-200">
             <ShieldCheck size={40} />
           </div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase mb-2">INMOTIKA</h1>
-          <p className="text-gray-500 font-semibold uppercase text-[10px] tracking-[0.3em]">Gestión de Alta Disponibilidad</p>
+          <h1 className="text-3xl font-bold text-gray-900 uppercase mb-2">INMOTIKA</h1>
+          <p className="text-gray-500 font-semibold uppercase text-[10px]">Gestión de Alta Disponibilidad</p>
         </div>
         <div className="grid grid-cols-1 gap-4">
           {quickAccess.map((acc) => (
@@ -31,8 +31,8 @@ const LoginPage = ({ onLogin }) => {
                 <acc.icon size={22} />
               </div>
               <div>
-                <span className="block text-[10px] font-black uppercase text-gray-400 group-hover:text-[#D32F2F] tracking-widest mb-1">Nivel de Acceso</span>
-                <span className="block text-base font-black text-gray-800">{acc.label}</span>
+                <span className="block text-[10px] font-bold uppercase text-gray-400 group-hover:text-[#D32F2F] mb-1">Nivel de Acceso</span>
+                <span className="block text-base font-bold text-gray-800">{acc.label}</span>
               </div>
             </button>
           ))}

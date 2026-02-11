@@ -1,13 +1,22 @@
 import { useState } from 'react';
 import {
   Plus, X, Edit2, Trash2, CheckCircle2, Users, MapPin, Building2,
-  Phone, Mail, UserCog, Activity, RotateCcw, Timer, ListChecks, Smartphone
+  Phone, Mail, UserCog, Activity, RotateCcw, Timer, ListChecks, Smartphone,
+  Eye, Save, User, Briefcase, ChevronRight, Home
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import FileUploader from '../components/ui/FileUploader';
+import IconButton from '../components/ui/IconButton';
+import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
+import Modal from '../components/ui/Modal';
+import ContactoForm from '../components/forms/ContactoForm';
+import SucursalForm from '../components/forms/SucursalForm';
+import ClienteForm from '../components/forms/ClienteForm';
+import TecnicoForm from '../components/forms/TecnicoForm';
+import DispositivoForm from '../components/forms/DispositivoForm';
 
 const ConfigurationPage = ({ data, setData }) => {
   const [activeSubTab, setActiveSubTab] = useState('clientes');
@@ -18,170 +27,652 @@ const ConfigurationPage = ({ data, setData }) => {
   const [maintenanceSteps, setMaintenanceSteps] = useState([]);
   const [currentStepText, setCurrentStepText] = useState('');
   const [attachedFiles, setAttachedFiles] = useState({ carnet: false, arl: false, matriz: false, manual: false, mantenimiento: false });
+  const [sucursales, setSucursales] = useState([]);
+  const [editingItem, setEditingItem] = useState(null);
+  const [isViewMode, setIsViewMode] = useState(false);
+  const [viewLevel, setViewLevel] = useState('list'); // list, client-details, branches-list, branch-details
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedBranch, setSelectedBranch] = useState(null);
+  const [editingType, setEditingType] = useState(null); // 'clientes', 'sucursal', 'tecnicos', 'dispositivos', 'contacto'
+  const [editingParentId, setEditingParentId] = useState(null); // Para saber a qué sucursal pertenece un contacto al editarlo solo a él
+
+  const Breadcrumbs = () => {
+    if (activeSubTab !== 'clientes' || viewLevel === 'list') return null;
+
+    const items = [
+      { label: 'Clientes', level: 'list', icon: Home },
+    ];
+
+    if (selectedClient) {
+      items.push({ label: selectedClient.nombre, level: 'client-details', icon: Users });
+    }
+
+    if (viewLevel === 'branches-list' || viewLevel === 'branch-details') {
+      items.push({ label: 'Sucursales', level: 'branches-list', icon: Building2 });
+    }
+
+    if (selectedBranch) {
+      items.push({ label: selectedBranch.nombre, level: 'branch-details', icon: MapPin });
+    }
+
+    return (
+      <nav className="flex items-center gap-1.5 text-xs mb-4 bg-white p-2 rounded-md shadow-sm border border-gray-100 w-fit">
+        {items.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-1.5">
+            {idx > 0 && <ChevronRight size={12} className="text-gray-300" />}
+            <button
+              onClick={() => {
+                setViewLevel(item.level);
+                if (item.level === 'list') { setSelectedClient(null); setSelectedBranch(null); }
+                if (item.level === 'client-details') { setSelectedBranch(null); }
+                if (item.level === 'branches-list') { setSelectedBranch(null); }
+              }}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all ${viewLevel === item.level
+                  ? 'bg-red-50 text-[#D32F2F] font-bold'
+                  : 'text-gray-500 hover:bg-gray-50'
+                }`}
+            >
+              <item.icon size={14} />
+              <span className="capitalize">{item.label}</span>
+            </button>
+          </div>
+        ))}
+      </nav>
+    );
+  };
+
+  const handleEdit = (item, type = activeSubTab.slice(0, -1), parentId = null) => {
+    setEditingItem(item);
+    setEditingType(type);
+    setIsViewMode(false);
+    setEditingParentId(parentId);
+
+    // Cargar datos anidados según el tipo
+    if (type === 'cliente' || type === 'clientes') {
+      if (item.sucursales) {
+        setSucursales(JSON.parse(JSON.stringify(item.sucursales)));
+      } else {
+        setSucursales([]);
+      }
+    } else if (type === 'sucursal') {
+      setSucursales([JSON.parse(JSON.stringify(item))]);
+    } else if (type === 'contacto') {
+      // Para contacto individual no necesitamos cargar sucursales completas
+      setSucursales([]);
+    }
+
+    if (item.dispositivos && type === 'dispositivo') {
+      setDeviceCodes([...item.dispositivos]);
+    } else {
+      setDeviceCodes([]);
+    }
+
+    if (item.pasoAPaso) {
+      setMaintenanceSteps([...item.pasoAPaso]);
+    } else {
+      setMaintenanceSteps([]);
+    }
+
+    setShowForm(true);
+  };
+
+  const handleView = (item, type = activeSubTab.slice(0, -1)) => {
+    if (type === 'cliente' || type === 'clientes') {
+      setSelectedClient(item);
+      setViewLevel('branches-list'); // Ir directamente a la lista de sucursales (que es una tabla)
+      return;
+    }
+    if (type === 'sucursal') {
+      setSelectedBranch(item);
+      setViewLevel('branch-details');
+      return;
+    }
+
+    setEditingItem(item);
+    setEditingType(type);
+    setIsViewMode(true);
+    setShowForm(true);
+  };
 
   const addDeviceCode = () => { if (currentDeviceCode && !deviceCodes.includes(currentDeviceCode)) { setDeviceCodes([...deviceCodes, currentDeviceCode]); setCurrentDeviceCode(''); } };
   const addStep = () => { if (currentStepText) { setMaintenanceSteps([...maintenanceSteps, currentStepText]); setCurrentStepText(''); } };
 
-  const handleCreate = (e) => {
+  const addSucursal = () => {
+    setSucursales([...sucursales, {
+      id: Date.now(),
+      nombre: '',
+      ciudad: '',
+      direccion: '',
+      telefono: '',
+      email: '',
+      contactos: []
+    }]);
+  };
+
+  const removeSucursal = (id) => {
+    if (window.confirm('¿Está seguro de eliminar esta sucursal?')) {
+      const updatedClients = data.clientes.map(client => {
+        if (client.id === selectedClient.id) {
+          const updatedBranches = (client.sucursales || []).filter(s => s.id !== id);
+          const updatedClient = { ...client, sucursales: updatedBranches };
+          setSelectedClient(updatedClient);
+          return updatedClient;
+        }
+        return client;
+      });
+      setData({ ...data, clientes: updatedClients });
+    }
+  };
+
+  const handleSucursalChange = (id, field, value) => {
+    setSucursales(sucursales.map(s => s.id === id ? { ...s, [field]: value } : s));
+  };
+
+  const addContacto = (sucursalId) => {
+    setSucursales(sucursales.map(s => {
+      if (s.id === sucursalId) {
+        return {
+          ...s,
+          contactos: [...(s.contactos || []), { id: Date.now(), nombre: '', celular: '', email: '', cargo: '' }]
+        };
+      }
+      return s;
+    }));
+  };
+
+  const removeContacto = (sucursalId, contactoId) => {
+    setSucursales(sucursales.map(s => {
+      if (s.id === sucursalId) {
+        return {
+          ...s,
+          contactos: (s.contactos || []).filter(c => c.id !== contactoId)
+        };
+      }
+      return s;
+    }));
+  };
+
+  const handleContactoChange = (sucursalId, contactoId, field, value) => {
+    setSucursales(sucursales.map(s => {
+      if (s.id === sucursalId) {
+        return {
+          ...s,
+          contactos: (s.contactos || []).map(c => c.id === contactoId ? { ...c, [field]: value } : c)
+        };
+      }
+      return s;
+    }));
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingItem(null);
+    setEditingType(null);
+    setIsViewMode(false);
+    setDeviceCodes([]);
+    setMaintenanceSteps([]);
+    setSucursales([]);
+    setEditingParentId(null);
+  };
+
+  const handleSubmit = (e) => {
     e.preventDefault();
+    if (isViewMode) return;
+
     const formData = new FormData(e.target);
     const newItem = Object.fromEntries(formData.entries());
-    newItem.id = Date.now();
-    if (activeSubTab === 'clientes') newItem.dispositivos = deviceCodes;
-    if (activeSubTab === 'dispositivos') newItem.pasoAPaso = maintenanceSteps;
-    setData({ ...data, [activeSubTab]: [newItem, ...data[activeSubTab]] });
+
+    if (editingType === 'contacto') {
+       const updatedContact = { 
+         ...editingItem, 
+         ...newItem,
+         id: editingItem ? editingItem.id : Date.now() 
+       };
+       const updatedClients = data.clientes.map(client => {
+         if (client.id === selectedClient.id) {
+           const updatedBranches = (client.sucursales || []).map(s => {
+             if (s.id === editingParentId) {
+               let updatedContacts;
+               if (editingItem) {
+                 updatedContacts = (s.contactos || []).map(c => 
+                   c.id === editingItem.id ? updatedContact : c
+                 );
+               } else {
+                 updatedContacts = [...(s.contactos || []), updatedContact];
+               }
+               const updatedBranch = { ...s, contactos: updatedContacts };
+               if (selectedBranch?.id === s.id) setSelectedBranch(updatedBranch);
+               return updatedBranch;
+             }
+             return s;
+           });
+           const updatedClient = { ...client, sucursales: updatedBranches };
+           setSelectedClient(updatedClient);
+           return updatedClient;
+         }
+         return client;
+       });
+       setData({ ...data, clientes: updatedClients });
+     } else if (editingType === 'sucursal') {
+      // Estamos editando o creando una sucursal específica de un cliente
+      const sucursalData = sucursales[0];
+      const updatedSucursal = {
+        ...sucursalData,
+        id: editingItem ? editingItem.id : (sucursalData.id || Date.now())
+      };
+
+      const updatedClients = data.clientes.map(client => {
+        if (client.id === selectedClient.id) {
+          let updatedBranches;
+          if (editingItem) {
+            // Editando sucursal existente
+            updatedBranches = (client.sucursales || []).map(s =>
+              s.id === editingItem.id ? updatedSucursal : s
+            );
+          } else {
+            // Añadiendo nueva sucursal
+            updatedBranches = [...(client.sucursales || []), updatedSucursal];
+          }
+
+          const updatedClient = { ...client, sucursales: updatedBranches };
+          setSelectedClient(updatedClient);
+          if (selectedBranch?.id === updatedSucursal.id) {
+            setSelectedBranch(updatedSucursal);
+          }
+          return updatedClient;
+        }
+        return client;
+      });
+
+      setData({ ...data, clientes: updatedClients });
+    } else if (editingItem) {
+      // Actualización normal de un maestro (Cliente, Técnico o Dispositivo)
+      const updatedList = data[activeSubTab].map(item => {
+        if (item.id === editingItem.id) {
+          const updated = { ...item, ...newItem };
+          if (activeSubTab === 'clientes') updated.sucursales = sucursales;
+          if (activeSubTab === 'dispositivos') updated.pasoAPaso = maintenanceSteps;
+
+          if (activeSubTab === 'clientes' && selectedClient?.id === item.id) {
+            setSelectedClient(updated);
+          }
+          return updated;
+        }
+        return item;
+      });
+      setData({ ...data, [activeSubTab]: updatedList });
+    } else {
+      // Creación de un nuevo registro
+      const createdItem = {
+        ...newItem,
+        id: Date.now()
+      };
+
+      if (activeSubTab === 'clientes') {
+        createdItem.sucursales = sucursales;
+      }
+      if (activeSubTab === 'dispositivos') {
+        createdItem.pasoAPaso = maintenanceSteps;
+      }
+      setData({ ...data, [activeSubTab]: [createdItem, ...data[activeSubTab]] });
+    }
+
     setSuccess(true);
-    setTimeout(() => { setSuccess(false); setShowForm(false); setDeviceCodes([]); setMaintenanceSteps([]); }, 1500);
+    setTimeout(() => {
+      setSuccess(false);
+      handleCloseForm();
+    }, 1500);
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      <div className="flex bg-gray-100 p-2 rounded-[2rem] w-fit">
+    <div className="space-y-4 animate-in fade-in duration-700">
+      <div className="flex bg-gray-100 p-1.5 rounded-xl w-fit">
         {['clientes', 'tecnicos', 'dispositivos'].map(tab => (
-          <button key={tab} onClick={() => { setActiveSubTab(tab); setShowForm(false); }} className={`px-8 py-3 rounded-[1.5rem] text-[9px] font-black uppercase tracking-[0.25em] transition-all ${activeSubTab === tab ? 'bg-white text-[#D32F2F] shadow-sm' : 'text-gray-400'}`}>{tab}</button>
+          <button key={tab} onClick={() => {
+            setActiveSubTab(tab);
+            setViewLevel('list');
+            setSelectedClient(null);
+            setSelectedBranch(null);
+            setShowForm(false);
+          }} className={`px-6 py-2 rounded-lg text-[9px] font-bold uppercase transition-all ${activeSubTab === tab ? 'bg-white text-[#D32F2F] shadow-sm' : 'text-gray-400'}`}>{tab}</button>
         ))}
       </div>
-      {!showForm ? (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center px-2">
-            <h3 className="text-2xl font-black uppercase text-gray-900 tracking-tighter">Maestros de {activeSubTab}</h3>
-            <Button onClick={() => setShowForm(true)}><Plus size={20}/> Nuevo Registro</Button>
-          </div>
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-[#1A1A1A] text-white">
-                  <tr>
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em]">Nombre / Razón</th>
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] hidden md:table-cell">Detalles Técnicos</th>
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-right">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {data[activeSubTab].map((item, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50 transition-colors group">
-                      <td className="px-8 py-6"><p className="font-black text-base text-gray-900 leading-none mb-1">{item.nombre || item.tipo}</p><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{item.nit || item.identificacion || item.serial || item.codigoUnico}</p></td>
-                      <td className="px-8 py-6 hidden md:table-cell"><p className="text-sm font-bold text-gray-600">{item.ciudad || item.marca} — {item.sucursal || item.linea || item.zona}</p><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">{item.email || item.correo || item.proveedor}</p></td>
-                      <td className="px-8 py-6 text-right flex justify-end gap-4 text-gray-200 group-hover:text-gray-400"><Edit2 size={18}/><Trash2 size={18}/></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+      <Breadcrumbs />
+
+      <div className="space-y-6">
+        {activeSubTab === 'clientes' && viewLevel === 'client-details' && selectedClient && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
+            <div className="flex justify-between items-start">
+              <h3 className="text-xl font-bold uppercase text-gray-900">Información General</h3>
+              <Button onClick={() => setViewLevel('branches-list')}>
+                <Building2 size={16}/> Ver Sucursales
+              </Button>
             </div>
-          </Card>
-        </div>
-      ) : (
-        <div className="animate-in slide-in-from-right-12 duration-500 pb-20">
-          <Card className="max-w-5xl p-10 md:p-16 mx-auto shadow-2xl">
-            <header className="flex justify-between items-center mb-12 border-b border-gray-100 pb-8">
-              <h3 className="text-3xl font-black uppercase tracking-tighter leading-none">Configurar {activeSubTab.slice(0, -1)}</h3>
-              <button onClick={() => setShowForm(false)} className="p-3 bg-gray-50 hover:bg-gray-100 rounded-3xl transition-all"><X size={24}/></button>
-            </header>
-            <form onSubmit={handleCreate} className="space-y-10">
-              {activeSubTab === 'clientes' && (
-                <div className="space-y-10">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <Input name="nombre" label="Razón Social" icon={Users} required />
-                    <Input name="nit" label="NIT / RUT" required />
-                    <div className="grid grid-cols-2 gap-6 md:col-span-2">
-                      <Input name="ciudad" label="Ciudad Principal" icon={MapPin} required />
-                      <Input name="sucursal" label="Sucursal" icon={Building2} required />
-                    </div>
-                    <Input name="direccion" label="Dirección Física" icon={MapPin} className="md:col-span-2" required />
-                    <Input name="telefono" label="Teléfono" type="tel" icon={Phone} />
-                    <Input name="email" label="Email Corporativo" type="email" icon={Mail} />
-                  </div>
+            <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
+              <Table>
+                  <THead>
+                    <tr>
+                      <Th>Campo</Th>
+                      <Th>Información Registrada</Th>
+                    </tr>
+                  </THead>
+                  <TBody>
+                    <Tr>
+                      <Td className="font-bold text-gray-400 uppercase text-[10px]">Razón Social</Td>
+                      <Td className="font-bold text-lg text-[#D32F2F]">{selectedClient.nombre}</Td>
+                    </Tr>
+                    <Tr>
+                      <Td className="font-bold text-gray-400 uppercase text-[10px]">NIT / RUT</Td>
+                      <Td className="font-bold text-gray-700">{selectedClient.nit}</Td>
+                    </Tr>
+                    <Tr>
+                      <Td className="font-bold text-gray-400 uppercase text-[10px]">Ubicación</Td>
+                      <Td className="font-bold text-gray-700">{selectedClient.ciudad} — {selectedClient.direccion}</Td>
+                    </Tr>
+                    <Tr>
+                      <Td className="font-bold text-gray-400 uppercase text-[10px]">Contacto</Td>
+                      <Td className="font-bold text-gray-700">{selectedClient.telefono} — {selectedClient.email}</Td>
+                    </Tr>
+                  </TBody>
+                </Table>
+              </Card>
+            </div>
+          )}
 
-                  <div className="pt-8 border-t border-gray-100">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="p-3 bg-red-50 text-[#D32F2F] rounded-xl"><Building2 size={24} /></div>
-                      <h4 className="text-sm font-black uppercase tracking-[0.2em] text-gray-900">Sucursales</h4>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <Input name="sucursal_nombre" label="Nombre" />
-                      <Input name="sucursal_ciudad" label="Ciudad" icon={MapPin} />
-                      <Input name="sucursal_direccion" label="Dirección" icon={MapPin} />
-                      <Input name="sucursal_telefono" label="Teléfono" icon={Phone} />
-                      <Input name="sucursal_email" label="Email" icon={Mail} />
-                    </div>
-                  </div>
+          {activeSubTab === 'clientes' && viewLevel === 'branches-list' && selectedClient && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
+            <div className="flex justify-between items-center px-2">
+              <h3 className="text-xl font-bold uppercase text-gray-900">Sucursales de {selectedClient.nombre}</h3>
+              <Button onClick={() => { 
+                setEditingItem(null); 
+                setEditingType('sucursal'); 
+                setIsViewMode(false); 
+                setSucursales([{ 
+                  id: Date.now(), 
+                  nombre: '', 
+                  ciudad: '', 
+                  direccion: '', 
+                  telefono: '', 
+                  email: '',
+                  contactos: [] 
+                }]); 
+                setShowForm(true); 
+              }}>
+                <Plus size={16}/> Nueva Sucursal
+              </Button>
+            </div>
+            <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
+              <Table>
+                  <THead>
+                    <tr>
+                      <Th>Nombre / Razón</Th>
+                      <Th>Detalles Técnicos</Th>
+                      <Th>Acción</Th>
+                    </tr>
+                  </THead>
+                  <TBody>
+                    {(selectedClient.sucursales || []).map((sucursal, idx) => (
+                      <Tr key={idx}>
+                        <Td>
+                          <button 
+                            onClick={() => { setSelectedBranch(sucursal); setViewLevel('branch-details'); }}
+                            className="font-bold text-lg text-[#D32F2F] hover:underline text-left block leading-tight"
+                          >
+                            {sucursal.nombre}
+                          </button>
+                          <p className="text-[11px] text-gray-400 font-bold tracking-tight mt-1">{sucursal.id}</p>
+                        </Td>
+                        <Td>
+                          <p className="text-base font-bold text-gray-700 leading-tight">{sucursal.ciudad} — {sucursal.direccion}</p>
+                          <p className="text-[11px] text-gray-400 font-bold uppercase tracking-tight mt-1">{(sucursal.contactos || []).length} Contactos Registrados</p>
+                        </Td>
+                        <Td>
+                          <div className="flex gap-4">
+                            <IconButton icon={Eye} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => { handleView(sucursal, 'sucursal'); }} />
+                            <IconButton icon={Edit2} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => { handleEdit(sucursal, 'sucursal'); }} />
+                            <IconButton icon={Trash2} className="text-gray-300 hover:text-red-500" onClick={() => removeSucursal(sucursal.id)} />
+                          </div>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </TBody>
+                </Table>
+              </Card>
+            </div>
+          )}
 
-                  <div className="pt-8 border-t border-gray-100">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="p-3 bg-red-50 text-[#D32F2F] rounded-xl"><Users size={24} /></div>
-                      <h4 className="text-sm font-black uppercase tracking-[0.2em] text-gray-900">Usuarios</h4>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <Input name="usuario_email" label="Email" icon={Mail} />
-                      <Input name="usuario_nombre" label="Nombre" />
-                      <Input name="usuario_apellido" label="Apellido" />
-                      <Input name="usuario_celular" label="# Celular" icon={Smartphone} />
-                      <Input name="usuario_cargo" label="Cargo" />
-                      <Input name="usuario_ciudad" label="Ciudad Consulta" icon={MapPin} />
-                      <Input name="usuario_sede" label="Sede Consulta" icon={Building2} />
-                    </div>
-                  </div>
-                </div>
-              )}
-              {activeSubTab === 'tecnicos' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <Input name="nombre" label="Nombre Completo" icon={UserCog} required />
-                  <Input name="identificacion" label="Documento ID" required />
-                  <Input name="celular" label="Móvil de Contacto" icon={Phone} required />
-                  <Input name="ciudad" label="Sede de Operación" icon={MapPin} required />
-                  <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-6 pt-8 border-t border-gray-100">
-                    <FileUploader label="Credencial ID" type="carnet" isLoaded={attachedFiles.carnet} onLoad={(type) => setAttachedFiles(p => ({...p, [type]: true}))} />
-                    <FileUploader label="Cert. ARL" type="arl" isLoaded={attachedFiles.arl} onLoad={(type) => setAttachedFiles(p => ({...p, [type]: true}))} />
-                    <FileUploader label="Certificación" type="matriz" isLoaded={attachedFiles.matriz} onLoad={(type) => setAttachedFiles(p => ({...p, [type]: true}))} />
-                  </div>
-                </div>
-              )}
-              {activeSubTab === 'dispositivos' && (
-                <div className="space-y-10">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                    <Select className="md:col-span-2" name="tipo" label="Categoría" options={[{value: 'Cámara', label: 'Cámara IP'}, {value: 'Sensor', label: 'Sensor Mov.'}, {value: 'Panel', label: 'Panel Control'}]} />
-                    <Input className="md:col-span-2" name="modelo" label="Modelo Técnico" required />
-                    <Input name="serial" label="Número Serie" required />
-                    <Input name="codigoUnico" label="Cod. Único" required />
-                    <Input name="marca" label="Marca" />
-                    <Input name="proveedor" label="Proveedor" />
-                    <Input name="linea" label="Línea" />
-                    <Input name="imac" label="IMAC (MAC)" icon={Activity} />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-gray-100">
-                    <Select label="Mantenimiento Preventivo" icon={RotateCcw} options={[{value: 'Mensual', label: 'Cada Mes'}, {value: 'Anual', label: 'Anual'}]} />
-                    <Input name="tiempoPromedio" label="Tiempo Estimado (min)" icon={Timer} type="number" />
-                  </div>
-                  <div className="space-y-6 pt-8 border-t border-gray-100">
-                    <div className="flex items-center gap-4">
-                      <ListChecks size={24} className="text-[#D32F2F]" />
-                      <h4 className="text-xs font-black uppercase tracking-widest text-gray-900 border-l-4 border-[#D32F2F] pl-4">Protocolo Paso a Paso</h4>
-                    </div>
-                    <div className="flex gap-4">
-                      <input value={currentStepText} onChange={e => setCurrentStepText(e.target.value)} className="flex-1 px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-[2rem] text-sm font-bold focus:border-[#D32F2F]" placeholder="Defina una tarea de revisión técnica..." />
-                      <Button variant="secondary" onClick={addStep}>Añadir</Button>
-                    </div>
-                    <div className="space-y-2">
-                      {maintenanceSteps.map((s, i) => (
-                        <div key={i} className="p-4 bg-gray-50 rounded-[1.5rem] flex items-center justify-between font-bold text-gray-600 text-sm">
-                          <span>{i+1}. {s}</span>
-                          <button type="button" onClick={() => setMaintenanceSteps(maintenanceSteps.filter((_, idx) => idx !== i))}><Trash2 size={18} className="text-gray-300 hover:text-red-500" /></button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-6 pt-8 border-t border-gray-100">
-                <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>Descartar</Button>
-                <Button variant="danger" className="flex-1" type="submit">Guardar Maestro</Button>
+          {activeSubTab === 'clientes' && viewLevel === 'branch-details' && selectedBranch && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center px-2">
+                <h3 className="text-xl font-bold uppercase text-gray-900">Contactos — {selectedBranch.nombre}</h3>
+                <Button onClick={() => { 
+                  setEditingItem(null);
+                  setEditingType('contacto');
+                  setEditingParentId(selectedBranch.id);
+                  setShowForm(true);
+                }}>
+                  <Plus size={16}/> Nuevo Contacto
+                </Button>
               </div>
-            </form>
-          </Card>
+              <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
+                <Table>
+                    <THead>
+                      <tr>
+                        <Th>Nombre / Razón</Th>
+                        <Th>Detalles Técnicos</Th>
+                        <Th>Acción</Th>
+                      </tr>
+                    </THead>
+                    <TBody>
+                      {(selectedBranch.contactos || []).map((contacto, idx) => (
+                        <Tr key={idx}>
+                          <Td>
+                            <p className="font-bold text-lg text-[#D32F2F] leading-tight">{contacto.nombre}</p>
+                            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-tight mt-1">{contacto.cargo}</p>
+                          </Td>
+                          <Td>
+                            <p className="text-base font-bold text-gray-700 leading-tight">{contacto.celular}</p>
+                            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-tight mt-1">{contacto.email}</p>
+                          </Td>
+                          <Td>
+                            <div className="flex gap-4">
+                              <IconButton icon={Eye} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => console.log('View Contacto', contacto)} />
+                              <IconButton icon={Edit2} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => handleEdit(contacto, 'contacto', selectedBranch.id)} />
+                              <IconButton icon={Trash2} className="text-gray-300 hover:text-red-500" onClick={() => removeContacto(selectedBranch.id, contacto.id)} />
+                            </div>
+                          </Td>
+                        </Tr>
+                      ))}
+                    </TBody>
+                  </Table>
+                </Card>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center px-2">
+                  <h3 className="text-xl font-bold uppercase text-gray-900">Dispositivos Vinculados</h3>
+                  <Button variant="secondary">
+                    <Plus size={16}/> Vincular Dispositivo
+                  </Button>
+                </div>
+                <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
+                  <Table>
+                    <THead>
+                      <tr>
+                        <Th>Nombre / Razón</Th>
+                        <Th>Detalles Técnicos</Th>
+                        <Th>Acción</Th>
+                      </tr>
+                    </THead>
+                    <TBody>
+                      {data.dispositivos.filter(d => (selectedBranch.dispositivos || []).includes(d.id)).map((device, idx) => (
+                        <Tr key={idx}>
+                          <Td>
+                            <p className="font-bold text-lg text-[#D32F2F] leading-tight">{device.tipo}</p>
+                            <p className="text-[11px] text-gray-400 font-bold tracking-tight mt-1">{device.codigoUnico}</p>
+                          </Td>
+                          <Td>
+                            <p className="text-base font-bold text-gray-700 leading-tight">{device.marca} — {device.modelo}</p>
+                            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-tight mt-1">Operativo</p>
+                          </Td>
+                          <Td>
+                            <div className="flex gap-4">
+                              <IconButton icon={Eye} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => handleView(device, 'dispositivo')} />
+                              <IconButton icon={Edit2} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => handleEdit(device, 'dispositivo')} />
+                              <IconButton icon={Trash2} className="text-gray-300 hover:text-red-500" onClick={() => {
+                                const updatedClients = data.clientes.map(client => {
+                                  if (client.id === selectedClient.id) {
+                                    const updatedBranches = (client.sucursales || []).map(s => {
+                                      if (s.id === selectedBranch.id) {
+                                        return { ...s, dispositivos: (s.dispositivos || []).filter(id => id !== device.id) };
+                                      }
+                                      return s;
+                                    });
+                                    const updatedClient = { ...client, sucursales: updatedBranches };
+                                    setSelectedClient(updatedClient);
+                                    setSelectedBranch(updatedBranches.find(b => b.id === selectedBranch.id));
+                                    return updatedClient;
+                                  }
+                                  return client;
+                                });
+                                setData({ ...data, clientes: updatedClients });
+                              }} />
+                            </div>
+                          </Td>
+                        </Tr>
+                      ))}
+                    </TBody>
+                  </Table>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {((activeSubTab !== 'clientes') || (activeSubTab === 'clientes' && viewLevel === 'list')) && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center px-2">
+                <h3 className="text-xl font-bold uppercase text-gray-900">Maestros de {activeSubTab}</h3>
+                <Button onClick={() => { setEditingItem(null); setEditingType(activeSubTab.slice(0, -1)); setIsViewMode(false); setSucursales([]); setShowForm(true); }}>
+                  <Plus size={16}/> Nuevo Registro
+                </Button>
+              </div>
+              <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
+                <Table>
+                  <THead>
+                    <tr>
+                      <Th>Nombre / Razón</Th>
+                      <Th>Detalles Técnicos</Th>
+                      <Th>Acción</Th>
+                    </tr>
+                  </THead>
+                  <TBody>
+                    {data[activeSubTab].map((item, idx) => (
+                      <Tr key={idx}>
+                        <Td>
+                          {activeSubTab === 'clientes' ? (
+                            <button 
+                              onClick={() => { setSelectedClient(item); setViewLevel('client-details'); }}
+                              className="font-bold text-lg text-[#D32F2F] hover:underline text-left block leading-tight"
+                            >
+                              {item.nombre}
+                            </button>
+                          ) : (
+                            <p className="font-bold text-lg text-[#D32F2F] leading-tight">{item.nombre || item.tipo}</p>
+                          )}
+                          <p className="text-[11px] text-gray-400 font-bold tracking-tight mt-1">{item.nit || item.identificacion || item.serial || item.codigoUnico}</p>
+                        </Td>
+                        <Td>
+                          <p className="text-base font-bold text-gray-700 leading-tight">
+                            {item.ciudad || item.marca} — {activeSubTab === 'clientes' ? `${(item.sucursales || []).length} Sucursales` : (item.sucursal || item.linea || item.zona)}
+                          </p>
+                          <p className="text-[11px] text-gray-400 font-bold uppercase tracking-tight mt-1">{item.email || item.correo || item.proveedor || 'SIN EMAIL REGISTRADO'}</p>
+                        </Td>
+                        <Td>
+                          <div className="flex gap-4">
+                            <IconButton icon={Eye} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => handleView(item, activeSubTab.slice(0, -1))} />
+                            <IconButton icon={Edit2} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => handleEdit(item, activeSubTab.slice(0, -1))} />
+                            <IconButton icon={Trash2} className="text-gray-300 hover:text-red-500" onClick={() => {
+                              if (window.confirm('¿Está seguro de eliminar este registro?')) {
+                                setData({ ...data, [activeSubTab]: data[activeSubTab].filter(i => i.id !== item.id) });
+                              }
+                            }} />
+                          </div>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </TBody>
+                </Table>
+              </Card>
+            </div>
+          )}
         </div>
-      )}
+
+      <Modal 
+        isOpen={showForm} 
+        onClose={handleCloseForm}
+        title={`${isViewMode ? 'Ver' : editingItem ? 'Editar' : 'Configurar'} ${editingType || activeSubTab.slice(0, -1)}`}
+      >
+        <form onSubmit={handleSubmit} className="space-y-6 relative">
+                {success && (
+                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-[2.5rem] animate-in fade-in duration-300">
+                    <div className="flex flex-col items-center gap-4 text-center">
+                      <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center animate-bounce">
+                        <CheckCircle2 size={48} />
+                      </div>
+                      <div>
+                        <h4 className="text-2xl font-bold text-gray-900">¡Éxito!</h4>
+                        <p className="text-gray-500 font-medium">La información ha sido guardada correctamente</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <fieldset disabled={isViewMode} className="space-y-6">
+                  {editingType === 'contacto' && (
+                    <ContactoForm editingItem={editingItem} isViewMode={isViewMode} />
+                  )}
+                  {editingType === 'sucursal' && (
+                    <SucursalForm 
+                      sucursales={sucursales} 
+                      isViewMode={isViewMode} 
+                      handleSucursalChange={handleSucursalChange} 
+                    />
+                  )}
+                  {editingType !== 'sucursal' && activeSubTab === 'clientes' && editingType !== 'contacto' && editingType !== 'dispositivo' && (
+                    <ClienteForm editingItem={editingItem} isViewMode={isViewMode} />
+                  )}
+                  {activeSubTab === 'tecnicos' && (
+                    <TecnicoForm 
+                      editingItem={editingItem} 
+                      isViewMode={isViewMode} 
+                      attachedFiles={attachedFiles} 
+                      setAttachedFiles={setAttachedFiles} 
+                    />
+                  )}
+                  {activeSubTab === 'dispositivos' && (
+                    <DispositivoForm 
+                      editingItem={editingItem} 
+                      isViewMode={isViewMode} 
+                      maintenanceSteps={maintenanceSteps} 
+                      setMaintenanceSteps={setMaintenanceSteps} 
+                      currentStepText={currentStepText} 
+                      setCurrentStepText={setCurrentStepText} 
+                      addStep={addStep} 
+                    />
+                  )}
+                </fieldset>
+                {!isViewMode && (
+                   <div className="flex justify-end pt-4">
+                     <Button type="submit">
+                       <Save size={18} /> Guardar Cambios
+                     </Button>
+                   </div>
+                 )}
+              </form>
+      </Modal>
     </div>
-  );
-};
+    );
+  };
 
 export default ConfigurationPage;

@@ -43,7 +43,7 @@ const DashboardPage = ({ data, user }) => {
       <Card className="p-8 bg-white shadow-sm border border-gray-100">
         <div className="flex items-center gap-3 mb-6 text-[#D32F2F]">
           <div className="p-3 bg-red-50 rounded-xl"><Filter size={20} /></div>
-          <h3 className="text-xs font-black uppercase tracking-[0.25em] text-gray-900">Panel de Filtros de Gestión</h3>
+          <h3 className="text-xs font-bold uppercase text-gray-900">Panel de Filtros de Gestión</h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Input label="Fecha de Corte" type="date" icon={Calendar} value={filters.fecha} onChange={e => setFilters({...filters, fecha: e.target.value})} />
@@ -66,12 +66,12 @@ const DashboardPage = ({ data, user }) => {
             <Card key={i} className="p-8">
               <div className="flex justify-between items-start">
                 <div className="space-y-3">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.25em]">{stat.label}</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">{stat.label}</p>
                   <div className="flex items-baseline gap-1">
-                    <h3 className="text-3xl font-black text-gray-900 tracking-tighter">{stat.value}</h3>
+                    <h3 className="text-3xl font-bold text-gray-900">{stat.value}</h3>
                     {stat.label.includes('%') && <span className="text-xl font-bold text-gray-300">%</span>}
                   </div>
-                  <p className={`text-[10px] font-black uppercase ${stat.sub.includes('+') ? 'text-green-500' : 'text-gray-400'}`}>{stat.sub}</p>
+                  <p className={`text-[10px] font-bold uppercase ${stat.sub.includes('+') ? 'text-green-500' : 'text-gray-400'}`}>{stat.sub}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-[2rem] shadow-inner"><stat.icon className={stat.color} size={32} /></div>
               </div>
@@ -82,11 +82,11 @@ const DashboardPage = ({ data, user }) => {
       
       <Card className="p-8">
         <div className="flex justify-between items-center mb-10">
-          <h4 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Tendencia de Cumplimiento Técnico</h4>
+          <h4 className="text-xl font-bold text-gray-900 uppercase">Tendencia de Cumplimiento Técnico</h4>
           <div className="flex gap-4 items-center">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-[#D32F2F] rounded-full"></div>
-              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">2026</span>
+              <span className="text-[10px] font-bold text-gray-500 uppercase">2026</span>
             </div>
           </div>
         </div>
@@ -94,7 +94,7 @@ const DashboardPage = ({ data, user }) => {
           {[60, 85, 40, 100, 75, 90, 50, 70, 80, 65, 88, 72].map((h, i) => (
             <div key={i} className="flex-1 min-w-[20px] flex flex-col items-center gap-4 group">
               <div className="w-full rounded-t-[1.5rem] transition-all duration-700 group-hover:bg-[#D32F2F] group-hover:shadow-2xl shadow-red-500/30" style={{ height: `${h}%`, backgroundColor: i === 3 ? '#D32F2F' : '#F5F5F5' }}></div>
-              <span className="text-[9px] text-gray-400 font-black uppercase tracking-tighter">MES {i+1}</span>
+              <span className="text-[9px] text-gray-400 font-bold uppercase">MES {i+1}</span>
             </div>
           ))}
         </div>
