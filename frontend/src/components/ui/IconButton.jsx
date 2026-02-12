@@ -1,4 +1,6 @@
-const IconButton = ({ icon: Icon, onClick, className = "", size = 18, color = "text-gray-400", hoverColor = "hover:text-[#D32F2F]", ...props }) => {
+import { createElement } from 'react';
+
+const IconButton = ({ icon, onClick, className = "", size = 18, color = "text-gray-400", hoverColor = "hover:text-[#D32F2F]", ...props }) => {
   return (
     <button
       type="button"
@@ -6,7 +8,7 @@ const IconButton = ({ icon: Icon, onClick, className = "", size = 18, color = "t
       className={`p-1.5 rounded-lg transition-all duration-200 flex items-center justify-center ${color} ${hoverColor} hover:bg-gray-100 ${className}`}
       {...props}
     >
-      <Icon size={size} />
+      {icon ? createElement(icon, { size }) : null}
     </button>
   );
 };

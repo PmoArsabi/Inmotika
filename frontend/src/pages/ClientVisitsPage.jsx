@@ -1,4 +1,8 @@
 import Card from '../components/ui/Card';
+import SectionHeader from '../components/ui/SectionHeader';
+import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
+import { Subtitle, TextSmall } from '../components/ui/Typography';
+import StatusBadge from '../components/ui/StatusBadge';
 
 const ClientVisitsPage = ({ data }) => {
   const currentClientName = "Residencial Horizonte";
@@ -6,32 +10,37 @@ const ClientVisitsPage = ({ data }) => {
 
   return (
     <div className="space-y-4 animate-in slide-in-from-right-12 duration-500">
-      <header className="mb-4"><h2 className="text-xl font-bold uppercase tracking-tighter text-gray-900 mb-0.5">Control de Visitas</h2><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Historial de intervenciones de mantenimiento</p></header>
-      <Card className="rounded-md overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-[#1A1A1A] text-white">
-              <tr>
-                <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.2em]">ID</th>
-                <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.2em]">Fecha</th>
-                <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.2em]">Técnico</th>
-                <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.2em]">Tipo</th>
-                <th className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.2em]">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {myVisits.map((v, i) => (
-                <tr key={i} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-bold text-gray-900 text-xs">{v.id}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-gray-600">{v.fecha}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-gray-600">{v.tecnico_asignado}</td>
-                  <td className="px-4 py-3"><span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[9px] font-bold uppercase">{v.tipoMantenimiento}</span></td>
-                  <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase ${v.estado === 'Finalizada' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{v.estado}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <SectionHeader title="Control de Visitas" subtitle="Historial de intervenciones de mantenimiento" />
+      
+      <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
+        <Table>
+          <THead>
+            <tr>
+              <Th>ID</Th>
+              <Th>Fecha</Th>
+              <Th>Técnico</Th>
+              <Th>Tipo</Th>
+              <Th>Estado</Th>
+            </tr>
+          </THead>
+          <TBody>
+            {myVisits.map((v, i) => (
+              <Tr key={i}>
+                <Td><Subtitle className="text-gray-900">{v.id}</Subtitle></Td>
+                <Td><Subtitle className="text-gray-600">{v.fecha}</Subtitle></Td>
+                <Td><Subtitle className="text-gray-600">{v.tecnico_asignado}</Subtitle></Td>
+                <Td>
+                  <TextSmall className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md font-bold uppercase inline-block">
+                    {v.tipoMantenimiento}
+                  </TextSmall>
+                </Td>
+                <Td>
+                  <StatusBadge status={v.estado} />
+                </Td>
+              </Tr>
+            ))}
+          </TBody>
+        </Table>
       </Card>
     </div>
   );

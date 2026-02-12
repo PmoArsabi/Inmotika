@@ -1,6 +1,7 @@
 import { ShieldCheck, LayoutDashboard, Users, Smartphone, Building2 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import { ROLES } from '../utils/constants';
+import { H1, Subtitle, TextSmall, H3 } from '../components/ui/Typography';
 
 const LoginPage = ({ onLogin }) => {
   const quickAccess = [
@@ -17,8 +18,8 @@ const LoginPage = ({ onLogin }) => {
           <div className="w-20 h-20 bg-[#D32F2F] rounded-3xl mx-auto mb-6 flex items-center justify-center text-white shadow-xl shadow-red-200">
             <ShieldCheck size={40} />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 uppercase mb-2">INMOTIKA</h1>
-          <p className="text-gray-500 font-semibold uppercase text-[10px]">Gestión de Alta Disponibilidad</p>
+          <H1 className="text-gray-900 mb-2">INMOTIKA</H1>
+          <Subtitle className="text-gray-500 font-semibold uppercase text-[10px]">Gestión de Alta Disponibilidad</Subtitle>
         </div>
         <div className="grid grid-cols-1 gap-4">
           {quickAccess.map((acc) => (
@@ -31,8 +32,8 @@ const LoginPage = ({ onLogin }) => {
                 <acc.icon size={22} />
               </div>
               <div>
-                <span className="block text-[10px] font-bold uppercase text-gray-400 group-hover:text-[#D32F2F] mb-1">Nivel de Acceso</span>
-                <span className="block text-base font-bold text-gray-800">{acc.label}</span>
+                <TextSmall className="block font-bold uppercase text-gray-400 group-hover:text-[#D32F2F] mb-1">Nivel de Acceso</TextSmall>
+                <H3 className="text-gray-800 text-base">{acc.label}</H3>
               </div>
             </button>
           ))}

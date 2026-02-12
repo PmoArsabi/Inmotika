@@ -1,6 +1,9 @@
-const Input = ({ label, icon: Icon, error, dark = false, fullWidth, viewMode = false, className = "", ...props }) => (
+import React from 'react';
+import { Label } from './Typography';
+
+const Input = ({ label, icon: Icon, error, dark = false, viewMode = false, className = "", ...props }) => (
   <div className={`flex flex-col gap-1.5 w-full ${className}`}>
-    {label && <label className={`text-[10px] font-bold uppercase ml-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{label}</label>}
+    {label && <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>{label}</Label>}
     <div className="relative group">
       {Icon && <Icon size={18} className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${dark ? 'text-gray-500 group-focus-within:text-white' : 'text-gray-400 group-focus-within:text-[#D32F2F]'}`} />}
       {viewMode ? (

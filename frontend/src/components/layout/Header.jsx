@@ -1,4 +1,5 @@
-import { Menu, Bell, Wifi } from 'lucide-react';
+import { Menu, Bell } from 'lucide-react';
+import { TextSmall, Subtitle } from '../ui/Typography';
 
 const Header = ({ user, onToggleMobileMenu }) => (
   <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100 px-6 lg:px-10 py-4">
@@ -18,8 +19,8 @@ const Header = ({ user, onToggleMobileMenu }) => (
             {user.name?.charAt(0)}
           </div>
           <div className="hidden sm:block">
-            <p className="text-xs font-bold text-gray-900 leading-none">{user.name}</p>
-            <p className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">{user.role}</p>
+            <Subtitle className="text-gray-900 leading-none text-xs">{user.name}</Subtitle>
+            <TextSmall className="text-gray-400 uppercase mt-0.5">{user.role}</TextSmall>
           </div>
         </div>
       </div>

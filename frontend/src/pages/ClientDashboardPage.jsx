@@ -1,43 +1,77 @@
-import { ClipboardList, Cpu, CheckCircle2, ShieldCheck, Activity } from 'lucide-react';
+import { BarChart3, Calendar, CheckCircle, Clock, FileText, AlertTriangle, Activity } from 'lucide-react';
 import Card from '../components/ui/Card';
+import SectionHeader from '../components/ui/SectionHeader';
+import StatCard from '../components/ui/StatCard';
+import StatusBadge from '../components/ui/StatusBadge';
+import { Subtitle, TextSmall } from '../components/ui/Typography';
+import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
+import CardHeader from '../components/ui/CardHeader';
 
-const ClientDashboardPage = ({ data }) => {
-  const currentClientName = "Residencial Horizonte";
-  const myData = data.clientes.find(c => c.nombre === currentClientName) || {};
-  const myVisits = data.visitas.filter(v => v.cliente === currentClientName);
-  const myDevices = myData.dispositivos || [];
+const ClientDashboardPage = () => {
+  const myVisits = [
+    { id: 1, tipoMantenimiento: 'Preventivo - Cámaras', fecha: '2023-10-15', estado: 'Finalizada', tecnico: 'Juan Pérez' },
+    { id: 2, tipoMantenimiento: 'Correctivo - Sensor Hall', fecha: '2023-10-20', estado: 'Pendiente', tecnico: 'Carlos Ruiz' },
+    { id: 3, tipoMantenimiento: 'Preventivo - General', fecha: '2023-11-01', estado: 'Programada', tecnico: 'Ana Gómez' },
+    { id: 4, tipoMantenimiento: 'Instalación - Nuevos Puntos', fecha: '2023-11-05', estado: 'Pendiente', tecnico: 'Juan Pérez' },
+  ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
-      <header className="mb-4">
-        <h2 className="text-xl font-bold uppercase tracking-tighter text-gray-900 mb-1">Informe General de Operación</h2>
-        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Resumen ejecutivo del estado del contrato</p>
-      </header>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 border-l-4 border-blue-500">
-          <div className="flex justify-between items-center"><div><p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Total Visitas Mes</p><h3 className="text-2xl font-bold text-blue-600">{myVisits.length}</h3></div><div className="p-3 bg-blue-50 rounded-md text-blue-500"><ClipboardList size={20} /></div></div>
-        </Card>
-        <Card className="p-4 border-l-4 border-[#D32F2F]">
-          <div className="flex justify-between items-center"><div><p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Dispositivos Activos</p><h3 className="text-2xl font-bold text-[#D32F2F]">{myDevices.length}</h3></div><div className="p-3 bg-red-50 rounded-md text-[#D32F2F]"><Cpu size={20} /></div></div>
-        </Card>
-        <Card className="p-4 border-l-4 border-green-500">
-          <div className="flex justify-between items-center"><div><p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Cumplimiento SLA</p><h3 className="text-2xl font-bold text-green-600">100%</h3></div><div className="p-3 bg-green-50 rounded-md text-green-500"><CheckCircle2 size={20} /></div></div>
-        </Card>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <SectionHeader 
+        title="Informe General de Operación" 
+        subtitle="Resumen ejecutivo del estado del contrato" 
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Total Visitas" value={12} icon={Calendar} color="blue" />
+        <StatCard label="Pendientes" value={3} icon={Clock} color="yellow" />
+        <StatCard label="Finalizadas" value={8} icon={CheckCircle} color="green" />
+        <StatCard label="Incidencias" value={1} icon={AlertTriangle} color="red" />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-6 space-y-4">
-          <div className="flex items-center gap-3 border-b border-gray-100 pb-3 mb-3"><div className="p-2 bg-gray-100 rounded-md"><Activity size={18} className="text-[#D32F2F]"/></div><h4 className="text-xs font-bold uppercase tracking-widest">Actividad Reciente</h4></div>
-          {myVisits.slice(0, 3).map((v, i) => (
-            <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-100">
-              <div><p className="text-[9px] font-bold text-gray-900 uppercase">{v.tipoMantenimiento}</p><p className="text-[8px] font-bold text-gray-400">{v.fecha}</p></div>
-              <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold uppercase ${v.estado === 'Finalizada' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>{v.estado}</span>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="p-0 overflow-hidden">
+            <div className="p-6 pb-0">
+               <CardHeader icon={FileText} title="Historial de Visitas" className="mb-4 border-none pb-0" />
             </div>
-          ))}
-        </Card>
-        <Card className="p-6 flex flex-col justify-center items-center text-center space-y-4 bg-[#1A1A1A] text-white">
-          <ShieldCheck size={48} className="text-[#D32F2F] animate-pulse" />
-          <div><h3 className="text-xl font-bold uppercase tracking-tighter">Estado de Seguridad: Óptimo</h3><p className="text-[10px] font-bold text-gray-400 mt-1">Todos los sistemas reportan normalidad.</p></div>
-        </Card>
+            <Table>
+              <THead>
+                <tr>
+                  <Th>Tipo</Th>
+                  <Th>Fecha</Th>
+                  <Th>Técnico</Th>
+                  <Th>Estado</Th>
+                </tr>
+              </THead>
+              <TBody>
+                {myVisits.map((v) => (
+                  <Tr key={v.id}>
+                    <Td><TextSmall className="text-gray-900">{v.tipoMantenimiento}</TextSmall></Td>
+                    <Td><TextSmall className="text-gray-500">{v.fecha}</TextSmall></Td>
+                    <Td><TextSmall className="text-gray-500">{v.tecnico}</TextSmall></Td>
+                    <Td><StatusBadge status={v.estado} /></Td>
+                  </Tr>
+                ))}
+              </TBody>
+            </Table>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="p-6">
+            <CardHeader icon={Activity} title="Actividad Reciente" className="mb-3" />
+            {myVisits.slice(0, 3).map((v) => (
+              <div key={v.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-100 mb-2 last:mb-0">
+                <div>
+                  <TextSmall className="text-gray-900 mb-0.5">{v.tipoMantenimiento}</TextSmall>
+                  <TextSmall className="text-gray-400">{v.fecha}</TextSmall>
+                </div>
+                <StatusBadge status={v.estado} />
+              </div>
+            ))}
+          </Card>
+        </div>
       </div>
     </div>
   );

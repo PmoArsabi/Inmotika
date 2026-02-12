@@ -1,56 +1,74 @@
 import React from 'react';
+import { Subtitle } from './Typography';
 
-export const Table = ({ children, className = "" }) => (
-  <div className={`overflow-x-auto ${className}`}>
-    <table className="w-full text-left">
+export const Table = ({ children }) => (
+  <div className="w-full overflow-x-auto">
+    <table className="w-full border-collapse">
       {children}
     </table>
   </div>
 );
 
-export const THead = ({ children, className = "" }) => (
-  <thead className={`bg-[#1A1A1A] text-white ${className}`}>
-    {children}
-  </thead>
+export const THead = ({ children, variant = "light", className = "" }) => (
+  (() => {
+    const isDark = variant === 'dark';
+    const defaultVarClassName = isDark ? '[--table-head-text:#E5E7EB]' : '[--table-head-text:#9CA3AF]';
+    const defaultRowClassName = isDark
+      ? `border-b border-white/10 bg-[#1A1A1A] ${defaultVarClassName}`
+      : `border-b border-gray-100 bg-gray-50/50 ${defaultVarClassName}`;
+
+    const childArray = React.Children.toArray(children);
+    const hasTrChild = childArray.some(
+      (child) => React.isValidElement(child) && child.type === 'tr'
+    );
+
+    if (hasTrChild) {
+      return (
+        <thead>
+          {childArray.map((child, idx) => {
+            if (!React.isValidElement(child) || child.type !== 'tr') return child;
+            const mergedClassName = [defaultRowClassName, className, child.props.className].filter(Boolean).join(' ');
+            return React.cloneElement(child, { className: mergedClassName, key: child.key ?? idx });
+          })}
+        </thead>
+      );
+    }
+
+    return (
+      <thead>
+        <tr className={[defaultRowClassName, className].filter(Boolean).join(' ')}>
+          {children}
+        </tr>
+      </thead>
+    );
+  })()
 );
 
-export const TBody = ({ children, className = "" }) => (
-  <tbody className={`divide-y divide-gray-100 ${className}`}>
+export const TBody = ({ children }) => (
+  <tbody>
     {children}
   </tbody>
 );
 
-export const Tr = ({ children, className = "", onClick }) => (
+export const Tr = ({ children, onClick, className = "" }) => (
   <tr 
-    onClick={onClick}
-    className={`hover:bg-gray-50 transition-colors group ${onClick ? 'cursor-pointer' : ''} ${className}`}
+    onClick={onClick} 
+    className={`border-b border-gray-50 last:border-none transition-colors hover:bg-gray-50 ${onClick ? 'cursor-pointer' : ''} ${className}`}
   >
     {children}
   </tr>
 );
 
-export const Th = ({ children, className = "", align = "left" }) => {
-  const alignment = {
-    left: "text-left",
-    center: "text-center",
-    right: "text-right"
-  };
-  return (
-    <th className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider ${alignment[align]} ${className}`}>
-      {children}
-    </th>
-  );
-};
+export const Th = ({ children, align = "left", className = "" }) => (
+  <th className={`py-3 px-4 text-${align} ${className}`}>
+    <Subtitle className="text-[color:var(--table-head-text)]">{children}</Subtitle>
+  </th>
+);
 
-export const Td = ({ children, className = "", align = "left" }) => {
-  const alignment = {
-    left: "text-left",
-    center: "text-center",
-    right: "text-right"
-  };
-  return (
-    <td className={`px-4 py-3 ${alignment[align]} ${className}`}>
+export const Td = ({ children, align = "left", className = "" }) => (
+  <td className={`py-3 px-4 text-${align} ${className}`}>
+    <div className="text-[11px] font-medium text-gray-700">
       {children}
-    </td>
-  );
-};
+    </div>
+  </td>
+);

@@ -3,6 +3,7 @@ import {
   Database, Cpu, Eye, LogOut, X
 } from 'lucide-react';
 import { ROLES } from '../../utils/constants';
+import { H3, TextSmall, Subtitle } from '../ui/Typography';
 
 const Sidebar = ({ user, activeTab, setActiveTab, onLogout, className = "", onToggleMobileMenu }) => {
   const getMenuItems = () => {
@@ -40,8 +41,8 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, className = "", onTo
             <Database size={24} />
           </div>
           <div>
-            <h1 className="text-lg font-bold uppercase leading-none">Inmotika</h1>
-            <p className="text-[8px] font-bold text-gray-500 uppercase mt-1">Field Service</p>
+            <H3 className="uppercase leading-none text-white text-lg">Inmotika</H3>
+            <TextSmall className="text-gray-500 uppercase mt-1 text-[8px]">Field Service</TextSmall>
           </div>
         </div>
         {onToggleMobileMenu && (
@@ -53,8 +54,8 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, className = "", onTo
 
       {/* User info */}
       <div className="px-8 py-6 border-b border-white/5">
-        <p className="text-sm font-bold truncate">{user.name}</p>
-        <p className="text-[9px] font-bold text-gray-500 uppercase mt-1">{user.role}</p>
+        <Subtitle className="truncate text-white text-sm">{user.name}</Subtitle>
+        <TextSmall className="text-gray-500 uppercase mt-1">{user.role}</TextSmall>
       </div>
 
       {/* Navigation */}
@@ -63,14 +64,16 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, className = "", onTo
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-[11px] font-bold uppercase transition-all ${
+            className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all ${
               activeTab === item.id
                 ? 'bg-white text-[#1A1A1A] shadow-lg'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
             }`}
           >
             <item.icon size={20} />
-            {item.label}
+            <TextSmall className={`uppercase font-bold ${activeTab === item.id ? 'text-[#1A1A1A]' : 'text-gray-400 hover:text-white'}`}>
+              {item.label}
+            </TextSmall>
           </button>
         ))}
       </nav>
@@ -79,10 +82,10 @@ const Sidebar = ({ user, activeTab, setActiveTab, onLogout, className = "", onTo
       <div className="p-6 border-t border-white/5">
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-[11px] font-bold uppercase text-gray-500 hover:text-[#D32F2F] hover:bg-red-500/5 transition-all"
+          className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-gray-500 hover:text-[#D32F2F] hover:bg-red-500/5 transition-all group"
         >
           <LogOut size={20} />
-          Cerrar Sesión
+          <TextSmall className="uppercase font-bold text-gray-500 group-hover:text-[#D32F2F]">Cerrar Sesión</TextSmall>
         </button>
       </div>
     </aside>

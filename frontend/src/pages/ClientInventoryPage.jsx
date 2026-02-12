@@ -5,6 +5,9 @@ import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
 import IconButton from '../components/ui/IconButton';
+import SectionHeader from '../components/ui/SectionHeader';
+import { Subtitle, TextSmall, Label } from '../components/ui/Typography';
+import StatusBadge from '../components/ui/StatusBadge';
 
 const ClientInventoryPage = ({ data }) => {
   const currentClientName = "Residencial Horizonte";
@@ -36,10 +39,13 @@ const ClientInventoryPage = ({ data }) => {
 
   return (
     <div className="space-y-4 animate-in slide-in-from-right-12 duration-500">
-      <header className="mb-4"><h2 className="text-xl font-bold uppercase tracking-tighter text-gray-900 mb-0.5">Inventario Instalado</h2><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Equipos gestionados bajo contrato</p></header>
+      <SectionHeader title="Inventario Instalado" subtitle="Equipos gestionados bajo contrato" />
       
       <Card className="p-4 bg-gray-50 border-none shadow-inner mb-4">
-        <div className="flex items-center gap-2 mb-3 text-[#D32F2F]"><Filter size={16} /><h3 className="text-[9px] font-bold uppercase tracking-[0.25em]">Filtros de Inventario</h3></div>
+        <div className="flex items-center gap-2 mb-3 text-[#D32F2F]">
+          <Filter size={16} />
+          <TextSmall className="font-bold uppercase tracking-[0.25em] text-[#D32F2F]">Filtros de Inventario</TextSmall>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Select label="Sucursal" icon={MapPin} value={invFilters.sucursal} onChange={(e) => setInvFilters({...invFilters, sucursal: e.target.value})} options={[{value: '', label: 'Todas las Sedes'}, {value: 'Norte', label: 'Sede Norte'}, {value: 'Centro', label: 'Sede Centro'}, {value: 'Poblado', label: 'Sede Poblado'}]} />
           <Select label="Tipo de Equipo" icon={Cpu} value={invFilters.tipo} onChange={(e) => setInvFilters({...invFilters, tipo: e.target.value})} options={[{value: '', label: 'Todos los Tipos'}, {value: 'Cámara IP', label: 'Cámaras'}, {value: 'Sensor PIR', label: 'Sensores'}, {value: 'Panel Control', label: 'Paneles'}]} />
@@ -63,20 +69,20 @@ const ClientInventoryPage = ({ data }) => {
               filteredDevices.map((dev, idx) => (
                 <Tr key={idx}>
                   <Td>
-                    <p className="font-bold text-base text-[#D32F2F] leading-tight uppercase tracking-tight">
+                    <Subtitle className="text-[#D32F2F]">
                       {dev.modelo ? `Dispositivo ${dev.modelo}` : `Dispositivo ${dev.code.split('-')[1]}`}
-                    </p>
-                    <p className="text-[10px] text-gray-400 font-bold tracking-tight mt-0.5">{dev.code}</p>
+                    </Subtitle>
+                    <TextSmall className="text-gray-400 mt-0.5">{dev.code}</TextSmall>
                   </Td>
                   <Td>
-                    <p className="text-sm font-bold text-gray-700 leading-tight uppercase">{dev.tipo}</p>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight mt-0.5">{dev.sucursal}</p>
+                    <Subtitle className="text-gray-700 uppercase">{dev.tipo}</Subtitle>
+                    <TextSmall className="text-gray-400 uppercase mt-0.5">{dev.sucursal}</TextSmall>
                   </Td>
                   <Td>
-                    <span className={`inline-block text-[8px] font-bold uppercase px-1.5 py-0.5 rounded mb-0.5 ${dev.estado === 'Operativo' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                      {dev.estado}
-                    </span>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{dev.fechaMant}</p>
+                    <div className="mb-0.5">
+                      <StatusBadge status={dev.estado} />
+                    </div>
+                    <TextSmall className="text-gray-400 uppercase">{dev.fechaMant}</TextSmall>
                   </Td>
                   <Td align="right">
                     <IconButton icon={Eye} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => console.log('View device info', dev)} />
@@ -85,8 +91,8 @@ const ClientInventoryPage = ({ data }) => {
               ))
             ) : (
               <Tr>
-                <Td colSpan={4} className="text-center py-8 text-gray-400 italic">
-                  No se encontraron equipos con estos filtros
+                <Td colSpan={4} className="text-center py-8">
+                  <TextSmall className="text-gray-400 italic">No se encontraron equipos con estos filtros</TextSmall>
                 </Td>
               </Tr>
             )}

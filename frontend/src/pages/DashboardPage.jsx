@@ -9,6 +9,7 @@ import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import KPICardGroup from '../components/ui/KPICardGroup';
 import { ROLES } from '../utils/constants';
+import { H3, Subtitle, TextSmall, Metric, Label, H2 } from '../components/ui/Typography';
 
 const DashboardPage = ({ data, user }) => {
   const [filters, setFilters] = useState({ fecha: '', estado: '', cliente: '', ciudad: '', tecnico: '' });
@@ -17,7 +18,7 @@ const DashboardPage = ({ data, user }) => {
   const stats = [
     { label: "Visitas Mes", value: data.visitas.length, sub: "+12% vs anterior", icon: ClipboardList, color: "text-blue-500" },
     { label: "Efectividad %", value: "94.2", sub: "Meta: 90%", icon: CheckCircle2, color: "text-green-500" },
-    { label: "Líder Operativo", value: "Carlos P.", sub: "Rendimiento óptimo", icon: Users, color: "text-[#D32F2F]" },
+    { label: "Líder Operativo", value: "Carlos P.", sub: "Rendimiento óptimo", icon: Users, color: "text-primary" },
   ];
 
   const kpiGroups = {
@@ -43,7 +44,7 @@ const DashboardPage = ({ data, user }) => {
       <Card className="p-8 bg-white shadow-sm border border-gray-100">
         <div className="flex items-center gap-3 mb-6 text-[#D32F2F]">
           <div className="p-3 bg-red-50 rounded-xl"><Filter size={20} /></div>
-          <h3 className="text-xs font-bold uppercase text-gray-900">Panel de Filtros de Gestión</h3>
+          <H3 className="text-xs">Panel de Filtros de Gestión</H3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Input label="Fecha de Corte" type="date" icon={Calendar} value={filters.fecha} onChange={e => setFilters({...filters, fecha: e.target.value})} />
@@ -66,12 +67,12 @@ const DashboardPage = ({ data, user }) => {
             <Card key={i} className="p-8">
               <div className="flex justify-between items-start">
                 <div className="space-y-3">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase">{stat.label}</p>
+                  <Label>{stat.label}</Label>
                   <div className="flex items-baseline gap-1">
-                    <h3 className="text-3xl font-bold text-gray-900">{stat.value}</h3>
-                    {stat.label.includes('%') && <span className="text-xl font-bold text-gray-300">%</span>}
+                    <Metric className="text-3xl text-gray-900">{stat.value}</Metric>
+                    {stat.label.includes('%') && <Metric className="text-xl text-gray-300">%</Metric>}
                   </div>
-                  <p className={`text-[10px] font-bold uppercase ${stat.sub.includes('+') ? 'text-green-500' : 'text-gray-400'}`}>{stat.sub}</p>
+                  <TextSmall className={`text-[10px] uppercase ${stat.sub.includes('+') ? 'text-green-500' : 'text-gray-400'}`}>{stat.sub}</TextSmall>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-[2rem] shadow-inner"><stat.icon className={stat.color} size={32} /></div>
               </div>
@@ -82,19 +83,19 @@ const DashboardPage = ({ data, user }) => {
       
       <Card className="p-8">
         <div className="flex justify-between items-center mb-10">
-          <h4 className="text-xl font-bold text-gray-900 uppercase">Tendencia de Cumplimiento Técnico</h4>
+          <H2>Tendencia de Cumplimiento Técnico</H2>
           <div className="flex gap-4 items-center">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-[#D32F2F] rounded-full"></div>
-              <span className="text-[10px] font-bold text-gray-500 uppercase">2026</span>
+              <div className="w-4 h-4 bg-primary rounded-full"></div>
+              <Label>2026</Label>
             </div>
           </div>
         </div>
         <div className="h-64 flex items-end gap-2 sm:gap-6 overflow-hidden pb-4">
           {[60, 85, 40, 100, 75, 90, 50, 70, 80, 65, 88, 72].map((h, i) => (
             <div key={i} className="flex-1 min-w-[20px] flex flex-col items-center gap-4 group">
-              <div className="w-full rounded-t-[1.5rem] transition-all duration-700 group-hover:bg-[#D32F2F] group-hover:shadow-2xl shadow-red-500/30" style={{ height: `${h}%`, backgroundColor: i === 3 ? '#D32F2F' : '#F5F5F5' }}></div>
-              <span className="text-[9px] text-gray-400 font-bold uppercase">MES {i+1}</span>
+              <div className={`w-full rounded-t-[1.5rem] transition-all duration-700 group-hover:bg-primary group-hover:shadow-2xl shadow-red-500/30 ${i === 3 ? 'bg-primary' : 'bg-[#F5F5F5]'}`} style={{ height: `${h}%` }}></div>
+              <TextSmall className="text-gray-400 uppercase">MES {i+1}</TextSmall>
             </div>
           ))}
         </div>
