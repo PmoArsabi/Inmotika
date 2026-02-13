@@ -214,7 +214,7 @@ const VisitsPage = ({ data, setData }) => {
                   <Label className="text-gray-400 mt-0.5">{v.cliente}</Label>
                 </Td>
                 <Td className="hidden md:table-cell">
-                  <TextSmall className="text-xs text-gray-600 italic uppercase">{v.tecnico_asignado || 'Sin Asignar'}</TextSmall>
+                  <TextSmall className="text-xs text-gray-600 italic">{v.tecnico_asignado || 'Sin Asignar'}</TextSmall>
                 </Td>
                 <Td>
                   <StatusBadge status={v.estado} className="px-4 py-1.5 shadow-sm" />

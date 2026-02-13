@@ -44,8 +44,8 @@ export const THead = ({ children, variant = "light", className = "" }) => (
   })()
 );
 
-export const TBody = ({ children }) => (
-  <tbody>
+export const TBody = ({ children, className = "" }) => (
+  <tbody className={`[&_*]:!normal-case ${className}`}>
     {children}
   </tbody>
 );

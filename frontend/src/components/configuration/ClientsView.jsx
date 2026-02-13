@@ -10,7 +10,7 @@ const ClientsView = ({ config, data }) => {
   const {
     viewLevel, selectedClient, selectedBranch,
     handleView, handleEdit, removeSucursal, removeContacto,
-    setSelectedClient, setViewLevel, setSelectedBranch,
+    setViewLevel, setSelectedBranch,
     setEditingItem, setEditingType, setIsViewMode, setSucursales, setShowForm, setEditingParentId
   } = config;
 
@@ -30,10 +30,10 @@ const ClientsView = ({ config, data }) => {
               <tr><Th>Campo</Th><Th>Información Registrada</Th></tr>
             </THead>
             <TBody>
-              <Tr><Td><Label>Razón Social</Label></Td><Td><Subtitle className="text-primary tracking-normal">{selectedClient.nombre}</Subtitle></Td></Tr>
-              <Tr><Td><Label>NIT / RUT</Label></Td><Td><Subtitle className="tracking-normal">{selectedClient.nit}</Subtitle></Td></Tr>
-              <Tr><Td><Label>Ubicación</Label></Td><Td><Subtitle className="tracking-normal">{selectedClient.ciudad} — {selectedClient.direccion}</Subtitle></Td></Tr>
-              <Tr><Td><Label>Contacto</Label></Td><Td><Subtitle className="tracking-normal">{selectedClient.telefono} — {selectedClient.email}</Subtitle></Td></Tr>
+              <Tr><Td><Label>Razón Social</Label></Td><Td><Subtitle className="text-primary normal-case tracking-normal">{selectedClient.nombre}</Subtitle></Td></Tr>
+              <Tr><Td><Label>NIT / RUT</Label></Td><Td><Subtitle className="normal-case tracking-normal">{selectedClient.nit}</Subtitle></Td></Tr>
+              <Tr><Td><Label>Ubicación</Label></Td><Td><Subtitle className="normal-case tracking-normal">{selectedClient.ciudad} — {selectedClient.direccion}</Subtitle></Td></Tr>
+              <Tr><Td><Label>Contacto</Label></Td><Td><Subtitle className="normal-case tracking-normal">{selectedClient.telefono} — {selectedClient.email}</Subtitle></Td></Tr>
             </TBody>
           </Table>
         </Card>
@@ -67,13 +67,13 @@ const ClientsView = ({ config, data }) => {
                 <Tr key={idx}>
                   <Td>
                     <button onClick={() => { setSelectedBranch(sucursal); setViewLevel('branch-details'); }} className="hover:underline text-left block leading-tight">
-                      <Subtitle className="text-primary tracking-normal">{sucursal.nombre}</Subtitle>
+                      <Subtitle className="text-primary normal-case tracking-normal">{sucursal.nombre}</Subtitle>
                     </button>
                     <TextSmall className="text-gray-400 mt-1">{sucursal.id}</TextSmall>
                   </Td>
                   <Td>
-                    <Subtitle className="tracking-normal">{sucursal.ciudad} — {sucursal.direccion}</Subtitle>
-                    <TextSmall className="text-gray-400 uppercase mt-1">{(sucursal.contactos || []).length} Contactos Registrados</TextSmall>
+                    <Subtitle className="normal-case tracking-normal">{sucursal.ciudad} — {sucursal.direccion}</Subtitle>
+                    <TextSmall className="text-gray-400 mt-1">{(sucursal.contactos || []).length} Contactos Registrados</TextSmall>
                   </Td>
                   <Td>
                     <div className="flex gap-4">
@@ -116,12 +116,12 @@ const ClientsView = ({ config, data }) => {
                 {(selectedBranch.contactos || []).map((contacto, idx) => (
                   <Tr key={idx}>
                     <Td>
-                      <Subtitle className="text-primary tracking-normal">{contacto.nombre}</Subtitle>
-                      <TextSmall className="text-gray-400 uppercase mt-1">{contacto.cargo}</TextSmall>
+                      <Subtitle className="text-primary normal-case tracking-normal">{contacto.nombre}</Subtitle>
+                      <TextSmall className="text-gray-400 mt-1">{contacto.cargo}</TextSmall>
                     </Td>
                     <Td>
-                      <Subtitle className="tracking-normal">{contacto.celular}</Subtitle>
-                      <TextSmall className="text-gray-400 uppercase mt-1">{contacto.email}</TextSmall>
+                      <Subtitle className="normal-case tracking-normal">{contacto.celular}</Subtitle>
+                      <TextSmall className="text-gray-400 mt-1">{contacto.email}</TextSmall>
                     </Td>
                     <Td>
                       <div className="flex gap-4">
@@ -159,14 +159,14 @@ const ClientsView = ({ config, data }) => {
             {data.clientes.map((item, idx) => (
               <Tr key={idx}>
                 <Td>
-                  <button onClick={() => { setSelectedClient(item); setViewLevel('client-details'); }} className="hover:underline text-left block leading-tight">
-                    <Subtitle className="text-primary tracking-normal">{item.nombre}</Subtitle>
+                  <button onClick={() => handleView(item, 'cliente')} className="hover:underline text-left block leading-tight">
+                    <Subtitle className="text-primary normal-case tracking-normal">{item.nombre}</Subtitle>
                   </button>
                   <TextSmall className="text-gray-400 mt-1">{item.nit}</TextSmall>
                 </Td>
                 <Td>
-                  <Subtitle className="tracking-normal">{item.ciudad} — {(item.sucursales || []).length} Sucursales</Subtitle>
-                  <TextSmall className="text-gray-400 uppercase mt-1">{item.email}</TextSmall>
+                  <Subtitle className="normal-case tracking-normal">{item.ciudad} — {(item.sucursales || []).length} Sucursales</Subtitle>
+                  <TextSmall className="text-gray-400 mt-1">{item.email}</TextSmall>
                 </Td>
                 <Td>
                   <div className="flex gap-4">

@@ -26,11 +26,11 @@ const ClientVisitsPage = ({ data }) => {
           <TBody>
             {myVisits.map((v, i) => (
               <Tr key={i}>
-                <Td><Subtitle className="text-gray-900">{v.id}</Subtitle></Td>
-                <Td><Subtitle className="text-gray-600">{v.fecha}</Subtitle></Td>
-                <Td><Subtitle className="text-gray-600">{v.tecnico_asignado}</Subtitle></Td>
+                <Td><Subtitle className="text-gray-900 normal-case tracking-normal">{v.id}</Subtitle></Td>
+                <Td><Subtitle className="text-gray-600 normal-case tracking-normal">{v.fecha}</Subtitle></Td>
+                <Td><Subtitle className="text-gray-600 normal-case tracking-normal">{v.tecnico_asignado}</Subtitle></Td>
                 <Td>
-                  <TextSmall className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md font-bold uppercase inline-block">
+                  <TextSmall className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md font-bold inline-block">
                     {v.tipoMantenimiento}
                   </TextSmall>
                 </Td>

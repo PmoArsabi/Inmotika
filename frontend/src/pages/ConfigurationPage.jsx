@@ -1,4 +1,5 @@
 import { CheckCircle2, Save } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import { H3, Subtitle, TextSmall } from '../components/ui/Typography';
@@ -12,15 +13,38 @@ import { useConfiguration } from '../hooks/useConfiguration';
 import ClientsView from '../components/configuration/ClientsView';
 import GenericListView from '../components/configuration/GenericListView';
 import Breadcrumbs from '../components/configuration/Breadcrumbs';
+import ClientModalNavigator from '../components/configuration/ClientModalNavigator';
 
 const ConfigurationPage = ({ data, setData }) => {
   const config = useConfiguration(data, setData);
+  const [clientModalParams, setClientModalParams] = useState(null);
   const { 
     activeSubTab, setActiveSubTab, showForm, handleCloseForm, handleSubmit, 
     success, isViewMode, editingItem, editingType, sucursales, handleSucursalChange,
     attachedFiles, setAttachedFiles, maintenanceSteps, setMaintenanceSteps,
     currentStepText, setCurrentStepText, addStep
   } = config;
+
+  const configWithClientModal = useMemo(() => {
+    const openClient = (clientId, mode) => setClientModalParams({ clientId, mode });
+    return {
+      ...config,
+      handleView: (item, type = activeSubTab.slice(0, -1)) => {
+        if (type === 'cliente' || type === 'clientes') {
+          openClient(item.id, 'view');
+          return;
+        }
+        config.handleView(item, type);
+      },
+      handleEdit: (item, type = activeSubTab.slice(0, -1), parentId = null) => {
+        if (type === 'cliente' || type === 'clientes') {
+          openClient(item.id, 'edit');
+          return;
+        }
+        config.handleEdit(item, type, parentId);
+      }
+    };
+  }, [activeSubTab, config]);
 
   return (
     <div className="space-y-4 animate-in fade-in duration-700">
@@ -44,11 +68,20 @@ const ConfigurationPage = ({ data, setData }) => {
 
       <div className="space-y-6">
         {activeSubTab === 'clientes' ? (
-          <ClientsView config={config} data={data} />
+          <ClientsView config={configWithClientModal} data={data} />
         ) : (
           <GenericListView config={config} data={data} type={activeSubTab} />
         )}
       </div>
+
+      {activeSubTab === 'clientes' && (
+        <ClientModalNavigator
+          openParams={clientModalParams}
+          data={data}
+          setData={setData}
+          onClose={() => setClientModalParams(null)}
+        />
+      )}
 
       <Modal 
         isOpen={showForm} 

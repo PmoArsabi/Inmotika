@@ -69,20 +69,20 @@ const ClientInventoryPage = ({ data }) => {
               filteredDevices.map((dev, idx) => (
                 <Tr key={idx}>
                   <Td>
-                    <Subtitle className="text-[#D32F2F]">
+                    <Subtitle className="text-[#D32F2F] normal-case tracking-normal">
                       {dev.modelo ? `Dispositivo ${dev.modelo}` : `Dispositivo ${dev.code.split('-')[1]}`}
                     </Subtitle>
                     <TextSmall className="text-gray-400 mt-0.5">{dev.code}</TextSmall>
                   </Td>
                   <Td>
-                    <Subtitle className="text-gray-700 uppercase">{dev.tipo}</Subtitle>
-                    <TextSmall className="text-gray-400 uppercase mt-0.5">{dev.sucursal}</TextSmall>
+                    <Subtitle className="text-gray-700 normal-case tracking-normal">{dev.tipo}</Subtitle>
+                    <TextSmall className="text-gray-400 mt-0.5">{dev.sucursal}</TextSmall>
                   </Td>
                   <Td>
                     <div className="mb-0.5">
                       <StatusBadge status={dev.estado} />
                     </div>
-                    <TextSmall className="text-gray-400 uppercase">{dev.fechaMant}</TextSmall>
+                    <TextSmall className="text-gray-400">{dev.fechaMant}</TextSmall>
                   </Td>
                   <Td align="right">
                     <IconButton icon={Eye} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => console.log('View device info', dev)} />

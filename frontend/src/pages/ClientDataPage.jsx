@@ -63,7 +63,7 @@ const ClientDataPage = ({ data }) => {
               {sucursales.map((sucursal, idx) => (
                 <Tr key={idx}>
                   <Td>
-                    <Subtitle className="text-[#D32F2F]">{sucursal.nombre}</Subtitle>
+                    <Subtitle className="text-[#D32F2F] normal-case tracking-normal">{sucursal.nombre}</Subtitle>
                     <TextSmall className="text-gray-400 mt-0.5">{sucursal.ciudad}</TextSmall>
                   </Td>
                   <Td>
@@ -74,7 +74,7 @@ const ClientDataPage = ({ data }) => {
                       </div>
                       <div className="flex items-center gap-2">
                         <UserCircle2 size={10} className="text-gray-400" />
-                        <TextSmall className="text-gray-500 uppercase">{sucursal.contacto} — {sucursal.telefono}</TextSmall>
+                        <TextSmall className="text-gray-500">{sucursal.contacto} — {sucursal.telefono}</TextSmall>
                       </div>
                     </div>
                   </Td>
