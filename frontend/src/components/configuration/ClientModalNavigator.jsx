@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Briefcase, Building2, Calendar, Clock, Edit2, Eye, Mail, Map, MapPin, Phone, Plus, Shield, Smartphone, Trash2, User } from 'lucide-react';
+import { Briefcase, Building2, Calendar, Clock, Edit2, Eye, Heart, Mail, Map, MapPin, Phone, Plus, Shield, Smartphone, Trash2, User, Users } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
@@ -257,9 +257,12 @@ const emptyContactDraft = () => ({
   telefonoMovil: '',
   email: '',
   emailAlternativo: '',
-  horarioAtencion: '',
+  genero: '',
+  estadoCivil: '',
+  fechaCumpleanos: '',
+  fechaAniversario: '',
   notas: '',
-  estatus: ''
+  estatus: 'activo'
 });
 
 const emptyDeviceDraft = () => ({
@@ -313,9 +316,12 @@ const toContactDraft = (contact) => ({
   telefonoMovil: contact?.telefonoMovil || contact?.celular || '',
   email: contact?.email || '',
   emailAlternativo: contact?.emailAlternativo || '',
-  horarioAtencion: contact?.horarioAtencion || '',
+  genero: contact?.genero || '',
+  estadoCivil: contact?.estadoCivil || '',
+  fechaCumpleanos: contact?.fechaCumpleanos || '',
+  fechaAniversario: contact?.fechaAniversario || '',
   notas: contact?.notas || '',
-  estatus: contact?.estatus || ''
+  estatus: contact?.estatus || 'activo'
 });
 
 const toDeviceDraft = (device) => ({
@@ -355,10 +361,9 @@ const validateBranch = (draft) => {
 const validateContact = (draft) => {
   const errors = {};
   if (!String(draft.nombre || '').trim()) errors.nombre = 'Requerido';
+  if (!String(draft.telefonoMovil || '').trim()) errors.telefonoMovil = 'Requerido';
   if (!isEmailValid(draft.email)) errors.email = 'Email inválido';
   if (!isEmailValid(draft.emailAlternativo)) errors.emailAlternativo = 'Email inválido';
-  if (!isPhoneValid(draft.telefonoOffice)) errors.telefonoOffice = 'Teléfono inválido';
-  if (!isPhoneValid(draft.telefonoMovil)) errors.telefonoMovil = 'Teléfono inválido';
   return errors;
 };
 
@@ -399,7 +404,10 @@ const applyContactUpsert = (prevData, clientId, branchId, contactId, contactDraf
         telefonoMovil: contactDraft.telefonoMovil,
         email: contactDraft.email,
         emailAlternativo: contactDraft.emailAlternativo,
-        horarioAtencion: contactDraft.horarioAtencion,
+        genero: contactDraft.genero,
+        estadoCivil: contactDraft.estadoCivil,
+        fechaCumpleanos: contactDraft.fechaCumpleanos,
+        fechaAniversario: contactDraft.fechaAniversario,
         notas: contactDraft.notas,
         estatus: contactDraft.estatus
       };
@@ -1201,37 +1209,116 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
         {tabLoading[`${key}|details`] ? (
           <LoadingInline label="Cargando contacto…" />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input label="Nombre completo" icon={User} value={draft.nombre} viewMode={!isEditing} onChange={(e) => updateDraft(key, { nombre: e.target.value })} error={errors.nombre} required />
-            <Input label="Puesto" icon={Briefcase} value={draft.puesto} viewMode={!isEditing} onChange={(e) => updateDraft(key, { puesto: e.target.value })} />
-            <Input label="Teléfono office" icon={Phone} value={draft.telefonoOffice} viewMode={!isEditing} onChange={(e) => updateDraft(key, { telefonoOffice: e.target.value })} error={errors.telefonoOffice} />
-            <Input label="Teléfono móvil" icon={Smartphone} value={draft.telefonoMovil} viewMode={!isEditing} onChange={(e) => updateDraft(key, { telefonoMovil: e.target.value })} error={errors.telefonoMovil} />
-            <Input label="Email" icon={Mail} value={draft.email} viewMode={!isEditing} onChange={(e) => updateDraft(key, { email: e.target.value })} error={errors.email} />
-            <Input label="Email alternativo" icon={Mail} value={draft.emailAlternativo} viewMode={!isEditing} onChange={(e) => updateDraft(key, { emailAlternativo: e.target.value })} error={errors.emailAlternativo} />
-            <Input label="Horario de atención" icon={Clock} value={draft.horarioAtencion} viewMode={!isEditing} onChange={(e) => updateDraft(key, { horarioAtencion: e.target.value })} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
+            <Input 
+              label="Nombre completo" 
+              icon={User} 
+              value={draft.nombre} 
+              viewMode={!isEditing} 
+              onChange={(e) => updateDraft(key, { nombre: e.target.value })} 
+              error={errors.nombre} 
+              required 
+              placeholder="Ej: Juan Pérez"
+            />
+            
             <Select
-              label="Estatus"
-              icon={Shield}
-              value={draft.estatus}
+              label="Cargo"
+              icon={Briefcase}
+              value={draft.puesto}
               viewMode={!isEditing}
-              onChange={(e) => updateDraft(key, { estatus: e.target.value })}
+              onChange={(e) => updateDraft(key, { puesto: e.target.value })}
               options={[
                 { value: '', label: 'No especificado' },
-                { value: 'Activo', label: 'Activo' },
-                { value: 'Inactivo', label: 'Inactivo' }
+                { value: 'Directivo', label: 'Directivo' },
+                { value: 'Administrativo', label: 'Administrativo' },
+                { value: 'Ingeniería', label: 'Ingeniería' },
+                { value: 'Mantenimiento', label: 'Mantenimiento' },
+                { value: 'Comercial', label: 'Comercial' }
               ]}
             />
-            <div className="md:col-span-2 space-y-2">
-              <Label>Notas</Label>
+
+            <Input 
+              label="Celular de contacto" 
+              icon={Smartphone} 
+              value={draft.telefonoMovil} 
+              viewMode={!isEditing} 
+              onChange={(e) => updateDraft(key, { telefonoMovil: e.target.value })} 
+              error={errors.telefonoMovil} 
+              required 
+              placeholder="Ej: 300 123 4567"
+            />
+
+            <Input 
+              label="Correo electrónico" 
+              icon={Mail} 
+              value={draft.email} 
+              viewMode={!isEditing} 
+              onChange={(e) => updateDraft(key, { email: e.target.value })} 
+              error={errors.email} 
+              placeholder="Ej: contacto@empresa.com"
+            />
+
+            <Select
+              label="Género"
+              icon={Users}
+              value={draft.genero}
+              viewMode={!isEditing}
+              onChange={(e) => updateDraft(key, { genero: e.target.value })}
+              options={[
+                { value: '', label: 'No especificado' },
+                { value: 'Masculino', label: 'Masculino' },
+                { value: 'Femenino', label: 'Femenino' },
+                { value: 'Otro', label: 'Otro' },
+                { value: 'Prefiero no Decir', label: 'Prefiero no Decir' }
+              ]}
+            />
+
+            <Select
+              label="Estado civil"
+              icon={Heart}
+              value={draft.estadoCivil}
+              viewMode={!isEditing}
+              onChange={(e) => updateDraft(key, { estadoCivil: e.target.value })}
+              options={[
+                { value: '', label: 'No especificado' },
+                { value: 'Soltero', label: 'Soltero' },
+                { value: 'Casado', label: 'Casado' },
+                { value: 'Unión Libre', label: 'Unión Libre' },
+                { value: 'Divorciado', label: 'Divorciado' },
+                { value: 'Viudo', label: 'Viudo' }
+              ]}
+            />
+
+            <Input 
+              label="Fecha de cumpleaños" 
+              icon={Calendar} 
+              type="date"
+              value={draft.fechaCumpleanos} 
+              viewMode={!isEditing} 
+              onChange={(e) => updateDraft(key, { fechaCumpleanos: e.target.value })} 
+            />
+
+            <Input 
+              label="Fecha de aniversario" 
+              icon={Calendar} 
+              type="date"
+              value={draft.fechaAniversario} 
+              viewMode={!isEditing} 
+              onChange={(e) => updateDraft(key, { fechaAniversario: e.target.value })} 
+            />
+
+            <div className="md:col-span-2 space-y-2 mt-2">
+              <Label>Notas / Comentarios</Label>
               {isEditing ? (
                 <textarea
-                  className="w-full min-h-[110px] rounded-md border border-gray-100 bg-white px-3 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F]"
+                  className="w-full min-h-[110px] rounded-2xl border border-gray-100 bg-gray-50/50 px-4 py-3 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
+                  placeholder="Información adicional sobre el contacto..."
                   value={draft.notas}
                   onChange={(e) => updateDraft(key, { notas: e.target.value })}
                 />
               ) : (
-                <div className="w-full min-h-[38px] text-sm font-semibold text-gray-900 flex items-start py-2">
-                  {draft.notas || <span className="text-gray-300 italic">No especificado</span>}
+                <div className="w-full min-h-[44px] bg-gray-50/30 rounded-2xl border border-gray-50 px-4 py-3 text-sm font-semibold text-gray-900">
+                  {draft.notas || <span className="text-gray-300 italic">Sin notas detalladas</span>}
                 </div>
               )}
             </div>

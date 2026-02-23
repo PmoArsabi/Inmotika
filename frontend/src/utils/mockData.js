@@ -53,8 +53,28 @@ export const INITIAL_DATA = {
           },
           dispositivos: [1],
           contactos: [
-            { id: "C-1", nombre: "Andrés Rivera", celular: "3001234567", email: "arivera@banconacional.com", cargo: "Jefe de Seguridad" },
-            { id: "C-2", nombre: "Martha López", celular: "3109876543", email: "mlopez@banconacional.com", cargo: "Coordinadora de TI" }
+            { 
+              id: "C-1", 
+              nombre: "Andrés Rivera", 
+              celular: "3001234567", 
+              email: "arivera@banconacional.com", 
+              cargo: "Directivo",
+              genero: "Masculino",
+              estadoCivil: "Casado",
+              fechaCumpleanos: "1985-05-12",
+              fechaAniversario: "2010-10-20"
+            },
+            { 
+              id: "C-2", 
+              nombre: "Martha López", 
+              celular: "3109876543", 
+              email: "mlopez@banconacional.com", 
+              cargo: "Administrativo",
+              genero: "Femenino",
+              estadoCivil: "Soltero",
+              fechaCumpleanos: "1990-08-25",
+              fechaAniversario: ""
+            }
           ]
         },
         {
