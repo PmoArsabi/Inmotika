@@ -15,6 +15,19 @@ const DAYS = [
 const DEFAULT_START = '08:00';
 const DEFAULT_END = '17:00';
 
+const formatTime = (timeStr) => {
+  if (!timeStr) return '';
+  try {
+    const [hours, minutes] = timeStr.split(':');
+    const h = parseInt(hours, 10);
+    const ampm = h >= 12 ? 'p. m.' : 'a. m.';
+    const h12 = h % 12 || 12;
+    return `${String(h12).padStart(2, '0')}:${minutes} ${ampm}`;
+  } catch {
+    return timeStr;
+  }
+};
+
 const SchedulePicker = ({ label, value, onChange, viewMode = false, dark = false, className = '' }) => {
   const schedule = value || DAYS.reduce((acc, day) => {
     acc[day.key] = { isOpen: false, start: DEFAULT_START, end: DEFAULT_END };
@@ -36,36 +49,61 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, dark = false
     const openDays = DAYS.filter(day => schedule[day.key]?.isOpen);
     
     return (
-      <div className={`flex flex-col gap-3 w-full ${className}`}>
-        {label && <Label className="ml-1">{label}</Label>}
-        <div className="bg-gray-50 rounded-xl p-4 space-y-2.5 border border-gray-100">
-          {openDays.length > 0 ? (
-            openDays.map((day) => {
+      <div className={`flex flex-col gap-4 w-full ${className}`}>
+        {label && (
+          <div className="flex items-center gap-2 mb-1">
+            <Clock size={16} className="text-gray-400" />
+            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{label}</span>
+          </div>
+        )}
+        
+        {openDays.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            {openDays.map((day) => {
               const d = schedule[day.key];
               return (
-                <div key={day.key} className="flex justify-between items-center group">
-                  <span className="text-sm font-bold text-gray-900">{day.full}:</span>
-                  <span className="text-sm font-semibold text-gray-700 bg-white px-2 py-0.5 rounded border border-gray-200 shadow-sm">
-                    {d.start} - {d.end}
-                  </span>
+                <div key={day.key} className="flex flex-row flex-wrap items-center justify-center gap-4 p-3.5 rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 group overflow-hidden">
+                  {/* Day Label - Consistent 84px */}
+                  <div className="flex items-center gap-2.5 shrink-0 w-[84px]">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                    <span className="text-[14px] font-bold text-gray-900 tracking-tight">
+                      {day.full}
+                    </span>
+                  </div>
+
+                  {/* Centered Hours - Consistent with Input Style */}
+                  <div className="flex flex-col min-[380px]:flex-row items-center justify-center gap-1.5 grow sm:grow-0">
+                    <div className="relative flex items-center justify-center h-10 w-[120px] px-2 bg-gray-50/50 border border-gray-100 rounded-xl">
+                      <span className="text-[13.5px] font-bold text-gray-700 mr-auto">{formatTime(d.start)}</span>
+                      <Clock size={14} className="text-gray-400 absolute right-2.5" />
+                    </div>
+                    
+                    <span className="text-gray-300 font-bold select-none px-0.5 text-center leading-none">-</span>
+
+                    <div className="relative flex items-center justify-center h-10 w-[120px] px-2 bg-gray-50/50 border border-gray-100 rounded-xl">
+                      <span className="text-[13.5px] font-bold text-gray-700 mr-auto">{formatTime(d.end)}</span>
+                      <Clock size={14} className="text-gray-400 absolute right-2.5" />
+                    </div>
+                  </div>
                 </div>
               );
-            })
-          ) : (
-            <div className="text-center py-2">
-              <span className="text-sm text-gray-400 italic">No se han configurado horarios de atención</span>
+            })}
+          </div>
+        ) : (
+          <div className="bg-gray-50/50 border border-dashed border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center">
+            <Clock size={32} className="text-gray-300 mb-2 opacity-50" />
+            <span className="text-sm text-gray-400 font-medium italic">No se han configurado horarios de atención</span>
+          </div>
+        )}
+
+        {openDays.length > 0 && (
+          <div className="flex justify-center mt-2">
+            <div className="inline-flex items-center gap-1.5 text-green-600 font-bold text-[10px] uppercase tracking-wider bg-green-50 px-3 py-1 rounded-full border border-green-100">
+              <CheckCircle2 size={12} />
+              Disponibilidad Activa
             </div>
-          )}
-          
-          {openDays.length > 0 && (
-            <div className="pt-2 mt-2 border-t border-gray-200 flex justify-center">
-              <div className="inline-flex items-center gap-1.5 text-green-700 font-bold text-[10px] uppercase tracking-wider">
-                <CheckCircle2 size={12} />
-                Disponibilidad Activa
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -114,8 +152,8 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, dark = false
           if (!d?.isOpen) return null;
 
           return (
-            <div key={day.key} className="flex flex-row flex-wrap items-center justify-between gap-x-2 gap-y-3 p-3.5 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all duration-300 group overflow-hidden">
-              {/* Day Label - Standardized 84px space for maximum horizontal compaction */}
+            <div key={day.key} className="flex flex-row flex-wrap items-center justify-center gap-4 p-3.5 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all duration-300 group overflow-hidden">
+              {/* Day Label - Standardized 84px space centered within the card */}
               <div className="flex items-center gap-2.5 shrink-0 w-[84px]">
                 <div className="w-2 h-2 rounded-full bg-green-500 group-hover:animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
                 <span className="text-[14.5px] font-bold text-gray-900 tracking-tight truncate">
@@ -123,8 +161,8 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, dark = false
                 </span>
               </div>
 
-              {/* Ultra-Compact Hours - Flexible wrapping prevents clipping when space narrows */}
-              <div className="flex flex-row flex-wrap items-center justify-center gap-1.5 grow sm:grow-0 ml-auto md:ml-0">
+              {/* Centered Hours - Standardized widths ensure alignment across rows */}
+              <div className="flex flex-col min-[380px]:flex-row items-center justify-center gap-1.5 grow sm:grow-0">
                 <div className="relative">
                   <input
                     type="time"

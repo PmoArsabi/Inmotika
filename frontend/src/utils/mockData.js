@@ -42,6 +42,15 @@ export const INITIAL_DATA = {
           ciudad: "Bogotá",
           direccion: "Carrera 7 #12-45",
           telefono: "601-5550101",
+          clasificacion: "principal",
+          horario: {
+            mon: { isOpen: true, start: "08:00", end: "17:00" },
+            tue: { isOpen: true, start: "08:00", end: "17:00" },
+            wed: { isOpen: true, start: "08:00", end: "17:00" },
+            thu: { isOpen: true, start: "08:00", end: "17:00" },
+            fri: { isOpen: true, start: "08:00", end: "17:00" },
+            sat: { isOpen: true, start: "09:00", end: "13:00" }
+          },
           dispositivos: [1],
           contactos: [
             { id: "C-1", nombre: "Andrés Rivera", celular: "3001234567", email: "arivera@banconacional.com", cargo: "Jefe de Seguridad" },
