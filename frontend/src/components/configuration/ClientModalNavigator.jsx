@@ -14,6 +14,7 @@ import { useLocationData } from '../../hooks/useLocationData';
 import { Country as CscCountry, State as CscState } from 'country-state-city';
 import { Table, TBody, THead, Td, Th, Tr } from '../ui/Table';
 import { Label, TextSmall } from '../ui/Typography';
+import SchedulePicker from '../ui/SchedulePicker';
 
 const PAGE_SIZE = 10;
 const AUTOSAVE_MS = 30_000;
@@ -241,14 +242,12 @@ const emptyClientDraft = () => ({
 const emptyBranchDraft = () => ({
   nombre: '',
   direccion: '',
-  telefono: '',
-  email: '',
+  pais: 'CO',
+  estado_depto: '',
   ciudad: '',
-  estado: '',
-  gpsLat: '',
-  gpsLng: '',
-  horarioAtencion: '',
-  diasLaborables: ''
+  clasificacion: 'secundaria',
+  horario: null, // Structured object { mon: { isOpen, start, end }, ... }
+  estatus: 'activo'
 });
 
 const emptyContactDraft = () => ({
@@ -298,14 +297,12 @@ const toBranchDraft = (branch) => ({
   ...emptyBranchDraft(),
   nombre: branch?.nombre || '',
   direccion: branch?.direccion || '',
-  telefono: branch?.telefono || '',
-  email: branch?.email || '',
+  pais: branch?.pais || 'CO',
+  estado_depto: branch?.estado_depto || branch?.estado || '',
   ciudad: branch?.ciudad || '',
-  estado: branch?.estado || '',
-  gpsLat: branch?.gpsLat || '',
-  gpsLng: branch?.gpsLng || '',
-  horarioAtencion: branch?.horarioAtencion || '',
-  diasLaborables: branch?.diasLaborables || ''
+  clasificacion: branch?.clasificacion || 'secundaria',
+  horario: branch?.horario || null,
+  estatus: branch?.estatus || 'activo'
 });
 
 const toContactDraft = (contact) => ({
@@ -352,8 +349,6 @@ const validateBranch = (draft) => {
   if (!String(draft.nombre || '').trim()) errors.nombre = 'Requerido';
   if (!String(draft.direccion || '').trim()) errors.direccion = 'Requerido';
   if (!String(draft.ciudad || '').trim()) errors.ciudad = 'Requerido';
-  if (!isEmailValid(draft.email)) errors.email = 'Email inválido';
-  if (!isPhoneValid(draft.telefono)) errors.telefono = 'Teléfono inválido';
   return errors;
 };
 
@@ -899,14 +894,12 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
       setData((prev) => applyBranchUpsert(prev, route.clientId, route.branchId, {
         nombre: draft.nombre,
         direccion: draft.direccion,
-        telefono: draft.telefono,
-        email: draft.email,
+        pais: draft.pais,
+        estado_depto: draft.estado_depto,
         ciudad: draft.ciudad,
-        estado: draft.estado,
-        gpsLat: draft.gpsLat,
-        gpsLng: draft.gpsLng,
-        horarioAtencion: draft.horarioAtencion,
-        diasLaborables: draft.diasLaborables
+        clasificacion: draft.clasificacion,
+        horario: draft.horario,
+        estatus: draft.estatus
       }));
       clearDirty(key);
       setSaveState({ isSaving: false, savedAt: Date.now() });
@@ -938,27 +931,60 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
         {tabLoading[`${key}|details`] ? (
           <LoadingInline label="Cargando detalles de la sucursal…" />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input label="Nombre" icon={Building2} value={draft.nombre} viewMode={!isEditing} onChange={(e) => updateDraft(key, { nombre: e.target.value })} error={errors.nombre} required />
-            <Input label="Ciudad" icon={MapPin} value={draft.ciudad} viewMode={!isEditing} onChange={(e) => updateDraft(key, { ciudad: e.target.value })} error={errors.ciudad} required />
-            <Input className="md:col-span-2" label="Dirección completa" icon={MapPin} value={draft.direccion} viewMode={!isEditing} onChange={(e) => updateDraft(key, { direccion: e.target.value })} error={errors.direccion} required />
-            <Input label="Teléfono" icon={Phone} value={draft.telefono} viewMode={!isEditing} onChange={(e) => updateDraft(key, { telefono: e.target.value })} error={errors.telefono} />
-            <Input label="Email" icon={Mail} value={draft.email} viewMode={!isEditing} onChange={(e) => updateDraft(key, { email: e.target.value })} error={errors.email} />
-            <Input label="GPS Latitud" value={draft.gpsLat} viewMode={!isEditing} onChange={(e) => updateDraft(key, { gpsLat: e.target.value })} />
-            <Input label="GPS Longitud" value={draft.gpsLng} viewMode={!isEditing} onChange={(e) => updateDraft(key, { gpsLng: e.target.value })} />
-            <Input label="Horario de atención" icon={Clock} value={draft.horarioAtencion} viewMode={!isEditing} onChange={(e) => updateDraft(key, { horarioAtencion: e.target.value })} />
-            <Input label="Días laborables" icon={Calendar} value={draft.diasLaborables} viewMode={!isEditing} onChange={(e) => updateDraft(key, { diasLaborables: e.target.value })} />
-            <Select
-              label="Estatus"
-              icon={Shield}
-              value={draft.estado}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
+            <Input
+              label="Nombre de Sede"
+              icon={Building2}
+              value={draft.nombre}
               viewMode={!isEditing}
-              onChange={(e) => updateDraft(key, { estado: e.target.value })}
+              onChange={(e) => updateDraft(key, { nombre: e.target.value })}
+              error={errors.nombre}
+              required
+              placeholder="Ej: Sede Norte, Bodega 5"
+            />
+
+            <Select
+              label="Clasificación"
+              icon={Shield}
+              value={draft.clasificacion}
+              viewMode={!isEditing}
+              onChange={(e) => updateDraft(key, { clasificacion: e.target.value })}
               options={[
-                { value: '', label: 'No especificado' },
-                { value: 'Activa', label: 'Activa' },
-                { value: 'Inactiva', label: 'Inactiva' }
+                { value: 'principal', label: 'Sede Principal' },
+                { value: 'secundaria', label: 'Sede Secundaria' }
               ]}
+            />
+
+            {/* Location section using the same picker logic */}
+            <LocationPickerRows
+              countryValue={draft.pais}
+              stateValue={draft.estado_depto}
+              cityValue={draft.ciudad}
+              direccion={draft.direccion}
+              onLocationChange={(loc) => updateDraft(key, {
+                pais: loc.country,
+                estado_depto: loc.state,
+                ciudad: loc.city || loc.ciudad || ''
+              })}
+              onDireccionChange={(val) => updateDraft(key, { direccion: val })}
+              viewMode={!isEditing}
+              direccionError={errors.direccion}
+            />
+
+            <SchedulePicker
+              label="Configuración de Horarios"
+              value={draft.horario}
+              viewMode={!isEditing}
+              onChange={(val) => updateDraft(key, { horario: val })}
+              className="md:col-span-2 mt-4"
+            />
+
+            <Switch
+              label="Estado de la Sede"
+              checked={draft.estatus === 'activo'}
+              onChange={(val) => updateDraft(key, { estatus: val ? 'activo' : 'inactivo' })}
+              viewMode={!isEditing}
+              className="mt-2"
             />
           </div>
         )}

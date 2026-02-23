@@ -32,7 +32,7 @@ const SearchableSelect = ({
       backgroundColor: dark ? '#2A2A2A' : 'white',
       borderColor: state.isFocused ? BORDER_FOCUS : BORDER_NORMAL,
       borderRadius: '0.375rem',
-      paddingLeft: Icon ? '2rem' : '0.25rem',
+      paddingLeft: Icon ? '2.25rem' : '0.25rem',
       fontSize: '0.875rem',
       fontWeight: '600',
       boxShadow: state.isFocused
@@ -58,10 +58,18 @@ const SearchableSelect = ({
       color: dark ? 'white' : '#111827',
       marginTop: 0,
       marginBottom: 0,
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      maxWidth: 'calc(100% - 2px)',
     }),
     placeholder: (base) => ({
       ...base,
       color: dark ? '#6B7280' : '#9CA3AF',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      maxWidth: 'calc(100% - 2px)',
     }),
     menu: (base) => ({
       ...base,
