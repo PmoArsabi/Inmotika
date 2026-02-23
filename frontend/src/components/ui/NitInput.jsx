@@ -73,24 +73,32 @@ const NitInput = ({
           }
         </div>
       ) : (
-        /* ── Edit mode: [NIT field grows] - [DV small] ── */
+        /* ── Edit mode: [# [Input] ] - [DV] ── */
         <>
-          <div className="flex items-center gap-1.5">
-            {/* Icon sits outside, vertically centered with the inputs */}
-            <Hash size={16} className="text-gray-400 shrink-0" />
-
-            {/* NIT — takes all available space */}
-            <input
-              ref={nitRef}
-              type="text"
-              inputMode="numeric"
-              placeholder="Número de identificación"
-              value={nitValue}
-              onChange={handleNitChange}
-              onKeyDown={handleNitKeyDown}
-              required={required}
-              className={`flex-1 px-3 ${baseInput}`}
-            />
+          <div className="flex items-center gap-2 w-full">
+            {/* Main NIT Container with Icon inside */}
+            <div className="relative flex-1 group">
+              <Hash 
+                size={16} 
+                className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors pointer-events-none 
+                  ${dark ? 'text-gray-500 group-focus-within:text-white' : 'text-gray-400 group-focus-within:text-[#D32F2F]'}`}
+              />
+              <input
+                ref={nitRef}
+                type="text"
+                inputMode="numeric"
+                placeholder="Número de identificación"
+                value={nitValue}
+                onChange={handleNitChange}
+                onKeyDown={handleNitKeyDown}
+                required={required}
+                className={`w-full h-10 pl-9 pr-3 border rounded-md focus:outline-none focus:ring-4 transition-all text-sm font-semibold
+                  ${dark
+                    ? 'bg-[#2A2A2A] border-transparent text-white placeholder-gray-500 focus:ring-white/10'
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400'
+                  } ${error ? 'border-red-500 ring-red-500/10' : ''}`}
+              />
+            </div>
 
             <span className={`text-sm font-bold shrink-0 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>-</span>
 
@@ -104,7 +112,11 @@ const NitInput = ({
               value={dvValue}
               onChange={handleDvChange}
               required={required}
-              className={`w-12 px-2 text-center ${baseInput}`}
+              className={`w-12 h-10 px-2 text-center border rounded-md focus:outline-none focus:ring-4 transition-all text-sm font-semibold
+                ${dark
+                  ? 'bg-[#2A2A2A] border-transparent text-white placeholder-gray-500 focus:ring-white/10'
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400'
+                } ${error ? 'border-red-500 ring-red-500/10' : ''}`}
             />
           </div>
           {error && <span className="text-xs text-red-500 font-bold ml-1">{error}</span>}

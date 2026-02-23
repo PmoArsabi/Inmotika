@@ -226,11 +226,13 @@ const emptyClientDraft = () => ({
   dv: '',
   tipoPersona: 'juridica',
   rutUrl: '',
+  logoUrl: '',
   telefono: '',
   email: '',
   direccion: '',
   pais: 'CO',
   estado_depto: '',
+  city: '',
   ciudad: '',
   estatus: 'activo',
   fechaRegistro: ''
@@ -281,6 +283,7 @@ const toClientDraft = (client) => ({
   dv: client?.nit ? client.nit.split('-')[1] || '' : '',
   tipoPersona: client?.tipoPersona || 'juridica',
   rutUrl: client?.rutUrl || '',
+  logoUrl: client?.logoUrl || '',
   telefono: client?.telefono || '',
   email: client?.email || '',
   direccion: client?.direccion || '',
@@ -680,6 +683,7 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
         nit: `${draft.nit}-${draft.dv}`,
         tipoPersona: draft.tipoPersona,
         rutUrl: draft.rutUrl,
+        logoUrl: draft.logoUrl,
         telefono: draft.telefono,
         email: draft.email,
         direccion: draft.direccion,
@@ -696,18 +700,20 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
 
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <TabBar tabs={clientTabs} active={route.activeTab} onChange={setActiveTab} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="overflow-x-auto pb-1 sm:pb-0">
+            <TabBar tabs={clientTabs} active={route.activeTab} onChange={setActiveTab} />
+          </div>
           {route.mode === 'view' ? (
-            <Button type="button" onClick={() => setStack((prev) => prev.map((r, idx) => (idx === prev.length - 1 ? { ...r, mode: 'edit' } : r)))}>
+            <Button type="button" className="w-full sm:w-auto" onClick={() => setStack((prev) => prev.map((r, idx) => (idx === prev.length - 1 ? { ...r, mode: 'edit' } : r)))}>
               <Edit2 size={18} /> Editar
             </Button>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto sm:justify-end">
               {saveState.savedAt && (
-                <TextSmall className="text-gray-400">{`Guardado automático: ${new Date(saveState.savedAt).toLocaleTimeString()}`}</TextSmall>
+                <TextSmall className="text-gray-400 order-2 sm:order-1">{`Guardado automático: ${new Date(saveState.savedAt).toLocaleTimeString()}`}</TextSmall>
               )}
-              <Button type="button" onClick={handleSave} disabled={saveState.isSaving || hasErrors}>
+              <Button type="button" className="w-full sm:w-auto order-1 sm:order-2" onClick={handleSave} disabled={saveState.isSaving || hasErrors}>
                 {saveState.isSaving ? 'Guardando…' : 'Guardar'}
               </Button>
             </div>
@@ -717,7 +723,7 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
         {tabLoading[`${key}|details`] ? (
           <LoadingInline label="Cargando detalles del cliente…" />
         ) : (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
             {/* Row 1: Tipo de Persona | Razón Social */}
             <Select
               label="Tipo de Persona"
@@ -769,21 +775,28 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
               onLocationChange={(loc) => updateDraft(key, {
                 pais: loc.country,
                 estado_depto: loc.state,
-                ciudad: loc.city
+                ciudad: loc.city || loc.ciudad || ''
               })}
               onDireccionChange={(val) => updateDraft(key, { direccion: val })}
               viewMode={!isEditing}
               direccionError={errors.direccion}
             />
 
-            {/* Row 5: Soporte Legal — full width, centered */}
-            <div className="col-span-2">
+            {/* Soporte Legal & Logo — responsive stack/grid */}
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
               <FileUploader
                 label="Soporte Legal (RUT)"
                 type="rut"
                 isLoaded={!!draft.rutUrl}
                 viewMode={!isEditing}
                 onLoad={() => updateDraft(key, { rutUrl: 'uploaded-rut.pdf' })}
+              />
+              <FileUploader
+                label="Logo del Cliente"
+                type="logo"
+                isLoaded={!!draft.logoUrl}
+                viewMode={!isEditing}
+                onLoad={() => updateDraft(key, { logoUrl: 'uploaded-logo.png' })}
               />
             </div>
           </div>
@@ -807,9 +820,11 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
 
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <TabBar tabs={clientTabs} active={route.activeTab} onChange={setActiveTab} />
-          <Button type="button" onClick={handleNew}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="overflow-x-auto pb-1 sm:pb-0">
+            <TabBar tabs={clientTabs} active={route.activeTab} onChange={setActiveTab} />
+          </div>
+          <Button type="button" className="w-full sm:w-auto" onClick={handleNew}>
             <Plus size={18} /> Nueva Sucursal
           </Button>
         </div>
@@ -900,18 +915,20 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
 
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <TabBar tabs={branchTabs} active={route.activeTab} onChange={setActiveTab} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="overflow-x-auto pb-1 sm:pb-0">
+            <TabBar tabs={branchTabs} active={route.activeTab} onChange={setActiveTab} />
+          </div>
           {route.mode === 'view' ? (
-            <Button type="button" onClick={() => setStack((prev) => prev.map((r, idx) => (idx === prev.length - 1 ? { ...r, mode: 'edit' } : r)))}>
+            <Button type="button" className="w-full sm:w-auto" onClick={() => setStack((prev) => prev.map((r, idx) => (idx === prev.length - 1 ? { ...r, mode: 'edit' } : r)))}>
               <Edit2 size={18} /> Editar
             </Button>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto sm:justify-end">
               {saveState.savedAt && (
-                <TextSmall className="text-gray-400">{`Guardado automático: ${new Date(saveState.savedAt).toLocaleTimeString()}`}</TextSmall>
+                <TextSmall className="text-gray-400 order-2 sm:order-1">{`Guardado automático: ${new Date(saveState.savedAt).toLocaleTimeString()}`}</TextSmall>
               )}
-              <Button type="button" onClick={handleSave} disabled={saveState.isSaving || hasErrors}>
+              <Button type="button" className="w-full sm:w-auto order-1 sm:order-2" onClick={handleSave} disabled={saveState.isSaving || hasErrors}>
                 {saveState.isSaving ? 'Guardando…' : 'Guardar'}
               </Button>
             </div>
@@ -968,9 +985,11 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
 
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <TabBar tabs={branchTabs} active={route.activeTab} onChange={setActiveTab} />
-          <Button type="button" onClick={handleNew}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="overflow-x-auto pb-1 sm:pb-0">
+            <TabBar tabs={branchTabs} active={route.activeTab} onChange={setActiveTab} />
+          </div>
+          <Button type="button" className="w-full sm:w-auto" onClick={handleNew}>
             <Plus size={18} /> Nuevo Contacto
           </Button>
         </div>
@@ -1136,20 +1155,20 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
 
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3">
           {route.mode === 'view' ? (
-            <Button type="button" onClick={() => setStack((prev) => prev.map((r, idx) => (idx === prev.length - 1 ? { ...r, mode: 'edit' } : r)))}>
+            <Button type="button" className="w-full sm:w-auto" onClick={() => setStack((prev) => prev.map((r, idx) => (idx === prev.length - 1 ? { ...r, mode: 'edit' } : r)))}>
               <Edit2 size={18} /> Editar
             </Button>
           ) : (
-            <>
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto sm:justify-end">
               {saveState.savedAt && (
-                <TextSmall className="text-gray-400">{`Guardado automático: ${new Date(saveState.savedAt).toLocaleTimeString()}`}</TextSmall>
+                <TextSmall className="text-gray-400 order-2 sm:order-1">{`Guardado automático: ${new Date(saveState.savedAt).toLocaleTimeString()}`}</TextSmall>
               )}
-              <Button type="button" onClick={handleSave} disabled={saveState.isSaving || hasErrors}>
+              <Button type="button" className="w-full sm:w-auto order-1 sm:order-2" onClick={handleSave} disabled={saveState.isSaving || hasErrors}>
                 {saveState.isSaving ? 'Guardando…' : 'Guardar'}
               </Button>
-            </>
+            </div>
           )}
         </div>
 

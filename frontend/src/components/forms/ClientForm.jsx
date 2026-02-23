@@ -34,6 +34,7 @@ const formatCountryOption = ({ label, isoCode }) => (
 const ClienteForm = ({ editingItem, isViewMode }) => {
   const [personType, setPersonType] = useState(editingItem?.tipoPersona || 'juridica');
   const [rutFile, setRutFile]       = useState(null);
+  const [logoFile, setLogoFile]     = useState(null);
   const [isActive, setIsActive]     = useState(editingItem ? editingItem.estado === 'activo' : true);
   const [nit, setNit]               = useState(editingItem?.nit?.split('-')[0] || '');
   const [dv, setDv]                 = useState(editingItem?.nit?.split('-')[1] || '');
@@ -48,7 +49,7 @@ const ClienteForm = ({ editingItem, isViewMode }) => {
     useLocationData({ countryValue: location.country, stateValue: location.state, onLocationChange: setLocation });
 
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
 
       {/* Row 1: Tipo de Persona | Razón Social */}
       <Select
@@ -138,14 +139,21 @@ const ClienteForm = ({ editingItem, isViewMode }) => {
         required
       />
 
-      {/* Row 5: Soporte Legal — full width */}
-      <div className="col-span-2">
+      {/* Soporte Legal & Logo — responsive stack/grid */}
+      <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
         <FileUploader
           label="Soporte Legal (RUT)"
           type="rut"
           isLoaded={!!editingItem?.rutUrl || rutFile}
           viewMode={isViewMode}
           onLoad={() => setRutFile(true)}
+        />
+        <FileUploader
+          label="Logo del Cliente"
+          type="logo"
+          isLoaded={!!editingItem?.logoUrl || logoFile}
+          viewMode={isViewMode}
+          onLoad={() => setLogoFile(true)}
         />
       </div>
 
