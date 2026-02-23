@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { Briefcase, Building2, Calendar, Clock, Edit2, Eye, Mail, MapPin, Phone, Plus, Shield, Smartphone, Trash2, User } from 'lucide-react';
+import { Briefcase, Building2, Calendar, Clock, Edit2, Eye, Mail, Map, MapPin, Phone, Plus, Shield, Smartphone, Trash2, User } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import FileUploader from '../ui/FileUploader';
+import Switch from '../ui/Switch';
+import NitInput from '../ui/NitInput';
+import LocationPicker from '../ui/LocationPicker';
+import SearchableSelect from '../ui/SearchableSelect';
+import { useLocationData } from '../../hooks/useLocationData';
+import { Country as CscCountry, State as CscState } from 'country-state-city';
 import { Table, TBody, THead, Td, Th, Tr } from '../ui/Table';
 import { Label, TextSmall } from '../ui/Typography';
 
@@ -121,14 +127,112 @@ const getRouteContext = (data, route) => {
   return { client, branch, contact, device };
 };
 
+const ALL_COUNTRIES_LIST = CscCountry.getAllCountries().map(c => ({ value: c.isoCode, label: c.name, isoCode: c.isoCode }));
+
+const FlagImg = ({ iso }) => iso ? (
+  <img src={`https://flagcdn.com/w20/${iso.toLowerCase()}.png`} width="20" height="15" alt="" loading="lazy" className="rounded-sm object-cover" />
+) : null;
+
+const formatCountryOption = ({ label, isoCode }) => (
+  <div className="flex items-center gap-2">
+    <FlagImg iso={isoCode} />
+    <span>{label}</span>
+  </div>
+);
+
+const ViewCell = ({ label, icon: Icon, children }) => (
+  <div className="flex flex-col gap-1.5">
+    <span className="text-[10px] font-bold text-gray-500 ml-1 uppercase">{label}</span>
+    <div className="flex items-center gap-2 h-10 pl-1 text-sm font-semibold text-gray-900">
+      {Icon && <Icon size={16} className="text-gray-400 shrink-0" />}
+      {children ?? <span className="text-gray-400 italic">No especificado</span>}
+    </div>
+  </div>
+);
+
+const LocationPickerRows = ({
+  countryValue, stateValue, cityValue, direccion,
+  onLocationChange, onDireccionChange,
+  viewMode, direccionError
+}) => {
+  const { states, cities, handleCountryChange, handleStateChange, handleCityChange } = useLocationData({
+    countryValue, stateValue, onLocationChange
+  });
+  const countryData = CscCountry.getCountryByCode(countryValue);
+  const stateData   = CscState.getStateByCodeAndCountry(stateValue, countryValue);
+
+  if (viewMode) {
+    return (
+      <>
+        <ViewCell label="País">
+          {countryData && (<><FlagImg iso={countryData.isoCode} /> {countryData.name}</>)}
+        </ViewCell>
+        <ViewCell label="Estado / Depto" icon={Map}>
+          {stateData?.name}
+        </ViewCell>
+        <ViewCell label="Ciudad" icon={MapPin}>
+          {cityValue}
+        </ViewCell>
+        <ViewCell label="Dirección Física" icon={MapPin}>
+          {direccion}
+        </ViewCell>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <SearchableSelect
+        label="País"
+        options={ALL_COUNTRIES_LIST}
+        value={countryValue}
+        onChange={handleCountryChange}
+        placeholder="Buscar país..."
+        formatOptionLabel={formatCountryOption}
+      />
+      <SearchableSelect
+        label="Estado / Depto"
+        icon={Map}
+        options={states}
+        value={stateValue}
+        onChange={handleStateChange}
+        isDisabled={!countryValue}
+        placeholder={countryValue ? 'Buscar estado...' : 'Primero elige un país'}
+      />
+      <SearchableSelect
+        label="Ciudad"
+        icon={MapPin}
+        options={cities}
+        value={cityValue}
+        onChange={handleCityChange}
+        isDisabled={!stateValue}
+        placeholder={stateValue ? 'Buscar ciudad...' : 'Primero elige un estado'}
+      />
+      <Input
+        label="Dirección Física"
+        icon={MapPin}
+        value={direccion}
+        onChange={(e) => onDireccionChange(e.target.value)}
+        error={direccionError}
+        required
+      />
+    </>
+  );
+};
+
 const emptyClientDraft = () => ({
   nombre: '',
   nit: '',
+  dv: '',
+  tipoPersona: 'juridica',
+  rutUrl: '',
   telefono: '',
   email: '',
   direccion: '',
+  pais: 'CO',
+  estado_depto: '',
   ciudad: '',
-  estatus: '',
+  estatus: 'activo',
   fechaRegistro: ''
 });
 
@@ -173,12 +277,17 @@ const emptyDeviceDraft = () => ({
 const toClientDraft = (client) => ({
   ...emptyClientDraft(),
   nombre: client?.nombre || '',
-  nit: client?.nit || '',
+  nit: client?.nit ? client.nit.split('-')[0] : '',
+  dv: client?.nit ? client.nit.split('-')[1] || '' : '',
+  tipoPersona: client?.tipoPersona || 'juridica',
+  rutUrl: client?.rutUrl || '',
   telefono: client?.telefono || '',
   email: client?.email || '',
   direccion: client?.direccion || '',
+  pais: client?.pais || 'CO',
+  estado_depto: client?.estado_depto || '',
   ciudad: client?.ciudad || '',
-  estatus: client?.estatus || '',
+  estatus: client?.estatus || 'activo',
   fechaRegistro: client?.fechaRegistro || ''
 });
 
@@ -227,6 +336,7 @@ const validateClient = (draft) => {
   const errors = {};
   if (!String(draft.nombre || '').trim()) errors.nombre = 'Requerido';
   if (!String(draft.nit || '').trim()) errors.nit = 'Requerido';
+  if (!String(draft.dv || '').trim()) errors.dv = 'Requerido';
   if (!String(draft.direccion || '').trim()) errors.direccion = 'Requerido';
   if (!String(draft.ciudad || '').trim()) errors.ciudad = 'Requerido';
   if (!isEmailValid(draft.email)) errors.email = 'Email inválido';
@@ -567,11 +677,15 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
       await new Promise((r) => setTimeout(r, 300));
       setData((prev) => applyClientUpdate(prev, route.clientId, {
         nombre: draft.nombre,
-        nit: draft.nit,
+        nit: `${draft.nit}-${draft.dv}`,
+        tipoPersona: draft.tipoPersona,
+        rutUrl: draft.rutUrl,
         telefono: draft.telefono,
         email: draft.email,
         direccion: draft.direccion,
-        ciudad: draft.ciudad,
+        pais: draft.pais,
+        estado_depto: draft.estado_depto,
+        ciudad: draft.city || draft.ciudad, // city from LocationPicker might be mapped to ciudad
         estatus: draft.estatus,
         fechaRegistro: draft.fechaRegistro
       }));
@@ -603,26 +717,75 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
         {tabLoading[`${key}|details`] ? (
           <LoadingInline label="Cargando detalles del cliente…" />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input label="Nombre" icon={Building2} value={draft.nombre} viewMode={!isEditing} onChange={(e) => updateDraft(key, { nombre: e.target.value })} error={errors.nombre} required />
-            <Input label="RFC / Identificación" value={draft.nit} viewMode={!isEditing} onChange={(e) => updateDraft(key, { nit: e.target.value })} error={errors.nit} required />
-            <Input label="Teléfono" icon={Phone} value={draft.telefono} viewMode={!isEditing} onChange={(e) => updateDraft(key, { telefono: e.target.value })} error={errors.telefono} />
-            <Input label="Email" icon={Mail} value={draft.email} viewMode={!isEditing} onChange={(e) => updateDraft(key, { email: e.target.value })} error={errors.email} />
-            <Input className="md:col-span-2" label="Dirección" icon={MapPin} value={draft.direccion} viewMode={!isEditing} onChange={(e) => updateDraft(key, { direccion: e.target.value })} error={errors.direccion} required />
-            <Input label="Ciudad" icon={MapPin} value={draft.ciudad} viewMode={!isEditing} onChange={(e) => updateDraft(key, { ciudad: e.target.value })} error={errors.ciudad} required />
+          <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+            {/* Row 1: Tipo de Persona | Razón Social */}
             <Select
-              label="Estatus"
-              icon={Shield}
-              value={draft.estatus}
-              viewMode={!isEditing}
-              onChange={(e) => updateDraft(key, { estatus: e.target.value })}
+              label="Tipo de Persona"
               options={[
-                { value: '', label: 'No especificado' },
-                { value: 'Activo', label: 'Activo' },
-                { value: 'Inactivo', label: 'Inactivo' }
+                { value: 'natural', label: 'Persona Natural' },
+                { value: 'juridica', label: 'Persona Jurídica' }
               ]}
+              value={draft.tipoPersona}
+              onChange={(e) => updateDraft(key, { tipoPersona: e.target.value })}
+              viewMode={!isEditing}
+              icon={Building2}
             />
-            <Input label="Fecha de registro" icon={Calendar} type="date" value={draft.fechaRegistro} viewMode={!isEditing} onChange={(e) => updateDraft(key, { fechaRegistro: e.target.value })} />
+
+            <Input
+              label={draft.tipoPersona === 'juridica' ? 'Razón Social' : 'Nombre Completo'}
+              icon={Building2}
+              value={draft.nombre}
+              viewMode={!isEditing}
+              onChange={(e) => updateDraft(key, { nombre: e.target.value })}
+              error={errors.nombre}
+              required
+              placeholder={draft.tipoPersona === 'juridica' ? 'Ej: Empresa S.A.S' : 'Ej: Juan Pérez'}
+            />
+
+            {/* Row 2: NIT/RUT | Estado del Cliente */}
+            <NitInput
+              nitValue={draft.nit}
+              dvValue={draft.dv}
+              onNitChange={(val) => updateDraft(key, { nit: val })}
+              onDvChange={(val) => updateDraft(key, { dv: val })}
+              viewMode={!isEditing}
+              error={errors.nit || errors.dv}
+              required
+            />
+
+            <Switch
+              label="Estado del Cliente"
+              checked={draft.estatus === 'activo'}
+              onChange={(val) => updateDraft(key, { estatus: val ? 'activo' : 'inactivo' })}
+              viewMode={!isEditing}
+            />
+
+            {/* Rows 3-4: País | Estado / Depto, Ciudad | Dirección */}
+            <LocationPickerRows
+              countryValue={draft.pais}
+              stateValue={draft.estado_depto}
+              cityValue={draft.ciudad}
+              direccion={draft.direccion}
+              onLocationChange={(loc) => updateDraft(key, {
+                pais: loc.country,
+                estado_depto: loc.state,
+                ciudad: loc.city
+              })}
+              onDireccionChange={(val) => updateDraft(key, { direccion: val })}
+              viewMode={!isEditing}
+              direccionError={errors.direccion}
+            />
+
+            {/* Row 5: Soporte Legal — full width, centered */}
+            <div className="col-span-2">
+              <FileUploader
+                label="Soporte Legal (RUT)"
+                type="rut"
+                isLoaded={!!draft.rutUrl}
+                viewMode={!isEditing}
+                onLoad={() => updateDraft(key, { rutUrl: 'uploaded-rut.pdf' })}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -1140,7 +1303,7 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title={subtitle ? `${routeTitle} — ${subtitle}` : routeTitle} maxWidth={maxWidth} durationMs={300}>
-      <div className={`transition-opacity transition-transform duration-300 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
+      <div className={`transition-opacity duration-300 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
         {body}
       </div>
     </Modal>

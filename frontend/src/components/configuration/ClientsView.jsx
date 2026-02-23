@@ -1,4 +1,4 @@
-import { Plus, Eye, Edit2, Trash2, Building2 } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2, Building2, Navigation2, MapPin } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
@@ -47,12 +47,10 @@ const ClientsView = ({ config, data }) => {
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
         <div className="flex justify-between items-center px-2">
           <SectionHeader title={`Sucursales de ${selectedClient.nombre}`} />
-          <Button onClick={() => { 
-            setEditingItem(null); 
-            setEditingType('sucursal'); 
-            setIsViewMode(false); 
-            setSucursales([{ id: Date.now(), nombre: '', ciudad: '', direccion: '', telefono: '', email: '', contactos: [] }]); 
-            setShowForm(true); 
+          <Button onClick={() => {
+            setEditingItem(null); setEditingType('sucursal'); setIsViewMode(false);
+            setSucursales([{ id: Date.now(), nombre: '', ciudad: '', direccion: '', telefono: '', email: '', contactos: [] }]);
+            setShowForm(true);
           }}>
             <Plus size={16}/> Nueva Sucursal
           </Button>
@@ -60,24 +58,33 @@ const ClientsView = ({ config, data }) => {
         <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
           <Table>
             <THead variant="dark">
-              <tr><Th>Nombre / Razón</Th><Th>Detalles Técnicos</Th><Th>Acción</Th></tr>
+              <tr><Th>Nombre / Razón</Th><Th>Detalles Técnicos</Th><Th narrow>Acción</Th></tr>
             </THead>
             <TBody>
               {(selectedClient.sucursales || []).map((sucursal, idx) => (
                 <Tr key={idx}>
                   <Td>
-                    <button onClick={() => { setSelectedBranch(sucursal); setViewLevel('branch-details'); }} className="hover:underline text-left block leading-tight">
-                      <Subtitle className="text-primary normal-case tracking-normal">{sucursal.nombre}</Subtitle>
+                    <button
+                      onClick={() => { setSelectedBranch(sucursal); setViewLevel('branch-details'); }}
+                      className="text-left block leading-tight group"
+                    >
+                      <Subtitle className="text-primary normal-case tracking-normal group-hover:underline">{sucursal.nombre}</Subtitle>
                     </button>
                     <TextSmall className="text-gray-400 mt-1">{sucursal.id}</TextSmall>
                   </Td>
                   <Td>
-                    <Subtitle className="normal-case tracking-normal">{sucursal.ciudad} — {sucursal.direccion}</Subtitle>
-                    <TextSmall className="text-gray-400 mt-1">{(sucursal.contactos || []).length} Contactos Registrados</TextSmall>
+                    <div className="flex items-center gap-1.5 text-gray-600">
+                      <MapPin size={13} className="text-gray-400 shrink-0" />
+                      <Subtitle className="normal-case tracking-normal">{sucursal.ciudad}</Subtitle>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Navigation2 size={13} className="text-gray-400 shrink-0" />
+                      <TextSmall className="text-gray-400">{sucursal.direccion}</TextSmall>
+                    </div>
                   </Td>
-                  <Td>
-                    <div className="flex gap-4">
-                      <IconButton icon={Eye} className="text-gray-300 hover:text-primary" onClick={() => handleView(sucursal, 'sucursal')} />
+                  <Td narrow>
+                    <div className="flex gap-3">
+                      <IconButton icon={Eye}   className="text-gray-300 hover:text-primary" onClick={() => { setSelectedBranch(sucursal); setViewLevel('branch-details'); }} />
                       <IconButton icon={Edit2} className="text-gray-300 hover:text-primary" onClick={() => handleEdit(sucursal, 'sucursal')} />
                       <IconButton icon={Trash2} className="text-gray-300 hover:text-red-500" onClick={() => removeSucursal(sucursal.id)} />
                     </div>
@@ -98,11 +105,9 @@ const ClientsView = ({ config, data }) => {
         <div className="space-y-4">
           <div className="flex justify-between items-center px-2">
             <SectionHeader title={`Contactos — ${selectedBranch.nombre}`} />
-            <Button onClick={() => { 
-              setEditingItem(null);
-              setEditingType('contacto');
-              setEditingParentId(selectedBranch.id);
-              setShowForm(true);
+            <Button onClick={() => {
+              setEditingItem(null); setEditingType('contacto');
+              setEditingParentId(selectedBranch.id); setShowForm(true);
             }}>
               <Plus size={16}/> Nuevo Contacto
             </Button>
@@ -110,7 +115,7 @@ const ClientsView = ({ config, data }) => {
           <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
             <Table>
               <THead variant="dark">
-                <tr><Th>Nombre / Razón</Th><Th>Detalles Técnicos</Th><Th>Acción</Th></tr>
+                <tr><Th>Nombre / Razón</Th><Th>Detalles Técnicos</Th><Th narrow>Acción</Th></tr>
               </THead>
               <TBody>
                 {(selectedBranch.contactos || []).map((contacto, idx) => (
@@ -123,9 +128,8 @@ const ClientsView = ({ config, data }) => {
                       <Subtitle className="normal-case tracking-normal">{contacto.celular}</Subtitle>
                       <TextSmall className="text-gray-400 mt-1">{contacto.email}</TextSmall>
                     </Td>
-                    <Td>
-                      <div className="flex gap-4">
-                        <IconButton icon={Eye} className="text-gray-300 hover:text-primary" onClick={() => console.log('View Contacto', contacto)} />
+                    <Td narrow>
+                      <div className="flex gap-3">
                         <IconButton icon={Edit2} className="text-gray-300 hover:text-primary" onClick={() => handleEdit(contacto, 'contacto', selectedBranch.id)} />
                         <IconButton icon={Trash2} className="text-gray-300 hover:text-red-500" onClick={() => removeContacto(selectedBranch.id, contacto.id)} />
                       </div>
@@ -136,41 +140,46 @@ const ClientsView = ({ config, data }) => {
             </Table>
           </Card>
         </div>
-        {/* Dispositivos Vinculados section could be here too, but for brevity/cleanliness I'll skip deep nesting logic refactor unless requested */}
       </div>
     );
   }
 
-  // 4. Default List View
+  // 4. Default — Clients List
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center px-2">
         <SectionHeader title="Maestros de Clientes" />
-        <Button onClick={() => { setEditingItem(null); setEditingType('cliente'); setIsViewMode(false); setSucursales([]); setShowForm(true); }}>
+        <Button onClick={() => {
+          setEditingItem(null); setEditingType('cliente'); setIsViewMode(false);
+          setSucursales([]); setShowForm(true);
+        }}>
           <Plus size={16}/> Nuevo Registro
         </Button>
       </div>
       <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
         <Table>
           <THead variant="dark">
-            <tr><Th>Nombre / Razón</Th><Th>Detalles Técnicos</Th><Th>Acción</Th></tr>
+            <tr><Th>Nombre / Razón</Th><Th>Detalles Técnicos</Th><Th narrow>Acción</Th></tr>
           </THead>
           <TBody>
             {data.clientes.map((item, idx) => (
               <Tr key={idx}>
                 <Td>
-                  <button onClick={() => handleView(item, 'cliente')} className="hover:underline text-left block leading-tight">
-                    <Subtitle className="text-primary normal-case tracking-normal">{item.nombre}</Subtitle>
-                  </button>
+                  <Subtitle className="normal-case tracking-normal font-bold text-gray-800">
+                    {item.nombre}
+                  </Subtitle>
                   <TextSmall className="text-gray-400 mt-1">{item.nit}</TextSmall>
                 </Td>
                 <Td>
-                  <Subtitle className="normal-case tracking-normal">{item.ciudad} — {(item.sucursales || []).length} Sucursales</Subtitle>
-                  <TextSmall className="text-gray-400 mt-1">{item.email}</TextSmall>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin size={13} className="text-gray-400 shrink-0" />
+                    <Subtitle className="normal-case tracking-normal">{item.ciudad}</Subtitle>
+                  </div>
+                  <TextSmall className="text-gray-400 mt-1">{(item.sucursales || []).length} Sucursales</TextSmall>
                 </Td>
-                <Td>
-                  <div className="flex gap-4">
-                    <IconButton icon={Eye} className="text-gray-300 hover:text-primary" onClick={() => handleView(item, 'cliente')} />
+                <Td narrow>
+                  <div className="flex gap-3">
+                    <IconButton icon={Eye}   className="text-gray-300 hover:text-primary" onClick={() => handleView(item, 'cliente')} />
                     <IconButton icon={Edit2} className="text-gray-300 hover:text-primary" onClick={() => handleEdit(item, 'cliente')} />
                     <IconButton icon={Trash2} className="text-gray-300 hover:text-red-500" onClick={() => config.removeItem(item.id, 'clientes')} />
                   </div>

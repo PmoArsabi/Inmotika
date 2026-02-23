@@ -1,9 +1,14 @@
 import React from 'react';
 import { Subtitle } from './Typography';
 
+/**
+ * Table — wraps a <table> with horizontal scroll.
+ * The last column (th:last-child / td:last-child) is automatically
+ * shrunk to content width so action icon columns never get extra space.
+ */
 export const Table = ({ children }) => (
   <div className="w-full overflow-x-auto">
-    <table className="w-full border-collapse">
+    <table className="w-full border-collapse table-auto [&_th:last-child]:w-px [&_th:last-child]:whitespace-nowrap [&_td:last-child]:w-px [&_td:last-child]:whitespace-nowrap">
       {children}
     </table>
   </div>
@@ -45,28 +50,28 @@ export const THead = ({ children, variant = "light", className = "" }) => (
 );
 
 export const TBody = ({ children, className = "" }) => (
-  <tbody className={`[&_*]:!normal-case ${className}`}>
+  <tbody className={`**:normal-case! ${className}`}>
     {children}
   </tbody>
 );
 
 export const Tr = ({ children, onClick, className = "" }) => (
-  <tr 
-    onClick={onClick} 
+  <tr
+    onClick={onClick}
     className={`border-b border-gray-50 last:border-none transition-colors hover:bg-gray-50 ${onClick ? 'cursor-pointer' : ''} ${className}`}
   >
     {children}
   </tr>
 );
 
-export const Th = ({ children, align = "left", className = "" }) => (
-  <th className={`py-3 px-4 text-${align} ${className}`}>
-    <Subtitle className="text-[color:var(--table-head-text)]">{children}</Subtitle>
+export const Th = ({ children, narrow = false, className = "" }) => (
+  <th className={`py-3 px-5 text-left ${narrow ? 'w-px whitespace-nowrap' : ''} ${className}`}>
+    <Subtitle className="text-(--table-head-text)">{children}</Subtitle>
   </th>
 );
 
-export const Td = ({ children, align = "left", className = "" }) => (
-  <td className={`py-3 px-4 text-${align} ${className}`}>
+export const Td = ({ children, narrow = false, className = "" }) => (
+  <td className={`py-3 px-5 text-left ${narrow ? 'w-px whitespace-nowrap' : ''} ${className}`}>
     <div className="text-[11px] font-medium text-gray-700">
       {children}
     </div>

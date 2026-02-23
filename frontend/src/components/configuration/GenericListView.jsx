@@ -35,7 +35,7 @@ const GenericListView = ({ config, data, type }) => {
                   <TextSmall className="text-gray-400 mt-1">{item.email || item.correo || item.proveedor || 'SIN EMAIL REGISTRADO'}</TextSmall>
                 </Td>
                 <Td>
-                  <div className="flex gap-4">
+                  <div className="flex gap-3">
                     <IconButton icon={Eye} className="text-gray-300 hover:text-primary" onClick={() => handleView(item, type.slice(0, -1))} />
                     <IconButton icon={Edit2} className="text-gray-300 hover:text-primary" onClick={() => handleEdit(item, type.slice(0, -1))} />
                     <IconButton icon={Trash2} className="text-gray-300 hover:text-red-500" onClick={() => removeItem(item.id, type)} />
