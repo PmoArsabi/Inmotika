@@ -7,8 +7,6 @@ import ContactoForm from '../components/forms/ContactForm';
 import SucursalForm from '../components/forms/BranchForm';
 import ClienteForm from '../components/forms/ClientForm';
 import TecnicoForm from '../components/forms/TechnicalForm';
-import DispositivoForm from '../components/forms/DeviceForm';
-
 import { useConfiguration } from '../hooks/useConfiguration';
 import ClientsView from '../components/configuration/ClientsView';
 import GenericListView from '../components/configuration/GenericListView';
@@ -27,11 +25,17 @@ const ConfigurationPage = ({ data, setData }) => {
 
   const configWithClientModal = useMemo(() => {
     const openClient = (clientId, mode) => setClientModalParams({ clientId, mode });
+    const openDevice = (deviceId, mode) => setClientModalParams({ type: 'device', deviceId, mode });
+
     return {
       ...config,
       handleView: (item, type = activeSubTab.slice(0, -1)) => {
         if (type === 'cliente' || type === 'clientes') {
           openClient(item.id, 'view');
+          return;
+        }
+        if (type === 'dispositivo' || type === 'dispositivos') {
+          openDevice(item.id, 'view');
           return;
         }
         config.handleView(item, type);
@@ -41,7 +45,22 @@ const ConfigurationPage = ({ data, setData }) => {
           openClient(item.id, 'edit');
           return;
         }
+        if (type === 'dispositivo' || type === 'dispositivos') {
+          openDevice(item.id, 'edit');
+          return;
+        }
         config.handleEdit(item, type, parentId);
+      },
+      handleNew: (type = activeSubTab.slice(0, -1)) => {
+        if (type === 'cliente' || type === 'clientes') {
+          openClient(null, 'edit');
+          return;
+        }
+        if (type === 'dispositivo' || type === 'dispositivos') {
+          openDevice(`new-${Date.now()}`, 'edit');
+          return;
+        }
+        config.handleNew(type);
       }
     };
   }, [activeSubTab, config]);
@@ -70,11 +89,11 @@ const ConfigurationPage = ({ data, setData }) => {
         {activeSubTab === 'clientes' ? (
           <ClientsView config={configWithClientModal} data={data} />
         ) : (
-          <GenericListView config={config} data={data} type={activeSubTab} />
+          <GenericListView config={configWithClientModal} data={data} type={activeSubTab} />
         )}
       </div>
 
-      {activeSubTab === 'clientes' && (
+      {(activeSubTab === 'clientes' || activeSubTab === 'dispositivos') && (
         <ClientModalNavigator
           openParams={clientModalParams}
           data={data}
@@ -110,13 +129,6 @@ const ConfigurationPage = ({ data, setData }) => {
             )}
             {activeSubTab === 'tecnicos' && (
               <TecnicoForm editingItem={editingItem} isViewMode={isViewMode} attachedFiles={attachedFiles} setAttachedFiles={setAttachedFiles} />
-            )}
-            {activeSubTab === 'dispositivos' && (
-              <DispositivoForm 
-                editingItem={editingItem} isViewMode={isViewMode} 
-                maintenanceSteps={maintenanceSteps} setMaintenanceSteps={setMaintenanceSteps} 
-                currentStepText={currentStepText} setCurrentStepText={setCurrentStepText} addStep={addStep} 
-              />
             )}
           </fieldset>
           {!isViewMode && (

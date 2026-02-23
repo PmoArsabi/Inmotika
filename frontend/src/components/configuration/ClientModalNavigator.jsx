@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Briefcase, Building2, Calendar, Clock, Edit2, Eye, Heart, Mail, Map, MapPin, Phone, Plus, Shield, Smartphone, Trash2, User, Users } from 'lucide-react';
+import { Activity, ArrowRightLeft, Barcode, Briefcase, Building2, Calendar, CheckCircle2, ClipboardList, Clock, Cpu, Edit2, Eye, Fingerprint, Globe, Hash, Heart, Layers, Mail, Map, MapPin, Package, Phone, Plus, Save, Settings, Shield, ShieldCheck, Smartphone, Tag, Trash2, User, Users, Zap } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
@@ -266,15 +266,23 @@ const emptyContactDraft = () => ({
 });
 
 const emptyDeviceDraft = () => ({
+  clientId: '',
+  branchId: '',
+  idInmotika: '',
+  codigoUnico: '',
   serial: '',
   tipo: '',
+  categoria: '',
+  proveedor: '',
   marca: '',
+  linea: '',
   modelo: '',
-  ubicacion: '',
-  estatus: '',
-  fechaInstalacion: '',
-  ultimoMantenimiento: '',
-  garantia: '',
+  imac: '',
+  dueno: '',
+  estatus: 'Activo',
+  frecuencia: '',
+  tiempoPromedio: '',
+  pasoAPaso: [],
   notas: ''
 });
 
@@ -324,17 +332,25 @@ const toContactDraft = (contact) => ({
   estatus: contact?.estatus || 'activo'
 });
 
-const toDeviceDraft = (device) => ({
+const toDeviceDraft = (device, route = null) => ({
   ...emptyDeviceDraft(),
+  clientId: device?.clientId || route?.clientId || '',
+  branchId: device?.branchId || route?.branchId || '',
+  idInmotika: device?.idInmotika || '',
+  codigoUnico: device?.codigoUnico || '',
   serial: device?.serial || '',
   tipo: device?.tipo || '',
+  categoria: device?.categoria || '',
+  proveedor: device?.proveedor || '',
   marca: device?.marca || '',
+  linea: device?.linea || '',
   modelo: device?.modelo || '',
-  ubicacion: device?.ubicacion || '',
-  estatus: device?.estatus || '',
-  fechaInstalacion: device?.fechaInstalacion || '',
-  ultimoMantenimiento: device?.ultimoMantenimiento || '',
-  garantia: device?.garantia || '',
+  imac: device?.imac || '',
+  dueno: device?.dueno || '',
+  estatus: device?.estatus || 'Activo',
+  frecuencia: device?.frecuencia || '',
+  tiempoPromedio: device?.tiempoPromedio || '',
+  pasoAPaso: Array.isArray(device?.pasoAPaso) ? [...device.pasoAPaso] : [],
   notas: device?.notas || ''
 });
 
@@ -364,6 +380,15 @@ const validateContact = (draft) => {
   if (!String(draft.telefonoMovil || '').trim()) errors.telefonoMovil = 'Requerido';
   if (!isEmailValid(draft.email)) errors.email = 'Email inválido';
   if (!isEmailValid(draft.emailAlternativo)) errors.emailAlternativo = 'Email inválido';
+  return errors;
+};
+
+const validateDevice = (draft) => {
+  const errors = {};
+  if (!String(draft.clientId || '').trim()) errors.clientId = 'Requerido';
+  if (!String(draft.branchId || '').trim()) errors.branchId = 'Requerido';
+  if (!String(draft.codigoUnico || '').trim()) errors.codigoUnico = 'Requerido';
+  if (!String(draft.serial || '').trim()) errors.serial = 'Requerido';
   return errors;
 };
 
@@ -433,6 +458,75 @@ const applyContactDelete = (prevData, clientId, branchId, contactId) => {
   return { ...prevData, clientes: updatedClients };
 };
 
+const applyDeviceUpsert = (prevData, originalClientId, originalBranchId, deviceId, deviceDraft) => {
+  // 1. Update global devices list
+  const currentDevices = prevData?.dispositivos || [];
+  const existsGlobal = currentDevices.some(d => String(d.id) === String(deviceId));
+  
+  const deviceMapped = {
+    id: deviceId,
+    clientId: deviceDraft.clientId,
+    branchId: deviceDraft.branchId,
+    idInmotika: deviceDraft.idInmotika,
+    codigoUnico: deviceDraft.codigoUnico,
+    serial: deviceDraft.serial,
+    tipo: deviceDraft.tipo,
+    categoria: deviceDraft.categoria,
+    proveedor: deviceDraft.proveedor,
+    marca: deviceDraft.marca,
+    linea: deviceDraft.linea,
+    modelo: deviceDraft.modelo,
+    imac: deviceDraft.imac,
+    dueno: deviceDraft.dueno,
+    estatus: deviceDraft.estatus,
+    frecuencia: deviceDraft.frecuencia,
+    tiempoPromedio: deviceDraft.tiempoPromedio,
+    pasoAPaso: deviceDraft.pasoAPaso,
+    notas: deviceDraft.notas,
+    historialVisitas: currentDevices.find(d => String(d.id) === String(deviceId))?.historialVisitas || [],
+    historialTraslados: currentDevices.find(d => String(d.id) === String(deviceId))?.historialTraslados || []
+  };
+
+  const updatedGlobalDevices = existsGlobal
+    ? currentDevices.map(d => String(d.id) === String(deviceId) ? deviceMapped : d)
+    : [...currentDevices, deviceMapped];
+
+  // 2. Handle branch mapping (and relocation)
+  let updatedClients = prevData?.clientes || [];
+  const newClientId = deviceDraft.clientId;
+  const newBranchId = deviceDraft.branchId;
+
+  const locationChanged = String(originalClientId) !== String(newClientId) || String(originalBranchId) !== String(newBranchId);
+
+  // Remove from old branch if location changed
+  if (locationChanged && originalClientId && originalBranchId) {
+    updatedClients = updatedClients.map(c => {
+      if (String(c.id) !== String(originalClientId)) return c;
+      const updatedBranches = (c.sucursales || []).map(b => {
+        if (String(b.id) !== String(originalBranchId)) return b;
+        return { ...b, dispositivos: (b.dispositivos || []).filter(id => String(id) !== String(deviceId)) };
+      });
+      return { ...c, sucursales: updatedBranches };
+    });
+  }
+
+  // Add to new branch
+  if (newClientId && newBranchId) {
+    updatedClients = updatedClients.map(c => {
+      if (String(c.id) !== String(newClientId)) return c;
+      const updatedBranches = (c.sucursales || []).map(b => {
+        if (String(b.id) !== String(newBranchId)) return b;
+        const branchDevices = b.dispositivos || [];
+        const exists = branchDevices.some(id => String(id) === String(deviceId));
+        return { ...b, dispositivos: exists ? branchDevices : [...branchDevices, deviceId] };
+      });
+      return { ...c, sucursales: updatedBranches };
+    });
+  }
+
+  return { ...prevData, dispositivos: updatedGlobalDevices, clientes: updatedClients };
+};
+
 const storageKey = 'inmotika.clientModalDrafts.v1';
 
 const loadDraftsFromStorage = () => {
@@ -477,7 +571,13 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
   useEffect(() => {
     if (!openParams) return;
     const t = setTimeout(() => {
-      setStack([{ type: 'client', clientId: openParams.clientId, mode: openParams.mode || 'view', activeTab: 'details' }]);
+      if (openParams.type === 'device') {
+        const dId = openParams.deviceId || openParams.id;
+        ensureDraft(entityKey('device', dId), () => toDeviceDraft(getDeviceById(data, dId)));
+        setStack([{ type: 'device', deviceId: dId, mode: openParams.mode || 'view' }]);
+      } else {
+        setStack([{ type: 'client', clientId: openParams.clientId, mode: openParams.mode || 'view', activeTab: 'details' }]);
+      }
     }, 0);
     return () => clearTimeout(t);
   }, [openParams]);
@@ -1109,10 +1209,21 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
     const page = pagination[pagingKey] || 1;
     const { page: safePage, pageCount, slice } = paginate(devices, page, PAGE_SIZE);
 
+    const handleNew = () => {
+      const newId = `D-${Date.now()}`;
+      ensureDraft(entityKey('device', newId), () => emptyDeviceDraft());
+      openDevice(route.clientId, route.branchId, newId, 'edit');
+    };
+
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <TabBar tabs={branchTabs} active={route.activeTab} onChange={setActiveTab} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="overflow-x-auto pb-1 sm:pb-0">
+            <TabBar tabs={branchTabs} active={route.activeTab} onChange={setActiveTab} />
+          </div>
+          <Button type="button" className="w-full sm:w-auto" onClick={handleNew}>
+            <Plus size={18} /> Nuevo Equipo
+          </Button>
         </div>
 
         {tabLoading[`${key}|devices`] ? (
@@ -1123,11 +1234,11 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
               <Table>
                 <THead variant="dark">
                   <tr>
-                    <Th>Número de serie</Th>
-                    <Th>Tipo</Th>
-                    <Th>Marca</Th>
-                    <Th>Modelo</Th>
-                    <Th>Ubicación</Th>
+                    <Th>Código Único</Th>
+                    <Th>S/N</Th>
+                    <Th>Tipo / Categoría</Th>
+                    <Th>Marca / Modelo</Th>
+                    <Th>Propiedad</Th>
                     <Th>Estatus</Th>
                     <Th align="right">Acción</Th>
                   </tr>
@@ -1142,14 +1253,31 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
                   ) : (
                     slice.map((d) => (
                       <Tr key={d.id}>
-                        <Td><TextSmall className="text-gray-700">{d.serial || 'No especificado'}</TextSmall></Td>
-                        <Td><TextSmall className="text-gray-500">{d.tipo}</TextSmall></Td>
-                        <Td><TextSmall className="text-gray-500">{d.marca}</TextSmall></Td>
-                        <Td><TextSmall className="text-gray-500">{d.modelo}</TextSmall></Td>
-                        <Td><TextSmall className="text-gray-500">{d.ubicacion || 'No especificado'}</TextSmall></Td>
-                        <Td><TextSmall className="text-gray-500">{d.estatus || 'No especificado'}</TextSmall></Td>
+                        <Td><TextSmall className="text-gray-700 font-bold">{d.codigoUnico || '—'}</TextSmall></Td>
+                        <Td><TextSmall className="text-gray-500">{d.serial || '—'}</TextSmall></Td>
+                        <Td>
+                          <div className="flex flex-col">
+                            <TextSmall className="text-gray-700">{d.tipo}</TextSmall>
+                            <TextSmall className="text-gray-400 text-[10px] uppercase font-bold">{d.categoria || 'Sin categoría'}</TextSmall>
+                          </div>
+                        </Td>
+                        <Td>
+                          <div className="flex flex-col">
+                            <TextSmall className="text-gray-700">{d.marca}</TextSmall>
+                            <TextSmall className="text-gray-400 text-[10px] uppercase">{d.modelo}</TextSmall>
+                          </div>
+                        </Td>
+                        <Td>
+                          <div className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase ${d.dueno === 'Inmotika' ? 'bg-primary/10 text-primary' : 'bg-blue-50 text-blue-600'}`}>
+                            {d.dueno || 'Cliente'}
+                          </div>
+                        </Td>
+                        <Td><TextSmall className="text-gray-500">{d.estatus || 'Activo'}</TextSmall></Td>
                         <Td align="right">
-                          <IconButton icon={Eye} className="text-gray-300 hover:text-primary" onClick={() => openDevice(route.clientId, route.branchId, d.id)} />
+                          <div className="flex justify-end gap-2">
+                            <IconButton icon={Eye} title="Ver" className="text-gray-300 hover:text-primary" onClick={() => openDevice(route.clientId, route.branchId, d.id, 'view')} />
+                            <IconButton icon={Edit2} title="Editar" className="text-gray-300 hover:text-primary" onClick={() => openDevice(route.clientId, route.branchId, d.id, 'edit')} />
+                          </div>
                         </Td>
                       </Tr>
                     ))
@@ -1331,75 +1459,302 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
   const renderDeviceModal = () => {
     const key = entityKey('device', route.deviceId);
     const d = drafts[key] || toDeviceDraft(device);
+    const errors = validateDevice(d);
+    const hasErrors = Object.keys(errors).length > 0;
+    const isEditing = route.mode === 'edit';
+
+    const handleSave = async () => {
+      if (hasErrors) return;
+      setSaveState((s) => ({ ...s, isSaving: true }));
+      await new Promise((r) => setTimeout(r, 300));
+      setData((prev) => applyDeviceUpsert(prev, route.clientId, route.branchId, route.deviceId, d));
+      clearDirty(key);
+      setSaveState({ isSaving: false, savedAt: Date.now() });
+      setStack((prev) => prev.map((r, idx) => (idx === prev.length - 1 ? { ...r, mode: 'view' } : r)));
+    };
+
+    const addPaso = () => {
+      const nuevo = prompt('Ingrese el nuevo paso de mantenimiento:');
+      if (nuevo) updateDraft(key, { pasoAPaso: [...(d.pasoAPaso || []), nuevo] });
+    };
+
+    const removePaso = (idx) => {
+      updateDraft(key, { pasoAPaso: (d.pasoAPaso || []).filter((_, i) => i !== idx) });
+    };
+
+    const clients = data?.clientes || [];
+    const currentClient = clients.find(c => String(c.id) === String(d.clientId));
+    const branches = currentClient?.sucursales || [];
 
     return (
-      <div className="space-y-8">
+      <div className="space-y-10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3">
+          {route.mode === 'view' ? (
+            <Button type="button" className="w-full sm:w-auto" onClick={() => setStack((prev) => prev.map((r, idx) => (idx === prev.length - 1 ? { ...r, mode: 'edit' } : r)))}>
+              <Edit2 size={18} /> Editar Equipo
+            </Button>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto sm:justify-end">
+              {saveState.savedAt && (
+                <TextSmall className="text-gray-400 order-2 sm:order-1">{`Guardado automático: ${new Date(saveState.savedAt).toLocaleTimeString()}`}</TextSmall>
+              )}
+              <Button type="button" className="w-full sm:w-auto order-1 sm:order-2" onClick={handleSave} disabled={saveState.isSaving || hasErrors}>
+                {saveState.isSaving ? 'Guardando…' : <><Save size={18} /> Guardar Equipo</>}
+              </Button>
+            </div>
+          )}
+        </div>
+
         {tabLoading[`${key}|details`] ? (
-          <LoadingInline label="Cargando dispositivo…" />
+          <LoadingInline label="Cargando equipo…" />
         ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input label="Número de serie" value={d.serial} viewMode />
-              <Input label="Tipo" value={d.tipo} viewMode />
-              <Input label="Marca" value={d.marca} viewMode />
-              <Input label="Modelo" value={d.modelo} viewMode />
-              <Input label="Ubicación" value={d.ubicacion} viewMode />
-              <Input label="Estatus" value={d.estatus} viewMode />
-              <Input label="Fecha de instalación" icon={Calendar} value={d.fechaInstalacion} viewMode />
-              <Input label="Último mantenimiento" icon={Calendar} value={d.ultimoMantenimiento} viewMode />
-              <Input className="md:col-span-2" label="Garantía" value={d.garantia} viewMode />
-              <div className="md:col-span-2 space-y-2">
-                <Label>Notas</Label>
-                <div className="w-full text-sm font-semibold text-gray-900 flex items-start py-2">
-                  {d.notas || <span className="text-gray-300 italic">No especificado</span>}
+          <div className="space-y-12">
+            {/* 1. Ubicación */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                <MapPin size={18} className="text-primary" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-tight">1. Ubicación</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-5">
+                <SearchableSelect
+                  label="Cliente"
+                  icon={Briefcase}
+                  options={clients.map(c => ({ value: c.id, label: c.nombre }))}
+                  value={d.clientId}
+                  viewMode={!isEditing || (route.clientId && route.type !== 'device')}
+                  onChange={(val) => updateDraft(key, { clientId: val, branchId: '' })}
+                  error={errors.clientId}
+                  required
+                />
+                <SearchableSelect
+                  label="Sucursal"
+                  icon={Building2}
+                  options={branches.map(b => ({ value: b.id, label: b.nombre }))}
+                  value={d.branchId}
+                  viewMode={!isEditing || (route.branchId && route.type !== 'device')}
+                  onChange={(val) => updateDraft(key, { branchId: val })}
+                  isDisabled={!d.clientId}
+                  error={errors.branchId}
+                  required
+                  placeholder={d.clientId ? "Seleccione una sucursal..." : "Primero seleccione un cliente"}
+                />
+              </div>
+            </div>
+
+            {/* 2. Identificadores Únicos */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                <Tag size={18} className="text-primary" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-tight">2. Identificadores Únicos</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                <Input label="ID Inmotika" icon={Hash} value={d.idInmotika} viewMode={!isEditing} onChange={(e) => updateDraft(key, { idInmotika: e.target.value })} placeholder="Ej: IMK-001" />
+                <Input label="Código Único" icon={Fingerprint} value={d.codigoUnico} viewMode={!isEditing} onChange={(e) => updateDraft(key, { codigoUnico: e.target.value })} error={errors.codigoUnico} required placeholder="Ej: CAM-771" />
+                <Input label="Número de Serie" icon={Barcode} value={d.serial} viewMode={!isEditing} onChange={(e) => updateDraft(key, { serial: e.target.value })} error={errors.serial} required placeholder="SN-9988..." />
+              </div>
+            </div>
+
+            {/* 3. Clasificación Técnica */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                <Layers size={18} className="text-primary" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-tight">3. Clasificación Técnica</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                <Select
+                  label="Categoría"
+                  icon={Layers}
+                  value={d.categoria}
+                  viewMode={!isEditing}
+                  onChange={(e) => updateDraft(key, { categoria: e.target.value })}
+                  options={[
+                    { value: '', label: 'No especificada' },
+                    { value: 'Seguridad Electrónica', label: 'Seguridad Electrónica' },
+                    { value: 'Climatización', label: 'Climatización' },
+                    { value: 'Energía', label: 'Energía' },
+                    { value: 'Control de Acceso', label: 'Control de Acceso' }
+                  ]}
+                />
+                <Input label="Proveedor" icon={Building2} value={d.proveedor} viewMode={!isEditing} onChange={(e) => updateDraft(key, { proveedor: e.target.value })} />
+                <Input label="Marca" icon={ShieldCheck} value={d.marca} viewMode={!isEditing} onChange={(e) => updateDraft(key, { marca: e.target.value })} />
+                <Input label="Línea" icon={Zap} value={d.linea} viewMode={!isEditing} onChange={(e) => updateDraft(key, { linea: e.target.value })} placeholder="Ej: Industrial / Residencial" />
+                <Input label="Modelo" icon={Cpu} value={d.modelo} viewMode={!isEditing} onChange={(e) => updateDraft(key, { modelo: e.target.value })} />
+                <Input label="Dirección iMAC" icon={Globe} value={d.imac} viewMode={!isEditing} onChange={(e) => updateDraft(key, { imac: e.target.value })} placeholder="00:1A:2B:..." />
+              </div>
+            </div>
+
+            {/* 4. Gestión de Propiedad */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                <Shield size={18} className="text-primary" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-tight">4. Gestión de Propiedad</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-5">
+                <Select
+                  label="Dueño"
+                  icon={User}
+                  value={d.dueno}
+                  viewMode={!isEditing}
+                  onChange={(e) => updateDraft(key, { dueno: e.target.value })}
+                  options={[
+                    { value: '', label: 'No especificado' },
+                    { value: 'Inmotika', label: 'Inmotika' },
+                    { value: 'Cliente', label: 'Cliente' }
+                  ]}
+                />
+                <Select
+                  label="Estado"
+                  icon={Activity}
+                  value={d.estatus}
+                  viewMode={!isEditing}
+                  onChange={(e) => updateDraft(key, { estatus: e.target.value })}
+                  options={[
+                    { value: 'Activo', label: 'Activo' },
+                    { value: 'Para recuperar', label: 'Para recuperar' },
+                    { value: 'Recomprado', label: 'Recomprado' }
+                  ]}
+                />
+              </div>
+            </div>
+
+            {/* 5. Mantenimiento Preventivo */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                <ClipboardList size={18} className="text-primary" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-tight">5. Mantenimiento Preventivo (Configuración)</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-8">
+                <div className="space-y-5">
+                  <Input label="Frecuencia / Tiempo" icon={Clock} value={d.frecuencia} viewMode={!isEditing} onChange={(e) => updateDraft(key, { frecuencia: e.target.value })} placeholder="Ej: cada 6 meses / Anual" />
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-gray-400">
+                      <Settings size={14} /> Notas Técnicas
+                    </Label>
+                    {isEditing ? (
+                      <textarea
+                        className="w-full min-h-[100px] rounded-2xl border border-gray-100 bg-gray-50/50 px-4 py-3 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
+                        value={d.notas}
+                        onChange={(e) => updateDraft(key, { notas: e.target.value })}
+                      />
+                    ) : (
+                      <div className="w-full bg-gray-50/30 rounded-2xl border border-gray-50 px-4 py-3 text-sm font-semibold text-gray-900">
+                        {d.notas || <span className="text-gray-300 italic">Sin notas</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-primary uppercase tracking-wider text-[11px] flex items-center gap-2">
+                      <CheckCircle2 size={16} /> Pasos del Mantenimiento
+                    </Label>
+                    {isEditing && (
+                      <button onClick={addPaso} className="p-1 hover:bg-red-50 text-primary rounded-full transition-colors">
+                        <Plus size={16} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                    {Array.isArray(d.pasoAPaso) && d.pasoAPaso.length > 0 ? (
+                      d.pasoAPaso.map((paso, idx) => (
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm group">
+                          <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+                          <span className="text-xs font-bold text-gray-700 flex-1">{paso}</span>
+                          {isEditing && (
+                            <button onClick={() => removePaso(idx)} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-8 text-center border-2 border-dashed border-gray-100 rounded-2xl">
+                        <span className="text-xs text-gray-400 italic">No hay pasos configurados</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="pt-6 border-t border-gray-100 space-y-4">
-              <Label>Histórico de mantenimientos</Label>
-              <div className="overflow-hidden rounded-md border border-gray-100">
-                <Table>
-                  <THead>
-                    <tr>
-                      <Th>Fecha</Th>
-                      <Th>Técnico</Th>
-                      <Th>Tipo</Th>
-                      <Th>Observaciones</Th>
-                    </tr>
-                  </THead>
-                  <TBody>
-                    {(device?.historial || []).length === 0 ? (
-                      <Tr>
-                        <Td colSpan={4} className="text-center py-8">
-                          <TextSmall className="text-gray-400 italic">Sin registros</TextSmall>
-                        </Td>
-                      </Tr>
-                    ) : (
-                      (device?.historial || []).map((log, idx) => (
-                        <Tr key={idx}>
-                          <Td><TextSmall className="text-gray-600">{log.fecha}</TextSmall></Td>
-                          <Td><TextSmall className="text-gray-800">{log.tecnico}</TextSmall></Td>
-                          <Td><TextSmall className="text-gray-600">{log.tipo}</TextSmall></Td>
-                          <Td><TextSmall className="text-gray-500">{log.observaciones}</TextSmall></Td>
-                        </Tr>
-                      ))
-                    )}
-                  </TBody>
-                </Table>
+            {/* 6. Trazabilidad */}
+            <div className="space-y-6 pt-4">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                <ArrowRightLeft size={18} className="text-primary" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-tight">6. Trazabilidad</h3>
               </div>
-            </div>
 
-            <div className="pt-6 border-t border-gray-100 space-y-4">
-              <Label>Documentación adjunta</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FileUploader label="Garantía" type="garantia" isLoaded={Boolean(device?.docs?.garantia)} viewMode />
-                <FileUploader label="Manual" type="manual" isLoaded={Boolean(device?.docs?.manual)} viewMode />
-                <FileUploader label="Acta de instalación" type="instalacion" isLoaded={Boolean(device?.docs?.instalacion)} viewMode />
-                <FileUploader label="Fotos" type="fotos" isLoaded={Boolean(device?.docs?.fotos)} viewMode />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Historial de Traslados */}
+                <div className="space-y-3">
+                  <Label className="text-gray-400 uppercase tracking-widest text-[10px] flex items-center gap-2">
+                    <ArrowRightLeft size={14} /> Historial de traslados entre sucursales
+                  </Label>
+                  <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
+                    <Table size="sm">
+                      <THead variant="dark">
+                        <tr>
+                          <Th size="sm">Fecha</Th>
+                          <Th size="sm">Origen</Th>
+                          <Th size="sm">Destino</Th>
+                        </tr>
+                      </THead>
+                      <TBody>
+                        {(d.historialTraslados || []).length === 0 ? (
+                          <Tr><Td colSpan={3} className="text-center py-4 text-xs italic text-gray-300">Sin traslados</Td></Tr>
+                        ) : (
+                          d.historialTraslados.map((log, i) => (
+                            <Tr key={i}>
+                              <Td><TextSmall className="text-[11px] font-bold">{log.fecha}</TextSmall></Td>
+                              <Td><TextSmall className="text-[11px] text-gray-500">{log.origen}</TextSmall></Td>
+                              <Td><TextSmall className="text-[11px] text-gray-500 font-bold">{log.destino}</TextSmall></Td>
+                            </Tr>
+                          ))
+                        )}
+                      </TBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Historial de Visitas */}
+                <div className="space-y-3">
+                  <Label className="text-gray-400 uppercase tracking-widest text-[10px] flex items-center gap-2">
+                    <Calendar size={14} /> Historial de visitas técnicas realizadas
+                  </Label>
+                  <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
+                    <Table size="sm">
+                      <THead variant="dark">
+                        <tr>
+                          <Th size="sm">Fecha</Th>
+                          <Th size="sm">Técnico</Th>
+                          <Th size="sm">Tipo / Obs.</Th>
+                        </tr>
+                      </THead>
+                      <TBody>
+                        {(d.historialVisitas || []).length === 0 ? (
+                          <Tr><Td colSpan={3} className="text-center py-4 text-xs italic text-gray-300">No hay registros</Td></Tr>
+                        ) : (
+                          d.historialVisitas.map((log, i) => (
+                            <Tr key={i}>
+                              <Td><TextSmall className="text-[11px] font-bold">{log.fecha}</TextSmall></Td>
+                              <Td><TextSmall className="text-[11px] text-gray-700">{log.tecnico}</TextSmall></Td>
+                              <Td>
+                                <div className="flex flex-col">
+                                  <div className="px-1.5 py-0.5 bg-gray-50 rounded text-[10px] font-bold uppercase w-fit">{log.tipo}</div>
+                                  <TextSmall className="text-[9px] text-gray-400 truncate max-w-[100px]">{log.observaciones}</TextSmall>
+                                </div>
+                              </Td>
+                            </Tr>
+                          ))
+                        )}
+                      </TBody>
+                    </Table>
+                  </div>
+                </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     );
@@ -1429,7 +1784,10 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
     if (route.type === 'client') return client?.nombre || '';
     if (route.type === 'branch') return branch?.nombre || '';
     if (route.type === 'contact') return contact?.nombre || '';
-    if (route.type === 'device') return device?.codigoUnico || device?.serial || '';
+    if (route.type === 'device') {
+      const d = device || (drafts[entityKey('device', route.deviceId)]);
+      return d?.codigoUnico || d?.serial || 'Sin ID';
+    }
     return '';
   })();
 

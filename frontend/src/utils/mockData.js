@@ -153,18 +153,27 @@ export const INITIAL_DATA = {
   dispositivos: [
     { 
       id: 1, 
+      idInmotika: "IMK-001",
       tipo: "Cámara IP", 
+      categoria: "Seguridad Electrónica",
       modelo: "IMK-CAM-01", 
       serial: "SN-998822", 
       codigoUnico: "CAM-771", 
       marca: "Hikvision", 
       proveedor: "Inmotika Global", 
       linea: "Pro-Series", 
-      imac: "00:1A:2B:3C:4D", 
+      imac: "00:1A:2B:3C:4D",
+      dueno: "Inmotika",
+      estatus: "Activo",
       frecuencia: "Mensual", 
       tiempoPromedio: "45", 
       pasoAPaso: ["Limpieza de Óptica", "Ajuste de Enfoque", "Revisión Cables POE", "Prueba de Grabación", "Validación Infrarrojos"],
-      historial: []
+      historialVisitas: [
+        { fecha: "2026-01-15", tecnico: "Carlos Perez", tipo: "Preventivo", observaciones: "Limpieza general y prueba de grabación OK." }
+      ],
+      historialTraslados: [
+        { fecha: "2025-12-20", origen: "Bodega Principal", destino: "Sede Principal Centro", motivo: "Instalación Inicial" }
+      ]
     }
   ]
 };

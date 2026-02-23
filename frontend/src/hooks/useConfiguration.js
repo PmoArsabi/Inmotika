@@ -69,6 +69,16 @@ export const useConfiguration = (data, setData) => {
     setShowForm(true);
   };
 
+  const handleNew = (type = activeSubTab.slice(0, -1)) => {
+    setEditingItem(null);
+    setEditingType(type);
+    setIsViewMode(false);
+    setSucursales([]);
+    setDeviceCodes([]);
+    setMaintenanceSteps([]);
+    setShowForm(true);
+  };
+
   const addDeviceCode = () => { 
     if (currentDeviceCode && !deviceCodes.includes(currentDeviceCode)) { 
       setDeviceCodes([...deviceCodes, currentDeviceCode]); 
@@ -288,7 +298,7 @@ export const useConfiguration = (data, setData) => {
     selectedBranch, setSelectedBranch,
     editingType, setEditingType,
     editingParentId, setEditingParentId,
-    handleEdit, handleView,
+    handleEdit, handleView, handleNew,
     addDeviceCode, addStep,
     addSucursal, removeSucursal, handleSucursalChange,
     addContacto, removeContacto, handleContactoChange,

@@ -14,7 +14,7 @@ const GenericListView = ({ config, data, type }) => {
     <div className="space-y-4">
       <div className="flex justify-between items-center px-2">
         <SectionHeader title={`Maestros de ${type}`} />
-        <Button onClick={() => { setEditingItem(null); setEditingType(type.slice(0, -1)); setIsViewMode(false); setSucursales([]); setShowForm(true); }}>
+        <Button onClick={() => config.handleNew(type.slice(0, -1))}>
           <Plus size={16}/> Nuevo Registro
         </Button>
       </div>
