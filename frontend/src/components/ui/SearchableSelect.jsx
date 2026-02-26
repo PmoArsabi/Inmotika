@@ -21,6 +21,8 @@ const SearchableSelect = ({
   formatOptionLabel,   // overrides how each dropdown option renders
   formatSingleValue,   // overrides how the selected value renders
   isDisabled = false,
+  required = false,
+  error = null,
   ...props
 }) => {
 
@@ -108,7 +110,12 @@ const SearchableSelect = ({
   if (viewMode) {
     return (
       <div className={`flex flex-col gap-1.5 w-full ${className}`}>
-        {label && <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>{label}</Label>}
+        {label && (
+          <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
+            {label}
+            {required && <span className="text-red-500 ml-0.5">*</span>}
+          </Label>
+        )}
         <div className="relative group">
           {Icon && <Icon size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${dark ? 'text-gray-500' : 'text-gray-400'}`} />}
           <div className={`w-full h-10 ${Icon ? 'pl-9' : 'px-3'} text-sm font-semibold text-gray-900 flex items-center`}>
@@ -121,7 +128,12 @@ const SearchableSelect = ({
 
   return (
     <div className={`flex flex-col gap-1.5 w-full ${className}`}>
-      {label && <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>{label}</Label>}
+      {label && (
+        <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
+          {label}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
+        </Label>
+      )}
       <div className="relative group">
         {Icon && (
           <Icon
@@ -144,6 +156,7 @@ const SearchableSelect = ({
           {...props}
         />
       </div>
+      {error && <span className="text-xs text-red-500 font-bold ml-1">{error}</span>}
     </div>
   );
 };

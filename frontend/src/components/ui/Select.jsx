@@ -2,9 +2,14 @@ import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Label } from './Typography';
 
-const Select = ({ label, icon: Icon, options = [], value, onChange, dark = false, viewMode = false, className = '', ...props }) => (
+const Select = ({ label, icon: Icon, options = [], value, onChange, error, required, dark = false, viewMode = false, className = '', ...props }) => (
   <div className={`flex flex-col gap-1.5 w-full ${className}`}>
-    {label && <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>{label}</Label>}
+    {label && (
+      <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </Label>
+    )}
     <div className="relative group">
       {Icon && (
         <Icon
@@ -45,6 +50,7 @@ const Select = ({ label, icon: Icon, options = [], value, onChange, dark = false
         </>
       )}
     </div>
+    {error && <span className="text-xs text-red-500 font-bold ml-1">{error}</span>}
   </div>
 );
 

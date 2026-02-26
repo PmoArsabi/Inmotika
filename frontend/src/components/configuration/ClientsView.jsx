@@ -9,7 +9,7 @@ import SectionHeader from '../ui/SectionHeader';
 const ClientsView = ({ config, data }) => {
   const {
     viewLevel, selectedClient, selectedBranch,
-    handleView, handleEdit, removeSucursal, removeContacto,
+    handleView, handleEdit, handleNew, removeSucursal, removeContacto,
     setViewLevel, setSelectedBranch,
     setEditingItem, setEditingType, setIsViewMode, setSucursales, setShowForm, setEditingParentId
   } = config;
@@ -18,12 +18,15 @@ const ClientsView = ({ config, data }) => {
   if (viewLevel === 'client-details' && selectedClient) {
     return (
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
-        <div className="flex justify-between items-start">
-          <SectionHeader title="Información General" />
-          <Button onClick={() => setViewLevel('branches-list')}>
-            <Building2 size={16}/> Ver Sucursales
-          </Button>
-        </div>
+        <SectionHeader 
+          title="Información General" 
+          className="px-2 mb-2! items-center"
+          rightContent={
+            <Button onClick={() => setViewLevel('branches-list')}>
+              <Building2 size={16}/> Ver Sucursales
+            </Button>
+          }
+        />
         <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
           <Table>
             <THead variant="dark">
@@ -45,16 +48,19 @@ const ClientsView = ({ config, data }) => {
   if (viewLevel === 'branches-list' && selectedClient) {
     return (
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
-        <div className="flex justify-between items-center px-2">
-          <SectionHeader title={`Sucursales de ${selectedClient.nombre}`} />
-          <Button onClick={() => {
-            setEditingItem(null); setEditingType('sucursal'); setIsViewMode(false);
-            setSucursales([{ id: Date.now(), nombre: '', ciudad: '', direccion: '', telefono: '', email: '', contactos: [] }]);
-            setShowForm(true);
-          }}>
-            <Plus size={16}/> Nueva Sucursal
-          </Button>
-        </div>
+        <SectionHeader 
+          title={`Sucursales de ${selectedClient.nombre}`} 
+          className="px-2 mb-2! items-center"
+          rightContent={
+            <Button onClick={() => {
+              setEditingItem(null); setEditingType('sucursal'); setIsViewMode(false);
+              setSucursales([{ id: Date.now(), nombre: '', ciudad: '', direccion: '', telefono: '', email: '', contactos: [] }]);
+              setShowForm(true);
+            }}>
+              <Plus size={16}/> Nueva Sucursal
+            </Button>
+          }
+        />
         <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
           <Table>
             <THead variant="dark">
@@ -103,15 +109,18 @@ const ClientsView = ({ config, data }) => {
     return (
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
         <div className="space-y-4">
-          <div className="flex justify-between items-center px-2">
-            <SectionHeader title={`Contactos — ${selectedBranch.nombre}`} />
-            <Button onClick={() => {
-              setEditingItem(null); setEditingType('contacto');
-              setEditingParentId(selectedBranch.id); setShowForm(true);
-            }}>
-              <Plus size={16}/> Nuevo Contacto
-            </Button>
-          </div>
+          <SectionHeader 
+            title={`Contactos — ${selectedBranch.nombre}`} 
+            className="px-2 mb-2! items-center"
+            rightContent={
+              <Button onClick={() => {
+                setEditingItem(null); setEditingType('contacto');
+                setEditingParentId(selectedBranch.id); setShowForm(true);
+              }}>
+                <Plus size={16}/> Nuevo Contacto
+              </Button>
+            }
+          />
           <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
             <Table>
               <THead variant="dark">
@@ -147,15 +156,15 @@ const ClientsView = ({ config, data }) => {
   // 4. Default — Clients List
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center px-2">
-        <SectionHeader title="Maestros de Clientes" />
-        <Button onClick={() => {
-          setEditingItem(null); setEditingType('cliente'); setIsViewMode(false);
-          setSucursales([]); setShowForm(true);
-        }}>
-          <Plus size={16}/> Nuevo Registro
-        </Button>
-      </div>
+      <SectionHeader 
+        title="Maestros de Clientes" 
+        className="px-2 mb-2! items-center"
+        rightContent={
+          <Button onClick={() => handleNew('cliente')}>
+            <Plus size={16}/> Nuevo Registro
+          </Button>
+        }
+      />
       <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
         <Table>
           <THead variant="dark">

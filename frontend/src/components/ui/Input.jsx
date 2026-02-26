@@ -1,9 +1,14 @@
 import React from 'react';
 import { Label } from './Typography';
 
-const Input = ({ label, icon: Icon, error, dark = false, viewMode = false, className = '', ...props }) => (
+const Input = ({ label, icon: Icon, error, required, dark = false, viewMode = false, className = '', ...props }) => (
   <div className={`flex flex-col gap-1.5 w-full ${className}`}>
-    {label && <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>{label}</Label>}
+    {label && (
+      <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </Label>
+    )}
     <div className="relative group">
       {Icon && (
         <Icon

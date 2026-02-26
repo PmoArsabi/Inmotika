@@ -61,7 +61,12 @@ const NitInput = ({
 
   return (
     <div className={`flex flex-col gap-1.5 w-full ${className}`}>
-      {label && <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>{label}</Label>}
+      {label && (
+        <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
+          {label}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
+        </Label>
+      )}
 
       {viewMode ? (
         /* ── View mode: icon + "900111222-1" as plain text ── */

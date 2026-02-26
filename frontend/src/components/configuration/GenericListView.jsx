@@ -12,12 +12,15 @@ const GenericListView = ({ config, data, type }) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center px-2">
-        <SectionHeader title={`Maestros de ${type}`} />
-        <Button onClick={() => config.handleNew(type.slice(0, -1))}>
-          <Plus size={16}/> Nuevo Registro
-        </Button>
-      </div>
+      <SectionHeader 
+        title={`Maestros de ${type}`} 
+        className="px-2 mb-2! items-center"
+        rightContent={
+          <Button onClick={() => config.handleNew(type.slice(0, -1))}>
+            <Plus size={16}/> Nuevo Registro
+          </Button>
+        }
+      />
       <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
         <Table>
           <THead variant="dark">

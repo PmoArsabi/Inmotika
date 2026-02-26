@@ -1,17 +1,16 @@
-import { CheckCircle2, Save } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { CheckCircle2, Save } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
+import Input from '../components/ui/Input';
+import Select from '../components/ui/Select';
 import { H3, Subtitle, TextSmall } from '../components/ui/Typography';
-import ContactoForm from '../components/forms/ContactForm';
-import SucursalForm from '../components/forms/BranchForm';
-import ClienteForm from '../components/forms/ClientForm';
-import TecnicoForm from '../components/forms/TechnicalForm';
 import { useConfiguration } from '../hooks/useConfiguration';
 import ClientsView from '../components/configuration/ClientsView';
 import GenericListView from '../components/configuration/GenericListView';
 import Breadcrumbs from '../components/configuration/Breadcrumbs';
-import ClientModalNavigator from '../components/configuration/ClientModalNavigator';
+import ConfigurationNavigator from '../components/configuration/ConfigurationNavigator';
+import Tabs from '../components/ui/Tabs';
 
 const ConfigurationPage = ({ data, setData }) => {
   const config = useConfiguration(data, setData);
@@ -23,123 +22,127 @@ const ConfigurationPage = ({ data, setData }) => {
     currentStepText, setCurrentStepText, addStep
   } = config;
 
-  const configWithClientModal = useMemo(() => {
-    const openClient = (clientId, mode) => setClientModalParams({ clientId, mode });
-    const openDevice = (deviceId, mode) => setClientModalParams({ type: 'device', deviceId, mode });
+  const configWithInPageNav = useMemo(() => {
+    const drillDown = (entityId, type, mode = 'view') => {
+      let level = 'device-details';
+      if (type === 'cliente') level = 'client-details';
+      else if (type === 'tecnico') level = 'tecnico-details';
+      
+      config.setViewLevel(level);
+
+      if (type === 'cliente') {
+        config.setSelectedClient(entityId ? data.clientes.find(c => String(c.id) === String(entityId)) : null);
+      }
+      
+      setClientModalParams({ 
+        id: entityId, 
+        type, 
+        mode, 
+        clientId: (type === 'cliente' || type === 'tecnico') ? entityId : null,
+        deviceId: type === 'dispositivo' ? entityId : null
+      }); 
+    };
 
     return {
       ...config,
       handleView: (item, type = activeSubTab.slice(0, -1)) => {
         if (type === 'cliente' || type === 'clientes') {
-          openClient(item.id, 'view');
+          drillDown(item.id, 'cliente', 'view');
           return;
         }
         if (type === 'dispositivo' || type === 'dispositivos') {
-          openDevice(item.id, 'view');
+          drillDown(item.id, 'dispositivo', 'view');
+          return;
+        }
+        if (type === 'tecnico' || type === 'tecnicos') {
+          drillDown(item.id, 'tecnico', 'view');
           return;
         }
         config.handleView(item, type);
       },
       handleEdit: (item, type = activeSubTab.slice(0, -1), parentId = null) => {
         if (type === 'cliente' || type === 'clientes') {
-          openClient(item.id, 'edit');
+          drillDown(item.id, 'cliente', 'edit');
           return;
         }
         if (type === 'dispositivo' || type === 'dispositivos') {
-          openDevice(item.id, 'edit');
+          drillDown(item.id, 'dispositivo', 'edit');
+          return;
+        }
+        if (type === 'tecnico' || type === 'tecnicos') {
+          drillDown(item.id, 'tecnico', 'edit');
           return;
         }
         config.handleEdit(item, type, parentId);
       },
       handleNew: (type = activeSubTab.slice(0, -1)) => {
-        if (type === 'cliente' || type === 'clientes') {
-          openClient(null, 'edit');
+        const targetType = (type === 'clientes' || type === 'cliente' || type === 'cliente-details') ? 'cliente' 
+                         : (type === 'dispositivos' || type === 'dispositivo' || type === 'device-details') ? 'dispositivo' 
+                         : (type === 'tecnicos' || type === 'tecnico' || type === 'tecnico-details') ? 'tecnico'
+                         : type;
+
+        if (targetType === 'cliente') {
+          config.setViewLevel('client-details');
+          config.setSelectedClient(null);
+          setClientModalParams({ id: `N-${Date.now()}`, type: 'cliente', mode: 'edit', clientId: `N-${Date.now()}` });
           return;
         }
-        if (type === 'dispositivo' || type === 'dispositivos') {
-          openDevice(`new-${Date.now()}`, 'edit');
+        if (targetType === 'dispositivo') {
+          config.setViewLevel('device-details');
+          setClientModalParams({ id: `new-${Date.now()}`, type: 'dispositivo', mode: 'edit', clientId: null });
+          return;
+        }
+        if (targetType === 'tecnico') {
+          config.setViewLevel('tecnico-details');
+          setClientModalParams({ id: `new-${Date.now()}`, type: 'tecnico', mode: 'edit', clientId: null });
           return;
         }
         config.handleNew(type);
       }
     };
-  }, [activeSubTab, config]);
+  }, [activeSubTab, config, data]);
 
   return (
     <div className="space-y-4 animate-in fade-in duration-700">
-      <div className="flex bg-gray-100 p-1.5 rounded-xl w-fit">
-        {['clientes', 'tecnicos', 'dispositivos'].map(tab => (
-          <button key={tab} onClick={() => {
+      {!clientModalParams && (
+        <Tabs 
+          tabs={['clientes', 'tecnicos', 'dispositivos']} 
+          active={activeSubTab} 
+          onChange={(tab) => {
             setActiveSubTab(tab);
             config.setViewLevel('list');
             config.setSelectedClient(null);
             config.setSelectedBranch(null);
             config.setShowForm(false);
-          }} className={`px-6 py-2 rounded-lg transition-all ${activeSubTab === tab ? 'bg-white text-primary shadow-sm' : 'text-gray-400'}`}>
-            <TextSmall className={`uppercase font-bold ${activeSubTab === tab ? 'text-primary' : 'text-gray-400'}`}>
-              {tab}
-            </TextSmall>
-          </button>
-        ))}
-      </div>
-
-      <Breadcrumbs config={config} />
-
-      <div className="space-y-6">
-        {activeSubTab === 'clientes' ? (
-          <ClientsView config={configWithClientModal} data={data} />
-        ) : (
-          <GenericListView config={configWithClientModal} data={data} type={activeSubTab} />
-        )}
-      </div>
-
-      {(activeSubTab === 'clientes' || activeSubTab === 'dispositivos') && (
-        <ClientModalNavigator
-          openParams={clientModalParams}
-          data={data}
-          setData={setData}
-          onClose={() => setClientModalParams(null)}
+          }} 
         />
       )}
 
-      <Modal 
-        isOpen={showForm} 
-        onClose={handleCloseForm}
-        title={`${isViewMode ? 'Ver' : editingItem ? 'Editar' : 'Configurar'} ${editingType || activeSubTab.slice(0, -1)}`}
-      >
-        <form onSubmit={handleSubmit} className="space-y-6 relative">
-          {success && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-[2.5rem] animate-in fade-in duration-300">
-              <div className="flex flex-col items-center gap-4 text-center">
-                <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center animate-bounce">
-                  <CheckCircle2 size={48} />
-                </div>
-                <div>
-                  <H3 className="text-gray-900">¡Éxito!</H3>
-                  <Subtitle className="text-gray-500">La información ha sido guardada correctamente</Subtitle>
-                </div>
-              </div>
-            </div>
-          )}
-          <fieldset disabled={isViewMode} className="space-y-6">
-            {editingType === 'contacto' && <ContactoForm editingItem={editingItem} isViewMode={isViewMode} />}
-            {editingType === 'sucursal' && <SucursalForm sucursales={sucursales} isViewMode={isViewMode} handleSucursalChange={handleSucursalChange} />}
-            {editingType !== 'sucursal' && activeSubTab === 'clientes' && editingType !== 'contacto' && editingType !== 'dispositivo' && (
-              <ClienteForm editingItem={editingItem} isViewMode={isViewMode} />
+      {!clientModalParams && <Breadcrumbs config={config} />}
+
+      <div className="space-y-6">
+        {clientModalParams ? (
+          <ConfigurationNavigator
+            openParams={clientModalParams}
+            data={data}
+            setData={setData}
+            onClose={() => {
+              setClientModalParams(null);
+              config.setViewLevel('list');
+              config.setSelectedClient(null);
+              config.setSelectedBranch(null);
+            }}
+          />
+        ) : (
+          <>
+            {activeSubTab === 'clientes' ? (
+              <ClientsView config={configWithInPageNav} data={data} />
+            ) : (
+              <GenericListView config={configWithInPageNav} data={data} type={activeSubTab} />
             )}
-            {activeSubTab === 'tecnicos' && (
-              <TecnicoForm editingItem={editingItem} isViewMode={isViewMode} attachedFiles={attachedFiles} setAttachedFiles={setAttachedFiles} />
-            )}
-          </fieldset>
-          {!isViewMode && (
-             <div className="flex justify-end pt-4">
-               <Button type="submit">
-                 <Save size={18} /> Guardar Cambios
-               </Button>
-             </div>
-           )}
-        </form>
-      </Modal>
+          </>
+        )}
+      </div>
     </div>
   );
 };
