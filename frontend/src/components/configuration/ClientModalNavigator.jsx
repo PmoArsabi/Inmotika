@@ -247,7 +247,10 @@ const emptyBranchDraft = () => ({
   ciudad: '',
   clasificacion: 'secundaria',
   horario: null, // Structured object { mon: { isOpen, start, end }, ... }
-  estatus: 'activo'
+  estatus: 'activo',
+  contratoFileUrl: '',
+  contratoFechaInicio: '',
+  contratoFechaFin: ''
 });
 
 const emptyContactDraft = () => ({
@@ -313,7 +316,10 @@ const toBranchDraft = (branch) => ({
   ciudad: branch?.ciudad || '',
   clasificacion: branch?.clasificacion || 'secundaria',
   horario: branch?.horario || null,
-  estatus: branch?.estatus || 'activo'
+  estatus: branch?.estatus || 'activo',
+  contratoFileUrl: branch?.contratoFileUrl || '',
+  contratoFechaInicio: branch?.contratoFechaInicio || '',
+  contratoFechaFin: branch?.contratoFechaFin || ''
 });
 
 const toContactDraft = (contact) => ({
@@ -371,6 +377,12 @@ const validateBranch = (draft) => {
   if (!String(draft.nombre || '').trim()) errors.nombre = 'Requerido';
   if (!String(draft.direccion || '').trim()) errors.direccion = 'Requerido';
   if (!String(draft.ciudad || '').trim()) errors.ciudad = 'Requerido';
+  
+  if (draft.contratoFechaInicio && draft.contratoFechaFin) {
+    if (new Date(draft.contratoFechaInicio) > new Date(draft.contratoFechaFin)) {
+      errors.contratoFechaFin = 'La fecha de fin debe ser posterior a la de inicio';
+    }
+  }
   return errors;
 };
 
@@ -405,9 +417,13 @@ const applyBranchUpsert = (prevData, clientId, branchId, branchDraft) => {
     if (String(c.id) !== String(clientId)) return c;
     const currentBranches = c.sucursales || [];
     const exists = currentBranches.some((b) => String(b.id) === String(branchId));
+    const branchMapped = {
+      ...branchDraft,
+      id: branchId
+    };
     const upserted = exists
-      ? currentBranches.map((b) => (String(b.id) === String(branchId) ? { ...b, ...branchDraft, id: b.id } : b))
-      : [...currentBranches, { ...branchDraft, id: branchId, contactos: [], dispositivos: [] }];
+      ? currentBranches.map((b) => (String(b.id) === String(branchId) ? { ...b, ...branchMapped } : b))
+      : [...currentBranches, { ...branchMapped, contactos: [], dispositivos: [] }];
     return { ...c, sucursales: upserted };
   });
   return { ...prevData, clientes: updatedClients };
@@ -1007,7 +1023,10 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
         ciudad: draft.ciudad,
         clasificacion: draft.clasificacion,
         horario: draft.horario,
-        estatus: draft.estatus
+        estatus: draft.estatus,
+        contratoFileUrl: draft.contratoFileUrl,
+        contratoFechaInicio: draft.contratoFechaInicio,
+        contratoFechaFin: draft.contratoFechaFin
       }));
       clearDirty(key);
       setSaveState({ isSaving: false, savedAt: Date.now() });
@@ -1063,7 +1082,6 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
               ]}
             />
 
-            {/* Location section using the same picker logic */}
             <LocationPickerRows
               countryValue={draft.pais}
               stateValue={draft.estado_depto}
@@ -1087,13 +1105,44 @@ const ClientModalNavigator = ({ openParams, data, setData, onClose }) => {
               className="md:col-span-2 mt-4"
             />
 
-            <Switch
-              label="Estado de la Sede"
-              checked={draft.estatus === 'activo'}
-              onChange={(val) => updateDraft(key, { estatus: val ? 'activo' : 'inactivo' })}
-              viewMode={!isEditing}
-              className="mt-2"
-            />
+            {/* Maintenance Contract - Moved to end and header removed for parity */}
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5 pt-6 border-t border-gray-100 mt-2">
+              <FileUploader
+                label="Documento del Contrato"
+                type="contrato"
+                isLoaded={!!draft.contratoFileUrl}
+                viewMode={!isEditing}
+                onLoad={() => updateDraft(key, { contratoFileUrl: 'contrato_mantenimiento.pdf' })}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Fecha Inicio Contrato"
+                  icon={Calendar}
+                  type="date"
+                  value={draft.contratoFechaInicio}
+                  viewMode={!isEditing}
+                  onChange={(e) => updateDraft(key, { contratoFechaInicio: e.target.value })}
+                />
+                <Input
+                  label="Fecha Fin Contrato"
+                  icon={Calendar}
+                  type="date"
+                  value={draft.contratoFechaFin}
+                  viewMode={!isEditing}
+                  onChange={(e) => updateDraft(key, { contratoFechaFin: e.target.value })}
+                  error={errors.contratoFechaFin}
+                />
+              </div>
+            </div>
+
+            <div className="md:col-span-2 pt-4 border-t border-gray-50">
+              <Switch
+                label="Estado de la Sede"
+                checked={draft.estatus === 'activo'}
+                onChange={(val) => updateDraft(key, { estatus: val ? 'activo' : 'inactivo' })}
+                viewMode={!isEditing}
+              />
+            </div>
           </div>
         )}
       </div>
