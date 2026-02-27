@@ -16,10 +16,8 @@ const ConfigurationPage = ({ data, setData }) => {
   const config = useConfiguration(data, setData);
   const [clientModalParams, setClientModalParams] = useState(null);
   const { 
-    activeSubTab, setActiveSubTab, showForm, handleCloseForm, handleSubmit, 
-    success, isViewMode, editingItem, editingType, sucursales, handleSucursalChange,
-    attachedFiles, setAttachedFiles, maintenanceSteps, setMaintenanceSteps,
-    currentStepText, setCurrentStepText, addStep
+    activeSubTab, setActiveSubTab, showForm, handleCloseForm,
+    success, isViewMode, editingItem, editingType
   } = config;
 
   const configWithInPageNav = useMemo(() => {
@@ -58,6 +56,14 @@ const ConfigurationPage = ({ data, setData }) => {
           drillDown(item.id, 'tecnico', 'view');
           return;
         }
+        if (type === 'sucursal') {
+          setClientModalParams({ type: 'branch', clientId: config.selectedClient?.id, branchId: item.id, mode: 'view' });
+          return;
+        }
+        if (type === 'contacto') {
+          setClientModalParams({ type: 'contact', clientId: config.selectedClient?.id, branchId: config.selectedBranch?.id, contactId: item.id, mode: 'view' });
+          return;
+        }
         config.handleView(item, type);
       },
       handleEdit: (item, type = activeSubTab.slice(0, -1), parentId = null) => {
@@ -71,6 +77,14 @@ const ConfigurationPage = ({ data, setData }) => {
         }
         if (type === 'tecnico' || type === 'tecnicos') {
           drillDown(item.id, 'tecnico', 'edit');
+          return;
+        }
+        if (type === 'sucursal') {
+          setClientModalParams({ type: 'branch', clientId: config.selectedClient?.id, branchId: item.id, mode: 'edit' });
+          return;
+        }
+        if (type === 'contacto') {
+          setClientModalParams({ type: 'contact', clientId: config.selectedClient?.id, branchId: parentId || config.selectedBranch?.id, contactId: item.id, mode: 'edit' });
           return;
         }
         config.handleEdit(item, type, parentId);
@@ -95,6 +109,14 @@ const ConfigurationPage = ({ data, setData }) => {
         if (targetType === 'tecnico') {
           config.setViewLevel('tecnico-details');
           setClientModalParams({ id: `new-${Date.now()}`, type: 'tecnico', mode: 'edit', clientId: null });
+          return;
+        }
+        if (targetType === 'sucursal') {
+          setClientModalParams({ type: 'branch', clientId: config.selectedClient?.id, branchId: `S-${Date.now()}`, mode: 'edit' });
+          return;
+        }
+        if (targetType === 'contacto') {
+          setClientModalParams({ type: 'contact', clientId: config.selectedClient?.id, branchId: config.selectedBranch?.id, contactId: `C-${Date.now()}`, mode: 'edit' });
           return;
         }
         config.handleNew(type);

@@ -1,164 +1,73 @@
-import { Building2, Map, MapPin, Navigation2 } from 'lucide-react';
+import React from 'react';
+import { User, Building2 } from 'lucide-react';
+import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
-import FileUploader from '../ui/FileUploader';
-import Switch from '../ui/Switch';
 import NitInput from '../ui/NitInput';
-import SearchableSelect from '../ui/SearchableSelect';
-import { useState } from 'react';
-import { useLocationData } from '../../hooks/useLocationData';
-import { Country as CscCountry, State as CscState } from 'country-state-city';
+import Tabs from '../ui/Tabs';
+import { LocationPickerRows } from './LocationPickerRows';
 
-// Module-level — built once
-const ALL_COUNTRIES = CscCountry.getAllCountries().map(c => ({
-  value: c.isoCode,
-  label: c.name,
-  isoCode: c.isoCode,
-}));
-
-const FlagImg = ({ iso }) => iso ? (
-  <img
-    src={`https://flagcdn.com/w20/${iso.toLowerCase()}.png`}
-    width="20" height="15" alt="" loading="lazy"
-    className="rounded-sm object-cover"
-  />
-) : null;
-
-const formatCountryOption = ({ label, isoCode }) => (
-  <div className="flex items-center gap-2">
-    <FlagImg iso={isoCode} />
-    <span>{label}</span>
-  </div>
-);
-
-const ClienteForm = ({ editingItem, isViewMode }) => {
-  const [personType, setPersonType] = useState(editingItem?.tipoPersona || 'juridica');
-  const [rutFile, setRutFile]       = useState(null);
-  const [logoFile, setLogoFile]     = useState(null);
-  const [isActive, setIsActive]     = useState(editingItem ? editingItem.estado === 'activo' : true);
-  const [nit, setNit]               = useState(editingItem?.nit?.split('-')[0] || '');
-  const [dv, setDv]                 = useState(editingItem?.nit?.split('-')[1] || '');
-  const [location, setLocation]     = useState({
-    country: editingItem?.pais || 'CO',
-    state:   editingItem?.estado_depto || '',
-    city:    editingItem?.ciudad || '',
-  });
-  const [direccion, setDireccion]   = useState(editingItem?.direccion || '');
-
-  const { states, cities, handleCountryChange, handleStateChange, handleCityChange } =
-    useLocationData({ countryValue: location.country, stateValue: location.state, onLocationChange: setLocation });
-
+const ClientForm = ({
+  draft, updateDraft, errors, showErrors, isEditing, 
+  onSave, isSaving, activeTab, onTabChange
+}) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
-
-      {/* Row 1: Tipo de Persona | Razón Social */}
-      <Select
-        label="Tipo de Persona"
-        name="tipoPersona"
-        options={[
-          { value: 'natural',  label: 'Persona Natural' },
-          { value: 'juridica', label: 'Persona Jurídica' },
-        ]}
-        value={personType}
-        onChange={(e) => setPersonType(e.target.value)}
-        viewMode={isViewMode}
-        icon={Building2}
-      />
-
-      <Input
-        name="nombre"
-        label={personType === 'juridica' ? 'Razón Social' : 'Nombre Completo'}
-        icon={Building2}
-        defaultValue={editingItem?.nombre}
-        viewMode={isViewMode}
-        required
-        placeholder={personType === 'juridica' ? 'Ej: Empresa S.A.S' : 'Ej: Juan Pérez'}
-      />
-
-      {/* Row 2: NIT / RUT | Estado del Cliente */}
-      <NitInput
-        nitValue={nit}
-        dvValue={dv}
-        onNitChange={setNit}
-        onDvChange={setDv}
-        viewMode={isViewMode}
-        required
-      />
-      <input type="hidden" name="nit_numero" value={nit} />
-      <input type="hidden" name="dv" value={dv} />
-
-      <Switch
-        label="Estado del Cliente"
-        checked={isActive}
-        onChange={setIsActive}
-        viewMode={isViewMode}
-      />
-      <input type="hidden" name="estado" value={isActive ? 'activo' : 'inactivo'} />
-
-      {/* Row 3: País | Estado / Depto */}
-      <SearchableSelect
-        label="País"
-        options={ALL_COUNTRIES}
-        value={location.country}
-        onChange={handleCountryChange}
-        placeholder="Buscar país..."
-        formatOptionLabel={formatCountryOption}
-      />
-
-      <SearchableSelect
-        label="Estado / Depto"
-        icon={Map}
-        options={states}
-        value={location.state}
-        onChange={handleStateChange}
-        isDisabled={!location.country}
-        placeholder={location.country ? 'Buscar estado...' : 'Primero elige un país'}
-      />
-      <input type="hidden" name="pais" value={location.country} />
-      <input type="hidden" name="estado_depto" value={location.state} />
-
-      {/* Row 4: Ciudad | Dirección Física */}
-      <SearchableSelect
-        label="Ciudad"
-        icon={MapPin}
-        options={cities}
-        value={location.city}
-        onChange={handleCityChange}
-        isDisabled={!location.state}
-        placeholder={location.state ? 'Buscar ciudad...' : 'Primero elige un estado'}
-      />
-      <input type="hidden" name="ciudad" value={location.city} />
-
-      <Input
-        name="direccion"
-        label="Dirección Física"
-        icon={Navigation2}
-        value={direccion}
-        onChange={(e) => setDireccion(e.target.value)}
-        viewMode={isViewMode}
-        required
-      />
-
-      {/* Soporte Legal & Logo — responsive stack/grid */}
-      <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FileUploader
-          label="Soporte Legal (RUT)"
-          type="rut"
-          isLoaded={!!editingItem?.rutUrl || rutFile}
-          viewMode={isViewMode}
-          onLoad={() => setRutFile(true)}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <Tabs 
+          tabs={[{key:'details', label:'Detalles generales'}, {key:'branches', label:'Sucursales'}]} 
+          active={activeTab} 
+          onChange={onTabChange} 
         />
-        <FileUploader
-          label="Logo del Cliente"
-          type="logo"
-          isLoaded={!!editingItem?.logoUrl || logoFile}
-          viewMode={isViewMode}
-          onLoad={() => setLogoFile(true)}
+        {isEditing && (
+          <Button onClick={onSave} disabled={isSaving}>
+            {isSaving ? 'Guardando...' : 'Guardar'}
+          </Button>
+        )}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Select 
+          label="Tipo de Persona" 
+          value={draft.tipoPersona} 
+          onChange={e => updateDraft({tipoPersona: e.target.value})} 
+          options={[{value:'natural', label:'Persona Natural'}, {value:'juridica', label:'Persona Jurídica'}]} 
+          viewMode={!isEditing} 
+          icon={User} 
+          required 
+        />
+        <Input 
+          label="Nombre / Razón Social" 
+          value={draft.nombre} 
+          onChange={e => updateDraft({nombre: e.target.value})} 
+          error={showErrors ? errors.nombre : null} 
+          viewMode={!isEditing} 
+          icon={Building2} 
+          required 
+        />
+        <NitInput 
+          label="NIT / RUT" 
+          nitValue={draft.nit} 
+          dvValue={draft.dv} 
+          onNitChange={v => updateDraft({nit: v})} 
+          onDvChange={v => updateDraft({dv: v})} 
+          error={showErrors ? (errors.nit || errors.dv) : null} 
+          viewMode={!isEditing} 
+          required 
+        />
+        <LocationPickerRows 
+          countryValue={draft.pais} 
+          stateValue={draft.estado_depto} 
+          cityValue={draft.ciudad} 
+          direccion={draft.direccion} 
+          onLocationChange={l => updateDraft({pais: l.country, estado_depto: l.state, ciudad: l.city})} 
+          onDireccionChange={v => updateDraft({direccion: v})} 
+          direccionError={showErrors ? errors.direccion : null} 
+          viewMode={!isEditing} 
+          required 
         />
       </div>
-
     </div>
   );
 };
 
-export default ClienteForm;
+export default ClientForm;
