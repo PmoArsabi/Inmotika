@@ -35,6 +35,9 @@ export const INITIAL_DATA = {
       ciudad: "Bogotá", 
       telefono: "601-5550000", 
       email: "infraestructura@banconacional.com",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Oficinas",
       sucursales: [
         {
           id: "S-101",
@@ -109,6 +112,9 @@ export const INITIAL_DATA = {
       ciudad: "Medellín", 
       telefono: "604-4441122", 
       email: "mantenimiento@elexito.com",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Retail",
       sucursales: [
         {
           id: "S-201",
@@ -141,6 +147,610 @@ export const INITIAL_DATA = {
           contactos: [
             { id: "C-11", nombre: "Mauricio Velez", celular: "3156667788", email: "mvelez@elexito.com", cargo: "Supervisor Nocturno" },
             { id: "C-12", nombre: "Claudia Ortiz", celular: "3209998877", email: "cortiz@elexito.com", cargo: "Auditora de Seguridad" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 3, 
+      nombre: "Universidad Nacional de Colombia", 
+      nit: "899.999.034-4", 
+      direccion: "Carrera 30 #45-03", 
+      ciudad: "Bogotá", 
+      telefono: "601-3165000", 
+      email: "infraestructura@unal.edu.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Universidad",
+      sucursales: [
+        {
+          id: "S-301",
+          nombre: "Sede Bogotá",
+          ciudad: "Bogotá",
+          direccion: "Carrera 30 #45-03",
+          telefono: "601-3165000",
+          contactos: [
+            { id: "C-13", nombre: "María González", celular: "3001112233", email: "mgonzalez@unal.edu.co", cargo: "Directora de Infraestructura" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 4, 
+      nombre: "Edificio Torre Empresarial", 
+      nit: "830.123.456-7", 
+      direccion: "Calle 72 #10-20", 
+      ciudad: "Bogotá", 
+      telefono: "601-3456789", 
+      email: "administracion@torreempresarial.com",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Oficinas",
+      sucursales: [
+        {
+          id: "S-401",
+          nombre: "Torre Principal",
+          ciudad: "Bogotá",
+          direccion: "Calle 72 #10-20",
+          telefono: "601-3456789",
+          contactos: [
+            { id: "C-14", nombre: "Roberto Sánchez", celular: "3105556677", email: "rsanchez@torreempresarial.com", cargo: "Administrador" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 5, 
+      nombre: "Universidad de los Andes", 
+      nit: "860.007.538-1", 
+      direccion: "Carrera 1 #18A-12", 
+      ciudad: "Bogotá", 
+      telefono: "601-3394949", 
+      email: "seguridad@uniandes.edu.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Universidad",
+      sucursales: [
+        {
+          id: "S-501",
+          nombre: "Campus Principal",
+          ciudad: "Bogotá",
+          direccion: "Carrera 1 #18A-12",
+          telefono: "601-3394949",
+          contactos: [
+            { id: "C-15", nombre: "Luis Fernando Ramírez", celular: "3001234567", email: "lframirez@uniandes.edu.co", cargo: "Director de Seguridad" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 6, 
+      nombre: "Centro Comercial Santafé", 
+      nit: "830.124.567-8", 
+      direccion: "Carrera 43A #7 Sur-170", 
+      ciudad: "Medellín", 
+      telefono: "604-4441234", 
+      email: "seguridad@santafe.com.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Retail",
+      sucursales: [
+        {
+          id: "S-601",
+          nombre: "Sede Principal",
+          ciudad: "Medellín",
+          direccion: "Carrera 43A #7 Sur-170",
+          telefono: "604-4441234",
+          contactos: [
+            { id: "C-16", nombre: "Ana María Vélez", celular: "3109876543", email: "amvelez@santafe.com.co", cargo: "Gerente de Seguridad" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 7, 
+      nombre: "Hospital San Ignacio", 
+      nit: "860.001.234-5", 
+      direccion: "Carrera 7 #40-62", 
+      ciudad: "Bogotá", 
+      telefono: "601-5946161", 
+      email: "tecnologia@hospitalsanignacio.org",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Salud",
+      sucursales: [
+        {
+          id: "S-701",
+          nombre: "Sede Principal",
+          ciudad: "Bogotá",
+          direccion: "Carrera 7 #40-62",
+          telefono: "601-5946161",
+          contactos: [
+            { id: "C-17", nombre: "Dr. Carlos Mendoza", celular: "3151234567", email: "cmendoza@hospitalsanignacio.org", cargo: "Director de Tecnología" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 8, 
+      nombre: "Torre Colpatria", 
+      nit: "860.002.345-6", 
+      direccion: "Carrera 7 #24-89", 
+      ciudad: "Bogotá", 
+      telefono: "601-2345678", 
+      email: "administracion@torrecolpatria.com",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Oficinas",
+      sucursales: [
+        {
+          id: "S-801",
+          nombre: "Torre Principal",
+          ciudad: "Bogotá",
+          direccion: "Carrera 7 #24-89",
+          telefono: "601-2345678",
+          contactos: [
+            { id: "C-18", nombre: "Patricia Gómez", celular: "3202345678", email: "pgomez@torrecolpatria.com", cargo: "Administradora" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 9, 
+      nombre: "Universidad EAFIT", 
+      nit: "890.900.608-1", 
+      direccion: "Carrera 49 #7 Sur-50", 
+      ciudad: "Medellín", 
+      telefono: "604-2619500", 
+      email: "infraestructura@eafit.edu.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Universidad",
+      sucursales: [
+        {
+          id: "S-901",
+          nombre: "Campus Principal",
+          ciudad: "Medellín",
+          direccion: "Carrera 49 #7 Sur-50",
+          telefono: "604-2619500",
+          contactos: [
+            { id: "C-19", nombre: "Jorge Iván Cárdenas", celular: "3003456789", email: "jicardenas@eafit.edu.co", cargo: "Director de Infraestructura" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 10, 
+      nombre: "Almacenes Éxito", 
+      nit: "890.900.234-1", 
+      direccion: "Carrera 48 #26-50", 
+      ciudad: "Medellín", 
+      telefono: "604-4445678", 
+      email: "seguridad@almacenesexito.com",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Retail",
+      sucursales: [
+        {
+          id: "S-1001",
+          nombre: "Sede Principal",
+          ciudad: "Medellín",
+          direccion: "Carrera 48 #26-50",
+          telefono: "604-4445678",
+          contactos: [
+            { id: "C-20", nombre: "Ricardo Mejía", celular: "3104567890", email: "rmejia@almacenesexito.com", cargo: "Gerente de Seguridad" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 11, 
+      nombre: "Edificio Avianca", 
+      nit: "860.003.456-7", 
+      direccion: "Carrera 7 #32-33", 
+      ciudad: "Bogotá", 
+      telefono: "601-3456789", 
+      email: "admin@edificioavianca.com",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Oficinas",
+      sucursales: [
+        {
+          id: "S-1101",
+          nombre: "Torre Principal",
+          ciudad: "Bogotá",
+          direccion: "Carrera 7 #32-33",
+          telefono: "601-3456789",
+          contactos: [
+            { id: "C-21", nombre: "Sandra Milena López", celular: "3155678901", email: "smlopez@edificioavianca.com", cargo: "Administradora" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 12, 
+      nombre: "Universidad Javeriana", 
+      nit: "860.004.567-8", 
+      direccion: "Carrera 7 #40-62", 
+      ciudad: "Bogotá", 
+      telefono: "601-3208320", 
+      email: "seguridad@javeriana.edu.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Universidad",
+      sucursales: [
+        {
+          id: "S-1201",
+          nombre: "Campus Principal",
+          ciudad: "Bogotá",
+          direccion: "Carrera 7 #40-62",
+          telefono: "601-3208320",
+          contactos: [
+            { id: "C-22", nombre: "Fernando Castro", celular: "3006789012", email: "fcastro@javeriana.edu.co", cargo: "Director de Seguridad" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 13, 
+      nombre: "Centro Comercial Andino", 
+      nit: "830.125.678-9", 
+      direccion: "Carrera 11 #82-71", 
+      ciudad: "Bogotá", 
+      telefono: "601-6212929", 
+      email: "seguridad@andino.com.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Retail",
+      sucursales: [
+        {
+          id: "S-1301",
+          nombre: "Sede Principal",
+          ciudad: "Bogotá",
+          direccion: "Carrera 11 #82-71",
+          telefono: "601-6212929",
+          contactos: [
+            { id: "C-23", nombre: "María Fernanda Torres", celular: "3107890123", email: "mftorres@andino.com.co", cargo: "Gerente de Seguridad" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 14, 
+      nombre: "Torre del Reloj", 
+      nit: "860.005.678-9", 
+      direccion: "Carrera 13 #93-47", 
+      ciudad: "Bogotá", 
+      telefono: "601-3457890", 
+      email: "admin@torredelreloj.com",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Oficinas",
+      sucursales: [
+        {
+          id: "S-1401",
+          nombre: "Torre Principal",
+          ciudad: "Bogotá",
+          direccion: "Carrera 13 #93-47",
+          telefono: "601-3457890",
+          contactos: [
+            { id: "C-24", nombre: "Andrés Felipe Rojas", celular: "3158901234", email: "afrojas@torredelreloj.com", cargo: "Administrador" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 15, 
+      nombre: "Universidad del Valle", 
+      nit: "890.901.345-2", 
+      direccion: "Calle 13 #100-00", 
+      ciudad: "Cali", 
+      telefono: "602-3212100", 
+      email: "infraestructura@univalle.edu.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Universidad",
+      sucursales: [
+        {
+          id: "S-1501",
+          nombre: "Campus Principal",
+          ciudad: "Cali",
+          direccion: "Calle 13 #100-00",
+          telefono: "602-3212100",
+          contactos: [
+            { id: "C-25", nombre: "Luz Marina Herrera", celular: "3009012345", email: "lmherrera@univalle.edu.co", cargo: "Directora de Infraestructura" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 16, 
+      nombre: "Hospital Universitario San Vicente", 
+      nit: "860.006.789-0", 
+      direccion: "Calle 64 #33-139", 
+      ciudad: "Medellín", 
+      telefono: "604-4444444", 
+      email: "tecnologia@husvp.org.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Salud",
+      sucursales: [
+        {
+          id: "S-1601",
+          nombre: "Sede Principal",
+          ciudad: "Medellín",
+          direccion: "Calle 64 #33-139",
+          telefono: "604-4444444",
+          contactos: [
+            { id: "C-26", nombre: "Dr. Juan Carlos Ospina", celular: "3100123456", email: "jospina@husvp.org.co", cargo: "Director de Tecnología" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 17, 
+      nombre: "Edificio Seguros Bolívar", 
+      nit: "860.007.890-1", 
+      direccion: "Carrera 7 #32-33", 
+      ciudad: "Bogotá", 
+      telefono: "601-2348901", 
+      email: "administracion@edificiosegurosbolivar.com",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Oficinas",
+      sucursales: [
+        {
+          id: "S-1701",
+          nombre: "Torre Principal",
+          ciudad: "Bogotá",
+          direccion: "Carrera 7 #32-33",
+          telefono: "601-2348901",
+          contactos: [
+            { id: "C-27", nombre: "Claudia Patricia Muñoz", celular: "3151234567", email: "cpmunoz@edificiosegurosbolivar.com", cargo: "Administradora" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 18, 
+      nombre: "Centro Comercial Unicentro", 
+      nit: "830.126.789-0", 
+      direccion: "Avenida 15 #124-30", 
+      ciudad: "Bogotá", 
+      telefono: "601-2134567", 
+      email: "seguridad@unicentro.com.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Retail",
+      sucursales: [
+        {
+          id: "S-1801",
+          nombre: "Sede Principal",
+          ciudad: "Bogotá",
+          direccion: "Avenida 15 #124-30",
+          telefono: "601-2134567",
+          contactos: [
+            { id: "C-28", nombre: "Diego Armando Quintero", celular: "3202345678", email: "daquintero@unicentro.com.co", cargo: "Gerente de Seguridad" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 19, 
+      nombre: "Universidad Pontificia Bolivariana", 
+      nit: "890.902.456-3", 
+      direccion: "Circular 1 #70-01", 
+      ciudad: "Medellín", 
+      telefono: "604-4159015", 
+      email: "infraestructura@upb.edu.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Universidad",
+      sucursales: [
+        {
+          id: "S-1901",
+          nombre: "Campus Principal",
+          ciudad: "El Encanto",
+          direccion: "Circular 1 #70-01",
+          telefono: "604-4159015",
+          pais: "CO",
+          estado_depto: "ANT",
+          estatus: "activo",
+          clasificacion: "principal",
+          contactos: [
+            { id: "C-29", nombre: "Carlos Alberto Zapata", celular: "3003456789", email: "cazapata@upb.edu.co", cargo: "Director de Infraestructura" }
+          ]
+        },
+        {
+          id: "S-1902",
+          nombre: "Sede Laureles",
+          ciudad: "Medellín",
+          direccion: "Calle 70 #52-21",
+          telefono: "604-4159016",
+          pais: "CO",
+          estado_depto: "ANT",
+          estatus: "activo",
+          clasificacion: "secundaria",
+          contactos: []
+        },
+        {
+          id: "S-1903",
+          nombre: "Sede El Poblado",
+          ciudad: "Medellín",
+          direccion: "Carrera 43A #1 Sur-50",
+          telefono: "604-4159017",
+          pais: "CO",
+          estado_depto: "ANT",
+          estatus: "activo",
+          clasificacion: "secundaria",
+          contactos: []
+        },
+        {
+          id: "S-1904",
+          nombre: "Sede Belén",
+          ciudad: "Medellín",
+          direccion: "Calle 30 #79-51",
+          telefono: "604-4159018",
+          pais: "CO",
+          estado_depto: "ANT",
+          estatus: "activo",
+          clasificacion: "secundaria",
+          contactos: []
+        },
+        {
+          id: "S-1905",
+          nombre: "Sede Bello",
+          ciudad: "Bello",
+          direccion: "Carrera 50 #45-30",
+          telefono: "604-4159019",
+          pais: "CO",
+          estado_depto: "ANT",
+          estatus: "activo",
+          clasificacion: "secundaria",
+          contactos: []
+        },
+        {
+          id: "S-1906",
+          nombre: "Sede Envigado",
+          ciudad: "Envigado",
+          direccion: "Calle 48 Sur #43-55",
+          telefono: "604-4159020",
+          pais: "CO",
+          estado_depto: "ANT",
+          estatus: "activo",
+          clasificacion: "secundaria",
+          contactos: []
+        },
+        {
+          id: "S-1907",
+          nombre: "Sede Itagüí",
+          ciudad: "Itagüí",
+          direccion: "Carrera 50 #51-20",
+          telefono: "604-4159021",
+          pais: "CO",
+          estado_depto: "ANT",
+          estatus: "activo",
+          clasificacion: "secundaria",
+          contactos: []
+        }
+      ]
+    },
+    { 
+      id: 20, 
+      nombre: "Torre WTC", 
+      nit: "860.008.901-2", 
+      direccion: "Carrera 7 #26-20", 
+      ciudad: "Bogotá", 
+      telefono: "601-3459012", 
+      email: "admin@torrewtc.com",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Oficinas",
+      sucursales: [
+        {
+          id: "S-2001",
+          nombre: "Torre Principal",
+          ciudad: "Bogotá",
+          direccion: "Carrera 7 #26-20",
+          telefono: "601-3459012",
+          contactos: [
+            { id: "C-30", nombre: "Mónica Patricia Giraldo", celular: "3154567890", email: "mpgiraldo@torrewtc.com", cargo: "Administradora" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 21, 
+      nombre: "Hospital Pablo Tobón Uribe", 
+      nit: "860.009.012-3", 
+      direccion: "Calle 78B #69-240", 
+      ciudad: "Medellín", 
+      telefono: "604-4459000", 
+      email: "tecnologia@hptu.org.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Salud",
+      sucursales: [
+        {
+          id: "S-2101",
+          nombre: "Sede Principal",
+          ciudad: "Medellín",
+          direccion: "Calle 78B #69-240",
+          telefono: "604-4459000",
+          contactos: [
+            { id: "C-31", nombre: "Dr. Luis Fernando Montoya", celular: "3105678901", email: "lfmontoya@hptu.org.co", cargo: "Director de Tecnología" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 22, 
+      nombre: "Centro Comercial Gran Estación", 
+      nit: "830.127.890-1", 
+      direccion: "Avenida Calle 26 #62-47", 
+      ciudad: "Bogotá", 
+      telefono: "601-4234567", 
+      email: "seguridad@granestacion.com.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Retail",
+      sucursales: [
+        {
+          id: "S-2201",
+          nombre: "Sede Principal",
+          ciudad: "Bogotá",
+          direccion: "Avenida Calle 26 #62-47",
+          telefono: "601-4234567",
+          contactos: [
+            { id: "C-32", nombre: "Jorge Mario Restrepo", celular: "3206789012", email: "jmrestrepo@granestacion.com.co", cargo: "Gerente de Seguridad" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 23, 
+      nombre: "Universidad ICESI", 
+      nit: "890.903.567-4", 
+      direccion: "Calle 18 #122-135", 
+      ciudad: "Cali", 
+      telefono: "602-5552334", 
+      email: "infraestructura@icesi.edu.co",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Universidad",
+      sucursales: [
+        {
+          id: "S-2301",
+          nombre: "Campus Principal",
+          ciudad: "Cali",
+          direccion: "Calle 18 #122-135",
+          telefono: "602-5552334",
+          contactos: [
+            { id: "C-33", nombre: "Ana Lucía Velásquez", celular: "3007890123", email: "alvelasquez@icesi.edu.co", cargo: "Directora de Infraestructura" }
+          ]
+        }
+      ]
+    },
+    { 
+      id: 24, 
+      nombre: "Edificio Bancolombia", 
+      nit: "860.010.123-4", 
+      direccion: "Carrera 48 #26-85", 
+      ciudad: "Medellín", 
+      telefono: "604-5109000", 
+      email: "admin@edificiobancolombia.com",
+      pais: "CO",
+      tipoPersona: "juridica",
+      tipoNegocio: "Oficinas",
+      sucursales: [
+        {
+          id: "S-2401",
+          nombre: "Torre Principal",
+          ciudad: "Medellín",
+          direccion: "Carrera 48 #26-85",
+          telefono: "604-5109000",
+          contactos: [
+            { id: "C-34", nombre: "Ricardo Andrés Mejía", celular: "3158901234", email: "ramejia@edificiobancolombia.com", cargo: "Administrador" }
           ]
         }
       ]

@@ -22,10 +22,9 @@ import { useLocationData } from '../../hooks/useLocationData';
 import Breadcrumbs from './Breadcrumbs';
 import Tabs from '../ui/Tabs';
 
-import ClientForm from '../forms/ClientForm';
-import BranchForm from '../forms/BranchForm';
-import ContactForm from '../forms/ContactForm';
-import DeviceForm from '../forms/DeviceForm';
+import ClientForm from './Client/ClientForm';
+import ContactForm from '../Contact/ContactForm';
+import DeviceForm from '../Device/DeviceForm';
 import TechnicianForm from '../forms/TechnicianForm';
 
 import { 
@@ -191,6 +190,19 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
   const [drafts, setDrafts] = useState(() => loadDraftsFromStorage());
   const [showErrors, setShowErrors] = useState(false);
   const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [savedClientId, setSavedClientId] = useState(null);
+  const [branchSuccessInfo, setBranchSuccessInfo] = useState(null); // { clientId, branchId }
+  const [editingBranchId, setEditingBranchId] = useState(null); // ID de la sucursal que se está editando
+  const [creatingNewBranch, setCreatingNewBranch] = useState(false); // Indica si se está creando una nueva sucursal
+  const [associateContactsModal, setAssociateContactsModal] = useState(null); // { branchKey, clientId }
+  const [associateContactsSearch, setAssociateContactsSearch] = useState('');
+  const [associateContactsSelected, setAssociateContactsSelected] = useState([]);
+  const [associateSuccess, setAssociateSuccess] = useState(false);
+  const [associateDevicesModal, setAssociateDevicesModal] = useState(null); // { branchKey, clientId }
+  const [associateDevicesSearch, setAssociateDevicesSearch] = useState('');
+  const [associateDevicesSelected, setAssociateDevicesSelected] = useState([]);
+  const [contactSuccessInfo, setContactSuccessInfo] = useState(null); // { clientId, branchId }
   const [confirmState, setConfirmState] = useState({ isOpen: false, payload: null, isLoading: false });
   const [pagination, setPagination] = useState({});
   const [tabLoading, setTabLoading] = useState({});
@@ -215,6 +227,20 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
           return tec ? { ...emptyTecnicoDraft(), ...tec } : emptyTecnicoDraft();
         });
         setStack([{ type: 'tecnico', clientId: tId, mode: openParams.mode || 'view' }]);
+      } else if (openParams.type === 'contact') {
+        const contactId = openParams.contactId || openParams.id || `C-${Date.now()}`;
+        const clientId = openParams.clientId || null;
+        const branchId = openParams.branchId || null;
+        ensureDraft(entityKey('contact', contactId), () => {
+          if (clientId && branchId) {
+            const client = data.clientes?.find(c => String(c.id) === String(clientId));
+            const branch = client?.sucursales?.find(s => String(s.id) === String(branchId));
+            const contact = branch?.contactos?.find(ct => String(ct.id) === String(contactId));
+            return contact ? toContactDraft(contact) : emptyContactDraft();
+          }
+          return emptyContactDraft();
+        });
+        setStack([{ type: 'contact', clientId, branchId, contactId, mode: openParams.mode || 'edit' }]);
       } else {
         const cId = openParams.clientId || openParams.id;
         ensureDraft(entityKey('cliente', cId), () => toClientDraft(data.clientes?.find(c => String(c.id) === String(cId))));
@@ -269,12 +295,150 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
       if (hasErrors) return;
       setSaveState({ isSaving: true, savedAt: null });
       await new Promise(r => setTimeout(r, 400));
-      setData(prev => applyClientUpdate(prev, route.clientId, { ...draft, nit: `${draft.nit}-${draft.dv}` }));
+      
+      // Guardar los datos
+      const savedData = { ...draft, nit: `${draft.nit}-${draft.dv}`, id: route.clientId };
+      setData(prev => applyClientUpdate(prev, route.clientId, savedData));
+      
+      // Actualizar el draft con los datos guardados para que se reflejen en la vista
+      const updatedDraft = toClientDraft(savedData);
+      setDrafts(prev => ({ ...prev, [key]: updatedDraft }));
+      
       setSaveState({ isSaving: false, savedAt: Date.now() });
-      setStack(prev => prev.map((s, idx) => idx === prev.length -1 ? { ...s, mode: 'view' } : s));
+      setSavedClientId(route.clientId);
+      setShowSuccessModal(true);
     };
 
-    if (route.activeTab === 'branches') return renderClientBranches();
+    const handleNewBranch = () => {
+      // Limpiar cualquier edición en curso
+      setEditingBranchId(null);
+      // Crear un nuevo draft para la nueva sucursal
+      const newBranchKey = entityKey('branch', `new-${route.clientId}`);
+      ensureDraft(newBranchKey, () => emptyBranchDraft());
+      // Activar el modo de creación
+      setCreatingNewBranch(true);
+      // Cambiar al tab de branches si no está ya ahí
+      if (route.activeTab !== 'branches') {
+        setStack(p => p.map((r, i) => i === p.length - 1 ? {...r, activeTab: 'branches'} : r));
+      }
+    };
+
+    const handleEditBranch = (branch) => {
+      // Establecer el estado de edición y crear un draft para editar
+      const editBranchKey = entityKey('branch', `edit-${branch.id}`);
+      ensureDraft(editBranchKey, () => {
+        const branchDraft = toBranchDraft(branch);
+        // Incluir los IDs de contactos y dispositivos asociados
+        return {
+          ...branchDraft,
+          associatedContactIds: (branch.contactos || []).map(c => String(c.id)),
+          associatedDeviceIds: (data?.dispositivos || []).filter(d => 
+            String(d.branchId) === String(branch.id)
+          ).map(d => String(d.id))
+        };
+      });
+      setEditingBranchId(branch.id);
+      // Cambiar al tab de branches si no está ya ahí
+      if (route.activeTab !== 'branches') {
+        setStack(p => p.map((r, i) => i === p.length - 1 ? {...r, activeTab: 'branches'} : r));
+      }
+    };
+
+    const handleViewBranch = (branch) => {
+      // Cuando se hace clic en una sucursal desde el formulario de cliente,
+      // abrir el formulario de edición en lugar de navegar a una vista separada
+      if (isEditing) {
+        handleEditBranch(branch);
+      } else {
+        ensureDraft(entityKey('branch', branch.id), () => toBranchDraft(branch));
+        setStack(p => [...p, { type: 'branch', clientId: route.clientId, branchId: branch.id, mode: 'view', activeTab: 'details' }]);
+      }
+    };
+
+    // Crear un draft temporal para la nueva sucursal
+    // Se muestra si: no hay sucursales, o si se está creando una nueva (creatingNewBranch), o si se está editando
+    const hasBranches = (client?.sucursales || []).length > 0 ||
+      (branchSuccessInfo && String(branchSuccessInfo.clientId) === String(route.clientId));
+    const newBranchKey = entityKey('branch', `new-${route.clientId}`);
+    // Mostrar el formulario si no hay sucursales, o si se está creando una nueva, o si se está editando
+    const shouldShowNewBranchForm = (!hasBranches && !branchSuccessInfo) || creatingNewBranch;
+    const newBranchDraft = (shouldShowNewBranchForm && !editingBranchId) ? (drafts[newBranchKey] || emptyBranchDraft()) : null;
+    
+    // Si estamos editando una sucursal, usar ese draft
+    const editBranchKey = editingBranchId ? entityKey('branch', `edit-${editingBranchId}`) : null;
+    const editingBranchDraft = editingBranchId ? (drafts[editBranchKey] || null) : null;
+    
+    // El draft activo es el de edición si existe, sino el de nueva sucursal
+    const activeBranchDraft = editingBranchDraft || newBranchDraft;
+    const activeBranchKey = editingBranchId ? editBranchKey : newBranchKey;
+    const activeBranchErrors = activeBranchDraft ? validateBranch(activeBranchDraft) : {};
+    
+    const handleSaveNewBranch = async () => {
+      if (!activeBranchDraft) return;
+      setShowErrors(true);
+      if (Object.keys(activeBranchErrors).length > 0) return;
+      setSaveState({ isSaving: true, savedAt: null });
+      await new Promise(r => setTimeout(r, 400));
+      
+      if (editingBranchId) {
+        // Guardar cambios de la sucursal editada
+        setData(prev => applyBranchUpsert(prev, route.clientId, editingBranchId, activeBranchDraft));
+        setDrafts(prev => {
+          const updated = { ...prev };
+          delete updated[activeBranchKey];
+          return updated;
+        });
+        setEditingBranchId(null);
+      } else {
+        // Crear nueva sucursal
+        const newId = `S-${Date.now()}`;
+        setData(prev => applyBranchUpsert(prev, route.clientId, newId, activeBranchDraft));
+        setDrafts(prev => {
+          const updated = { ...prev };
+          delete updated[activeBranchKey];
+          return updated;
+        });
+        setBranchSuccessInfo({ clientId: route.clientId, branchId: newId });
+        setCreatingNewBranch(false); // Desactivar el modo de creación
+      }
+      
+      setSaveState({ isSaving: false, savedAt: Date.now() });
+    };
+
+    const handleOpenAssociateContacts = () => {
+      if (!activeBranchDraft) return;
+      // Inicializamos la selección con lo que ya tenga el borrador
+      const currentIds = activeBranchDraft.associatedContactIds || [];
+      setAssociateContactsSelected(currentIds);
+      setAssociateContactsSearch('');
+      setAssociateContactsModal({ branchKey: activeBranchKey, clientId: route.clientId });
+    };
+
+    const handleOpenAssociateDevices = () => {
+      if (!activeBranchDraft) return;
+      const currentIds = activeBranchDraft.associatedDeviceIds || [];
+      setAssociateDevicesSelected(currentIds);
+      setAssociateDevicesSearch('');
+      setAssociateDevicesModal({ branchKey: activeBranchKey, clientId: route.clientId });
+    };
+
+    // Calcular contadores dinámicamente
+    // Si estamos creando o editando una sucursal, mostrar los valores de esa sucursal
+    // Si no, mostrar los valores del cliente completo
+    const isEditingBranch = activeBranchDraft !== null;
+    const totalSucursales = isEditingBranch && !editingBranchId
+      ? (client?.sucursales || []).length + 1 // +1 porque estamos creando una nueva
+      : (client?.sucursales || []).length;
+    const totalContactos = isEditingBranch
+      ? (activeBranchDraft?.associatedContactIds || []).length
+      : (client?.sucursales || []).reduce((acc, branch) => {
+          return acc + (branch.contactos || []).length;
+        }, 0);
+    const totalDispositivos = isEditingBranch
+      ? (activeBranchDraft?.associatedDeviceIds || []).length
+      : (data?.dispositivos || []).filter(d => 
+          String(d.clientId) === String(route.clientId)
+        ).length;
 
     return (
       <ClientForm
@@ -287,6 +451,31 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
         isSaving={saveState.isSaving}
         activeTab={route.activeTab}
         onTabChange={(k) => setStack(p => p.map((r, i) => i === p.length-1 ? {...r, activeTab: k} : r))}
+        branches={client?.sucursales || []}
+        onNewBranch={handleNewBranch}
+        onEditBranch={handleEditBranch}
+        onViewBranch={handleViewBranch}
+        newBranchDraft={activeBranchDraft}
+        updateNewBranchDraft={(patch) => updateDraft(activeBranchKey, patch)}
+        newBranchErrors={activeBranchErrors}
+        onSaveNewBranch={handleSaveNewBranch}
+        editingBranchId={editingBranchId}
+        onCancelEdit={() => {
+          setEditingBranchId(null);
+          setCreatingNewBranch(false);
+          if (activeBranchKey) {
+            setDrafts(prev => {
+              const updated = { ...prev };
+              delete updated[activeBranchKey];
+              return updated;
+            });
+          }
+        }}
+        onAssociateContacts={handleOpenAssociateContacts}
+        onAssociateDevices={handleOpenAssociateDevices}
+        totalSucursales={totalSucursales}
+        totalContactos={totalContactos}
+        totalDispositivos={totalDispositivos}
       />
     );
   };
@@ -327,41 +516,6 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
           </Table>
         </Card>
       </div>
-    );
-  };
-
-  const renderBranchForm = () => {
-    const key = entityKey('branch', route.branchId);
-    const draft = drafts[key] || emptyBranchDraft();
-    const errors = validateBranch(draft);
-    const hasErrors = Object.keys(errors).length > 0;
-    const isEditing = route.mode === 'edit';
-
-    const handleSave = async () => {
-      setShowErrors(true);
-      if (hasErrors) return;
-      setSaveState({ isSaving: true, savedAt: null });
-      await new Promise(r => setTimeout(r, 400));
-      setData(prev => applyBranchUpsert(prev, route.clientId, route.branchId, draft));
-      setSaveState({ isSaving: false, savedAt: Date.now() });
-      setStack(prev => prev.map((s, idx) => idx === prev.length -1 ? { ...s, mode: 'view' } : s));
-    };
-
-    if (route.activeTab === 'contacts') return renderBranchContacts();
-    if (route.activeTab === 'devices') return renderBranchDevices();
-
-    return (
-      <BranchForm
-        draft={draft}
-        updateDraft={(patch) => updateDraft(key, patch)}
-        errors={errors}
-        showErrors={showErrors}
-        isEditing={isEditing}
-        onSave={handleSave}
-        isSaving={saveState.isSaving}
-        activeTab={route.activeTab}
-        onTabChange={(k) => setStack(p => p.map((r, i) => i === p.length-1 ? {...r, activeTab: k} : r))}
-      />
     );
   };
 
@@ -452,8 +606,33 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
     const errors = validateContact(draft);
     const hasErrors = Object.keys(errors).length > 0;
     const isEditing = route.mode === 'edit';
+    const needsClientSelection = !route.clientId;
+    const needsBranchSelection = route.clientId && !route.branchId;
+    const selectedClient = route.clientId ? client : null;
+    const selectedBranch = route.branchId ? branch : null;
+    const availableBranches = selectedClient?.sucursales || [];
+
+    const handleClientChange = (clientId) => {
+      setStack(prev => prev.map((s, idx) => 
+        idx === prev.length - 1 
+          ? { ...s, clientId, branchId: null } 
+          : s
+      ));
+    };
+
+    const handleBranchChange = (branchId) => {
+      setStack(prev => prev.map((s, idx) => 
+        idx === prev.length - 1 
+          ? { ...s, branchId } 
+          : s
+      ));
+    };
 
     const handleSave = async () => {
+      if (!route.clientId || !route.branchId) {
+        setShowErrors(true);
+        return;
+      }
       setShowErrors(true);
       if (hasErrors) return;
       setSaveState({ isSaving: true, savedAt: null });
@@ -461,18 +640,88 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
       setData(prev => applyContactUpsert(prev, route.clientId, route.branchId, route.contactId, draft));
       setSaveState({ isSaving: false, savedAt: Date.now() });
       setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view' } : s));
+      setContactSuccessInfo({ clientId: route.clientId, branchId: route.branchId });
     };
 
     return (
-      <ContactForm
-        draft={draft}
-        updateDraft={(patch) => updateDraft(key, patch)}
-        errors={errors}
-        showErrors={showErrors}
-        isEditing={isEditing}
-        onSave={handleSave}
-        isSaving={saveState.isSaving}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        {/* Columna izquierda - resumen cliente/sucursal o selectores */}
+        <div className="lg:col-span-1">
+          <Card className="p-6 space-y-4 h-full">
+            {needsClientSelection ? (
+              <div className="space-y-4">
+                <Select
+                  label="Cliente*"
+                  value={route.clientId || ''}
+                  onChange={(e) => handleClientChange(e.target.value || null)}
+                  options={[
+                    { value: '', label: 'Seleccionar cliente...' },
+                    ...(data.clientes || []).map(c => ({ value: String(c.id), label: c.nombre }))
+                  ]}
+                  required
+                />
+                {showErrors && !route.clientId && (
+                  <TextSmall className="text-red-500">Debe seleccionar un cliente</TextSmall>
+                )}
+              </div>
+            ) : (
+              <>
+                <Subtitle className="text-gray-700">Cliente</Subtitle>
+                <TextSmall className="text-gray-900 font-semibold">
+                  {selectedClient?.nombre || 'Sin nombre'}
+                </TextSmall>
+                {needsBranchSelection ? (
+                  <div className="mt-4 space-y-4">
+                    <Select
+                      label="Sucursal*"
+                      value={route.branchId || ''}
+                      onChange={(e) => handleBranchChange(e.target.value || null)}
+                      options={[
+                        { value: '', label: 'Seleccionar sucursal...' },
+                        ...availableBranches.map(b => ({ value: String(b.id), label: b.nombre }))
+                      ]}
+                      required
+                    />
+                    {showErrors && !route.branchId && (
+                      <TextSmall className="text-red-500">Debe seleccionar una sucursal</TextSmall>
+                    )}
+                  </div>
+                ) : selectedBranch && (
+                  <div className="mt-4 space-y-1">
+                    <Subtitle className="text-gray-700">Sucursal</Subtitle>
+                    <TextSmall className="text-gray-900 font-semibold">
+                      {selectedBranch.nombre}
+                    </TextSmall>
+                    {selectedBranch.ciudad && (
+                      <TextSmall className="text-gray-500">
+                        {selectedBranch.ciudad}
+                      </TextSmall>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </Card>
+        </div>
+
+        {/* Columna derecha - Formulario de contacto */}
+        <div className="lg:col-span-2">
+          <Card className="p-6 h-full flex flex-col">
+            <div className="space-y-6 flex-1 flex flex-col">
+              {/* Formulario de contacto */}
+              <ContactForm
+                draft={draft}
+                updateDraft={(patch) => updateDraft(key, patch)}
+                errors={errors}
+                showErrors={showErrors}
+                isEditing={isEditing}
+                onSave={handleSave}
+                isSaving={saveState.isSaving}
+              />
+            </div>
+          </Card>
+        </div>
+      </div>
     );
   };
 
@@ -642,22 +891,460 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
     return `${action} ${type}`;
   })();
 
+  const handleGoToClients = () => {
+    setShowSuccessModal(false);
+    setStack([]);
+    onClose();
+  };
+
+  const handleGoToStep2 = () => {
+    setShowSuccessModal(false);
+    setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, activeTab: 'branches', mode: 'view' } : s));
+  };
+
+  const handleBranchBackToBranches = () => {
+    // Cierra el popup y muestra la lista de sucursales
+    if (branchSuccessInfo) {
+      const { clientId } = branchSuccessInfo;
+      const newBranchKey = entityKey('branch', `new-${clientId}`);
+      setDrafts(prev => {
+        const updated = { ...prev };
+        delete updated[newBranchKey];
+        return updated;
+      });
+      
+      // Limpiar estados de creación/edición para mostrar la lista
+      setCreatingNewBranch(false);
+      setEditingBranchId(null);
+      
+      // Volver al tab de branches para mostrar la lista de sucursales
+      setStack(prev => prev.map((r, i) => {
+        if (i === prev.length - 1 && r.type === 'cliente' && String(r.clientId) === String(clientId)) {
+          return { ...r, activeTab: 'branches', mode: 'view' };
+        }
+        return r;
+      }));
+    }
+    setBranchSuccessInfo(null);
+  };
+
+  const handleBranchCreateAnother = () => {
+    // Cerrar modal pero mantener al usuario en Paso 2 (Sucursales)
+    setBranchSuccessInfo(null);
+  };
+
+  const handleBranchGoToStep3Contact = () => {
+    if (!branchSuccessInfo) return;
+    const { clientId, branchId } = branchSuccessInfo;
+    setBranchSuccessInfo(null);
+
+    // Crear directamente un nuevo contacto (Paso 3 - nuevo contacto)
+    const newId = `C-${Date.now()}`;
+    ensureDraft(entityKey('contact', newId), () => emptyContactDraft());
+    setStack(p => [...p, { type: 'contact', clientId, branchId, contactId: newId, mode: 'edit' }]);
+  };
+
+  const handleContactBackToContacts = () => {
+    setContactSuccessInfo(null);
+    // Volver a la lista de contactos (pop del formulario de contacto)
+    setStack(prev => prev.slice(0, -1));
+  };
+
+  const handleContactCreateAnother = () => {
+    if (!contactSuccessInfo) return;
+    const { clientId, branchId } = contactSuccessInfo;
+    setContactSuccessInfo(null);
+
+    const newId = `C-${Date.now()}`;
+    ensureDraft(entityKey('contact', newId), () => emptyContactDraft());
+
+    setStack(prev => {
+      const base = prev.slice(0, -1); // quitar el contacto actual
+      return [...base, { type: 'contact', clientId, branchId, contactId: newId, mode: 'edit' }];
+    });
+  };
+
+  // --- ASOCIAR CONTACTOS A SUCURSAL (NUEVA) ---
+  const allContacts = (data?.clientes || []).flatMap(c =>
+    (c.sucursales || []).flatMap(s =>
+      (s.contactos || []).map(ct => ({
+        ...ct,
+        clientId: c.id,
+        clientName: c.nombre,
+        branchName: s.nombre,
+      }))
+    )
+  );
+
+  const filteredAssociateContacts = allContacts
+    .filter(ct => {
+      if (!associateContactsSearch) return true;
+      const q = associateContactsSearch.toLowerCase();
+      return (
+        (ct.nombre || '').toLowerCase().includes(q) ||
+        (ct.apellido || '').toLowerCase().includes(q) ||
+        String(ct.telefonoMovil || '').includes(q) ||
+        String(ct.celular || '').includes(q)
+      );
+    })
+    .slice(0, 10); // solo 10 usuarios de ejemplo
+
+  const toggleAssociateContactSelection = (id) => {
+    setAssociateContactsSelected(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleAssociateContactsSave = () => {
+    if (!associateContactsModal) return;
+    const { branchKey } = associateContactsModal;
+    updateDraft(branchKey, { associatedContactIds: associateContactsSelected });
+    setAssociateContactsModal(null);
+    setAssociateSuccess(true);
+  };
+
+  const handleAssociateContactsCancel = () => {
+    setAssociateContactsModal(null);
+  };
+
+  // --- ASOCIAR DISPOSITIVOS A SUCURSAL (NUEVA) ---
+  const allDevices = (data?.dispositivos || []).map(d => ({ ...d }));
+
+  const filteredAssociateDevices = allDevices
+    .filter(dev => {
+      if (!associateDevicesSearch) return true;
+      const q = associateDevicesSearch.toLowerCase();
+      return (
+        (dev.idInmotika || '').toLowerCase().includes(q) ||
+        (dev.codigoUnico || '').toLowerCase().includes(q) ||
+        (dev.marca || '').toLowerCase().includes(q) ||
+        (dev.modelo || '').toLowerCase().includes(q) ||
+        (dev.serial || '').toLowerCase().includes(q)
+      );
+    })
+    .slice(0, 10);
+
+  const toggleAssociateDeviceSelection = (id) => {
+    setAssociateDevicesSelected(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleAssociateDevicesSave = () => {
+    if (!associateDevicesModal) return;
+    const { branchKey } = associateDevicesModal;
+    updateDraft(branchKey, { associatedDeviceIds: associateDevicesSelected });
+    setAssociateDevicesModal(null);
+    setAssociateSuccess(true);
+  };
+
+  const handleAssociateDevicesCancel = () => {
+    setAssociateDevicesModal(null);
+  };
+
   if (!route) return null;
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <NavigatorBreadcrumbs />
-      <div className="flex items-center gap-3 mb-8">
-        <IconButton icon={ChevronLeft} onClick={handleClose} className="shrink-0" />
-        <H3 className="uppercase tracking-tight font-black text-gray-900 leading-none">{routeTitle}</H3>
+    <>
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 -mt-4">
+        {route?.type === 'cliente' && renderClientForm()}
+        {route?.type === 'contact' && renderContactForm()}
+        {route?.type === 'dispositivo' && renderDeviceForm()}
+        {route?.type === 'tecnico' && renderTecnicoForm()}
       </div>
-      
-      {route?.type === 'cliente' && renderClientForm()}
-      {route?.type === 'branch' && renderBranchForm()}
-      {route?.type === 'contact' && renderContactForm()}
-      {route?.type === 'dispositivo' && renderDeviceForm()}
-      {route?.type === 'tecnico' && renderTecnicoForm()}
-    </div>
+
+      {/* Success Modal - Cliente */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-3 text-green-600 mb-4">
+              <CheckCircle2 size={32} className="text-green-600" />
+              <H3 className="normal-case text-gray-900">Guardado exitoso</H3>
+            </div>
+            <TextSmall className="text-gray-600 mb-6 leading-relaxed">
+              El cliente se ha guardado correctamente. ¿Qué deseas hacer ahora?
+            </TextSmall>
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={handleGoToStep2}
+                className="w-full bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+              >
+                Paso 2 Sucursal
+              </Button>
+              <Button 
+                onClick={handleGoToClients}
+                variant="outline"
+                className="w-full"
+              >
+                Volver a Clientes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal - Sucursal */}
+      {branchSuccessInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-3 text-green-600 mb-4">
+              <CheckCircle2 size={32} className="text-green-600" />
+              <H3 className="normal-case text-gray-900">Sucursal guardada</H3>
+            </div>
+            <TextSmall className="text-gray-600 mb-6 leading-relaxed">
+              La sucursal se ha guardado correctamente. ¿Qué deseas hacer ahora?
+            </TextSmall>
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={handleBranchCreateAnother}
+                variant="outline"
+                className="w-full"
+              >
+                Crear más sucursales
+              </Button>
+              <Button 
+                onClick={handleBranchBackToBranches}
+                variant="outline"
+                className="w-full border-gray-300 text-gray-700"
+              >
+                Volver a Sucursal
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal - Contacto */}
+      {contactSuccessInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-3 text-green-600 mb-4">
+              <CheckCircle2 size={32} className="text-green-600" />
+              <H3 className="normal-case text-gray-900">Contacto guardado</H3>
+            </div>
+            <TextSmall className="text-gray-600 mb-6 leading-relaxed">
+              El contacto se ha guardado correctamente. ¿Qué deseas hacer ahora?
+            </TextSmall>
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={handleContactBackToContacts}
+                className="w-full bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+              >
+                Volver a contactos
+              </Button>
+              <Button 
+                onClick={handleContactCreateAnother}
+                variant="outline"
+                className="w-full"
+              >
+                Crear otro contacto
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal - Asociar contactos a sucursal */}
+      {associateContactsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6 animate-in zoom-in-95 duration-300">
+            <div className="mb-4">
+              <H3 className="normal-case text-gray-900">Asociar contactos a la sucursal</H3>
+              <TextSmall className="text-gray-500">
+                Busca por nombre o número y selecciona uno o varios contactos.
+              </TextSmall>
+            </div>
+
+            {/* Buscador */}
+            <div className="mb-4">
+              <Input
+                label="Buscar contacto (nombre o celular)"
+                value={associateContactsSearch}
+                onChange={e => setAssociateContactsSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Lista de contactos */}
+            <div className="max-h-72 overflow-y-auto border border-gray-100 rounded-lg">
+              {filteredAssociateContacts.length === 0 ? (
+                <div className="py-8 text-center">
+                  <TextSmall className="text-gray-400">
+                    No se encontraron contactos para el criterio de búsqueda.
+                  </TextSmall>
+                </div>
+              ) : (
+                <Table>
+                  <THead variant="dark">
+                    <tr>
+                      <Th />
+                      <Th>Nombre / Apellido</Th>
+                      <Th>Documento</Th>
+                    </tr>
+                  </THead>
+                  <TBody>
+                    {filteredAssociateContacts.map(ct => (
+                      <Tr key={ct.id}>
+                        <Td>
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 text-[#D32F2F] border-gray-300 rounded"
+                            checked={associateContactsSelected.includes(ct.id)}
+                            onChange={() => toggleAssociateContactSelection(ct.id)}
+                          />
+                        </Td>
+                        <Td>
+                          <TextSmall className="font-semibold text-gray-800">
+                            {`${ct.nombre || ''} ${ct.apellido || ''}`.trim()}
+                          </TextSmall>
+                        </Td>
+                        <Td>
+                          <TextSmall className="text-gray-700">
+                            {ct.numeroDocumento || ct.identificacion || `10${String(ct.id || '').replace(/\D/g, '').padStart(8, '0')}`}
+                          </TextSmall>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </TBody>
+                </Table>
+              )}
+            </div>
+
+            {/* Acciones */}
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                className="border-gray-300 text-gray-700"
+                onClick={handleAssociateContactsCancel}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleAssociateContactsSave}
+                disabled={associateContactsSelected.length === 0}
+                className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+              >
+                Agregar contactos seleccionados
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal - Asociar dispositivos a sucursal */}
+      {associateDevicesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6 animate-in zoom-in-95 duration-300">
+            <div className="mb-4">
+              <H3 className="normal-case text-gray-900">Asociar dispositivos a la sucursal</H3>
+              <TextSmall className="text-gray-500">
+                Busca por ID, serial o marca y selecciona uno o varios dispositivos.
+              </TextSmall>
+            </div>
+
+            {/* Buscador */}
+            <div className="mb-4">
+              <Input
+                label="Buscar dispositivo (ID / serial / marca)"
+                value={associateDevicesSearch}
+                onChange={e => setAssociateDevicesSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Lista de dispositivos */}
+            <div className="max-h-72 overflow-y-auto border border-gray-100 rounded-lg">
+              {filteredAssociateDevices.length === 0 ? (
+                <div className="py-8 text-center">
+                  <TextSmall className="text-gray-400">
+                    No se encontraron dispositivos para el criterio de búsqueda.
+                  </TextSmall>
+                </div>
+              ) : (
+                <Table>
+                  <THead variant="dark">
+                    <tr>
+                      <Th />
+                      <Th>Nombre / ID</Th>
+                      <Th>Marca / Modelo</Th>
+                      <Th>Serial</Th>
+                    </tr>
+                  </THead>
+                  <TBody>
+                    {filteredAssociateDevices.map(dev => (
+                      <Tr key={dev.id}>
+                        <Td>
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 text-[#D32F2F] border-gray-300 rounded"
+                            checked={associateDevicesSelected.includes(dev.id)}
+                            onChange={() => toggleAssociateDeviceSelection(dev.id)}
+                          />
+                        </Td>
+                        <Td>
+                          <TextSmall className="font-semibold text-gray-800">
+                            {dev.idInmotika || dev.codigoUnico || dev.id}
+                          </TextSmall>
+                        </Td>
+                        <Td>
+                          <TextSmall className="text-gray-700">
+                            {dev.marca} {dev.modelo}
+                          </TextSmall>
+                        </Td>
+                        <Td>
+                          <TextSmall className="text-gray-700">
+                            {dev.serial || '—'}
+                          </TextSmall>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </TBody>
+                </Table>
+              )}
+            </div>
+
+            {/* Acciones */}
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                className="border-gray-300 text-gray-700"
+                onClick={handleAssociateDevicesCancel}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleAssociateDevicesSave}
+                disabled={associateDevicesSelected.length === 0}
+                className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+              >
+                Agregar dispositivos seleccionados
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal - Asociación (contactos / dispositivos) */}
+      {associateSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-3 text-green-600 mb-4">
+              <CheckCircle2 size={32} className="text-green-600" />
+              <H3 className="normal-case text-gray-900">Asociación exitosa</H3>
+            </div>
+            <TextSmall className="text-gray-600 mb-6 leading-relaxed">
+              Los elementos seleccionados se han asociado correctamente a la sucursal.
+            </TextSmall>
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setAssociateSuccess(false)}
+                className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0 px-6"
+              >
+                Volver a Sucursal
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

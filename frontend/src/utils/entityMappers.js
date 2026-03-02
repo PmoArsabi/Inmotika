@@ -9,7 +9,9 @@ export const emptyClientDraft = () => ({
 export const emptyBranchDraft = () => ({
   nombre: '', direccion: '', pais: 'CO', estado_depto: '',
   ciudad: '', clasificacion: 'secundaria', horario: null,
-  estatus: 'activo', contratoFileUrl: '', contratoFechaInicio: '', contratoFechaFin: ''
+  estatus: 'activo', contratoFileUrl: '', contratoFechaInicio: '', contratoFechaFin: '',
+  associatedContactIds: [],
+  associatedDeviceIds: []
 });
 
 export const emptyContactDraft = () => ({

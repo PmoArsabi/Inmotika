@@ -33,7 +33,8 @@ const ViewCell = ({ label, children, icon: Icon }) => (
 export const LocationPickerRows = ({
   countryValue, stateValue, cityValue, direccion,
   onLocationChange, onDireccionChange,
-  viewMode, direccionError, required
+  viewMode, direccionError, required,
+  showDireccion = true
 }) => {
   const { states, cities, handleCountryChange, handleStateChange, handleCityChange } = useLocationData({
     countryValue, stateValue, onLocationChange
@@ -53,52 +54,64 @@ export const LocationPickerRows = ({
         <ViewCell label="Ciudad" icon={MapPin}>
           {cityValue}
         </ViewCell>
-        <ViewCell label="Dirección Física" icon={MapPin}>
-          {direccion}
-        </ViewCell>
+        {showDireccion && (
+          <ViewCell label="Dirección Física" icon={MapPin}>
+            {direccion}
+          </ViewCell>
+        )}
       </>
     );
   }
 
   return (
     <>
-      <SearchableSelect
-        label="País"
-        options={ALL_COUNTRIES_LIST}
-        value={countryValue}
-        onChange={handleCountryChange}
-        placeholder="Buscar país..."
-        formatOptionLabel={formatCountryOption}
-        required={required}
-      />
-      <SearchableSelect
-        label="Estado / Depto"
-        icon={Map}
-        options={states}
-        value={stateValue}
-        onChange={handleStateChange}
-        isDisabled={!countryValue}
-        placeholder={countryValue ? 'Buscar estado...' : 'Primero elige un país'}
-        required={required}
-      />
-      <SearchableSelect
-        label="Ciudad"
-        icon={MapPin}
-        options={cities}
-        value={cityValue}
-        onChange={handleCityChange}
-        isDisabled={!stateValue}
-        placeholder={stateValue ? 'Buscar ciudad...' : 'Primero elige un estado'}
-        required={required}
-      />
-      <Input
-        label="Dirección Física"
-        icon={MapPin}
-        value={direccion}
-        onChange={(e) => onDireccionChange(e.target.value)}
-        error={direccionError}
-        required={required}
-      />
+      <div className="md:col-span-1">
+        <SearchableSelect
+          label="País"
+          options={ALL_COUNTRIES_LIST}
+          value={countryValue}
+          onChange={handleCountryChange}
+          placeholder="Buscar país..."
+          formatOptionLabel={formatCountryOption}
+          required={required}
+        />
+      </div>
+      <div className="md:col-span-1">
+        <SearchableSelect
+          label="Estado / Depto"
+          icon={Map}
+          options={states}
+          value={stateValue}
+          onChange={handleStateChange}
+          isDisabled={!countryValue}
+          placeholder={countryValue ? 'Buscar estado...' : 'Primero elige un país'}
+          required={required}
+        />
+      </div>
+      <div className="md:col-span-1">
+        <SearchableSelect
+          label="Ciudad"
+          icon={MapPin}
+          options={cities}
+          value={cityValue}
+          onChange={handleCityChange}
+          isDisabled={!stateValue}
+          placeholder={stateValue ? 'Buscar ciudad...' : 'Primero elige un estado'}
+          required={required}
+        />
+      </div>
+      {showDireccion && (
+        <div className="md:col-span-3">
+          <Input
+            label="Dirección Física"
+            icon={MapPin}
+            value={direccion}
+            onChange={(e) => onDireccionChange(e.target.value)}
+            error={direccionError}
+            required={required}
+          />
+        </div>
+      )}
     </>
   );
 };

@@ -1,7 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-export const useConfiguration = (data, setData) => {
-  const [activeSubTab, setActiveSubTab] = useState('clientes');
+export const useConfiguration = (data, setData, initialSubTab = 'clientes') => {
+  const [activeSubTab, setActiveSubTab] = useState(initialSubTab);
+
+  // Update activeSubTab when initialSubTab changes
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
   const [showForm, setShowForm] = useState(false);
   const [success, setSuccess] = useState(false);
   

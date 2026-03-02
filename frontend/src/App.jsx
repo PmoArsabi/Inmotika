@@ -54,11 +54,34 @@ function App() {
 
   if (!user) return <LoginPage onLogin={handleLogin} />;
 
+  // Extract subTab from configuration tabs
+  const getConfigurationSubTab = (tab) => {
+    if (tab.startsWith('configuration-')) {
+      const subTab = tab.replace('configuration-', '');
+      // Map 'sucursal' to 'clientes' (se maneja dentro del flujo de clientes)
+      if (subTab === 'sucursal') {
+        return 'clientes';
+      }
+      // Contacto tiene su propia vista de contactos
+      if (subTab === 'contacto') {
+        return 'contactos';
+      }
+      return subTab;
+    }
+    return null;
+  };
+
   const renderPage = () => {
+    // Handle configuration sub-tabs
+    const configSubTab = getConfigurationSubTab(activeTab);
+    if (configSubTab) {
+      return <ConfigurationPage key={activeTab} data={data} setData={setData} initialSubTab={configSubTab} isSingleTabView={true} />;
+    }
+
     switch (activeTab) {
       case 'dashboard':        return <DashboardPage data={data} />;
       case 'visits':           return <VisitsPage data={data} setData={setData} />;
-      case 'configuration':    return <ConfigurationPage data={data} setData={setData} />;
+      case 'configuration':    return <ConfigurationPage key={activeTab} data={data} setData={setData} isSingleTabView={false} />;
       case 'schedule':         return <SchedulePage data={data} setData={setData} />;
       case 'client-dashboard': return <ClientDashboardPage data={data} />;
       case 'client-data':      return <ClientDataPage data={data} />;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { CheckCircle2, Save } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
@@ -6,19 +6,57 @@ import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import { H3, Subtitle, TextSmall } from '../components/ui/Typography';
 import { useConfiguration } from '../hooks/useConfiguration';
-import ClientsView from '../components/configuration/ClientsView';
+import ClientsView from '../components/configuration/Client/ClientsView';
+import ContactsView from '../components/Contact/ContactsView';
+import DevicesView from '../components/Device/DevicesView';
 import GenericListView from '../components/configuration/GenericListView';
 import Breadcrumbs from '../components/configuration/Breadcrumbs';
 import ConfigurationNavigator from '../components/configuration/ConfigurationNavigator';
 import Tabs from '../components/ui/Tabs';
 
-const ConfigurationPage = ({ data, setData }) => {
-  const config = useConfiguration(data, setData);
+const ConfigurationPage = ({ data, setData, initialSubTab = 'clientes', isSingleTabView = false }) => {
+  const config = useConfiguration(data, setData, initialSubTab);
   const [clientModalParams, setClientModalParams] = useState(null);
   const { 
     activeSubTab, setActiveSubTab, showForm, handleCloseForm,
     success, isViewMode, editingItem, editingType
   } = config;
+
+  // Reset state when initialSubTab changes (e.g., when navigating from sidebar)
+  useEffect(() => {
+    if (initialSubTab && initialSubTab !== activeSubTab) {
+      setActiveSubTab(initialSubTab);
+      config.setViewLevel('list');
+      config.setSelectedClient(null);
+      config.setSelectedBranch(null);
+      config.setShowForm(false);
+      setClientModalParams(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSubTab]);
+
+  // Determine if we should show all tabs or just a single tab
+  // If isSingleTabView is true, we're accessing from a specific sidebar sub-item
+  const showSingleTab = isSingleTabView && initialSubTab && ['clientes', 'contactos', 'tecnicos', 'dispositivos'].includes(initialSubTab);
+  const availableTabs = showSingleTab ? [initialSubTab] : ['clientes', 'contactos', 'tecnicos', 'dispositivos'];
+
+  const contactsFlat = useMemo(() => {
+    const result = [];
+    (data?.clientes || []).forEach(c => {
+      (c.sucursales || []).forEach(s => {
+        (s.contactos || []).forEach(ct => {
+          result.push({
+            ...ct,
+            clientId: c.id,
+            branchId: s.id,
+            clienteNombre: c.nombre,
+            sucursalNombre: s.nombre,
+          });
+        });
+      });
+    });
+    return result;
+  }, [data]);
 
   const configWithInPageNav = useMemo(() => {
     const drillDown = (entityId, type, mode = 'view') => {
@@ -61,7 +99,9 @@ const ConfigurationPage = ({ data, setData }) => {
           return;
         }
         if (type === 'contacto') {
-          setClientModalParams({ type: 'contact', clientId: config.selectedClient?.id, branchId: config.selectedBranch?.id, contactId: item.id, mode: 'view' });
+          const clientId = item.clientId || config.selectedClient?.id;
+          const branchId = item.branchId || config.selectedBranch?.id;
+          setClientModalParams({ type: 'contact', clientId, branchId, contactId: item.id, mode: 'view' });
           return;
         }
         config.handleView(item, type);
@@ -84,7 +124,9 @@ const ConfigurationPage = ({ data, setData }) => {
           return;
         }
         if (type === 'contacto') {
-          setClientModalParams({ type: 'contact', clientId: config.selectedClient?.id, branchId: parentId || config.selectedBranch?.id, contactId: item.id, mode: 'edit' });
+          const clientId = item.clientId || config.selectedClient?.id;
+          const branchId = parentId || item.branchId || config.selectedBranch?.id;
+          setClientModalParams({ type: 'contact', clientId, branchId, contactId: item.id, mode: 'edit' });
           return;
         }
         config.handleEdit(item, type, parentId);
@@ -116,7 +158,8 @@ const ConfigurationPage = ({ data, setData }) => {
           return;
         }
         if (targetType === 'contacto') {
-          setClientModalParams({ type: 'contact', clientId: config.selectedClient?.id, branchId: config.selectedBranch?.id, contactId: `C-${Date.now()}`, mode: 'edit' });
+          // Para nuevos contactos desde la vista de contactos global, permitir crear sin cliente/sucursal predefinidos
+          setClientModalParams({ type: 'contact', clientId: config.selectedClient?.id || null, branchId: config.selectedBranch?.id || null, contactId: `C-${Date.now()}`, mode: 'edit' });
           return;
         }
         config.handleNew(type);
@@ -124,11 +167,15 @@ const ConfigurationPage = ({ data, setData }) => {
     };
   }, [activeSubTab, config, data]);
 
+  const dataForView = activeSubTab === 'contactos'
+    ? { ...data, contactos: contactsFlat }
+    : data;
+
   return (
     <div className="space-y-4 animate-in fade-in duration-700">
-      {!clientModalParams && (
+      {!clientModalParams && !showSingleTab && (
         <Tabs 
-          tabs={['clientes', 'tecnicos', 'dispositivos']} 
+          tabs={availableTabs} 
           active={activeSubTab} 
           onChange={(tab) => {
             setActiveSubTab(tab);
@@ -142,7 +189,7 @@ const ConfigurationPage = ({ data, setData }) => {
 
       {!clientModalParams && <Breadcrumbs config={config} />}
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         {clientModalParams ? (
           <ConfigurationNavigator
             openParams={clientModalParams}
@@ -159,8 +206,12 @@ const ConfigurationPage = ({ data, setData }) => {
           <>
             {activeSubTab === 'clientes' ? (
               <ClientsView config={configWithInPageNav} data={data} />
+            ) : activeSubTab === 'contactos' ? (
+              <ContactsView config={configWithInPageNav} data={dataForView} />
+            ) : activeSubTab === 'dispositivos' ? (
+              <DevicesView config={configWithInPageNav} data={dataForView} />
             ) : (
-              <GenericListView config={configWithInPageNav} data={data} type={activeSubTab} />
+              <GenericListView config={configWithInPageNav} data={dataForView} type={activeSubTab} />
             )}
           </>
         )}
