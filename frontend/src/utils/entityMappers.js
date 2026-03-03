@@ -17,7 +17,8 @@ export const emptyBranchDraft = () => ({
 export const emptyContactDraft = () => ({
   nombre: '', puesto: '', telefonoOffice: '', telefonoMovil: '',
   email: '', emailAlternativo: '', genero: '', estadoCivil: '',
-  fechaCumpleanos: '', fechaAniversario: '', notas: '', estatus: 'activo'
+  fechaCumpleanos: '', fechaAniversario: '', notas: '', estatus: 'activo',
+  associatedBranchIds: [] // IDs de las sucursales asociadas
 });
 
 export const emptyDeviceDraft = () => ({

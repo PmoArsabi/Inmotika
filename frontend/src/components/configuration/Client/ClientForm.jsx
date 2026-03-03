@@ -271,7 +271,7 @@ const ClientForm = ({
 
             {/* Branches Tab */}
             {activeTab === 'branches' && (
-              newBranchDraft ? (
+              (newBranchDraft || (branches.length === 0 && isEditing)) ? (
                 // Mostrar formulario de nueva sucursal cuando no hay sucursales o cuando se está editando
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">

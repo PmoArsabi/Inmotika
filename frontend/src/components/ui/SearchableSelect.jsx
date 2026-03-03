@@ -23,14 +23,15 @@ const SearchableSelect = ({
   isDisabled = false,
   required = false,
   error = null,
+  isMulti = false,     // Permite selección múltiple
   ...props
 }) => {
 
   const customStyles = {
     control: (base, state) => ({
       ...base,
-      height: CONTROL_HEIGHT,
-      minHeight: CONTROL_HEIGHT,
+      minHeight: isMulti ? CONTROL_HEIGHT : CONTROL_HEIGHT,
+      maxHeight: isMulti ? '120px' : CONTROL_HEIGHT,
       backgroundColor: dark ? '#2A2A2A' : 'white',
       borderColor: state.isFocused ? BORDER_FOCUS : BORDER_NORMAL,
       borderRadius: '0.375rem',
@@ -44,12 +45,17 @@ const SearchableSelect = ({
       opacity: isDisabled ? 0.45 : 1,
       cursor: isDisabled ? 'not-allowed' : 'default',
       '&:hover': { borderColor: state.isFocused ? BORDER_FOCUS : BORDER_HOVER },
+      overflow: isMulti ? 'auto' : 'visible',
     }),
     valueContainer: (base) => ({
       ...base,
-      height: CONTROL_HEIGHT - 2,  // subtract borders
-      padding: '0 0.25rem',
-      flexWrap: 'nowrap',
+      height: isMulti ? 'auto' : CONTROL_HEIGHT - 2,  // subtract borders
+      minHeight: isMulti ? CONTROL_HEIGHT - 2 : undefined,
+      maxHeight: isMulti ? '100px' : undefined,
+      padding: isMulti ? '0.125rem 0.25rem' : '0 0.25rem',
+      flexWrap: isMulti ? 'wrap' : 'nowrap',
+      overflowY: isMulti ? 'auto' : 'visible',
+      gap: isMulti ? '0.125rem' : '0',
     }),
     indicatorsContainer: (base) => ({
       ...base,
@@ -72,6 +78,36 @@ const SearchableSelect = ({
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       maxWidth: 'calc(100% - 2px)',
+    }),
+    multiValue: (base) => ({
+      ...base,
+      backgroundColor: dark ? '#3A3A3A' : '#F3F4F6',
+      borderRadius: '0.25rem',
+      margin: '0',
+      maxWidth: '100%',
+      marginRight: '0.25rem',
+      marginBottom: '0.125rem',
+    }),
+    multiValueLabel: (base) => ({
+      ...base,
+      color: dark ? 'white' : '#111827',
+      fontSize: '0.75rem',
+      fontWeight: '600',
+      padding: '0.125rem 0.375rem',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      maxWidth: '120px',
+    }),
+    multiValueRemove: (base) => ({
+      ...base,
+      color: dark ? '#9CA3AF' : '#6B7280',
+      borderRadius: '0 0.25rem 0.25rem 0',
+      padding: '0.125rem 0.25rem',
+      '&:hover': {
+        backgroundColor: '#D32F2F',
+        color: 'white',
+      },
     }),
     menu: (base) => ({
       ...base,
@@ -105,7 +141,13 @@ const SearchableSelect = ({
   };
 
   const components = formatSingleValue ? { SingleValue: formatSingleValue } : undefined;
-  const selected = options.find(o => o.value === value) ?? null;
+  
+  // Manejar selección simple o múltiple
+  const selected = isMulti 
+    ? (Array.isArray(value) ? options.filter(o => value.some(v => (v && v.value === o.value) || v === o.value || String(v) === String(o.value))) : [])
+    : (typeof value === 'string' || typeof value === 'number' 
+        ? options.find(o => o.value === value || String(o.value) === String(value)) ?? null
+        : value);
 
   if (viewMode) {
     return (
@@ -153,6 +195,7 @@ const SearchableSelect = ({
           formatOptionLabel={formatOptionLabel}
           components={components}
           isDisabled={isDisabled}
+          isMulti={isMulti}
           {...props}
         />
       </div>

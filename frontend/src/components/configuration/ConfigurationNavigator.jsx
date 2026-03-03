@@ -236,7 +236,15 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
             const client = data.clientes?.find(c => String(c.id) === String(clientId));
             const branch = client?.sucursales?.find(s => String(s.id) === String(branchId));
             const contact = branch?.contactos?.find(ct => String(ct.id) === String(contactId));
-            return contact ? toContactDraft(contact) : emptyContactDraft();
+            if (contact) {
+              const draft = toContactDraft(contact);
+              // Inicializar sucursales asociadas con la sucursal actual si no existe
+              if (!draft.associatedBranchIds || draft.associatedBranchIds.length === 0) {
+                draft.associatedBranchIds = [String(branchId)];
+              }
+              return draft;
+            }
+            return emptyContactDraft();
           }
           return emptyContactDraft();
         });
@@ -271,6 +279,13 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
     setShowErrors(false);
   }, [stack.length]);
 
+  // Sincronizar estado cuando data cambia para asegurar que las sucursales se muestren correctamente
+  useEffect(() => {
+    // Este efecto fuerza un re-render cuando data cambia
+    // Especialmente útil después de guardar una sucursal y hacer clic en "VOLVER A SUCURSAL"
+    // No necesitamos hacer nada aquí, solo que React detecte el cambio y re-renderice
+  }, [data]);
+
   const client = (data?.clientes || []).find(c => String(c.id) === String(route?.clientId));
   const branch = (client?.sucursales || []).find(b => String(b.id) === String(route?.branchId));
   const contact = (branch?.contactos || []).find(ct => String(ct.id) === String(route?.contactId));
@@ -289,6 +304,17 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
     const errors = validateClient(draft);
     const hasErrors = Object.keys(errors).length > 0;
     const isEditing = route.mode === 'edit';
+
+    // Recalcular client y branches en cada render para asegurar datos actualizados
+    const currentClient = (data?.clientes || []).find(c => String(c.id) === String(route?.clientId));
+    const currentBranches = currentClient?.sucursales || [];
+
+    // useEffect para sincronizar estado cuando data cambia
+    // Esto asegura que las sucursales se muestren correctamente después de guardar
+    // Usar useMemo para forzar recálculo cuando data cambia
+    const memoizedBranches = useMemo(() => {
+      return currentBranches;
+    }, [data, route.clientId, currentBranches.length]);
 
     const handleSave = async () => {
       setShowErrors(true);
@@ -356,13 +382,19 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
     };
 
     // Crear un draft temporal para la nueva sucursal
-    // Se muestra si: no hay sucursales, o si se está creando una nueva (creatingNewBranch), o si se está editando
-    const hasBranches = (client?.sucursales || []).length > 0 ||
-      (branchSuccessInfo && String(branchSuccessInfo.clientId) === String(route.clientId));
+    // Lógica simple: mostrar formulario solo si estamos creando una nueva explícitamente O editando una existente
+    // Usar currentBranches en lugar de client?.sucursales para datos actualizados
+    const hasBranches = currentBranches.length > 0;
     const newBranchKey = entityKey('branch', `new-${route.clientId}`);
-    // Mostrar el formulario si no hay sucursales, o si se está creando una nueva, o si se está editando
-    const shouldShowNewBranchForm = (!hasBranches && !branchSuccessInfo) || creatingNewBranch;
-    const newBranchDraft = (shouldShowNewBranchForm && !editingBranchId) ? (drafts[newBranchKey] || emptyBranchDraft()) : null;
+    // Mostrar formulario si:
+    // 1. Estamos creando una nueva explícitamente (creatingNewBranch), O
+    // 2. No hay sucursales Y estamos en modo edit (para mostrar formulario inicial)
+    // Si no hay sucursales, crear el draft automáticamente
+    const shouldShowNewBranchForm = creatingNewBranch || (!hasBranches && isEditing && !editingBranchId);
+    if (shouldShowNewBranchForm && !drafts[newBranchKey]) {
+      ensureDraft(newBranchKey, () => emptyBranchDraft());
+    }
+    const newBranchDraft = (shouldShowNewBranchForm && !editingBranchId && drafts[newBranchKey]) ? drafts[newBranchKey] : null;
     
     // Si estamos editando una sucursal, usar ese draft
     const editBranchKey = editingBranchId ? entityKey('branch', `edit-${editingBranchId}`) : null;
@@ -422,16 +454,16 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
       setAssociateDevicesModal({ branchKey: activeBranchKey, clientId: route.clientId });
     };
 
-    // Calcular contadores dinámicamente
+    // Calcular contadores dinámicamente usando currentBranches
     // Si estamos creando o editando una sucursal, mostrar los valores de esa sucursal
     // Si no, mostrar los valores del cliente completo
     const isEditingBranch = activeBranchDraft !== null;
     const totalSucursales = isEditingBranch && !editingBranchId
-      ? (client?.sucursales || []).length + 1 // +1 porque estamos creando una nueva
-      : (client?.sucursales || []).length;
+      ? currentBranches.length + 1 // +1 porque estamos creando una nueva
+      : currentBranches.length;
     const totalContactos = isEditingBranch
       ? (activeBranchDraft?.associatedContactIds || []).length
-      : (client?.sucursales || []).reduce((acc, branch) => {
+      : currentBranches.reduce((acc, branch) => {
           return acc + (branch.contactos || []).length;
         }, 0);
     const totalDispositivos = isEditingBranch
@@ -451,7 +483,7 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
         isSaving={saveState.isSaving}
         activeTab={route.activeTab}
         onTabChange={(k) => setStack(p => p.map((r, i) => i === p.length-1 ? {...r, activeTab: k} : r))}
-        branches={client?.sucursales || []}
+        branches={memoizedBranches}
         onNewBranch={handleNewBranch}
         onEditBranch={handleEditBranch}
         onViewBranch={handleViewBranch}
@@ -606,13 +638,17 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
     const errors = validateContact(draft);
     const hasErrors = Object.keys(errors).length > 0;
     const isEditing = route.mode === 'edit';
-    const needsClientSelection = !route.clientId;
-    const needsBranchSelection = route.clientId && !route.branchId;
     const selectedClient = route.clientId ? client : null;
-    const selectedBranch = route.branchId ? branch : null;
     const availableBranches = selectedClient?.sucursales || [];
+    
+    // Obtener las sucursales seleccionadas del draft o del route
+    const selectedBranchIds = draft.associatedBranchIds || (route.branchId ? [route.branchId] : []);
+    const selectedBranches = availableBranches.filter(b => selectedBranchIds.includes(String(b.id)));
 
-    const handleClientChange = (clientId) => {
+    const handleClientChange = (option) => {
+      const clientId = option ? option.value : null;
+      // Limpiar sucursales seleccionadas cuando cambia el cliente
+      updateDraft(key, { associatedBranchIds: [] });
       setStack(prev => prev.map((s, idx) => 
         idx === prev.length - 1 
           ? { ...s, clientId, branchId: null } 
@@ -620,16 +656,21 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
       ));
     };
 
-    const handleBranchChange = (branchId) => {
-      setStack(prev => prev.map((s, idx) => 
-        idx === prev.length - 1 
-          ? { ...s, branchId } 
-          : s
-      ));
+    const handleBranchesChange = (selectedOptions) => {
+      const branchIds = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+      updateDraft(key, { associatedBranchIds: branchIds });
+      // Si hay al menos una sucursal, usar la primera como branchId principal para compatibilidad
+      if (branchIds.length > 0) {
+        setStack(prev => prev.map((s, idx) => 
+          idx === prev.length - 1 
+            ? { ...s, branchId: branchIds[0] } 
+            : s
+        ));
+      }
     };
 
     const handleSave = async () => {
-      if (!route.clientId || !route.branchId) {
+      if (!route.clientId || !draft.associatedBranchIds || draft.associatedBranchIds.length === 0) {
         setShowErrors(true);
         return;
       }
@@ -637,70 +678,47 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
       if (hasErrors) return;
       setSaveState({ isSaving: true, savedAt: null });
       await new Promise(r => setTimeout(r, 400));
-      setData(prev => applyContactUpsert(prev, route.clientId, route.branchId, route.contactId, draft));
+      
+      // Guardar el contacto en todas las sucursales seleccionadas
+      const primaryBranchId = draft.associatedBranchIds[0];
+      setData(prev => applyContactUpsert(prev, route.clientId, primaryBranchId, route.contactId, draft));
+      
       setSaveState({ isSaving: false, savedAt: Date.now() });
       setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view' } : s));
-      setContactSuccessInfo({ clientId: route.clientId, branchId: route.branchId });
+      setContactSuccessInfo({ clientId: route.clientId, branchId: primaryBranchId });
     };
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-        {/* Columna izquierda - resumen cliente/sucursal o selectores */}
+        {/* Columna izquierda - selectores de cliente y sucursales */}
         <div className="lg:col-span-1">
           <Card className="p-6 space-y-4 h-full">
-            {needsClientSelection ? (
-              <div className="space-y-4">
-                <Select
-                  label="Cliente*"
-                  value={route.clientId || ''}
-                  onChange={(e) => handleClientChange(e.target.value || null)}
-                  options={[
-                    { value: '', label: 'Seleccionar cliente...' },
-                    ...(data.clientes || []).map(c => ({ value: String(c.id), label: c.nombre }))
-                  ]}
-                  required
-                />
-                {showErrors && !route.clientId && (
-                  <TextSmall className="text-red-500">Debe seleccionar un cliente</TextSmall>
-                )}
-              </div>
-            ) : (
-              <>
-                <Subtitle className="text-gray-700">Cliente</Subtitle>
-                <TextSmall className="text-gray-900 font-semibold">
-                  {selectedClient?.nombre || 'Sin nombre'}
-                </TextSmall>
-                {needsBranchSelection ? (
-                  <div className="mt-4 space-y-4">
-                    <Select
-                      label="Sucursal*"
-                      value={route.branchId || ''}
-                      onChange={(e) => handleBranchChange(e.target.value || null)}
-                      options={[
-                        { value: '', label: 'Seleccionar sucursal...' },
-                        ...availableBranches.map(b => ({ value: String(b.id), label: b.nombre }))
-                      ]}
-                      required
-                    />
-                    {showErrors && !route.branchId && (
-                      <TextSmall className="text-red-500">Debe seleccionar una sucursal</TextSmall>
-                    )}
-                  </div>
-                ) : selectedBranch && (
-                  <div className="mt-4 space-y-1">
-                    <Subtitle className="text-gray-700">Sucursal</Subtitle>
-                    <TextSmall className="text-gray-900 font-semibold">
-                      {selectedBranch.nombre}
-                    </TextSmall>
-                    {selectedBranch.ciudad && (
-                      <TextSmall className="text-gray-500">
-                        {selectedBranch.ciudad}
-                      </TextSmall>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
+            <div className="space-y-4">
+              <SearchableSelect
+                label="Cliente*"
+                value={route.clientId || ''}
+                onChange={handleClientChange}
+                options={(data.clientes || []).map(c => ({ value: String(c.id), label: c.nombre }))}
+                required
+                error={showErrors && !route.clientId ? 'Debe seleccionar un cliente' : null}
+                placeholder="Seleccionar cliente..."
+              />
+              
+              {selectedClient && (
+                <div>
+                  <SearchableSelect
+                    label="Sucursales*"
+                    value={selectedBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
+                    onChange={handleBranchesChange}
+                    options={availableBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
+                    isMulti={true}
+                    required
+                    error={showErrors && (!draft.associatedBranchIds || draft.associatedBranchIds.length === 0) ? 'Debe seleccionar al menos una sucursal' : null}
+                    placeholder="Seleccionar sucursales..."
+                  />
+                </div>
+              )}
+            </div>
           </Card>
         </div>
 
@@ -899,7 +917,23 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
 
   const handleGoToStep2 = () => {
     setShowSuccessModal(false);
-    setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, activeTab: 'branches', mode: 'view' } : s));
+    if (savedClientId) {
+      // Crear un nuevo draft para la nueva sucursal
+      const newBranchKey = entityKey('branch', `new-${savedClientId}`);
+      ensureDraft(newBranchKey, () => emptyBranchDraft());
+      
+      // Activar el modo de creación de sucursal
+      setCreatingNewBranch(true);
+      setEditingBranchId(null);
+      
+      // Cambiar al tab de branches y modo edit
+      setStack(prev => prev.map((s, idx) => {
+        if (idx === prev.length - 1 && s.type === 'cliente' && String(s.clientId) === String(savedClientId)) {
+          return { ...s, activeTab: 'branches', mode: 'edit' };
+        }
+        return s;
+      }));
+    }
   };
 
   const handleBranchBackToBranches = () => {
@@ -907,9 +941,15 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
     if (branchSuccessInfo) {
       const { clientId } = branchSuccessInfo;
       const newBranchKey = entityKey('branch', `new-${clientId}`);
+      const editBranchKey = editingBranchId ? entityKey('branch', `edit-${editingBranchId}`) : null;
+      
+      // Limpiar todos los drafts relacionados con sucursales
       setDrafts(prev => {
         const updated = { ...prev };
         delete updated[newBranchKey];
+        if (editBranchKey) {
+          delete updated[editBranchKey];
+        }
         return updated;
       });
       
@@ -917,20 +957,50 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
       setCreatingNewBranch(false);
       setEditingBranchId(null);
       
-      // Volver al tab de branches para mostrar la lista de sucursales
+      // Cambiar al tab de branches en modo view PRIMERO
+      // Esto fuerza un re-render con los datos actualizados
       setStack(prev => prev.map((r, i) => {
         if (i === prev.length - 1 && r.type === 'cliente' && String(r.clientId) === String(clientId)) {
           return { ...r, activeTab: 'branches', mode: 'view' };
         }
         return r;
       }));
+      
+      // Limpiar branchSuccessInfo después de actualizar el stack
+      // Esto asegura que el componente se re-renderice con los datos actualizados
+      setBranchSuccessInfo(null);
     }
-    setBranchSuccessInfo(null);
   };
 
   const handleBranchCreateAnother = () => {
-    // Cerrar modal pero mantener al usuario en Paso 2 (Sucursales)
-    setBranchSuccessInfo(null);
+    // Cerrar modal y mostrar el formulario de nueva sucursal
+    if (branchSuccessInfo) {
+      const { clientId } = branchSuccessInfo;
+      const newBranchKey = entityKey('branch', `new-${clientId}`);
+      
+      // Limpiar el draft anterior si existe
+      setDrafts(prev => {
+        const updated = { ...prev };
+        delete updated[newBranchKey];
+        return updated;
+      });
+      
+      // Crear un nuevo draft para la nueva sucursal
+      ensureDraft(newBranchKey, () => emptyBranchDraft());
+      
+      // Activar el modo de creación
+      setCreatingNewBranch(true);
+      setEditingBranchId(null);
+      setBranchSuccessInfo(null);
+      
+      // Asegurar que estamos en el tab de branches en modo edit
+      setStack(prev => prev.map((r, i) => {
+        if (i === prev.length - 1 && r.type === 'cliente' && String(r.clientId) === String(clientId)) {
+          return { ...r, activeTab: 'branches', mode: 'edit' };
+        }
+        return r;
+      }));
+    }
   };
 
   const handleBranchGoToStep3Contact = () => {

@@ -91,14 +91,25 @@ const ContactForm = ({
           icon={Phone} 
           required 
         />
-        {/* Contacto principal */}
-        <div className="md:col-span-2 flex items-center">
-          <Switch
-            label="Contacto principal"
-            checked={!!draft.esPrincipal}
-            onChange={(checked) => updateDraft({ esPrincipal: checked })}
-            icon={Star}
-          />
+        {/* Contacto principal y Estado */}
+        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex items-center">
+            <Switch
+              label="Principal"
+              checked={!!draft.esPrincipal}
+              onChange={(checked) => updateDraft({ esPrincipal: checked })}
+              icon={Star}
+              viewMode={!isEditing}
+            />
+          </div>
+          <div className="flex items-center">
+            <Switch
+              label="Estado del contacto"
+              checked={draft.estatus === 'activo'}
+              onChange={(checked) => updateDraft({ estatus: checked ? 'activo' : 'inactivo' })}
+              viewMode={!isEditing}
+            />
+          </div>
         </div>
       </div>
     </div>
