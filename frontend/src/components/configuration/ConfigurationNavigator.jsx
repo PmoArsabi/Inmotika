@@ -1137,7 +1137,7 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
             <div className="flex flex-col gap-3">
               <Button 
                 onClick={handleGoToStep2}
-                className="w-full bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+                className="w-full bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
               >
                 Paso 2 Sucursal
               </Button>
@@ -1198,7 +1198,7 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
             <div className="flex flex-col gap-3">
               <Button 
                 onClick={handleContactBackToContacts}
-                className="w-full bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+                className="w-full bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
               >
                 Volver a contactos
               </Button>
@@ -1291,7 +1291,7 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
               <Button
                 onClick={handleAssociateContactsSave}
                 disabled={associateContactsSelected.length === 0}
-                className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+                className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
               >
                 Agregar contactos seleccionados
               </Button>
@@ -1383,7 +1383,7 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
               <Button
                 onClick={handleAssociateDevicesSave}
                 disabled={associateDevicesSelected.length === 0}
-                className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+                className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
               >
                 Agregar dispositivos seleccionados
               </Button>
@@ -1406,7 +1406,7 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
             <div className="flex justify-end">
               <Button
                 onClick={() => setAssociateSuccess(false)}
-                className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0 px-6"
+                className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0 px-6"
               >
                 Volver a Sucursal
               </Button>
