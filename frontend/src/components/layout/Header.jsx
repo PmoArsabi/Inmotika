@@ -30,17 +30,6 @@ const Header = ({ user, activeTab, onToggleMobileMenu }) => {
             <Menu size={20} />
           </button>
 
-          {/* Section name — styled like the reference image */}
-          {section && (
-            <div className="leading-tight">
-              <p className="text-[10px] font-black text-[#D32F2F] uppercase tracking-[0.15em]">
-                {section.subtitle}
-              </p>
-              <h1 className="text-xl font-black text-gray-900 uppercase leading-none tracking-tight">
-                {section.title}
-              </h1>
-            </div>
-          )}
         </div>
 
         {/* Right — notifications + user */}

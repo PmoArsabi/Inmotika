@@ -4,6 +4,7 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Switch from '../ui/Switch';
+import PhoneInput from '../ui/PhoneInput';
 
 const ContactForm = ({
   draft, updateDraft, errors, showErrors, isEditing, 
@@ -82,14 +83,15 @@ const ContactForm = ({
           icon={Mail} 
         />
         {/* Celular */}
-        <Input 
-          label="Celular" 
-          value={draft.telefonoMovil || ''} 
-          onChange={e => updateDraft({ telefonoMovil: e.target.value })} 
-          error={showErrors ? errors.telefonoMovil : null} 
-          viewMode={!isEditing} 
-          icon={Phone} 
-          required 
+        <PhoneInput
+          label="Celular"
+          countryValue={draft.telefonoMovilPais || 'CO'}
+          phoneValue={draft.telefonoMovil || ''}
+          onCountryChange={(countryCode) => updateDraft({ telefonoMovilPais: countryCode })}
+          onPhoneChange={(phone) => updateDraft({ telefonoMovil: phone })}
+          error={showErrors ? errors.telefonoMovil : null}
+          viewMode={!isEditing}
+          required
         />
         {/* Contacto principal y Estado */}
         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">

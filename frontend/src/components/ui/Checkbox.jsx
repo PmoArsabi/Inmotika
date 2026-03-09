@@ -32,3 +32,4 @@ const Checkbox = ({ label, checked, onChange, viewMode = false, className = '', 
 };
 
 export default Checkbox;
+

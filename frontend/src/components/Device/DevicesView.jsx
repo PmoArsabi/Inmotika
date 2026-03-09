@@ -237,3 +237,4 @@ const DevicesView = ({ config, data }) => {
 };
 
 export default DevicesView;
+

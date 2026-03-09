@@ -1,3 +1,5 @@
+import { formatFullPhone } from '../components/ui/PhoneInput';
+
 // --- DRAFT HELPERS ---
 export const emptyClientDraft = () => ({
   nombre: '', nit: '', dv: '', tipoPersona: 'juridica',
@@ -16,6 +18,7 @@ export const emptyBranchDraft = () => ({
 
 export const emptyContactDraft = () => ({
   nombre: '', puesto: '', telefonoOffice: '', telefonoMovil: '',
+  telefonoMovilPais: 'CO', // Código ISO del país para el teléfono móvil
   email: '', emailAlternativo: '', genero: '', estadoCivil: '',
   fechaCumpleanos: '', fechaAniversario: '', notas: '', estatus: 'activo',
   associatedBranchIds: [] // IDs de las sucursales asociadas
@@ -47,12 +50,31 @@ export const toBranchDraft = (branch) => ({
   estado_depto: branch?.estado_depto || branch?.estado || ''
 });
 
-export const toContactDraft = (contact) => ({
-  ...emptyContactDraft(),
-  ...contact,
-  puesto: contact?.puesto || contact?.cargo || '',
-  telefonoMovil: contact?.telefonoMovil || contact?.celular || ''
-});
+export const toContactDraft = (contact) => {
+  // Parsear teléfono si viene en formato "CO+57 3225865888" o similar
+  let telefonoMovil = contact?.telefonoMovil || contact?.celular || '';
+  let telefonoMovilPais = contact?.telefonoMovilPais || 'CO';
+  
+  // Si el teléfono incluye código de país, extraerlo
+  if (telefonoMovil && typeof telefonoMovil === 'string') {
+    const match = telefonoMovil.match(/^([A-Z]{2})\+?\d+\s*(.+)$/);
+    if (match) {
+      telefonoMovilPais = match[1];
+      telefonoMovil = match[2].replace(/\D/g, ''); // Solo números
+    } else {
+      // Si solo tiene números, asumir que es del país guardado o CO por defecto
+      telefonoMovil = telefonoMovil.replace(/\D/g, '');
+    }
+  }
+  
+  return {
+    ...emptyContactDraft(),
+    ...contact,
+    puesto: contact?.puesto || contact?.cargo || '',
+    telefonoMovil,
+    telefonoMovilPais
+  };
+};
 
 export const toDeviceDraft = (device, route = null) => ({
   ...emptyDeviceDraft(),
@@ -103,11 +125,17 @@ export const applyContactUpsert = (prevData, clientId, branchId, contactId, cont
       if (String(b.id) !== String(branchId)) return b;
       const currentContacts = b.contactos || [];
       const exists = currentContacts.some((ct) => String(ct.id) === String(contactId));
+      // Formatear teléfono completo si hay país y número
+      const telefonoCompleto = contactDraft.telefonoMovilPais && contactDraft.telefonoMovil
+        ? formatFullPhone(contactDraft.telefonoMovilPais, contactDraft.telefonoMovil)
+        : contactDraft.telefonoMovil;
+      
       const mapped = { 
         id: contactId, 
         ...contactDraft, 
         puesto: contactDraft.puesto, 
-        telefonoMovil: contactDraft.telefonoMovil 
+        telefonoMovil: telefonoCompleto,
+        telefonoMovilPais: contactDraft.telefonoMovilPais || 'CO'
       };
       const upserted = exists
         ? currentContacts.map((ct) => (String(ct.id) === String(contactId) ? { ...ct, ...mapped } : ct))
