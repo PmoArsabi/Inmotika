@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Building2, Hash, Map, MapPin, Phone, Mail, User, Briefcase, 
   ChevronLeft, ChevronRight, Home, Users, Edit2, Eye, Plus, Save, Trash2, Calendar, Lock,
@@ -309,13 +309,6 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
     const currentClient = (data?.clientes || []).find(c => String(c.id) === String(route?.clientId));
     const currentBranches = currentClient?.sucursales || [];
 
-    // useEffect para sincronizar estado cuando data cambia
-    // Esto asegura que las sucursales se muestren correctamente después de guardar
-    // Usar useMemo para forzar recálculo cuando data cambia
-    const memoizedBranches = useMemo(() => {
-      return currentBranches;
-    }, [data, route.clientId, currentBranches.length]);
-
     const handleSave = async () => {
       setShowErrors(true);
       if (hasErrors) return;
@@ -483,7 +476,7 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
         isSaving={saveState.isSaving}
         activeTab={route.activeTab}
         onTabChange={(k) => setStack(p => p.map((r, i) => i === p.length-1 ? {...r, activeTab: k} : r))}
-        branches={memoizedBranches}
+        branches={currentBranches}
         onNewBranch={handleNewBranch}
         onEditBranch={handleEditBranch}
         onViewBranch={handleViewBranch}
@@ -770,6 +763,7 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
         onSave={handleSave}
         isSaving={saveState.isSaving}
         clients={data?.clientes}
+        devices={data?.dispositivos || []}
       />
     );
   };
@@ -1016,8 +1010,9 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
 
   const handleContactBackToContacts = () => {
     setContactSuccessInfo(null);
-    // Volver a la lista de contactos (pop del formulario de contacto)
-    setStack(prev => prev.slice(0, -1));
+    // Cerrar completamente el modal y volver a la lista de contactos
+    setStack([]);
+    onClose();
   };
 
   const handleContactCreateAnother = () => {

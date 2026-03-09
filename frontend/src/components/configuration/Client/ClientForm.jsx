@@ -440,8 +440,14 @@ const ClientForm = ({
                       filteredBranches.map(branch => (
                       <div 
                         key={branch.id}
-                        onClick={() => isEditing && onEditBranch && onEditBranch(branch)}
-                        className={`border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow ${isEditing ? 'cursor-pointer' : ''}`}
+                        onClick={() => {
+                          if (isEditing && onEditBranch) {
+                            onEditBranch(branch);
+                          } else if (!isEditing && onViewBranch) {
+                            onViewBranch(branch);
+                          }
+                        }}
+                        className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow cursor-pointer"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
