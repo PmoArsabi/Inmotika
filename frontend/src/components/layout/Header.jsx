@@ -41,11 +41,11 @@ const Header = ({ user, activeTab, onToggleMobileMenu }) => {
 
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 bg-[#D32F2F] text-white rounded-xl flex items-center justify-center text-xs font-black shadow-lg shadow-red-900/20">
-              {user.name?.charAt(0)}
+              {user.nombre_completo?.charAt(0)}
             </div>
             <div className="hidden sm:block">
               <p className="text-[11px] font-black text-gray-900 uppercase tracking-wide leading-none">
-                {user.name}
+                {user.nombre_completo}
               </p>
               <TextSmall className="text-gray-400 uppercase mt-0.5">{user.role}</TextSmall>
             </div>

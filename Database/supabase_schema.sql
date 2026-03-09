@@ -47,15 +47,22 @@ CREATE TABLE catalogo_tipo_visita (
     activo BOOLEAN DEFAULT true
 );
 
+CREATE TABLE catalogo_rol (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    codigo VARCHAR(50) UNIQUE NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    activo BOOLEAN DEFAULT true
+);
+
 -- 2. ================= IDENTIDAD Y ROLES =================
 
 CREATE TABLE perfil_usuario (
     -- PK de auth.users.id, si un usuario se borra de Auth, se borra de acá
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    rol_id UUID REFERENCES catalogo_rol(id) NOT NULL,
     nombre_completo VARCHAR(255) NOT NULL,
     telefono VARCHAR(50),
     avatar_url TEXT,
-    rol VARCHAR(50) NOT NULL,
     estado_id UUID REFERENCES catalogo_estado_general(id),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -308,12 +315,40 @@ CREATE TABLE evidencia_paso (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- HABILITAR RLS (Row Level Security) - Ejemplos básicos
-ALTER TABLE perfil_usuario ENABLE ROW LEVEL SECURITY;
-ALTER TABLE cliente ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sucursal ENABLE ROW LEVEL SECURITY;
-ALTER TABLE dispositivo ENABLE ROW LEVEL SECURITY;
-ALTER TABLE visita ENABLE ROW LEVEL SECURITY;
+-- =========================================================================
+-- 6. ================= TRIGGERS Y FUNCIONES =================
+-- =========================================================================
 
--- Nota: Las políticas (Policies) exactas de RLS deberán crearse después
--- dependiendo de cómo se diseñen las vistas para el Cliente, Técnico y Coordinador.
+-- FUNCIÓN: Sincronizar usuario de Auth a perfil_usuario
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+    role_id_admin UUID;
+    default_estado_id UUID;
+BEGIN
+    -- Obtener el ID del rol ADMIN (por defecto para el primer usuario o según lógica)
+    SELECT id INTO role_id_admin FROM public.catalogo_rol WHERE codigo = 'ADMIN' LIMIT 1;
+    
+    -- Obtener un estado activo por defecto
+    SELECT id INTO default_estado_id FROM public.catalogo_estado_general WHERE activo = true LIMIT 1;
+
+    INSERT INTO public.perfil_usuario (id, rol_id, nombre_completo, estado_id)
+    VALUES (
+        NEW.id, 
+        role_id_admin, 
+        COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email), 
+        default_estado_id
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- TRIGGER: Disparar al crear en auth.users
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- NOTA: Si el usuario ya existe, se debe crear el perfil manualmente:
+-- INSERT INTO public.perfil_usuario (id, rol_id, nombre_completo) 
+-- VALUES ('UUID-DEL-USUARIO', 'ID-DEL-ROL', 'Nombre');

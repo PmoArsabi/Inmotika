@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ROLES } from './utils/constants';
 import { INITIAL_DATA } from './utils/mockData';
+import { useAuth } from './context/AuthContext';
 
 // Layout
 import Sidebar from './components/layout/Sidebar';
@@ -18,14 +19,8 @@ import ClientDataPage from './pages/ClientDataPage';
 import ClientInventoryPage from './pages/ClientInventoryPage';
 import ClientVisitsPage from './pages/ClientVisitsPage';
 
-/**
- * APP COMPONENT - REFINED v5.1 (The REAL Gauss Bell Toggle - FIXED)
- * - Exclusive "Concave Join" for the Toggle button
- * - Absolute Black (#1A1A1A) matching sidebar
- * - Background Shadow Trick (#F9FAFB) for joins
- */
 function App() {
-  const [user, setUser]               = useState(null);
+  const { user, signOut } = useAuth();
   const [activeTab, setActiveTab]     = useState('dashboard');
   const [data, setData]               = useState(INITIAL_DATA);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -33,15 +28,22 @@ function App() {
     () => localStorage.getItem('sidebar-collapsed') === 'true'
   );
 
-  const handleLogin = (userData) => {
-    setUser(userData);
-    if (userData.role === ROLES.TECNICO) setActiveTab('schedule');
-    else if (userData.role === ROLES.CLIENTE) setActiveTab('client-dashboard');
-    else setActiveTab('dashboard');
-  };
+  // Efecto para limpiar la URL y redirigir según el rol
+  useEffect(() => {
+    // Si la URL tiene un path (como /dashboard), lo limpiamos ya que usamos estado interno
+    if (window.location.pathname !== '/') {
+      window.history.replaceState(null, '', '/');
+    }
 
-  const handleLogout = () => {
-    setUser(null);
+    if (user) {
+      if (user.role === ROLES.TECNICO) setActiveTab('schedule');
+      else if (user.role === ROLES.CLIENTE) setActiveTab('client-dashboard');
+      else setActiveTab('dashboard');
+    }
+  }, [user]);
+
+  const handleLogout = async () => {
+    await signOut();
     setActiveTab('dashboard');
     setMobileMenuOpen(false);
   };
@@ -52,7 +54,7 @@ function App() {
     localStorage.setItem('sidebar-collapsed', String(next));
   };
 
-  if (!user) return <LoginPage onLogin={handleLogin} />;
+  if (!user) return <LoginPage />;
 
   // Extract subTab from configuration tabs
   const getConfigurationSubTab = (tab) => {

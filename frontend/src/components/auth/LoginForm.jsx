@@ -9,26 +9,31 @@ const LoginForm = ({ onSignIn }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [emailValid, setEmailValid] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleEmailChange = (e) => {
     const value = e.target.value;
     setEmail(value);
-    // Validación simple de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     setEmailValid(emailRegex.test(value));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (email && password) {
-      onSignIn({ email, password });
+      setLoading(true);
+      try {
+        await onSignIn({ email, password });
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
   return (
     <Card className="bg-white shadow-2xl border-0 overflow-hidden">
       {/* Header con gradiente */}
-      <div className="bg-gradient-to-r from-[#D32F2F] via-[#B71C1C] to-[#8B0000] px-8 py-12 relative overflow-hidden">
+      <div className="bg-linear-to-r from-[#D32F2F] via-[#B71C1C] to-[#8B0000] px-8 py-12 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
         <div className="relative z-10">
@@ -51,8 +56,9 @@ const LoginForm = ({ onSignIn }) => {
                 type="email"
                 value={email}
                 onChange={handleEmailChange}
-                placeholder="sahina8017@gmail.com"
-                className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-[#D32F2F] outline-none transition-colors bg-transparent"
+                disabled={loading}
+                placeholder="usuario@inmotika.co"
+                className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-[#D32F2F] outline-none transition-colors bg-transparent disabled:opacity-50"
               />
               {emailValid && email && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -73,13 +79,15 @@ const LoginForm = ({ onSignIn }) => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-[#D32F2F] outline-none transition-colors bg-transparent"
+                disabled={loading}
+                placeholder="••••••••"
+                className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-[#D32F2F] outline-none transition-colors bg-transparent disabled:opacity-50"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#D32F2F] transition-colors"
+                disabled={loading}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -91,17 +99,19 @@ const LoginForm = ({ onSignIn }) => {
             <button
               type="button"
               className="text-sm text-gray-600 hover:text-[#D32F2F] transition-colors underline"
+              disabled={loading}
             >
-              Forgot Password?
+              ¿Olvidaste tu contraseña?
             </button>
           </div>
 
           {/* Sign In Button */}
           <Button
             type="submit"
-            className="w-full py-4 bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#6A1B9A] text-white font-bold text-base uppercase rounded-full shadow-lg transition-all"
+            disabled={loading}
+            className={`w-full py-4 bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#6A1B9A] text-white font-bold text-base uppercase rounded-full shadow-lg transition-all ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            SIGN IN
+            {loading ? 'Iniciando sesión...' : 'INGRESAR'}
           </Button>
         </form>
 

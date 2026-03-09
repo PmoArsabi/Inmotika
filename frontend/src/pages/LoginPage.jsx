@@ -1,23 +1,17 @@
-import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import LoginBackground from '../components/auth/LoginBackground';
 import LoginForm from '../components/auth/LoginForm';
-import RoleSelection from '../components/auth/RoleSelection';
 
-const LoginPage = ({ onLogin }) => {
-  const [showRoleSelection, setShowRoleSelection] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
+const LoginPage = () => {
+  const { signIn } = useAuth();
 
-  const handleSignIn = ({ email, password }) => {
-    setUserEmail(email);
-    setShowRoleSelection(true);
-  };
-
-  const handleRoleSelect = (userData) => {
-    onLogin(userData);
-  };
-
-  const handleBack = () => {
-    setShowRoleSelection(false);
+  const handleSignIn = async ({ email, password }) => {
+    try {
+      await signIn(email, password);
+      // El AuthContext detectará el cambio y el useEffect en App.jsx redirigirá al usuario
+    } catch (error) {
+      alert('Error al iniciar sesión: ' + error.message);
+    }
   };
 
   return (
@@ -25,15 +19,7 @@ const LoginPage = ({ onLogin }) => {
       <LoginBackground />
       
       <div className="relative z-10 w-full max-w-md">
-        {!showRoleSelection ? (
-          <LoginForm onSignIn={handleSignIn} />
-        ) : (
-          <RoleSelection 
-            onRoleSelect={handleRoleSelect} 
-            onBack={handleBack}
-            email={userEmail}
-          />
-        )}
+        <LoginForm onSignIn={handleSignIn} />
       </div>
     </div>
   );

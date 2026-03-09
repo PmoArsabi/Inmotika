@@ -51,16 +51,23 @@ erDiagram
         boolean activo
     }
 
+    CATALOGO_ROL {
+        uuid id PK
+        string codigo UNIQUE "ADMIN, TECNICO, etc"
+        string nombre
+        boolean activo
+    }
+
     %% ══════════════════════════════════════════
     %% IDENTIDAD Y ROLES
     %% ══════════════════════════════════════════
 
     PERFIL_USUARIO {
         uuid id PK "ref: auth.users.id"
+        uuid rol_id FK
         string nombre_completo
         string telefono
         string avatar_url
-        string rol
         uuid estado_id FK
         timestamptz created_at
         timestamptz updated_at
@@ -384,6 +391,7 @@ erDiagram
     CATALOGO_TIPO_VISITA ||--o{ VISITA : ""
     CATALOGO_ESTADO_INTERVENCION ||--o{ INTERVENCION : ""
     CATALOGO_ESTADO_EJECUCION_PASO ||--o{ EJECUCION_PASO : ""
+    CATALOGO_ROL ||--o{ PERFIL_USUARIO : ""
 ```
 
 > [!NOTE]

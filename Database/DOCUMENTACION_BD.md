@@ -21,7 +21,8 @@ Antes de examinar las tablas, es vital entender las decisiones técnicas transve
 
 Este módulo maneja quién ingresa al sistema y qué funciones tiene.
 
-*   **`PERFIL_USUARIO`**: Es la extensión humana de la cuenta técnica. Su `id` debe coincidir exactamente con el UUID generado por Supabase (`auth.users.id`). Guarda información genérica (`nombre_completo`, `avatar_url`, y el `rol` principal).
+*   **`PERFIL_USUARIO`**: Es la extensión humana de la cuenta técnica. Su `id` debe coincidir exactamente con el UUID generado por Supabase (`auth.users.id`). Guarda información genérica (`nombre_completo`, `avatar_url`) y el `rol_id` que define sus permisos.
+*   **`CATALOGO_ROL`**: Tabla inmutable que centraliza los perfiles de acceso (ADMIN, COORDINADOR, TECNICO, DIRECTOR, CLIENTE).
 *   **`DIRECTOR` / `COORDINADOR` / `TECNICO`**: Entidades específicas para cada rol operativo operativo. Se separan porque tienen jerarquías (el Director supervisa Coordinadores) y atributos únicos (el Técnico exige validación en campo: `tipo_documento`, `documento_cedula_url`, `planilla_seg_social_url` para regulaciones laborales, y `certificados`). Nótese que el técnico es "flotante" y no tiene sede fija.
 *   **`DISPONIBILIDAD_TECNICO`**: Registra los bloqueos de agenda de un técnico (vacaciones, incapacidades, permisos). Una visita no puede programarse si la fecha choca con estos registros.
 
@@ -60,6 +61,7 @@ El motor transaccional del sistema, desde que nace la necesidad hasta que el té
 
 En lugar de usar textos sueltos y propensos a errores tipográficos (`"en processso"`, `"COMPLETADO"`), o restrictivos `ENUMs` a nivel de base de datos, se centralizan los estados en tablas de control. Esto permite añadir un estado nuevo en el futuro sin modificar la arquitectura de la base de datos.
 
+*   `CATALOGO_ROL` (ADMIN, COORDINADOR, TECNICO, DIRECTOR, CLIENTE).
 *   `CATALOGO_ESTADO_GENERAL` (Activo, Inactivo, Mantenimiento, etc.)
 *   `CATALOGO_ESTADO_VISITA` (Solicitada, Programada, En Ruta, Ejecución, Facturación).
 *   `CATALOGO_ESTADO_INTERVENCION` (En progreso, Espera de repuesto, Finalizada).
