@@ -910,5 +910,47 @@ export const INITIAL_DATA = {
         { fecha: "2025-12-20", origen: "Bodega Principal", destino: "Sede Principal Centro", motivo: "Instalación Inicial" }
       ]
     }
+  ],
+  usuarios: [
+    {
+      id: 'USR-001',
+      nombre: 'Juan Carlos Pérez',
+      email: 'juan.perez@inmotika.com',
+      telefono: '3001234567',
+      rol: 'director',
+      activo: true,
+      fechaCreacion: '2025-01-15',
+      password: 'password123'
+    },
+    {
+      id: 'USR-002',
+      nombre: 'María González',
+      email: 'maria.gonzalez@inmotika.com',
+      telefono: '3002345678',
+      rol: 'coordinador',
+      activo: true,
+      fechaCreacion: '2025-01-20',
+      password: 'password123'
+    },
+    {
+      id: 'USR-003',
+      nombre: 'Carlos Pérez',
+      email: 'carlos.perez@inmotika.com',
+      telefono: '3003456789',
+      rol: 'tecnico',
+      activo: true,
+      fechaCreacion: '2025-02-01',
+      password: 'password123'
+    },
+    {
+      id: 'USR-004',
+      nombre: 'Laura Martínez',
+      email: 'laura.martinez@inmotika.com',
+      telefono: '3004567890',
+      rol: 'tecnico',
+      activo: true,
+      fechaCreacion: '2025-02-05',
+      password: 'password123'
+    }
   ]
 };

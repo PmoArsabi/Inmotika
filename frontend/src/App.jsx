@@ -17,6 +17,7 @@ import ClientDashboardPage from './pages/ClientDashboardPage';
 import ClientDataPage from './pages/ClientDataPage';
 import ClientInventoryPage from './pages/ClientInventoryPage';
 import ClientVisitsPage from './pages/ClientVisitsPage';
+import UsersPage from './pages/UsersPage';
 
 /**
  * APP COMPONENT - REFINED v5.1 (The REAL Gauss Bell Toggle - FIXED)
@@ -74,6 +75,9 @@ function App() {
   const renderPage = () => {
     // Handle configuration sub-tabs
     const configSubTab = getConfigurationSubTab(activeTab);
+    if (configSubTab === 'usuarios') {
+      return <UsersPage data={data} setData={setData} />;
+    }
     if (configSubTab) {
       return <ConfigurationPage key={activeTab} data={data} setData={setData} initialSubTab={configSubTab} isSingleTabView={true} />;
     }
