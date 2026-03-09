@@ -18,6 +18,7 @@ import ClientDashboardPage from './pages/ClientDashboardPage';
 import ClientDataPage from './pages/ClientDataPage';
 import ClientInventoryPage from './pages/ClientInventoryPage';
 import ClientVisitsPage from './pages/ClientVisitsPage';
+import UsersPage from './pages/UsersPage';
 
 function App() {
   const { user, signOut } = useAuth();
@@ -76,6 +77,9 @@ function App() {
   const renderPage = () => {
     // Handle configuration sub-tabs
     const configSubTab = getConfigurationSubTab(activeTab);
+    if (configSubTab === 'usuarios') {
+      return <UsersPage data={data} setData={setData} />;
+    }
     if (configSubTab) {
       return <ConfigurationPage key={activeTab} data={data} setData={setData} initialSubTab={configSubTab} isSingleTabView={true} />;
     }

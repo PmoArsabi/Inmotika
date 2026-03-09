@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, ClipboardList, Settings, Calendar, Building2,
   Cpu, Eye, LogOut, Menu, ChevronUp, ChevronDown, Users,
-  FileText, Wallet, BarChart, Bell, Phone
+  FileText, Wallet, BarChart, Bell, Phone, UserCog
 } from 'lucide-react';
 import { ROLES } from '../../utils/constants';
 import { H3, TextSmall, Subtitle } from '../ui/Typography';
@@ -49,6 +49,7 @@ const Sidebar = ({
             { id: 'configuration-clientes', label: 'Clientes', icon: Users },
             { id: 'configuration-contacto', label: 'Contacto', icon: Phone },
             { id: 'configuration-dispositivos', label: 'Dispositivos', icon: Cpu },
+            { id: 'configuration-usuarios', label: 'Usuarios Ap', icon: UserCog },
           ]
         },
         { 
