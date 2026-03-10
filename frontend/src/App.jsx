@@ -21,7 +21,7 @@ import ClientVisitsPage from './pages/ClientVisitsPage';
 import UsersPage from './pages/UsersPage';
 
 function App() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab]     = useState('dashboard');
   const [data, setData]               = useState(INITIAL_DATA);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -37,8 +37,8 @@ function App() {
     }
 
     if (user) {
-      if (user.role === ROLES.TECNICO) setActiveTab('schedule');
-      else if (user.role === ROLES.CLIENTE) setActiveTab('client-dashboard');
+      if (user.role === ROLES.TECNICO || user.role === 'TECNICO') setActiveTab('schedule');
+      else if (user.role === ROLES.CLIENTE || user.role === 'CLIENTE') setActiveTab('client-dashboard');
       else setActiveTab('dashboard');
     }
   }, [user]);
@@ -55,7 +55,20 @@ function App() {
     localStorage.setItem('sidebar-collapsed', String(next));
   };
 
-  if (!user) return <LoginPage />;
+  // Mostrar LoginPage si no hay usuario y no está cargando
+  if (!authLoading && !user) {
+    return <LoginPage />;
+  }
+
+  // Si está cargando, el AuthContext ya muestra el spinner
+  if (authLoading) {
+    return null;
+  }
+
+  // Si no hay usuario después de cargar, mostrar LoginPage
+  if (!user) {
+    return <LoginPage />;
+  }
 
   // Extract subTab from configuration tabs
   const getConfigurationSubTab = (tab) => {
@@ -75,25 +88,35 @@ function App() {
   };
 
   const renderPage = () => {
-    // Handle configuration sub-tabs
-    const configSubTab = getConfigurationSubTab(activeTab);
-    if (configSubTab === 'usuarios') {
-      return <UsersPage data={data} setData={setData} />;
-    }
-    if (configSubTab) {
-      return <ConfigurationPage key={activeTab} data={data} setData={setData} initialSubTab={configSubTab} isSingleTabView={true} />;
-    }
+    try {
+      // Handle configuration sub-tabs
+      const configSubTab = getConfigurationSubTab(activeTab);
+      if (configSubTab === 'usuarios') {
+        return <UsersPage data={data} setData={setData} />;
+      }
+      if (configSubTab) {
+        return <ConfigurationPage key={activeTab} data={data} setData={setData} initialSubTab={configSubTab} isSingleTabView={true} />;
+      }
 
-    switch (activeTab) {
-      case 'dashboard':        return <DashboardPage data={data} />;
-      case 'visits':           return <VisitsPage data={data} setData={setData} />;
-      case 'configuration':    return <ConfigurationPage key={activeTab} data={data} setData={setData} isSingleTabView={false} />;
-      case 'schedule':         return <SchedulePage data={data} setData={setData} />;
-      case 'client-dashboard': return <ClientDashboardPage data={data} />;
-      case 'client-data':      return <ClientDataPage data={data} />;
-      case 'client-inventory': return <ClientInventoryPage data={data} />;
-      case 'client-visits':    return <ClientVisitsPage data={data} />;
-      default:                 return <DashboardPage data={data} />;
+      switch (activeTab) {
+        case 'dashboard':        return <DashboardPage data={data} />;
+        case 'visits':           return <VisitsPage data={data} setData={setData} />;
+        case 'configuration':    return <ConfigurationPage key={activeTab} data={data} setData={setData} isSingleTabView={false} />;
+        case 'schedule':         return <SchedulePage data={data} setData={setData} />;
+        case 'client-dashboard': return <ClientDashboardPage data={data} />;
+        case 'client-data':      return <ClientDataPage data={data} />;
+        case 'client-inventory': return <ClientInventoryPage data={data} />;
+        case 'client-visits':    return <ClientVisitsPage data={data} />;
+        default:                 return <DashboardPage data={data} />;
+      }
+    } catch (error) {
+      console.error('Error al renderizar página:', error);
+      return (
+        <div className="p-8">
+          <h2 className="text-xl font-bold text-red-600 mb-4">Error al cargar la página</h2>
+          <p className="text-gray-600">{error.message}</p>
+        </div>
+      );
     }
   };
 

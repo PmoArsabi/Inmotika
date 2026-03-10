@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import {
   Plus, Edit, Eye, Trash2, UserPlus, Shield, Mail, Phone,
-  User, Search, X, Save, ArrowLeft
+  User, Search, X, Save, ArrowLeft, FileText
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
+import FileUploader from '../components/ui/FileUploader';
 import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
 import { Subtitle, TextSmall, H2, H3, TextTiny, Label } from '../components/ui/Typography';
 import StatusBadge from '../components/ui/StatusBadge';
@@ -26,6 +27,12 @@ const UsersPage = ({ data, setData }) => {
     rol: '',
     activo: true,
     password: ''
+  });
+
+  // Estado para documentos del técnico
+  const [tecnicoDocumentos, setTecnicoDocumentos] = useState({
+    planilla: false,
+    otros: false
   });
 
   // Obtener usuarios del sistema
@@ -77,6 +84,10 @@ const UsersPage = ({ data, setData }) => {
       activo: true,
       password: ''
     });
+    setTecnicoDocumentos({
+      planilla: false,
+      otros: false
+    });
   };
 
   const handleEdit = (user) => {
@@ -90,6 +101,10 @@ const UsersPage = ({ data, setData }) => {
       rol: user.rol || '',
       activo: user.activo !== undefined ? user.activo : true,
       password: '' // No mostrar contraseña existente
+    });
+    setTecnicoDocumentos({
+      planilla: user.documentos?.planilla || false,
+      otros: user.documentos?.otros || false
     });
   };
 
@@ -131,7 +146,8 @@ const UsersPage = ({ data, setData }) => {
         rol: newUser.rol,
         activo: newUser.activo,
         fechaCreacion: new Date().toISOString().split('T')[0],
-        password: newUser.password || 'password123' // En producción, esto debería ser hasheado
+        password: newUser.password || 'password123', // En producción, esto debería ser hasheado
+        ...(newUser.rol === ROLES.TECNICO && { documentos: tecnicoDocumentos })
       };
 
       setData(prev => ({
@@ -148,6 +164,10 @@ const UsersPage = ({ data, setData }) => {
         activo: true,
         password: ''
       });
+      setTecnicoDocumentos({
+        planilla: false,
+        otros: false
+      });
     } else if (editingUser) {
       // Actualizar usuario existente
       setData(prev => ({
@@ -161,7 +181,8 @@ const UsersPage = ({ data, setData }) => {
                 telefono: newUser.telefono,
                 rol: newUser.rol,
                 activo: newUser.activo,
-                ...(newUser.password && { password: newUser.password })
+                ...(newUser.password && { password: newUser.password }),
+                ...(newUser.rol === ROLES.TECNICO && { documentos: tecnicoDocumentos })
               }
             : u
         )
@@ -175,6 +196,10 @@ const UsersPage = ({ data, setData }) => {
         rol: '',
         activo: true,
         password: ''
+      });
+      setTecnicoDocumentos({
+        planilla: false,
+        otros: false
       });
     }
   };
@@ -190,6 +215,10 @@ const UsersPage = ({ data, setData }) => {
       rol: '',
       activo: true,
       password: ''
+    });
+    setTecnicoDocumentos({
+      planilla: false,
+      otros: false
     });
   };
 
@@ -265,7 +294,14 @@ const UsersPage = ({ data, setData }) => {
                   label="Rol *"
                   options={roleOptions}
                   value={newUser.rol}
-                  onChange={e => setNewUser({ ...newUser, rol: e.target.value })}
+                  onChange={e => {
+                    const nuevoRol = e.target.value;
+                    setNewUser({ ...newUser, rol: nuevoRol });
+                    // Si cambia a un rol que no es técnico, limpiar documentos
+                    if (nuevoRol !== ROLES.TECNICO) {
+                      setTecnicoDocumentos({ planilla: false, otros: false });
+                    }
+                  }}
                   disabled={viewingUser}
                   required
                 />
@@ -296,6 +332,37 @@ const UsersPage = ({ data, setData }) => {
                   Usuario activo
                 </Label>
               </div>
+
+              {/* Sección de Documentos para Técnicos */}
+              {newUser.rol === ROLES.TECNICO && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
+                      <FileText size={18} className="text-orange-600" />
+                    </div>
+                    <div>
+                      <Label className="text-base font-bold text-gray-900">Documentos del Técnico</Label>
+                      <TextTiny className="text-gray-500">Subir documentos requeridos (planilla, certificaciones, etc.)</TextTiny>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FileUploader
+                      label="Planilla"
+                      type="planilla"
+                      isLoaded={tecnicoDocumentos.planilla}
+                      viewMode={viewingUser}
+                      onLoad={(type) => setTecnicoDocumentos(prev => ({ ...prev, [type]: !prev[type] }))}
+                    />
+                    <FileUploader
+                      label="Otros Documentos"
+                      type="otros"
+                      isLoaded={tecnicoDocumentos.otros}
+                      viewMode={viewingUser}
+                      onLoad={(type) => setTecnicoDocumentos(prev => ({ ...prev, [type]: !prev[type] }))}
+                    />
+                  </div>
+                </div>
+              )}
             </Card>
           </div>
 
@@ -321,6 +388,30 @@ const UsersPage = ({ data, setData }) => {
                 </div>
               )}
             </Card>
+
+            {/* Información de Documentos para Técnicos */}
+            {viewingUser && viewingUser.rol === ROLES.TECNICO && viewingUser.documentos && (
+              <Card className="p-6 bg-gradient-to-br from-orange-50 to-orange-100/50">
+                <div className="flex items-center gap-3 mb-4">
+                  <FileText size={20} className="text-orange-600" />
+                  <Label className="text-base font-bold text-gray-900">Documentos del Técnico</Label>
+                </div>
+                <div className="space-y-3">
+                  <div className="p-3 bg-white rounded-lg border border-gray-200">
+                    <TextTiny className="text-gray-500">Planilla</TextTiny>
+                    <TextSmall className={`font-semibold ${viewingUser.documentos.planilla ? 'text-green-600' : 'text-gray-400'}`}>
+                      {viewingUser.documentos.planilla ? '✓ Cargado' : 'No cargado'}
+                    </TextSmall>
+                  </div>
+                  <div className="p-3 bg-white rounded-lg border border-gray-200">
+                    <TextTiny className="text-gray-500">Otros Documentos</TextTiny>
+                    <TextSmall className={`font-semibold ${viewingUser.documentos.otros ? 'text-green-600' : 'text-gray-400'}`}>
+                      {viewingUser.documentos.otros ? '✓ Cargado' : 'No cargado'}
+                    </TextSmall>
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {viewingUser && (
               <Card className="p-6">

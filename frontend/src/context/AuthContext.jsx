@@ -9,7 +9,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('AuthContext: Iniciando comprobación de sesión...');
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    // Si no hay configuración de Supabase, usar modo mock
+    if (!supabaseUrl || !supabaseAnonKey) {
+      setLoading(false);
+      return;
+    }
     
     // Failsafe: Si en 8 segundos no ha respondido, forzamos el cierre del loading
     const timer = setTimeout(() => {
@@ -19,7 +26,6 @@ export const AuthProvider = ({ children }) => {
 
     // 1. Obtener sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('AuthContext: Sesión inicial:', session ? 'OK' : 'NULL');
       setSession(session);
       if (session) {
         fetchProfile(session.user.id, session).finally(() => {
@@ -30,11 +36,14 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
         clearTimeout(timer);
       }
+    }).catch((error) => {
+      console.error('Error al obtener sesión:', error);
+      setLoading(false);
+      clearTimeout(timer);
     });
 
     // 2. Escuchar cambios en la autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('AuthContext: Evento de Auth:', event);
       setSession(session);
       if (session) {
         // No llamamos a setLoading(true) aquí para evitar que la app se desmonte al loguear
@@ -47,15 +56,15 @@ export const AuthProvider = ({ children }) => {
     });
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
       clearTimeout(timer);
     };
   }, []);
 
   const fetchProfile = async (userId, currentSession = null) => {
     try {
-      console.log('AuthContext: Cargando perfil...');
-      
       const { data, error } = await supabase
         .from('perfil_usuario')
         .select(`
@@ -67,7 +76,6 @@ export const AuthProvider = ({ children }) => {
         .single();
 
       if (data) {
-        console.log('AuthContext: Perfil cargado correctamente');
         setUser({
           ...data,
           role: data.catalogo_rol?.codigo || 'ADMIN',
@@ -76,7 +84,6 @@ export const AuthProvider = ({ children }) => {
           email: currentSession?.user?.email || null
         });
       } else {
-        console.warn('AuthContext: No se encontró perfil, usando fallback local');
         setUser({
           id: userId,
           email: currentSession?.user?.email,
@@ -86,11 +93,27 @@ export const AuthProvider = ({ children }) => {
         });
       }
     } catch (err) {
-      console.error('AuthContext: Error en fetchProfile:', err);
+      console.error('Error al cargar perfil:', err);
     }
   };
 
   const signIn = async (email, password) => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      // Modo mock: permitir login sin Supabase
+      setUser({
+        id: 'mock-user',
+        email: email,
+        role: 'ADMIN', // Usar el valor de ROLES.ADMIN
+        status: 'ACTIVO',
+        nombre_completo: email.split('@')[0] || 'Usuario',
+        roleName: 'Administrador'
+      });
+      return { user: { email }, session: null };
+    }
+    
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -105,6 +128,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      // Modo mock: solo limpiar el estado local
+      setUser(null);
+      setSession(null);
+      return;
+    }
+    
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };

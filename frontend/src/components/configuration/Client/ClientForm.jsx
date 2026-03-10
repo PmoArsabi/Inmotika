@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { User, Building2, MapPin, Phone, Mail, Hash, Briefcase, Camera, Plus, Eye, Edit2, Search } from 'lucide-react';
+import { User, Building2, MapPin, Phone, Mail, Hash, Briefcase, Camera, Plus, Eye, Edit2, Search, FileText, Calendar } from 'lucide-react';
 import { Country } from 'country-state-city';
 import Button from '../../ui/Button';
 import Input from '../../ui/Input';
@@ -8,9 +8,10 @@ import NitInput from '../../ui/NitInput';
 import Switch from '../../ui/Switch';
 import Checkbox from '../../ui/Checkbox';
 import Tabs from '../../ui/Tabs';
+import FileUploader from '../../ui/FileUploader';
 import { LocationPickerRows } from '../../forms/LocationPickerRows';
 import Card from '../../ui/Card';
-import { TextSmall, Subtitle } from '../../ui/Typography';
+import { TextSmall, Subtitle, Label, TextTiny } from '../../ui/Typography';
 import { Table, THead, TBody, Tr, Th, Td } from '../../ui/Table';
 import IconButton from '../../ui/IconButton';
 
@@ -136,6 +137,28 @@ const ClientForm = ({
                     {draft.ciudad}{draft.estado_depto ? `, ${draft.estado_depto}` : ''}
                     {draft.pais ? ` - ${getCountryName(draft.pais)}` : ''}
                   </p>
+                </div>
+              </div>
+            )}
+            {draft.documentos && (
+              <div className="flex items-start gap-3">
+                <FileText size={18} className="text-gray-400 mt-0.5" />
+                <div>
+                  <TextSmall className="text-gray-500">Documentos</TextSmall>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {draft.documentos.rut && (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded">RUT</span>
+                    )}
+                    {draft.documentos.certificacionBancaria && (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded">Cert. Bancaria</span>
+                    )}
+                    {draft.documentos.otros && (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded">Otros</span>
+                    )}
+                    {!draft.documentos.rut && !draft.documentos.certificacionBancaria && !draft.documentos.otros && (
+                      <span className="text-xs text-gray-400 italic">Sin documentos</span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -266,6 +289,57 @@ const ClientForm = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Sección de Documentos del Cliente */}
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+                      <FileText size={18} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <Label className="text-base font-bold text-gray-900">Documentos del Cliente</Label>
+                      <TextTiny className="text-gray-500">Subir documentos requeridos (RUT, certificaciones, etc.)</TextTiny>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <FileUploader
+                      label="RUT"
+                      type="rut"
+                      isLoaded={draft.documentos?.rut || false}
+                      viewMode={!isEditing}
+                      onLoad={(type) => {
+                        const documentos = draft.documentos || {};
+                        updateDraft({ 
+                          documentos: { ...documentos, [type]: !documentos[type] }
+                        });
+                      }}
+                    />
+                    <FileUploader
+                      label="Certificación Bancaria"
+                      type="certificacionBancaria"
+                      isLoaded={draft.documentos?.certificacionBancaria || false}
+                      viewMode={!isEditing}
+                      onLoad={(type) => {
+                        const documentos = draft.documentos || {};
+                        updateDraft({ 
+                          documentos: { ...documentos, [type]: !documentos[type] }
+                        });
+                      }}
+                    />
+                    <FileUploader
+                      label="Otros Documentos"
+                      type="otros"
+                      isLoaded={draft.documentos?.otros || false}
+                      viewMode={!isEditing}
+                      onLoad={(type) => {
+                        const documentos = draft.documentos || {};
+                        updateDraft({ 
+                          documentos: { ...documentos, [type]: !documentos[type] }
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -394,6 +468,73 @@ const ClientForm = ({
                       </div>
                     </div>
                   </div>
+
+                  {/* Información del Contrato */}
+                  <div className="pt-4 border-t border-gray-200 space-y-4">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
+                        <Briefcase size={18} className="text-purple-600" />
+                      </div>
+                      <div>
+                        <Subtitle className="text-gray-700">Información del Contrato</Subtitle>
+                        <TextTiny className="text-gray-500">Datos y documentos del contrato de la sucursal</TextTiny>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <Input
+                        label="Tema del Contrato"
+                        icon={Briefcase}
+                        value={newBranchDraft.contrato?.tema || ''}
+                        onChange={(e) => updateNewBranchDraft({
+                          contrato: {
+                            ...(newBranchDraft.contrato || {}),
+                            tema: e.target.value
+                          }
+                        })}
+                        placeholder="Ej: Mantenimiento preventivo"
+                      />
+                      <Input
+                        label="Fecha Inicio"
+                        type="date"
+                        icon={Calendar}
+                        value={newBranchDraft.contrato?.fechaInicio || ''}
+                        onChange={(e) => updateNewBranchDraft({
+                          contrato: {
+                            ...(newBranchDraft.contrato || {}),
+                            fechaInicio: e.target.value
+                          }
+                        })}
+                      />
+                      <Input
+                        label="Fecha Fin"
+                        type="date"
+                        icon={Calendar}
+                        value={newBranchDraft.contrato?.fechaFin || ''}
+                        onChange={(e) => updateNewBranchDraft({
+                          contrato: {
+                            ...(newBranchDraft.contrato || {}),
+                            fechaFin: e.target.value
+                          }
+                        })}
+                      />
+                    </div>
+                    <div className="mt-4">
+                      <FileUploader
+                        label="Adjuntar Contrato"
+                        type="contrato"
+                        isLoaded={newBranchDraft.contrato?.documento || false}
+                        viewMode={false}
+                        onLoad={(type) => {
+                          updateNewBranchDraft({
+                            contrato: {
+                              ...(newBranchDraft.contrato || {}),
+                              documento: !newBranchDraft.contrato?.documento
+                            }
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               ) : branches.length === 0 ? (
                 <div className="text-center py-12">
@@ -477,6 +618,39 @@ const ClientForm = ({
                                 </span>
                               )}
                             </div>
+                            {branch.contrato && (
+                              <div className="mt-3 pt-3 border-t border-gray-100">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Briefcase size={14} className="text-purple-600" />
+                                  <TextSmall className="text-gray-700 font-semibold text-xs">Información del Contrato</TextSmall>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {branch.contrato.tema && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded">
+                                      {branch.contrato.tema}
+                                    </span>
+                                  )}
+                                  {branch.contrato.fechaInicio && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">
+                                      <Calendar size={12} />
+                                      Inicio: {new Date(branch.contrato.fechaInicio).toLocaleDateString('es-ES')}
+                                    </span>
+                                  )}
+                                  {branch.contrato.fechaFin && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded">
+                                      <Calendar size={12} />
+                                      Fin: {new Date(branch.contrato.fechaFin).toLocaleDateString('es-ES')}
+                                    </span>
+                                  )}
+                                  {branch.contrato.documento && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 text-xs font-medium rounded">
+                                      <FileText size={12} />
+                                      Contrato adjunto
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                           {isEditing && !editingBranchId && (
                             <div className="flex gap-2 ml-4" onClick={(e) => e.stopPropagation()}>

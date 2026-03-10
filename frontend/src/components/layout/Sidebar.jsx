@@ -33,7 +33,8 @@ const Sidebar = ({
   };
 
   const getMenuItems = () => {
-    if (user.role === ROLES.ADMIN || user.role === ROLES.DIRECTOR || user.role === ROLES.COORDINADOR) {
+    const userRole = user?.role;
+    if (userRole === ROLES.ADMIN || userRole === 'ADMIN' || userRole === ROLES.DIRECTOR || userRole === 'DIRECTOR' || userRole === ROLES.COORDINADOR || userRole === 'COORDINADOR') {
       return [
         { 
           id: 'dashboard', 

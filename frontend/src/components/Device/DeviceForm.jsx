@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Building2, MapPin, Hash, Monitor, User, Navigation2, Activity, 
-  ClipboardList, Timer, CheckCircle2, ChevronUp, ChevronDown, Trash2, Plus, ArrowRightLeft, Calendar, Camera
+  ClipboardList, Timer, CheckCircle2, ChevronUp, ChevronDown, Trash2, Plus, ArrowRightLeft, Calendar, Camera, X, ArrowLeft
 } from 'lucide-react';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
@@ -32,6 +32,22 @@ const DeviceForm = ({
 
   const [newStepText, setNewStepText] = useState('');
   const [showNewStepInput, setShowNewStepInput] = useState(false);
+  
+  // Estado para categorías disponibles
+  const [categorias, setCategorias] = useState([
+    {value:'', label:'No especificada'},
+    {value:'Cámara', label:'Cámara'},
+    {value:'Sensor', label:'Sensor'},
+    {value:'Panel', label:'Panel'}
+  ]);
+  const [showNewCategoriaScreen, setShowNewCategoriaScreen] = useState(false);
+  const [newCategoriaNombre, setNewCategoriaNombre] = useState('');
+  const [manualPasos, setManualPasos] = useState([]); // [{ nombre: "Paso 1", actividades: ["Act 1", "Act 2"] }]
+  const [nuevoPasoNombre, setNuevoPasoNombre] = useState('');
+  const [nuevaActividadTexto, setNuevaActividadTexto] = useState('');
+  const [pasoActivoParaActividad, setPasoActivoParaActividad] = useState(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [categoriaGuardadaNombre, setCategoriaGuardadaNombre] = useState('');
 
   const addStep = () => {
     if (newStepText && newStepText.trim() !== '') {
@@ -66,10 +82,351 @@ const DeviceForm = ({
     updateDraft({ pasoAPaso: newSteps });
   };
 
+  const handleAddPaso = () => {
+    if (nuevoPasoNombre && nuevoPasoNombre.trim() !== '') {
+      setManualPasos([...manualPasos, { nombre: nuevoPasoNombre.trim(), actividades: [] }]);
+      setNuevoPasoNombre('');
+    }
+  };
+
+  const handleAddActividad = (pasoIndex) => {
+    if (nuevaActividadTexto && nuevaActividadTexto.trim() !== '') {
+      const nuevosPasos = [...manualPasos];
+      nuevosPasos[pasoIndex].actividades.push(nuevaActividadTexto.trim());
+      setManualPasos(nuevosPasos);
+      setNuevaActividadTexto('');
+      setPasoActivoParaActividad(null);
+    }
+  };
+
+  const handleRemovePaso = (pasoIndex) => {
+    setManualPasos(manualPasos.filter((_, i) => i !== pasoIndex));
+  };
+
+  const handleRemoveActividad = (pasoIndex, actividadIndex) => {
+    const nuevosPasos = [...manualPasos];
+    nuevosPasos[pasoIndex].actividades = nuevosPasos[pasoIndex].actividades.filter((_, i) => i !== actividadIndex);
+    setManualPasos(nuevosPasos);
+  };
+
+  const handleAddCategoria = () => {
+    if (newCategoriaNombre && newCategoriaNombre.trim() !== '') {
+      const categoriaValue = newCategoriaNombre.trim();
+      // Verificar que no exista ya
+      if (!categorias.some(c => c.value === categoriaValue)) {
+        const nuevaCategoria = { value: categoriaValue, label: categoriaValue };
+        setCategorias([...categorias, nuevaCategoria]);
+        updateDraft({ categoria: categoriaValue });
+        
+        // Si hay pasos definidos, actualizar el pasoAPaso del draft
+        if (manualPasos.length > 0) {
+          const pasosFormateados = manualPasos.flatMap(paso => 
+            [`${paso.nombre}:`, ...paso.actividades.map(act => `  - ${act}`)]
+          );
+          updateDraft({ pasoAPaso: pasosFormateados });
+        }
+        
+        // Guardar el nombre de la categoría antes de limpiar
+        setCategoriaGuardadaNombre(categoriaValue);
+        
+        // Limpiar estados (excepto la pantalla que se cerrará después del popup)
+        setNewCategoriaNombre('');
+        setManualPasos([]);
+        setNuevoPasoNombre('');
+        setNuevaActividadTexto('');
+        setPasoActivoParaActividad(null);
+        
+        // Mostrar popup de éxito
+        setShowSuccessPopup(true);
+        
+        // Después de 2.5 segundos, cerrar el popup y volver al formulario principal automáticamente
+        setTimeout(() => {
+          setShowSuccessPopup(false);
+          setShowNewCategoriaScreen(false);
+          setCategoriaGuardadaNombre('');
+        }, 2500);
+      } else {
+        alert('Esta categoría ya existe');
+      }
+    }
+  };
+
   const activeClientName = activeClient?.nombre || 'Sin cliente';
   const activeBranchName = activeClient?.sucursales?.find(b => String(b.id) === String(draft.branchId))?.nombre || 'Sin sucursal';
 
+  // Vista de creación de categoría (pantalla completa)
+  if (showNewCategoriaScreen) {
+    return (
+      <>
+      {/* Popup de éxito */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle2 size={40} className="text-green-600" />
+              </div>
+              <div>
+                <H2 className="text-gray-900 mb-2">¡Categoría Creada Exitosamente!</H2>
+                <TextSmall className="text-gray-500">
+                  La categoría "{categoriaGuardadaNombre}" ha sido agregada correctamente.
+                </TextSmall>
+              </div>
+              <Button
+                onClick={() => {
+                  setShowSuccessPopup(false);
+                  setShowNewCategoriaScreen(false);
+                  setCategoriaGuardadaNombre('');
+                }}
+                className="w-full bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+              >
+                Continuar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
+        <header className="flex items-center justify-between bg-white p-4 rounded-md border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => {
+                setShowNewCategoriaScreen(false);
+                setNewCategoriaNombre('');
+                setManualPasos([]);
+                setNuevoPasoNombre('');
+                setNuevaActividadTexto('');
+                setPasoActivoParaActividad(null);
+              }}
+              className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <div>
+              <H2>Agregar Nueva Categoría y Manual de Mantenimiento</H2>
+              <TextSmall className="text-gray-500">Complete el formulario para crear una nueva categoría</TextSmall>
+            </div>
+          </div>
+        </header>
+
+        <div className="space-y-6">
+          {/* Nombre de la Categoría */}
+          <Card className="p-6">
+            <div className="mb-4">
+              <Label className="mb-2 block text-base font-bold">Nombre de la Categoría *</Label>
+              <Input
+                value={newCategoriaNombre}
+                onChange={e => setNewCategoriaNombre(e.target.value)}
+                placeholder="Ej: Torniquetes, Router, Switch..."
+                autoFocus
+              />
+            </div>
+          </Card>
+
+          {/* Manual de Mantenimiento */}
+          <Card className="p-6">
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <ClipboardList size={20} className="text-[#D32F2F]" />
+                <Label className="text-base font-bold">Manual de Mantenimiento</Label>
+              </div>
+              <TextSmall className="text-gray-500">Defina los pasos y actividades para esta categoría</TextSmall>
+            </div>
+
+            {/* Lista de Pasos */}
+            <div className="space-y-4">
+              {manualPasos.map((paso, pasoIndex) => (
+                <Card key={pasoIndex} className="p-5 border-2 border-gray-200 hover:border-[#D32F2F]/30 transition-all bg-gradient-to-br from-white to-gray-50/50">
+                  <div className="flex items-start gap-4">
+                    {/* Número del paso con círculo destacado */}
+                    <div className="flex flex-col items-center gap-2 shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center text-white font-bold text-base shadow-lg">
+                        {pasoIndex + 1}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePaso(pasoIndex)}
+                        className="p-1.5 hover:bg-red-50 rounded-md text-red-500 transition-all"
+                        title="Eliminar paso"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    
+                    {/* Contenido del paso */}
+                    <div className="flex-1 space-y-3 min-w-0">
+                      {/* Título del paso */}
+                      <div>
+                        <Subtitle className="text-[#D32F2F] normal-case text-base font-bold mb-2">
+                          {paso.nombre}
+                        </Subtitle>
+                      </div>
+                      
+                      {/* Actividades */}
+                      {paso.actividades.length > 0 ? (
+                        <div className="ml-2 space-y-2.5">
+                          <Label className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Actividades:</Label>
+                          <ul className="space-y-2">
+                            {paso.actividades.map((actividad, actIdx) => (
+                              <li key={actIdx} className="flex items-start gap-3 group">
+                                <div className="w-2 h-2 rounded-full bg-[#D32F2F] mt-2 shrink-0 shadow-sm"></div>
+                                <div className="flex-1 flex items-center gap-2">
+                                  <TextSmall className="text-gray-700 flex-1 leading-relaxed">{actividad}</TextSmall>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveActividad(pasoIndex, actIdx)}
+                                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 rounded-md text-red-500 transition-all"
+                                    title="Eliminar actividad"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <div className="ml-2">
+                          <TextSmall className="text-gray-400 italic text-xs">Sin actividades definidas</TextSmall>
+                        </div>
+                      )}
+                      
+                      {/* Agregar Actividad a este Paso */}
+                      {pasoActivoParaActividad === pasoIndex ? (
+                        <div className="ml-2 mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex gap-2">
+                            <Input
+                              value={nuevaActividadTexto}
+                              onChange={e => setNuevaActividadTexto(e.target.value)}
+                              placeholder="Escriba la actividad..."
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddActividad(pasoIndex);
+                                } else if (e.key === 'Escape') {
+                                  setNuevaActividadTexto('');
+                                  setPasoActivoParaActividad(null);
+                                }
+                              }}
+                              className="flex-1"
+                              autoFocus
+                            />
+                            <Button
+                              onClick={() => handleAddActividad(pasoIndex)}
+                              disabled={!nuevaActividadTexto || nuevaActividadTexto.trim() === ''}
+                              className="px-3"
+                            >
+                              <Plus size={14} />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setNuevaActividadTexto('');
+                                setPasoActivoParaActividad(null);
+                              }}
+                              className="px-3"
+                            >
+                              <X size={14} />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setPasoActivoParaActividad(pasoIndex)}
+                          className="ml-5 text-xs text-[#D32F2F] hover:text-[#B71C1C] hover:underline flex items-center gap-1.5 font-semibold transition-colors"
+                        >
+                          <Plus size={14} />
+                          Agregar Actividad
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+
+              {/* Agregar Nuevo Paso */}
+              <Card className="p-4 border-2 border-dashed border-gray-300 hover:border-[#D32F2F]/50 transition-colors bg-gray-50/50">
+                {nuevoPasoNombre ? (
+                  <div className="space-y-3">
+                    <Input
+                      value={nuevoPasoNombre}
+                      onChange={e => setNuevoPasoNombre(e.target.value)}
+                      placeholder="Nombre del paso (ej: Limpieza y estado general)"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddPaso();
+                        } else if (e.key === 'Escape') {
+                          setNuevoPasoNombre('');
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleAddPaso}
+                        disabled={!nuevoPasoNombre || nuevoPasoNombre.trim() === ''}
+                        className="flex-1 flex items-center justify-center gap-2"
+                      >
+                        <Plus size={14} />
+                        Agregar Paso
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setNuevoPasoNombre('')}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setNuevoPasoNombre(' ')}
+                    className="w-full py-3 text-sm text-gray-600 hover:text-[#D32F2F] flex items-center justify-center gap-2 font-semibold transition-colors"
+                  >
+                    <Plus size={18} />
+                    Agregar Nuevo Paso
+                  </button>
+                )}
+              </Card>
+            </div>
+          </Card>
+
+          {/* Botones de Acción */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowNewCategoriaScreen(false);
+                setNewCategoriaNombre('');
+                setManualPasos([]);
+                setNuevoPasoNombre('');
+                setNuevaActividadTexto('');
+                setPasoActivoParaActividad(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleAddCategoria}
+              disabled={!newCategoriaNombre || newCategoriaNombre.trim() === ''}
+              className="flex items-center gap-2"
+            >
+              <Plus size={16} />
+              Agregar Categoría
+            </Button>
+          </div>
+        </div>
+      </div>
+      </>
+    );
+  }
+
   return (
+    <>
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
       {/* Left Column - Device Preview/Summary */}
       <div className="lg:col-span-1">
@@ -252,7 +609,46 @@ const DeviceForm = ({
           <Label className="text-[11px] text-gray-700 tracking-wide">3. Clasificación Técnica</Label>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Select label="Categoría" value={draft.categoria} onChange={e => updateDraft({categoria: e.target.value})} viewMode={!isEditing} options={[ {value:'', label:'No especificada'}, {value:'Cámara', label:'Cámara'}, {value:'Sensor', label:'Sensor'}, {value:'Panel', label:'Panel'} ]} />
+          <div className="flex flex-col gap-1.5 w-full">
+            <div className="flex items-center justify-between h-[15px]">
+              <Label className="ml-1">Categoría</Label>
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={() => setShowNewCategoriaScreen(true)}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors text-gray-500 hover:text-[#D32F2F] flex items-center justify-center h-[15px] w-[15px]"
+                  title="Agregar nueva categoría"
+                >
+                  <Plus size={12} />
+                </button>
+              )}
+            </div>
+            <div className="relative group">
+              {!isEditing ? (
+                <div className="w-full h-10 px-3 text-sm font-semibold text-gray-900 flex items-center">
+                  {categorias.find(c => c.value === draft.categoria)?.label || draft.categoria || <span className="text-gray-400 italic">No especificado</span>}
+                </div>
+              ) : (
+                <>
+                  <select
+                    className="w-full h-10 px-3 pr-8 border rounded-md focus:outline-none focus:ring-4 transition-all text-sm font-semibold appearance-none cursor-pointer bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400"
+                    value={draft.categoria || ''}
+                    onChange={e => updateDraft({categoria: e.target.value})}
+                  >
+                    {categorias.map((opt, i) => (
+                      <option key={i} value={opt.value} className="text-gray-900">
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={15}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors text-gray-400 group-hover:text-[#D32F2F]"
+                  />
+                </>
+              )}
+            </div>
+          </div>
           <Input label="Proveedor" value={draft.proveedor} onChange={e => updateDraft({proveedor: e.target.value})} viewMode={!isEditing} />
           <Input label="Marca" value={draft.marca} onChange={e => updateDraft({marca: e.target.value})} viewMode={!isEditing} />
           <Input label="Línea" value={draft.linea} onChange={e => updateDraft({linea: e.target.value})} viewMode={!isEditing} placeholder="Ej: Industrial / Residencial" />
@@ -300,74 +696,106 @@ const DeviceForm = ({
                 <CheckCircle2 size={16} className="text-gray-500" />
                 <Subtitle className="uppercase text-gray-600 font-semibold text-[11px] tracking-wide">Pasos del Mantenimiento</Subtitle>
               </div>
-              {isEditing && !showNewStepInput && (
-                <IconButton 
-                  icon={Plus} 
-                  onClick={() => setShowNewStepInput(true)} 
-                  title="Añadir paso" 
-                  className="hover:text-primary" 
-                />
-              )}
             </div>
             
-            {showNewStepInput && isEditing && (
-              <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Descripción del paso de mantenimiento..."
-                  value={newStepText}
-                  onChange={(e) => setNewStepText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      addStep();
-                    } else if (e.key === 'Escape') {
-                      cancelAddStep();
-                    }
-                  }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F]"
-                  autoFocus
-                />
-                <Button 
-                  onClick={addStep} 
-                  disabled={!newStepText.trim()}
-                  className="px-4 py-2 text-sm"
-                >
-                  Agregar
-                </Button>
-                <Button 
-                  onClick={cancelAddStep}
-                  variant="outline"
-                  className="px-4 py-2 text-sm"
-                >
-                  Cancelar
-                </Button>
-              </div>
-            )}
-            
-            <div className="space-y-2">
+            {/* Sección de pasos es solo informativa - sin edición */}
+            <div className="space-y-4">
               {!(draft.pasoAPaso?.length) ? (
                 <div className="p-8 border border-dashed border-gray-200 rounded-xl text-center">
                   <TextSmall className="text-gray-400 italic">No hay pasos configurados</TextSmall>
                 </div>
-              ) : (
-                draft.pasoAPaso.map((step, idx) => (
-                  <div key={idx} className="flex flex-row items-center gap-3 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
-                    <div className="flex flex-col gap-1 text-gray-300">
-                      {isEditing && <button onClick={() => moveStep(idx, 'up')} disabled={idx===0} className="hover:text-primary -mb-1"><ChevronUp size={14}/></button>}
-                      <span className="font-bold text-gray-400 text-xs text-center w-full">{idx + 1}</span>
-                      {isEditing && <button onClick={() => moveStep(idx, 'down')} disabled={idx===draft.pasoAPaso.length-1} className="hover:text-primary -mt-1"><ChevronDown size={14}/></button>}
+              ) : (() => {
+                // Parsear los pasos para identificar títulos y actividades
+                const pasosParseados = [];
+                let pasoActual = null;
+                
+                draft.pasoAPaso.forEach((linea, idx) => {
+                  const lineaTrim = linea.trim();
+                  // Si la línea termina con ":" o empieza con "PASO:" es un título de paso
+                  if (lineaTrim.endsWith(':') || /^PASO:\s*/i.test(lineaTrim)) {
+                    if (pasoActual) pasosParseados.push(pasoActual);
+                    const nombrePaso = lineaTrim.replace(/^PASO:\s*/i, '').replace(':', '').trim();
+                    pasoActual = { nombre: nombrePaso, actividades: [], indiceOriginal: idx };
+                  } 
+                  // Si la línea empieza con "-" o espacios seguidos de "-" es una actividad
+                  else if (lineaTrim.startsWith('-') || /^\s+-\s+/.test(lineaTrim)) {
+                    if (pasoActual) {
+                      const actividad = lineaTrim.replace(/^\s*-\s*/, '').trim();
+                      pasoActual.actividades.push({ texto: actividad, indiceOriginal: idx });
+                    }
+                  }
+                  // Si no hay paso actual, crear uno genérico
+                  else if (!pasoActual) {
+                    pasoActual = { nombre: lineaTrim, actividades: [], indiceOriginal: idx };
+                  }
+                });
+                
+                if (pasoActual) pasosParseados.push(pasoActual);
+                
+                // Si no se pudo parsear, mostrar como antes
+                if (pasosParseados.length === 0) {
+                  return draft.pasoAPaso.map((step, idx) => (
+                    <div key={idx} className="flex flex-row items-center gap-3 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+                      <div className="flex flex-col gap-1 text-gray-300">
+                        {isEditing && <button onClick={() => moveStep(idx, 'up')} disabled={idx===0} className="hover:text-primary -mb-1"><ChevronUp size={14}/></button>}
+                        <span className="font-bold text-gray-400 text-xs text-center w-full">{idx + 1}</span>
+                        {isEditing && <button onClick={() => moveStep(idx, 'down')} disabled={idx===draft.pasoAPaso.length-1} className="hover:text-primary -mt-1"><ChevronDown size={14}/></button>}
+                      </div>
+                      <div className="flex-1">
+                        {isEditing ? (
+                          <input className="w-full bg-transparent text-sm text-gray-700 outline-none font-medium" value={step} onChange={e => updateStep(idx, e.target.value)} placeholder="Descripción del paso..." />
+                        ) : (
+                          <TextSmall className="font-medium text-gray-700">{step}</TextSmall>
+                        )}
+                      </div>
+                      {isEditing && <IconButton icon={Trash2} onClick={() => removeStep(idx)} className="text-gray-300 hover:text-red-500" size={16} />}
                     </div>
-                    <div className="flex-1">
-                      {isEditing ? (
-                        <input className="w-full bg-transparent text-sm text-gray-700 outline-none font-medium" value={step} onChange={e => updateStep(idx, e.target.value)} placeholder="Descripción del paso..." />
-                      ) : (
-                        <TextSmall className="font-medium text-gray-700">{step}</TextSmall>
-                      )}
+                  ));
+                }
+                
+                // Mostrar pasos parseados con diseño mejorado (solo informativo)
+                return pasosParseados.map((paso, pasoIdx) => (
+                  <Card key={pasoIdx} className="p-5 border-2 border-gray-200 hover:border-gray-300 transition-all bg-gradient-to-br from-white to-gray-50/50">
+                    <div className="flex items-start gap-4">
+                      {/* Número del paso con círculo destacado */}
+                      <div className="flex flex-col items-center gap-2 shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center text-white font-bold text-base shadow-lg">
+                          {pasoIdx + 1}
+                        </div>
+                      </div>
+                      
+                      {/* Contenido del paso */}
+                      <div className="flex-1 space-y-3 min-w-0">
+                        {/* Título del paso */}
+                        <div>
+                          <Subtitle className="text-[#D32F2F] normal-case text-base font-bold mb-2">
+                            {paso.nombre}
+                          </Subtitle>
+                        </div>
+                        
+                        {/* Actividades */}
+                        {paso.actividades.length > 0 ? (
+                          <div className="ml-2 space-y-2.5">
+                            <Label className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Actividades:</Label>
+                            <ul className="space-y-2">
+                              {paso.actividades.map((actividad, actIdx) => (
+                                <li key={actIdx} className="flex items-start gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-[#D32F2F] mt-2 shrink-0 shadow-sm"></div>
+                                  <TextSmall className="text-gray-700 flex-1 leading-relaxed">{actividad.texto}</TextSmall>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          <div className="ml-2">
+                            <TextSmall className="text-gray-400 italic text-xs">Sin actividades definidas</TextSmall>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    {isEditing && <IconButton icon={Trash2} onClick={() => removeStep(idx)} className="text-gray-300 hover:text-red-500" size={16} />}
-                  </div>
-                ))
-              )}
+                  </Card>
+                ));
+              })()}
             </div>
           </div>
         </div>
@@ -427,6 +855,8 @@ const DeviceForm = ({
         </Card>
       </div>
     </div>
+
+    </>
   );
 };
 
