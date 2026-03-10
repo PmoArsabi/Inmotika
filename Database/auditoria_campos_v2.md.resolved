@@ -1,0 +1,239 @@
+# Auditoría de Campos v2 — Frontend vs Base de Datos
+> Fecha: 10 de Marzo de 2026 | Comparado con auditoría anterior (Feb 2026)
+
+---
+
+## Leyenda de Cambios
+| Símbolo | Significado |
+|---|---|
+| ✅ | Campo presente y correcto |
+| ⚠️ | Presente pero con discrepancia (nombre, formato, mapeo) |
+| ❌ | Falta totalmente en el frontend |
+| 🆕 | **NUEVO** — Se agregó desde la auditoría anterior |
+| 🔧 | **CORREGIDO** — Problema previo resuelto |
+
+---
+
+## 1. 👤 Técnico (`TECNICO` + `PERFIL_USUARIO`)
+**Archivo:** [src/components/forms/TechnicianForm.jsx](file:///c:/Proyectos/Inmotika/Inmotika/frontend/src/components/forms/TechnicianForm.jsx)
+
+### Campos de DB
+| Campo DB | Estado Actual | Notas |
+|---|---|---|
+| `nombre_completo` (PERFIL_USUARIO) | ✅ Sí | Campo `nombre` |
+| `tipo_documento` (TECNICO) | ❌ **FALTA** | Sin selector CC/CE/Pasaporte. _Sin cambios desde v1._ |
+| `identificacion` (TECNICO) | ✅ Sí | Campo `identificacion` |
+| `telefono` (PERFIL_USUARIO) | ✅ Sí | Campo `celular` |
+| `email` (vía Auth/PERFIL_USUARIO) | ❌ **FALTA** | Campo `correo` existe en el form pero no se mapea al auth email. _Sin cambios desde v1._ |
+| `avatar_url` (PERFIL_USUARIO) | ❌ **FALTA** | Sin foto de perfil. _Sin cambios desde v1._ |
+| `documento_cedula_url` (TECNICO) | ❌ **FALTA** | Eliminado desde auditoría anterior. Antes estaba como "Credencial ID" parcial. |
+| `planilla_seg_social_url` (TECNICO) | ❌ **FALTA** | Ídem. Antes era "Cert. ARL" parcial. |
+| `certificados` (TECNICO) | ❌ **FALTA** | Eliminado. |
+| `estado_id` (TECNICO) | ⚠️ Parcial | Select hardcoded `'Activo'/'Inactivo'` en vez de FK de catálogo. |
+
+### Campos en Frontend SIN equivalente en DB
+| Campo UI | Acción Recomendada |
+|---|---|
+| `especialidad` | Agregar `especialidad` a tabla `TECNICO` |
+| `zona` | Agregar `zona` a tabla `TECNICO` |
+| `ciudad` | Agregar `ciudad` a tabla `TECNICO` |
+
+> [!CAUTION]
+> El formulario de Técnico **retrocedió** en esta versión: los FileUploaders para documentos (`cédula`, `ARL`, `certificados`) fueron eliminados. Si se integrará con Supabase Storage, se deben restaurar esos campos.
+
+---
+
+## 2. 🏢 Cliente (`CLIENTE`)
+**Archivo:** [src/components/configuration/Client/ClientForm.jsx](file:///c:/Proyectos/Inmotika/Inmotika/frontend/src/components/configuration/Client/ClientForm.jsx)
+
+### Campos de DB
+| Campo DB | Estado Actual | Notas |
+|---|---|---|
+| `razon_social` | ✅ Sí | Campo `nombre` |
+| `nit` | ✅ Sí | Con componente `NitInput` |
+| `dv` | ✅ Sí | Junto al NIT |
+| `tipo_persona` | ✅ Sí | Select `natural`/`juridica` |
+| `celular` | ⚠️ Discrepancia | Campo llamado `telefono` en el draft (mapeado como `draft.telefono`) pero DB es `celular` |
+| `email` | ✅ Sí | ✅ |
+| `logo_url` | ⚠️ Parcial | Botón cámara presente, no funcional. _Sin cambios desde v1._ |
+| `rut_url` | 🆕 🔧 **RESUELTO** | Se agregó `FileUploader` para subir el RUT. La UI existe; el campo se guarda en `documentos.rut` (booleano) no como URL. |
+| `fecha_nacimiento` | ❌ **FALTA** | Sin campo de fecha. _Sin cambios desde v1._ |
+| `estado_id` | ❌ **FALTA** | Sin selector de estado en el formulario. _Sin cambios desde v1._ |
+| `direccion` | ✅ Sí | ✅ |
+| `ciudad`, `estado_depto`, `pais` | ✅ Sí | Via [LocationPickerRows](file:///c:/Proyectos/Inmotika/Inmotika/frontend/src/components/forms/LocationPickerRows.jsx#33-118) |
+
+### Discrepancias de Formato
+| Campo Frontend | Campo DB | Problema |
+|---|---|---|
+| `documentos.rut` (boolean) | `rut_url` (string URL) | En DB es URL de archivo; en frontend es un booleano. Al integrar con Supabase Storage, cambiar por URL. |
+| `documentos.certificacionBancaria` (boolean) | **No existe en DB** | Nuevo campo sin respaldo en esquema. Agregar `cert_bancaria_url` o eliminar. |
+
+### Campos en Frontend SIN equivalente en DB
+| Campo UI | Acción Recomendada |
+|---|---|
+| `documentos.certificacionBancaria` | Agregar `cert_bancaria_url` a tabla `CLIENTE` en DB |
+| `documentos.otros` | Agregar `otros_documentos_url` o usar tabla genérica de documentos |
+
+---
+
+## 3. 🏪 Sucursal (`SUCURSAL` + `CONTRATO`)
+**Archivo:** [src/components/configuration/Client/ClientForm.jsx](file:///c:/Proyectos/Inmotika/Inmotika/frontend/src/components/configuration/Client/ClientForm.jsx) (tab "Paso 2")
+
+### Campos de DB
+| Campo DB | Estado Actual | Notas |
+|---|---|---|
+| `nombre` | ✅ Sí | ✅ |
+| `direccion` | ✅ Sí | Via [LocationPickerRows](file:///c:/Proyectos/Inmotika/Inmotika/frontend/src/components/forms/LocationPickerRows.jsx#33-118) |
+| `ciudad`, `estado_depto`, `pais` | ✅ Sí | Via [LocationPickerRows](file:///c:/Proyectos/Inmotika/Inmotika/frontend/src/components/forms/LocationPickerRows.jsx#33-118) |
+| `es_principal` | ⚠️ Discrepancia | Se guarda como `clasificacion === 'principal'` (string); en DB es BOOLEAN. |
+| `clasificacion` | ✅ Sí | Campo `clasificacion` con valor `'principal'`/`'secundaria'` |
+| `horarios_atencion` | ❌ **FALTA** | Sin campo. _Sin cambios desde v1._ |
+| `estado_id` | ⚠️ Parcial | Switch guarda `estatus: 'activo'/'inactivo'`; DB espera FK UUID. |
+
+### Datos de Contrato (embebidos en la Sucursal)
+| Campo DB (CONTRATO) | Estado Frontend | Notas |
+|---|---|---|
+| `numero_contrato` | ❌ **FALTA** | Se llama "Tema del Contrato", no hay número de contrato formal. |
+| `fecha_inicio` | 🆕 ✅ | Campo `contrato.fechaInicio` agregado. |
+| `fecha_fin` | 🆕 ✅ | Campo `contrato.fechaFin` agregado. |
+| `documento_url` | 🆕 ⚠️ | FileUploader existe; guarda `contrato.documento` como boolean, no URL. |
+| `sucursal_id` | ⚠️ Implícito | La asociación sucursal→contrato es implícita en el draft; al guardar en DB debe ser una FK explícita. |
+| `estado_id` (CONTRATO) | ❌ **FALTA** | Sin estado del contrato. |
+
+> [!IMPORTANT]
+> El contrato está **embebido** dentro del formulario de sucursal como datos planos (`newBranchDraft.contrato`). En la DB, `CONTRATO` es una entidad separada con su propia tabla. Al integrar con Supabase, se deberá hacer un INSERT separado en la tabla `CONTRATO` y luego asociarla a la sucursal.
+
+---
+
+## 4. 👥 Contacto (`CONTACTO`)
+**Archivo:** [src/components/Contact/ContactForm.jsx](file:///c:/Proyectos/Inmotika/Inmotika/frontend/src/components/Contact/ContactForm.jsx)
+
+### Campos de DB
+| Campo DB | Estado Actual | Notas |
+|---|---|---|
+| `nombre` | ✅ Sí | ✅ |
+| `identificacion` | ✅ Sí | Campo `numeroDocumento` |
+| `genero` | ❌ **FALTA** | Sin selector de género. _Sin cambios desde v1._ |
+| `cargo` | ❌ **FALTA** | Sin campo cargo/puesto. _Sin cambios desde v1._ |
+| `area_departamento` | ❌ **FALTA** | Sin campo de área. _Sin cambios desde v1._ |
+| `email` | ✅ Sí | ✅ |
+| `telefono_movil` | ✅ Sí | Con `PhoneInput` y selector de país. Campo `draft.telefonoMovil` |
+| `telefono_oficina` | ❌ **FALTA** | Sin campo. _Sin cambios desde v1._ |
+| `fecha_nacimiento` | ✅ Sí | Campo `fechaCumpleanos` (⚠️ nombre inconsistente). |
+| `fecha_matrimonio` | ❌ **FALTA** | Sin campo. _Sin cambios desde v1._ |
+| `estado_id` | ⚠️ Parcial | Switch guarda `estatus: 'activo'/'inactivo'`; DB espera FK UUID. |
+
+### Discrepancias de Nombres de Campos
+| Campo Frontend (draft) | Campo DB | Problema |
+|---|---|---|
+| `numeroDocumento` | `identificacion` | Nombres distintos — inconsistente con Técnico que usa `identificacion`. |
+| `fechaCumpleanos` | `fecha_nacimiento` | Nombre semánticamente diferente. |
+| `tipoDocumento` | No existe en DB | Agregar `tipo_documento` a tabla `CONTACTO`. |
+| `esPrincipal` | No existe en DB | Agregar `es_principal BOOLEAN` a `CONTACTO` o a `CONTACTO_SUCURSAL`. |
+| `apellido` | No existe en DB | La DB combina todo en `nombre`. Decidir si separar o concatenar. |
+| `telefonoMovilPais` | No existe en DB | El indicativo de país no se persiste en DB. Considerar `telefono_movil_pais_iso`. |
+
+> [!IMPORTANT]
+> El contacto en la DB se relaciona con sucursales via tabla intermedia `CONTACTO_SUCURSAL`. El frontend guarda los contactos embebidos en la rama de cada sucursal. Esta discrepancia estructural requiere lógica de migración al sincronizar con Supabase.
+
+---
+
+## 5. 📟 Dispositivo (`DISPOSITIVO` + `CATEGORIA_DISPOSITIVO` + `PASO_PROTOCOLO`)
+**Archivo:** [src/components/Device/DeviceForm.jsx](file:///c:/Proyectos/Inmotika/Inmotika/frontend/src/components/Device/DeviceForm.jsx)
+
+### Campos de DB — DISPOSITIVO
+| Campo DB | Estado Actual | Notas |
+|---|---|---|
+| `id_inmotika` | ✅ Sí | `SearchableSelect` para `idInmotika`. |
+| `codigo_unico` | ✅ Sí | `SearchableSelect` para `codigoUnico`. |
+| `serial` | ✅ Sí | ✅ |
+| `sucursal_id` | ✅ Sí | Como `branchId`. |
+| `cliente_id` | ✅ Sí | Como `clientId`. |
+| `categoria_id` | ⚠️ Parcial | Select con opciones hardcoded (`Cámara`, `Sensor`, `Panel`). No desde catálogo DB. |
+| `propiedad_de` | ✅ Sí | Select `dueno`: `'Inmotika'`/`'Cliente'`. |
+| `id_cliente_interno` | ❌ **FALTA** | Sin campo para ID del cliente. _Sin cambios desde v1._ |
+| `proveedor` | ✅ Sí | ✅ |
+| `frecuencia_mantenimiento_meses` | ⚠️ Parcial | Campo texto libre `frecuencia`. DB espera entero (meses). |
+| `fecha_proximo_mantenimiento` | ❌ **FALTA** | Sin campo de fecha. _Sin cambios desde v1._ |
+| `estado_id` | ⚠️ Parcial | Select hardcoded `'Activo'/'Inactivo'/'Mantenimiento'`. No de catálogo. |
+
+### Campos de DB — CATEGORIA_DISPOSITIVO
+| Campo DB | Estado Actual | Notas |
+|---|---|---|
+| `nombre` | ⚠️ Parcial | Opciones hardcoded en el select de categoría. |
+| `marca` | ✅ Sí | Campo `marca`. |
+| `modelo` | ✅ Sí | Campo `modelo`. |
+| `descripcion` | ❌ **FALTA** | Sin descripción de categoría. _Sin cambios desde v1._ |
+
+### Campos de DB — PASO_PROTOCOLO
+| Campo DB | Estado Actual | Notas |
+|---|---|---|
+| `descripcion` | ✅ Sí | Como texto de cada paso. |
+| `orden` | ✅ Sí | Con botones Up/Down. |
+| `es_obligatorio` | ❌ **FALTA** | Sin checkbox "Obligatorio". _Sin cambios desde v1._ |
+
+### Campos en Frontend SIN equivalente en DB
+| Campo UI (draft) | Acción Recomendada |
+|---|---|
+| `linea` | 🆕 Nuevo en frontend. Agregar columna `linea` a `CATEGORIA_DISPOSITIVO`. |
+| `imac` (dirección MAC) | Agregar `mac_address` a `DISPOSITIVO`. |
+| `notasTecnicas` | Agregar `notas_tecnicas TEXT` a `DISPOSITIVO`. |
+
+---
+
+## 6. 📅 Visita / Solicitud (`SOLICITUD_VISITA` + `VISITA`)
+> ℹ️ Sin cambios desde la auditoría anterior. Se incluye para completitud.
+
+| Campo DB | Estado | Notas |
+|---|---|---|
+| `cliente_id` | ✅ Sí | ✅ |
+| `sucursal_id` | ✅ Sí | ✅ |
+| `tipo_visita_id` | ⚠️ Parcial | Hardcoded |
+| `motivo` | ✅ Sí | Como "Observaciones" |
+| `coordinador_id` | ❌ **FALTA** | Sin asignación de coordinador |
+| `estado_id` | ⚠️ Parcial | Hardcoded |
+| `fecha_programada` | ✅ Sí | ✅ |
+| `observaciones` | ✅ Sí | ✅ |
+
+---
+
+## 7. 📋 Entidades en DB sin representación en Frontend
+> Sin cambios significativos desde v1.
+
+| Entidad DB | Estado |
+|---|---|
+| `INTERVENCION` + `EJECUCION_PASO` | ❌ Sin formulario de ejecución de visita |
+| `EVIDENCIA_VISITA` + `EVIDENCIA_PASO` | ❌ Sin upload de fotos adjuntas |
+| `HISTORIAL_TRASLADO` | ⚠️ Solo lectura |
+| `DISPONIBILIDAD_TECNICO` | ❌ Sin formulario |
+| `DIRECTOR` / `COORDINADOR` | ❌ Sin gestión de roles en la UI |
+
+---
+
+## Resumen de Cambios Desde la Auditoría Anterior
+
+| Módulo | Mejoras Realizadas | Problemas Nuevos |
+|---|---|---|
+| **Cliente** | ✅ RUT y documentos agregados (FileUploaders) | ⚠️ Guardados como booleanos en vez de URLs; falta `fecha_nacimiento`, `estado_id` |
+| **Sucursal** | 🆕 Contrato embebido (fecha inicio, fin, doc) | ⚠️ Contrato no es entidad separada; `numero_contrato` falta; `es_principal` no es boolean |
+| **Contacto** | 🆕 Tipo de documento, PhoneInput mejorado | ❌ Siguen faltando `cargo`, `área`, `género`, `tel. oficina`, `fecha_matrimonio` |
+| **Dispositivo** | 🆕 Campo `linea` agregado | ❌ Siguen faltando `id_cliente_interno`, `fecha_proximo_mantenimiento`, `es_obligatorio` en pasos |
+| **Técnico** | Sin mejoras | ⬇️ Regresión: FileUploaders de documentos eliminados |
+
+---
+
+## Prioridades Actualizadas
+
+| Prioridad | Elemento | Impacto |
+|---|---|---|
+| 🔴 CRÍTICO | Conectar `estado_id` con FK de catálogo en **todos** los forms | Datos inconsistentes en DB |
+| 🔴 CRÍTICO | `INTERVENCION` + `EJECUCION_PASO` — Formulario de ejecución | Sin registro de operaciones |
+| 🔴 CRÍTICO | Normalizar tipos de campos: `rut_url`, `contrato.documento` de boolean → URL real | Datos incompletos al integrar Storage |
+| 🟡 ALTO | Separar `CONTRATO` como entidad independiente (no embebida en sucursal) | Modelo de datos correcto |
+| 🟡 ALTO | Agregar `cargo`, `area_departamento`, `genero` en Contacto | Datos incompletos |
+| 🟡 ALTO | Restaurar FileUploaders en Técnico (`cédula_url`, `ARL_url`, `certificados`) | Regresión desde v1 |
+| 🟡 ALTO | `id_cliente_interno` y `fecha_proximo_mantenimiento` en Dispositivo | Gestión de activos |
+| 🟢 MEDIO | `tipo_documento` en Técnico | Datos de identidad |
+| 🟢 MEDIO | `horarios_atencion` en Sucursal | Datos operativos |
+| 🟢 MEDIO | `fecha_nacimiento` en Cliente | Perfil completo |
+| 🔵 BAJO | `genero`, `fecha_matrimonio` en Contacto | Datos complementarios |

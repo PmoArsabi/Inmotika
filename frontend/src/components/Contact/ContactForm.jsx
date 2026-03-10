@@ -1,119 +1,259 @@
 import React from 'react';
-import { User, IdCard, Phone, Mail, Calendar, Star } from 'lucide-react';
+import {
+  User, IdCard, Mail, Calendar, Briefcase, Heart, MessageSquare,
+  Building2, GitBranch,
+} from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Switch from '../ui/Switch';
 import PhoneInput from '../ui/PhoneInput';
+import SearchableSelect from '../ui/SearchableSelect';
+import { useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
+import { Label } from '../ui/Typography';
+
+/** Convierte texto a Nombre Propio (como Excel NOMPROPIO / PROPER) */
+const toProperCase = (str) =>
+  str.toLowerCase().replace(/(?:^|\s)\S/g, c => c.toUpperCase());
 
 const ContactForm = ({
-  draft, updateDraft, errors, showErrors, isEditing, 
-  onSave, isSaving
+  draft,
+  updateDraft,
+  errors = {},
+  showErrors = false,
+  isEditing = false,
+  onSave,
+  isSaving = false,
+  isNew = false,
+  // Selectors pasados desde ConfigurationNavigator
+  clientOptions = [],
+  selectedClientId = '',
+  onClientChange,
+  availableBranchOptions = [],
+  selectedBranchValues = [],
+  onBranchesChange,
+  clientError = null,
+  branchError = null,
 }) => {
+  const { options: tipoDocOptions, loading: loadingTipoDoc } = useCatalog('TIPO_DOCUMENTO');
+  const { options: generoOptions, loading: loadingGenero } = useCatalog('GENERO');
+  const { options: cargoOptions, loading: loadingCargo } = useCatalog('CARGO_CONTACTO');
+  const { activoId, inactivoId } = useActivoInactivo();
+
+  const buildOpts = (loading, opts, placeholder = 'Seleccionar...') =>
+    loading
+      ? [{ value: '', label: 'Cargando...' }]
+      : [{ value: '', label: placeholder }, ...opts];
+
+  const hasClient = !!selectedClientId;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end">
-        {isEditing && (
-          <Button 
-            onClick={onSave} 
+      {/* Botón guardar */}
+      {isEditing && (
+        <div className="flex items-center justify-end">
+          <Button
+            onClick={onSave}
             disabled={isSaving}
             className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
           >
             {isSaving ? 'Guardando...' : 'GUARDAR CONTACTO'}
           </Button>
-        )}
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Nombre */}
-        <Input 
-          label="Nombre" 
-          value={draft.nombre || ''} 
-          onChange={e => updateDraft({ nombre: e.target.value })} 
-          error={showErrors ? errors.nombre : null} 
-          viewMode={!isEditing} 
-          icon={User} 
-          required 
-        />
-        {/* Apellido */}
-        <Input 
-          label="Apellido" 
-          value={draft.apellido || ''} 
-          onChange={e => updateDraft({ apellido: e.target.value })} 
-          viewMode={!isEditing} 
-          icon={User} 
-        />
-        {/* Tipo de documento */}
-        <Select
-          label="Tipo de documento"
-          value={draft.tipoDocumento || ''}
-          onChange={e => updateDraft({ tipoDocumento: e.target.value })}
-          options={[
-            { value: 'cc', label: 'Cédula de ciudadanía' },
-            { value: 'ce', label: 'Cédula de extranjería' },
-            { value: 'ti', label: 'Tarjeta de identidad' },
-            { value: 'pasaporte', label: 'Pasaporte' }
-          ]}
-          viewMode={!isEditing}
-          icon={IdCard}
-        />
-        {/* Número de documento */}
-        <Input 
-          label="Número de documento" 
-          value={draft.numeroDocumento || ''} 
-          onChange={e => updateDraft({ numeroDocumento: e.target.value })} 
-          viewMode={!isEditing} 
-          icon={IdCard} 
-        />
-        {/* Fecha de nacimiento */}
-        <Input 
-          label="Fecha de nacimiento" 
-          type="date"
-          value={draft.fechaCumpleanos || ''} 
-          onChange={e => updateDraft({ fechaCumpleanos: e.target.value })} 
-          viewMode={!isEditing} 
-          icon={Calendar} 
-        />
-        {/* Correo */}
-        <Input 
-          label="Correo" 
-          value={draft.email || ''} 
-          onChange={e => updateDraft({ email: e.target.value })} 
-          error={showErrors ? errors.email : null} 
-          viewMode={!isEditing} 
-          icon={Mail} 
-        />
-        {/* Celular */}
-        <PhoneInput
-          label="Celular"
-          countryValue={draft.telefonoMovilPais || 'CO'}
-          phoneValue={draft.telefonoMovil || ''}
-          onCountryChange={(countryCode) => updateDraft({ telefonoMovilPais: countryCode })}
-          onPhoneChange={(phone) => updateDraft({ telefonoMovil: phone })}
-          error={showErrors ? errors.telefonoMovil : null}
-          viewMode={!isEditing}
-          required
-        />
-        {/* Contacto principal y Estado */}
-        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center">
-            <Switch
-              label="Principal"
-              checked={!!draft.esPrincipal}
-              onChange={(checked) => updateDraft({ esPrincipal: checked })}
-              icon={Star}
-              viewMode={!isEditing}
+        </div>
+      )}
+
+      {/* ─── Asignación — Cliente y Sucursal ─── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
+          <Building2 size={15} className="text-gray-500" />
+          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Asignación</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <SearchableSelect
+            label="Cliente"
+            value={selectedClientId}
+            onChange={onClientChange}
+            options={clientOptions}
+            required
+            error={clientError}
+            placeholder="Seleccionar cliente..."
+            icon={Building2}
+            isDisabled={!isEditing}
+          />
+          {hasClient && (
+            <SearchableSelect
+              label="Sucursales"
+              value={selectedBranchValues}
+              onChange={onBranchesChange}
+              options={availableBranchOptions}
+              isMulti
+              required
+              error={branchError}
+              placeholder="Seleccionar sucursales..."
+              icon={GitBranch}
+              isDisabled={!isEditing}
             />
-          </div>
-          <div className="flex items-center">
-            <Switch
-              label="Estado del contacto"
-              checked={draft.estatus === 'activo'}
-              onChange={(checked) => updateDraft({ estatus: checked ? 'activo' : 'inactivo' })}
-              viewMode={!isEditing}
-            />
-          </div>
+          )}
         </div>
       </div>
+
+      {/* ─── Datos Personales ─── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
+          <User size={15} className="text-gray-500" />
+          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Datos Personales</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Nombres"
+            value={draft.nombres || ''}
+            onChange={e => updateDraft({ nombres: toProperCase(e.target.value) })}
+            error={showErrors ? errors.nombres : null}
+            viewMode={!isEditing}
+            icon={User}
+            required
+          />
+          <Input
+            label="Apellidos"
+            value={draft.apellidos || ''}
+            onChange={e => updateDraft({ apellidos: toProperCase(e.target.value) })}
+            error={showErrors ? errors.apellidos : null}
+            viewMode={!isEditing}
+            icon={User}
+            required
+          />
+          <Select
+            label="Tipo de Documento"
+            value={draft.tipoDocumento || ''}
+            onChange={e => updateDraft({ tipoDocumento: e.target.value })}
+            options={buildOpts(loadingTipoDoc, tipoDocOptions.map(o => ({ value: o.codigo, label: o.label })), 'Tipo de documento...')}
+            viewMode={!isEditing}
+            icon={IdCard}
+          />
+          <Input
+            label="Número de Documento"
+            value={draft.identificacion || ''}
+            onChange={e => updateDraft({ identificacion: e.target.value.replace(/\D/g, '') })}
+            error={showErrors ? errors.identificacion : null}
+            viewMode={!isEditing}
+            icon={IdCard}
+            inputMode="numeric"
+          />
+          <Select
+            label="Género"
+            value={draft.generoId || ''}
+            onChange={e => updateDraft({ generoId: e.target.value })}
+            options={buildOpts(loadingGenero, generoOptions, 'Seleccionar género...')}
+            viewMode={!isEditing}
+          />
+          <Input
+            label="Fecha de Cumpleaños"
+            type="date"
+            value={draft.fechaNacimiento || ''}
+            onChange={e => updateDraft({ fechaNacimiento: e.target.value })}
+            viewMode={!isEditing}
+            icon={Calendar}
+          />
+
+          {/* Casado — switch + fecha aniversario en fila */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="ml-1">Estado Civil</Label>
+            <div className="flex items-center h-10 gap-3">
+              {isEditing ? (
+                <Switch
+                  checked={!!draft.esMarido}
+                  onChange={checked => updateDraft({ esMarido: checked, fechaMatrimonio: checked ? draft.fechaMatrimonio : '' })}
+                  label={draft.esMarido ? 'Casado/a' : 'Soltero/a'}
+                />
+              ) : (
+                <span className="text-sm font-semibold text-gray-900">
+                  {draft.esMarido ? 'Casado/a' : 'Soltero/a'}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {draft.esMarido && (
+            <Input
+              label="Fecha de Aniversario"
+              type="date"
+              value={draft.fechaMatrimonio || ''}
+              onChange={e => updateDraft({ fechaMatrimonio: e.target.value })}
+              viewMode={!isEditing}
+              icon={Heart}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* ─── Datos de Contacto ─── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
+          <Mail size={15} className="text-gray-500" />
+          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Datos de Contacto</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Correo Electrónico"
+            type="email"
+            value={(draft.email || '').toLowerCase()}
+            onChange={e => updateDraft({ email: e.target.value.toLowerCase() })}
+            error={showErrors ? errors.email : null}
+            viewMode={!isEditing}
+            icon={Mail}
+          />
+          <PhoneInput
+            label="Celular"
+            countryValue={draft.telefonoMovilPais || 'CO'}
+            phoneValue={draft.telefonoMovil || ''}
+            onCountryChange={v => updateDraft({ telefonoMovilPais: v })}
+            onPhoneChange={v => updateDraft({ telefonoMovil: v })}
+            error={showErrors ? errors.telefonoMovil : null}
+            viewMode={!isEditing}
+            required
+          />
+        </div>
+      </div>
+
+      {/* ─── Cargo y Área ─── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
+          <Briefcase size={15} className="text-gray-500" />
+          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Cargo y Área</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Select
+            label="Cargo"
+            value={draft.cargoId || ''}
+            onChange={e => updateDraft({ cargoId: e.target.value })}
+            options={buildOpts(loadingCargo, cargoOptions, 'Seleccionar cargo...')}
+            viewMode={!isEditing}
+            icon={Briefcase}
+          />
+          <Input
+            label="Descripción del Cargo"
+            value={draft.descripcionCargo || ''}
+            onChange={e => updateDraft({ descripcionCargo: e.target.value })}
+            viewMode={!isEditing}
+            icon={MessageSquare}
+            placeholder="Descripción opcional del rol"
+          />
+        </div>
+      </div>
+
+      {/* ─── Estado — solo visible en ver/editar (no en creación nueva) ─── */}
+      {!isNew && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Switch
+            label="Estado"
+            checked={!!activoId && draft.estadoId === activoId}
+            onChange={checked => updateDraft({ estadoId: checked ? activoId : inactivoId })}
+            viewMode={!isEditing}
+            checkedLabel="Activo"
+            uncheckedLabel="Inactivo"
+          />
+        </div>
+      )}
     </div>
   );
 };

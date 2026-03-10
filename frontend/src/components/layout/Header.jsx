@@ -13,8 +13,20 @@ const SECTION_LABELS = {
   'client-visits':    { title: 'Visitas',             subtitle: 'Portal Cliente' },
 };
 
+const getDisplayName = (user) => {
+  if (!user) return 'Usuario';
+  const full = `${user.nombres || ''} ${user.apellidos || ''}`.trim();
+  return full || user.email?.split('@')[0] || 'Usuario';
+};
+
+const getInitial = (user) => {
+  const name = getDisplayName(user);
+  return name.charAt(0).toUpperCase();
+};
+
 const Header = ({ user, activeTab, onToggleMobileMenu }) => {
   const section = SECTION_LABELS[activeTab];
+  const displayName = getDisplayName(user);
 
   return (
     <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100 px-4 lg:px-8 py-3">
@@ -41,11 +53,11 @@ const Header = ({ user, activeTab, onToggleMobileMenu }) => {
 
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 bg-[#D32F2F] text-white rounded-xl flex items-center justify-center text-xs font-black shadow-lg shadow-red-900/20">
-              {user.nombre_completo?.charAt(0)}
+              {getInitial(user)}
             </div>
             <div className="hidden sm:block">
               <p className="text-[11px] font-black text-gray-900 uppercase tracking-wide leading-none">
-                {user.nombre_completo}
+                {displayName}
               </p>
               <TextSmall className="text-gray-400 uppercase mt-0.5">{user.role}</TextSmall>
             </div>

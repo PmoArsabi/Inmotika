@@ -1,17 +1,29 @@
 import { useState, useMemo } from 'react';
 import {
   Plus, Edit, Eye, Trash2, UserPlus, Shield, Mail, Phone,
-  User, Search, X, Save, ArrowLeft, FileText
+  User, Search, X, Save, ArrowLeft, FileText, Lock, IdCard,
+  Hash, Tag,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
+import Switch from '../components/ui/Switch';
+import PhoneInput from '../components/ui/PhoneInput';
 import FileUploader from '../components/ui/FileUploader';
 import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
-import { Subtitle, TextSmall, H2, H3, TextTiny, Label } from '../components/ui/Typography';
+import { Subtitle, TextSmall, H2, TextTiny, Label } from '../components/ui/Typography';
 import StatusBadge from '../components/ui/StatusBadge';
 import { ROLES } from '../utils/constants';
+
+const TIPO_DOCUMENTO_OPTIONS = [
+  { value: '',    label: 'Seleccionar...' },
+  { value: 'CC',  label: 'Cédula de Ciudadanía' },
+  { value: 'CE',  label: 'Cédula de Extranjería' },
+  { value: 'PAS', label: 'Pasaporte' },
+  { value: 'TI',  label: 'Tarjeta de Identidad' },
+  { value: 'PPT', label: 'Permiso de Protección Temporal' },
+];
 
 const UsersPage = ({ data, setData }) => {
   const [isCreating, setIsCreating] = useState(false);
@@ -20,20 +32,26 @@ const UsersPage = ({ data, setData }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('Todos');
   
-  const [newUser, setNewUser] = useState({
-    nombre: '',
+  const emptyUser = () => ({
+    nombres: '',
+    apellidos: '',
     email: '',
     telefono: '',
+    telefonoPais: 'CO',
+    tipoDocumento: '',
+    identificacion: '',
     rol: '',
     activo: true,
-    password: ''
+    password: '',
+    certificados: [],   // solo para Técnico: [{ id, nombre, fileLoaded }]
+    directorId: '',     // solo para Coordinador
   });
 
-  // Estado para documentos del técnico
-  const [tecnicoDocumentos, setTecnicoDocumentos] = useState({
-    planilla: false,
-    otros: false
-  });
+  const emptyDocs = () => ({ cedula: false, planillaSS: false });
+
+  const [newUser, setNewUser] = useState(emptyUser());
+
+  const [tecnicoDocumentos, setTecnicoDocumentos] = useState(emptyDocs());
 
   // Obtener usuarios del sistema
   const usuarios = data?.usuarios || [];
@@ -43,9 +61,11 @@ const UsersPage = ({ data, setData }) => {
     let filtered = usuarios;
     
     if (searchTerm) {
+      const q = searchTerm.toLowerCase();
       filtered = filtered.filter(user =>
-        user.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+        user.nombres?.toLowerCase().includes(q) ||
+        user.apellidos?.toLowerCase().includes(q) ||
+        user.email?.toLowerCase().includes(q)
       );
     }
     
@@ -62,7 +82,6 @@ const UsersPage = ({ data, setData }) => {
     { value: ROLES.DIRECTOR, label: 'Director' },
     { value: ROLES.COORDINADOR, label: 'Coordinador' },
     { value: ROLES.TECNICO, label: 'Técnico' },
-    { value: ROLES.CLIENTE, label: 'Cliente' }
   ];
 
   const roleLabels = {
@@ -76,18 +95,8 @@ const UsersPage = ({ data, setData }) => {
     setIsCreating(true);
     setEditingUser(null);
     setViewingUser(null);
-    setNewUser({
-      nombre: '',
-      email: '',
-      telefono: '',
-      rol: '',
-      activo: true,
-      password: ''
-    });
-    setTecnicoDocumentos({
-      planilla: false,
-      otros: false
-    });
+    setNewUser(emptyUser());
+    setTecnicoDocumentos(emptyDocs());
   };
 
   const handleEdit = (user) => {
@@ -95,16 +104,22 @@ const UsersPage = ({ data, setData }) => {
     setIsCreating(false);
     setViewingUser(null);
     setNewUser({
-      nombre: user.nombre || '',
+      nombres: user.nombres || '',
+      apellidos: user.apellidos || '',
       email: user.email || '',
       telefono: user.telefono || '',
+      telefonoPais: user.telefonoPais || 'CO',
+      tipoDocumento: user.tipoDocumento || '',
+      identificacion: user.identificacion || '',
       rol: user.rol || '',
       activo: user.activo !== undefined ? user.activo : true,
-      password: '' // No mostrar contraseña existente
+      password: '',
+      certificados: Array.isArray(user.certificados) ? user.certificados : [],
+      directorId: user.directorId || '',
     });
     setTecnicoDocumentos({
-      planilla: user.documentos?.planilla || false,
-      otros: user.documentos?.otros || false
+      cedula:    user.documentos?.cedula    || false,
+      planillaSS: user.documentos?.planillaSS || false,
     });
   };
 
@@ -124,83 +139,75 @@ const UsersPage = ({ data, setData }) => {
   };
 
   const handleSave = () => {
-    if (!newUser.nombre || !newUser.email || !newUser.rol) {
+    if (!newUser.nombres || !newUser.email || !newUser.rol) {
       alert('Por favor complete todos los campos obligatorios');
       return;
     }
 
     if (isCreating) {
-      // Validar que no exista otro usuario con el mismo email
       if (usuarios.some(u => u.email === newUser.email)) {
         alert('Ya existe un usuario con este email');
         return;
       }
 
-      // Crear nuevo usuario
       const newId = `USR-${String(usuarios.length + 1).padStart(3, '0')}`;
       const userToAdd = {
         id: newId,
-        nombre: newUser.nombre,
+        nombres: newUser.nombres,
+        apellidos: newUser.apellidos,
         email: newUser.email,
         telefono: newUser.telefono || '',
+        telefonoPais: newUser.telefonoPais || 'CO',
+        tipoDocumento: newUser.tipoDocumento || '',
+        identificacion: newUser.identificacion || '',
         rol: newUser.rol,
         activo: newUser.activo,
         fechaCreacion: new Date().toISOString().split('T')[0],
-        password: newUser.password || 'password123', // En producción, esto debería ser hasheado
-        ...(newUser.rol === ROLES.TECNICO && { documentos: tecnicoDocumentos })
+        password: newUser.password || 'password123',
+        ...(newUser.rol === ROLES.TECNICO && {
+          documentos: tecnicoDocumentos,
+          certificados: newUser.certificados,
+        }),
+        ...(newUser.rol === ROLES.COORDINADOR && {
+          directorId: newUser.directorId,
+        }),
       };
 
-      setData(prev => ({
-        ...prev,
-        usuarios: [...(prev.usuarios || []), userToAdd]
-      }));
-
+      setData(prev => ({ ...prev, usuarios: [...(prev.usuarios || []), userToAdd] }));
       setIsCreating(false);
-      setNewUser({
-        nombre: '',
-        email: '',
-        telefono: '',
-        rol: '',
-        activo: true,
-        password: ''
-      });
-      setTecnicoDocumentos({
-        planilla: false,
-        otros: false
-      });
+      setNewUser(emptyUser());
+      setTecnicoDocumentos(emptyDocs());
     } else if (editingUser) {
-      // Actualizar usuario existente
       setData(prev => ({
         ...prev,
         usuarios: (prev.usuarios || []).map(u =>
           u.id === editingUser.id
             ? {
                 ...u,
-                nombre: newUser.nombre,
+                nombres: newUser.nombres,
+                apellidos: newUser.apellidos,
                 email: newUser.email,
                 telefono: newUser.telefono,
+                telefonoPais: newUser.telefonoPais || 'CO',
+                tipoDocumento: newUser.tipoDocumento || '',
+                identificacion: newUser.identificacion || '',
                 rol: newUser.rol,
                 activo: newUser.activo,
                 ...(newUser.password && { password: newUser.password }),
-                ...(newUser.rol === ROLES.TECNICO && { documentos: tecnicoDocumentos })
+                ...(newUser.rol === ROLES.TECNICO && {
+                  documentos: tecnicoDocumentos,
+                  certificados: newUser.certificados,
+                }),
+                ...(newUser.rol === ROLES.COORDINADOR && {
+                  directorId: newUser.directorId,
+                }),
               }
             : u
-        )
+        ),
       }));
-
       setEditingUser(null);
-      setNewUser({
-        nombre: '',
-        email: '',
-        telefono: '',
-        rol: '',
-        activo: true,
-        password: ''
-      });
-      setTecnicoDocumentos({
-        planilla: false,
-        otros: false
-      });
+      setNewUser(emptyUser());
+      setTecnicoDocumentos(emptyDocs());
     }
   };
 
@@ -208,18 +215,8 @@ const UsersPage = ({ data, setData }) => {
     setIsCreating(false);
     setEditingUser(null);
     setViewingUser(null);
-    setNewUser({
-      nombre: '',
-      email: '',
-      telefono: '',
-      rol: '',
-      activo: true,
-      password: ''
-    });
-    setTecnicoDocumentos({
-      planilla: false,
-      otros: false
-    });
+    setNewUser(emptyUser());
+    setTecnicoDocumentos(emptyDocs());
   };
 
   // Vista de detalle/edición
@@ -269,49 +266,87 @@ const UsersPage = ({ data, setData }) => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
-                  label="Nombre Completo *"
-                  value={newUser.nombre}
-                  onChange={e => setNewUser({ ...newUser, nombre: e.target.value })}
-                  disabled={viewingUser}
+                  label="Nombres"
+                  icon={User}
+                  value={newUser.nombres}
+                  onChange={e => setNewUser({ ...newUser, nombres: e.target.value })}
+                  viewMode={!!viewingUser}
+                  uppercase
                   required
                 />
                 <Input
-                  label="Email *"
+                  label="Apellidos"
+                  icon={User}
+                  value={newUser.apellidos}
+                  onChange={e => setNewUser({ ...newUser, apellidos: e.target.value })}
+                  viewMode={!!viewingUser}
+                  uppercase
+                />
+                <Input
+                  label="Email"
+                  icon={Mail}
                   type="email"
                   value={newUser.email}
-                  onChange={e => setNewUser({ ...newUser, email: e.target.value })}
-                  disabled={viewingUser}
+                  onChange={e => setNewUser({ ...newUser, email: e.target.value.toLowerCase() })}
+                  viewMode={!!viewingUser}
                   required
                 />
-                <Input
+                <PhoneInput
                   label="Teléfono"
-                  type="tel"
-                  value={newUser.telefono}
-                  onChange={e => setNewUser({ ...newUser, telefono: e.target.value })}
-                  disabled={viewingUser}
+                  countryValue={newUser.telefonoPais || 'CO'}
+                  phoneValue={newUser.telefono || ''}
+                  onCountryChange={v => setNewUser({ ...newUser, telefonoPais: v })}
+                  onPhoneChange={v => setNewUser({ ...newUser, telefono: v })}
+                  viewMode={!!viewingUser}
                 />
                 <Select
-                  label="Rol *"
+                  label="Tipo de Documento"
+                  icon={IdCard}
+                  options={TIPO_DOCUMENTO_OPTIONS}
+                  value={newUser.tipoDocumento || ''}
+                  onChange={e => setNewUser({ ...newUser, tipoDocumento: e.target.value })}
+                  viewMode={!!viewingUser}
+                />
+                <Input
+                  label="Número de Documento"
+                  icon={Hash}
+                  value={newUser.identificacion || ''}
+                  onChange={e => setNewUser({ ...newUser, identificacion: e.target.value })}
+                  viewMode={!!viewingUser}
+                  inputMode="numeric"
+                />
+                <Select
+                  label="Rol"
+                  icon={Shield}
                   options={roleOptions}
                   value={newUser.rol}
                   onChange={e => {
                     const nuevoRol = e.target.value;
-                    setNewUser({ ...newUser, rol: nuevoRol });
-                    // Si cambia a un rol que no es técnico, limpiar documentos
-                    if (nuevoRol !== ROLES.TECNICO) {
-                      setTecnicoDocumentos({ planilla: false, otros: false });
-                    }
+                    setNewUser({ ...newUser, rol: nuevoRol, directorId: '' });
+                    if (nuevoRol !== ROLES.TECNICO) setTecnicoDocumentos(emptyDocs());
                   }}
-                  disabled={viewingUser}
+                  viewMode={!!viewingUser}
                   required
+                />
+                {/* Activo — comparte fila con Rol */}
+                <Switch
+                  label="Estado del Usuario"
+                  checked={!!newUser.activo}
+                  onChange={checked => setNewUser({ ...newUser, activo: checked })}
+                  viewMode={!!viewingUser}
+                  checkedLabel="Activo"
+                  uncheckedLabel="Inactivo"
                 />
               </div>
 
+              {/* Contraseña — inmediatamente bajo los datos base */}
               {!viewingUser && (
                 <div className="mt-4">
                   <Input
-                    label={isCreating ? "Contraseña *" : "Nueva Contraseña (dejar vacío para mantener la actual)"}
+                    label={isCreating ? 'Contraseña' : 'Nueva Contraseña'}
+                    icon={Lock}
                     type="password"
+                    placeholder={isCreating ? '' : 'Dejar vacío para mantener la actual'}
                     value={newUser.password}
                     onChange={e => setNewUser({ ...newUser, password: e.target.value })}
                     required={isCreating}
@@ -319,50 +354,56 @@ const UsersPage = ({ data, setData }) => {
                 </div>
               )}
 
-              <div className="mt-4 flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="activo"
-                  checked={newUser.activo}
-                  onChange={e => setNewUser({ ...newUser, activo: e.target.checked })}
-                  disabled={viewingUser}
-                  className="w-4 h-4 text-[#D32F2F] border-gray-300 rounded focus:ring-[#D32F2F]"
-                />
-                <Label htmlFor="activo" className="text-sm font-medium text-gray-700">
-                  Usuario activo
-                </Label>
-              </div>
+              {/* ── Campos por Rol ───────────────────────────────────── */}
 
-              {/* Sección de Documentos para Técnicos */}
+              {/* COORDINADOR */}
+              {newUser.rol === ROLES.COORDINADOR && (
+                <RoleSection icon={Shield} label="Datos del Coordinador" color="blue">
+                  <Select
+                    label="Director Asignado"
+                    icon={User}
+                    options={[
+                      { value: '', label: 'Seleccionar director...' },
+                      ...(usuarios || [])
+                        .filter(u => u.rol === ROLES.DIRECTOR)
+                        .map(u => ({ value: u.id, label: `${u.nombres || ''} ${u.apellidos || ''}`.trim() || u.email })),
+                    ]}
+                    value={newUser.directorId || ''}
+                    onChange={e => setNewUser({ ...newUser, directorId: e.target.value })}
+                    viewMode={!!viewingUser}
+                  />
+                </RoleSection>
+              )}
+
+              {/* TÉCNICO */}
               {newUser.rol === ROLES.TECNICO && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
-                      <FileText size={18} className="text-orange-600" />
-                    </div>
-                    <div>
-                      <Label className="text-base font-bold text-gray-900">Documentos del Técnico</Label>
-                      <TextTiny className="text-gray-500">Subir documentos requeridos (planilla, certificaciones, etc.)</TextTiny>
-                    </div>
-                  </div>
+                <RoleSection icon={FileText} label="Datos del Técnico" color="orange">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FileUploader
-                      label="Planilla"
-                      type="planilla"
-                      isLoaded={tecnicoDocumentos.planilla}
-                      viewMode={viewingUser}
+                      label="Cédula / Documento de Identidad"
+                      type="cedula"
+                      isLoaded={tecnicoDocumentos.cedula}
+                      viewMode={!!viewingUser}
                       onLoad={(type) => setTecnicoDocumentos(prev => ({ ...prev, [type]: !prev[type] }))}
                     />
                     <FileUploader
-                      label="Otros Documentos"
-                      type="otros"
-                      isLoaded={tecnicoDocumentos.otros}
-                      viewMode={viewingUser}
+                      label="Planilla de Seguridad Social"
+                      type="planillaSS"
+                      isLoaded={tecnicoDocumentos.planillaSS}
+                      viewMode={!!viewingUser}
                       onLoad={(type) => setTecnicoDocumentos(prev => ({ ...prev, [type]: !prev[type] }))}
                     />
                   </div>
-                </div>
+
+                  {/* Certificados — lista dinámica */}
+                  <CertificadosList
+                    items={newUser.certificados || []}
+                    viewMode={!!viewingUser}
+                    onChange={certs => setNewUser(prev => ({ ...prev, certificados: certs }))}
+                  />
+                </RoleSection>
               )}
+
             </Card>
           </div>
 
@@ -458,14 +499,15 @@ const UsersPage = ({ data, setData }) => {
 
       {/* Filtros */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
           <div className="relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <Input
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
               placeholder="Buscar por nombre o email..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="w-full h-10 pl-10 pr-9 border border-gray-300 rounded-md text-sm font-semibold bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400 transition-all"
             />
             {searchTerm && (
               <button
@@ -477,7 +519,6 @@ const UsersPage = ({ data, setData }) => {
             )}
           </div>
           <Select
-            label="Filtrar por Rol"
             options={[
               { value: 'Todos', label: 'Todos los roles' },
               ...roleOptions.slice(1)
@@ -518,10 +559,12 @@ const UsersPage = ({ data, setData }) => {
                   <Td>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                        {user.nombre?.charAt(0).toUpperCase() || 'U'}
+                        {(user.nombres || user.apellidos || 'U').charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <Subtitle className="text-gray-900">{user.nombre}</Subtitle>
+                        <Subtitle className="text-gray-900">
+                          {`${user.nombres || ''} ${user.apellidos || ''}`.trim() || '—'}
+                        </Subtitle>
                         <TextTiny className="text-gray-500">{user.id}</TextTiny>
                       </div>
                     </div>
@@ -582,6 +625,106 @@ const UsersPage = ({ data, setData }) => {
           </TBody>
         </Table>
       </Card>
+    </div>
+  );
+};
+
+// ─── Certificados: dynamic list of named file uploaders ──────────────────────
+const CertificadosList = ({ items = [], viewMode = false, onChange }) => {
+  const addRow = () =>
+    onChange([...items, { id: `cert-${Date.now()}`, nombre: '', fileLoaded: false }]);
+
+  const updateRow = (id, patch) =>
+    onChange(items.map(c => (c.id === id ? { ...c, ...patch } : c)));
+
+  const removeRow = (id) =>
+    onChange(items.filter(c => c.id !== id));
+
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+          Certificados
+        </span>
+        {!viewMode && (
+          <button
+            type="button"
+            onClick={addRow}
+            className="flex items-center gap-1 text-xs font-semibold text-[#D32F2F] hover:text-[#B71C1C] transition-colors"
+          >
+            <Plus size={13} /> Agregar
+          </button>
+        )}
+      </div>
+
+      {items.length === 0 && viewMode && (
+        <p className="text-xs italic text-gray-400">Sin documentos adicionales</p>
+      )}
+
+      {items.map(cert => (
+        <div key={cert.id} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-2">
+          {/* Nombre del documento */}
+          <div className="w-44 shrink-0">
+            {viewMode ? (
+              <p className="text-sm font-semibold text-gray-700 px-1 truncate">
+                {cert.nombre || <span className="italic text-gray-400">Sin nombre</span>}
+              </p>
+            ) : (
+              <input
+                type="text"
+                value={cert.nombre}
+                onChange={e => updateRow(cert.id, { nombre: e.target.value })}
+                placeholder="Nombre del documento"
+                className="w-full h-9 px-3 text-sm font-semibold border border-gray-200 rounded-md focus:outline-none focus:border-[#D32F2F] focus:ring-4 focus:ring-[#D32F2F]/5 transition-all bg-gray-50"
+              />
+            )}
+          </div>
+
+          {/* FileUploader */}
+          <div className="flex-1 min-w-0">
+            <FileUploader
+              label=""
+              type={cert.id}
+              isLoaded={cert.fileLoaded}
+              viewMode={viewMode}
+              onLoad={() => updateRow(cert.id, { fileLoaded: !cert.fileLoaded })}
+            />
+          </div>
+
+          {/* Delete */}
+          {!viewMode && (
+            <button
+              type="button"
+              onClick={() => removeRow(cert.id)}
+              className="p-1.5 text-gray-300 hover:text-red-500 rounded transition-colors shrink-0"
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ─── Helper: coloured section wrapper for role-specific fields ───────────────
+const COLOR_MAP = {
+  blue:   { bg: 'from-blue-50 to-blue-100/60',   icon: 'text-blue-600',   ring: 'bg-blue-50 to-blue-100'   },
+  orange: { bg: 'from-orange-50 to-orange-100/60', icon: 'text-orange-600', ring: 'bg-orange-50 to-orange-100' },
+  green:  { bg: 'from-green-50 to-green-100/60',  icon: 'text-green-600',  ring: 'bg-green-50 to-green-100'  },
+};
+
+const RoleSection = ({ icon: Icon, label, color = 'blue', children }) => {
+  const c = COLOR_MAP[color] || COLOR_MAP.blue;
+  return (
+    <div className={`mt-5 pt-5 border-t border-gray-100 space-y-4`}>
+      <div className="flex items-center gap-3">
+        <div className={`p-2 bg-gradient-to-br ${c.ring} rounded-lg`}>
+          <Icon size={16} className={c.icon} />
+        </div>
+        <Label className="text-sm font-bold text-gray-800">{label}</Label>
+      </div>
+      {children}
     </div>
   );
 };

@@ -30,7 +30,8 @@ const SearchableSelect = ({
   const customStyles = {
     control: (base, state) => ({
       ...base,
-      minHeight: isMulti ? CONTROL_HEIGHT : CONTROL_HEIGHT,
+      height: isMulti ? 'auto' : CONTROL_HEIGHT,
+      minHeight: CONTROL_HEIGHT,
       maxHeight: isMulti ? '120px' : CONTROL_HEIGHT,
       backgroundColor: dark ? '#2A2A2A' : 'white',
       borderColor: state.isFocused ? BORDER_FOCUS : BORDER_NORMAL,
@@ -45,17 +46,18 @@ const SearchableSelect = ({
       opacity: isDisabled ? 0.45 : 1,
       cursor: isDisabled ? 'not-allowed' : 'default',
       '&:hover': { borderColor: state.isFocused ? BORDER_FOCUS : BORDER_HOVER },
-      overflow: isMulti ? 'auto' : 'visible',
+      overflow: 'hidden',
     }),
     valueContainer: (base) => ({
       ...base,
-      height: isMulti ? 'auto' : CONTROL_HEIGHT - 2,  // subtract borders
+      height: isMulti ? 'auto' : CONTROL_HEIGHT - 2,
       minHeight: isMulti ? CONTROL_HEIGHT - 2 : undefined,
       maxHeight: isMulti ? '100px' : undefined,
       padding: isMulti ? '0.125rem 0.25rem' : '0 0.25rem',
       flexWrap: isMulti ? 'wrap' : 'nowrap',
-      overflowY: isMulti ? 'auto' : 'visible',
+      overflow: isMulti ? 'auto' : 'hidden',
       gap: isMulti ? '0.125rem' : '0',
+      alignItems: 'center',
     }),
     indicatorsContainer: (base) => ({
       ...base,
@@ -196,6 +198,7 @@ const SearchableSelect = ({
           components={components}
           isDisabled={isDisabled}
           isMulti={isMulti}
+          isClearable={false}
           {...props}
         />
       </div>

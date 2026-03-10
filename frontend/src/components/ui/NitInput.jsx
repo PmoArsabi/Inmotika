@@ -13,17 +13,23 @@ export const calculateDV = (nit) => {
   return 11 - remainder;
 };
 
+/**
+ * Unified identification number input.
+ *
+ * showDv=true  (NIT / juridica):  [# Número ────────── 70% | DV  30%]
+ * showDv=false (other doc types): [# Número ──────────────────────── ]
+ */
 const NitInput = ({
-  label = 'NIT / RUT',
-  nitValue,
-  dvValue,
+  label = 'Número de Identificación',
+  nitValue = '',
+  dvValue = '',
   onNitChange,
   onDvChange,
+  showDv = false,
   error,
   viewMode = false,
   dark = false,
   className = '',
-  autoCalculate = true,
   required = false,
 }) => {
   const dvRef  = useRef(null);
@@ -33,16 +39,16 @@ const NitInput = ({
     const val = e.target.value.replace(/\D/g, '');
     if (val.length <= 15) {
       onNitChange(val);
-      if (autoCalculate) {
+      if (showDv) {
         const dv = calculateDV(val);
         onDvChange(dv !== null ? dv.toString() : '');
+        if (val.length >= 10 && dvRef.current && !viewMode) dvRef.current.focus();
       }
-      if (val.length >= 10 && dvRef.current && !viewMode) dvRef.current.focus();
     }
   };
 
   const handleNitKeyDown = (e) => {
-    if ((e.key === 'Enter' || e.key === 'Tab') && nitValue && dvRef.current && !viewMode) {
+    if (showDv && (e.key === 'Enter' || e.key === 'Tab') && nitValue && dvRef.current && !viewMode) {
       e.preventDefault();
       dvRef.current.focus();
     }
@@ -53,11 +59,22 @@ const NitInput = ({
     if (val.length <= 1) onDvChange(val);
   };
 
-  const baseInput = `h-10 border rounded-md focus:outline-none focus:ring-4 transition-all text-sm font-semibold
-    ${dark
-      ? 'bg-[#2A2A2A] border-transparent text-white placeholder-gray-500 focus:ring-white/10'
-      : 'bg-white border-gray-300 text-gray-900 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400'
-    } ${error ? 'border-red-500 ring-red-500/10' : ''}`;
+  const borderColor = error
+    ? 'border-red-500'
+    : dark
+      ? 'border-transparent'
+      : 'border-gray-300';
+
+  const focusRingClass = dark
+    ? 'focus-within:ring-4 focus-within:ring-white/10'
+    : 'focus-within:ring-4 focus-within:ring-[#D32F2F]/5 focus-within:border-[#D32F2F] hover:border-gray-400';
+
+  const bgClass = dark ? 'bg-[#2A2A2A]' : 'bg-white';
+  const textClass = dark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400';
+  const iconClass = dark
+    ? 'text-gray-500 group-focus-within:text-white'
+    : 'text-gray-400 group-focus-within:text-[#D32F2F]';
+  const dividerClass = dark ? 'border-gray-600' : 'border-gray-200';
 
   return (
     <div className={`flex flex-col gap-1.5 w-full ${className}`}>
@@ -69,60 +86,64 @@ const NitInput = ({
       )}
 
       {viewMode ? (
-        /* ── View mode: icon + "900111222-1" as plain text ── */
         <div className="flex items-center gap-2 h-10 pl-1 text-sm font-semibold text-gray-900">
           <Hash size={16} className="text-gray-400 shrink-0" />
           {nitValue
-            ? <span>{nitValue}{dvValue != null && dvValue !== '' ? <span className="text-gray-400"> — {dvValue}</span> : ''}</span>
+            ? (
+              <span>
+                {nitValue}
+                {showDv && dvValue != null && dvValue !== ''
+                  ? <span className="text-gray-400"> — DV {dvValue}</span>
+                  : ''}
+              </span>
+            )
             : <span className="text-gray-400 italic">No especificado</span>
           }
         </div>
       ) : (
-        /* ── Edit mode: [# [Input] ] - [DV] ── */
         <>
-          <div className="flex items-center gap-2 w-full">
-            {/* Main NIT Container with Icon inside */}
-            <div className="relative flex-1 group">
-              <Hash 
-                size={16} 
-                className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors pointer-events-none 
-                  ${dark ? 'text-gray-500 group-focus-within:text-white' : 'text-gray-400 group-focus-within:text-[#D32F2F]'}`}
+          <div className={`group flex items-stretch h-10 w-full rounded-md border overflow-hidden transition-all ${bgClass} ${borderColor} ${focusRingClass}`}>
+
+            {/* Hash icon + main number input */}
+            <div className={`flex items-center pl-3 ${showDv ? 'flex-[7]' : 'flex-1'} min-w-0`}>
+              <Hash
+                size={15}
+                className={`shrink-0 mr-2 transition-colors pointer-events-none ${iconClass}`}
               />
               <input
                 ref={nitRef}
                 type="text"
                 inputMode="numeric"
-                placeholder="Número de identificación"
+                placeholder="Número"
                 value={nitValue}
                 onChange={handleNitChange}
                 onKeyDown={handleNitKeyDown}
                 required={required}
-                className={`w-full h-10 pl-9 pr-3 border rounded-md focus:outline-none focus:ring-4 transition-all text-sm font-semibold
-                  ${dark
-                    ? 'bg-[#2A2A2A] border-transparent text-white placeholder-gray-500 focus:ring-white/10'
-                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400'
-                  } ${error ? 'border-red-500 ring-red-500/10' : ''}`}
+                className={`min-w-0 w-full h-full border-0 outline-none bg-transparent text-sm font-semibold ${textClass} pr-2`}
               />
             </div>
 
-            <span className={`text-sm font-bold shrink-0 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>-</span>
-
-            {/* DV — fixed narrow width */}
-            <input
-              ref={dvRef}
-              type="text"
-              inputMode="numeric"
-              placeholder="DV"
-              maxLength={1}
-              value={dvValue}
-              onChange={handleDvChange}
-              required={required}
-              className={`w-12 h-10 px-2 text-center border rounded-md focus:outline-none focus:ring-4 transition-all text-sm font-semibold
-                ${dark
-                  ? 'bg-[#2A2A2A] border-transparent text-white placeholder-gray-500 focus:ring-white/10'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400'
-                } ${error ? 'border-red-500 ring-red-500/10' : ''}`}
-            />
+            {/* DV section — only shown when showDv=true */}
+            {showDv && (
+              <>
+                <div className={`w-px self-stretch my-1.5 ${dividerClass} border-l`} />
+                <div className={`flex items-center px-3 flex-[3] min-w-0 gap-1.5`}>
+                  <span className={`text-[10px] font-bold uppercase tracking-wide shrink-0 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    DV
+                  </span>
+                  <input
+                    ref={dvRef}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    maxLength={1}
+                    value={dvValue}
+                    onChange={handleDvChange}
+                    className={`min-w-0 w-full h-full border-0 outline-none bg-transparent text-sm font-semibold text-center ${textClass}`}
+                  />
+                </div>
+              </>
+            )}
           </div>
           {error && <span className="text-xs text-red-500 font-bold ml-1">{error}</span>}
         </>

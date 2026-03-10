@@ -34,13 +34,17 @@ export const LocationPickerRows = ({
   countryValue, stateValue, cityValue, direccion,
   onLocationChange, onDireccionChange,
   viewMode, direccionError, required,
-  showDireccion = true
+  showDireccion = true,
+  twoColumns = false,   // cuando true: layout 2 columnas (País+Estado / Ciudad+Dirección)
 }) => {
   const { states, cities, handleCountryChange, handleStateChange, handleCityChange } = useLocationData({
     countryValue, stateValue, onLocationChange
   });
   const countryData = Country.getCountryByCode(countryValue);
   const stateData   = State.getStateByCodeAndCountry(stateValue, countryValue);
+
+  const colSpan = twoColumns ? 'md:col-span-1' : 'md:col-span-1';
+  const dirSpan = twoColumns ? 'md:col-span-1' : 'md:col-span-3';
 
   if (viewMode) {
     return (
@@ -65,7 +69,7 @@ export const LocationPickerRows = ({
 
   return (
     <>
-      <div className="md:col-span-1">
+      <div className={colSpan}>
         <SearchableSelect
           label="País"
           options={ALL_COUNTRIES_LIST}
@@ -76,7 +80,7 @@ export const LocationPickerRows = ({
           required={required}
         />
       </div>
-      <div className="md:col-span-1">
+      <div className={colSpan}>
         <SearchableSelect
           label="Estado / Depto"
           icon={Map}
@@ -88,7 +92,7 @@ export const LocationPickerRows = ({
           required={required}
         />
       </div>
-      <div className="md:col-span-1">
+      <div className={colSpan}>
         <SearchableSelect
           label="Ciudad"
           icon={MapPin}
@@ -101,7 +105,7 @@ export const LocationPickerRows = ({
         />
       </div>
       {showDireccion && (
-        <div className="md:col-span-3">
+        <div className={dirSpan}>
           <Input
             label="Dirección Física"
             icon={MapPin}

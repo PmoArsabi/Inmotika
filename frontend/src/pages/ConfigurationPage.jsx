@@ -138,9 +138,10 @@ const ConfigurationPage = ({ data, setData, initialSubTab = 'clientes', isSingle
                          : type;
 
         if (targetType === 'cliente') {
+          const newClientId = `N-${Date.now()}`;
           config.setViewLevel('client-details');
           config.setSelectedClient(null);
-          setClientModalParams({ id: `N-${Date.now()}`, type: 'cliente', mode: 'edit', clientId: `N-${Date.now()}` });
+          setClientModalParams({ id: newClientId, type: 'cliente', mode: 'edit', clientId: newClientId });
           return;
         }
         if (targetType === 'dispositivo') {

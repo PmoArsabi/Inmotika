@@ -1,75 +1,80 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Country } from 'country-state-city';
 import { Label } from './Typography';
-import { Phone } from 'lucide-react';
-import SearchableSelect from './SearchableSelect';
+import { Phone, ChevronDown, Search } from 'lucide-react';
 
-// Códigos telefónicos por país (ISO code -> dial code)
+// ─── Phone codes ────────────────────────────────────────────────────────────
 const COUNTRY_PHONE_CODES = {
-  'CO': '+57', 'US': '+1', 'MX': '+52', 'AR': '+54', 'CL': '+56',
-  'PE': '+51', 'EC': '+593', 'VE': '+58', 'BO': '+591', 'PY': '+595',
-  'UY': '+598', 'BR': '+55', 'CR': '+506', 'PA': '+507', 'GT': '+502',
-  'HN': '+504', 'NI': '+505', 'SV': '+503', 'DO': '+1', 'CU': '+53',
+  'CO': '+57', 'US': '+1',  'MX': '+52', 'AR': '+54', 'CL': '+56',
+  'PE': '+51', 'EC': '+593','VE': '+58', 'BO': '+591','PY': '+595',
+  'UY': '+598','BR': '+55', 'CR': '+506','PA': '+507','GT': '+502',
+  'HN': '+504','NI': '+505','SV': '+503','DO': '+1',  'CU': '+53',
   'ES': '+34', 'FR': '+33', 'GB': '+44', 'DE': '+49', 'IT': '+39',
-  'PT': '+351', 'NL': '+31', 'BE': '+32', 'CH': '+41', 'AT': '+43',
-  'CA': '+1', 'AU': '+61', 'NZ': '+64', 'JP': '+81', 'CN': '+86',
+  'PT': '+351','NL': '+31', 'BE': '+32', 'CH': '+41', 'AT': '+43',
+  'CA': '+1',  'AU': '+61', 'NZ': '+64', 'JP': '+81', 'CN': '+86',
   'IN': '+91', 'KR': '+82', 'SG': '+65', 'MY': '+60', 'TH': '+66',
-  'PH': '+63', 'ID': '+62', 'VN': '+84', 'AE': '+971', 'SA': '+966',
-  'EG': '+20', 'ZA': '+27', 'NG': '+234', 'KE': '+254', 'MA': '+212',
-  'RU': '+7', 'TR': '+90', 'IL': '+972', 'PL': '+48', 'CZ': '+420',
-  'SE': '+46', 'NO': '+47', 'DK': '+45', 'FI': '+358', 'IE': '+353',
-  'GR': '+30', 'RO': '+40', 'HU': '+36', 'BG': '+359', 'HR': '+385',
+  'PH': '+63', 'ID': '+62', 'VN': '+84', 'AE': '+971','SA': '+966',
+  'EG': '+20', 'ZA': '+27', 'NG': '+234','KE': '+254','MA': '+212',
+  'RU': '+7',  'TR': '+90', 'IL': '+972','PL': '+48', 'CZ': '+420',
+  'SE': '+46', 'NO': '+47', 'DK': '+45', 'FI': '+358','IE': '+353',
+  'GR': '+30', 'RO': '+40', 'HU': '+36', 'BG': '+359','HR': '+385',
 };
 
-// Obtener código telefónico por ISO code
+// ─── Expected digit length per country ───────────────────────────────────────
+const PHONE_LENGTH = {
+  'CO': 10, 'US': 10, 'MX': 10, 'AR': 10, 'CL': 9,
+  'PE': 9,  'EC': 9,  'VE': 10, 'BO': 8,  'PY': 9,
+  'UY': 8,  'BR': 11, 'CR': 8,  'PA': 8,  'GT': 8,
+  'HN': 8,  'NI': 8,  'SV': 8,  'DO': 10, 'CU': 8,
+  'ES': 9,  'FR': 10, 'GB': 10, 'DE': 10, 'IT': 10,
+  'PT': 9,  'NL': 10, 'BE': 9,  'CH': 9,  'AT': 10,
+  'CA': 10, 'AU': 9,  'NZ': 9,  'JP': 10, 'CN': 11,
+  'IN': 10, 'KR': 10, 'SG': 8,  'MY': 9,  'TH': 9,
+};
+
 export const getPhoneCode = (isoCode) => COUNTRY_PHONE_CODES[isoCode] || '+1';
 
-// Formatear teléfono completo: "CO+57 3225865888"
 export const formatFullPhone = (countryCode, phoneNumber) => {
   if (!countryCode || !phoneNumber) return '';
   const code = getPhoneCode(countryCode);
   return `${countryCode}${code} ${phoneNumber}`;
 };
 
-// Formatear opción de país con bandera
-const formatCountryOption = ({ label, isoCode }) => {
-  const phoneCode = getPhoneCode(isoCode);
-  return (
-    <div className="flex items-center gap-2">
-      <img
-        src={`https://flagcdn.com/w20/${isoCode.toLowerCase()}.png`}
-        alt={label}
-        className="w-5 h-3.5 object-cover rounded-sm"
-      />
-      <span className="flex-1">{label}</span>
-      <span className="text-gray-500 text-sm">{phoneCode}</span>
-    </div>
-  );
+/** Returns null if valid, error string if invalid. */
+export const validatePhoneNumber = (phoneNumber, countryIso) => {
+  if (!phoneNumber) return null;
+  const digits = String(phoneNumber).replace(/\D/g, '');
+  if (!digits) return null;
+
+  const expectedLen = PHONE_LENGTH[countryIso];
+  if (expectedLen && digits.length !== expectedLen) {
+    return `Debe tener ${expectedLen} dígitos`;
+  }
+  if (/^(\d)\1+$/.test(digits)) return 'Número inválido';
+
+  if (digits.length >= 7) {
+    let asc = true;
+    for (let i = 1; i < digits.length; i++) {
+      if (+digits[i] !== +digits[i - 1] + 1) { asc = false; break; }
+    }
+    if (asc) return 'Número inválido';
+
+    let desc = true;
+    for (let i = 1; i < digits.length; i++) {
+      if (+digits[i] !== +digits[i - 1] - 1) { desc = false; break; }
+    }
+    if (desc) return 'Número inválido';
+  }
+  return null;
 };
 
-// Formatear valor seleccionado
-const formatCountrySingleValue = ({ data }) => {
-  const phoneCode = getPhoneCode(data.isoCode);
-  return (
-    <div className="flex items-center gap-2">
-      <img
-        src={`https://flagcdn.com/w20/${data.isoCode.toLowerCase()}.png`}
-        alt={data.label}
-        className="w-5 h-3.5 object-cover rounded-sm"
-      />
-      <span className="text-sm font-semibold">{data.isoCode}</span>
-      <span className="text-gray-600">{phoneCode}</span>
-    </div>
-  );
-};
-
-// Lista de países con códigos telefónicos
 const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
   value: c.isoCode,
   label: c.name,
   isoCode: c.isoCode,
 }));
 
+// ─── Component ───────────────────────────────────────────────────────────────
 const PhoneInput = ({
   label = 'Celular',
   countryValue,
@@ -81,84 +86,199 @@ const PhoneInput = ({
   dark = false,
   className = '',
   required = false,
-  icon: Icon = Phone,
 }) => {
-  const phoneCode = useMemo(() => getPhoneCode(countryValue || 'CO'), [countryValue]);
-  const displayValue = useMemo(() => {
-    if (!countryValue || !phoneValue) return '';
-    return `${countryValue}${phoneCode} ${phoneValue}`;
-  }, [countryValue, phoneCode, phoneValue]);
+  const [open, setOpen]     = useState(false);
+  const [search, setSearch] = useState('');
+  const [touched, setTouched] = useState(false);
+  const wrapperRef  = useRef(null);
+  const searchRef   = useRef(null);
+  const inputRef    = useRef(null);
 
-  const handlePhoneChange = (e) => {
-    const val = e.target.value.replace(/\D/g, ''); // Solo números
-    onPhoneChange(val);
+  const iso       = countryValue || 'CO';
+  const phoneCode = useMemo(() => getPhoneCode(iso), [iso]);
+  const country   = useMemo(
+    () => ALL_COUNTRIES.find(c => c.value === iso) ?? ALL_COUNTRIES.find(c => c.value === 'CO'),
+    [iso],
+  );
+
+  const filteredCountries = useMemo(() => {
+    if (!search.trim()) return ALL_COUNTRIES;
+    const q = search.toLowerCase();
+    return ALL_COUNTRIES.filter(c =>
+      c.label.toLowerCase().includes(q) ||
+      c.isoCode.toLowerCase().includes(q) ||
+      getPhoneCode(c.isoCode).includes(q),
+    );
+  }, [search]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setOpen(false);
+        setSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Auto-focus search when dropdown opens
+  useEffect(() => {
+    if (open) setTimeout(() => searchRef.current?.focus(), 50);
+  }, [open]);
+
+  const validationError = useMemo(
+    () => (touched ? validatePhoneNumber(phoneValue, iso) : null),
+    [phoneValue, iso, touched],
+  );
+  const shownError = error || validationError;
+
+  const handleSelect = (isoCode) => {
+    onCountryChange(isoCode);
+    setOpen(false);
+    setSearch('');
+    inputRef.current?.focus();
   };
 
+  // ── View mode ──
   if (viewMode) {
     return (
       <div className={`flex flex-col gap-1.5 w-full ${className}`}>
         {label && (
           <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
-            {label}
-            {required && <span className="text-red-500 ml-0.5">*</span>}
+            {label}{required && <span className="text-red-500 ml-0.5">*</span>}
           </Label>
         )}
-        <div className={`w-full h-10 ${Icon ? 'pl-9' : 'px-3'} text-sm font-semibold text-gray-900 flex items-center`}>
-          {displayValue || <span className="text-gray-400 italic">No especificado</span>}
+        <div className="w-full h-10 px-3 text-sm font-semibold text-gray-900 flex items-center">
+          {phoneValue
+            ? `${phoneCode} ${phoneValue}`
+            : <span className="text-gray-400 italic">No especificado</span>}
         </div>
-        {error && <span className="text-xs text-red-500 font-bold ml-1">{error}</span>}
       </div>
     );
   }
 
+  // ── Edit mode ──
   return (
-    <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+    <div ref={wrapperRef} className={`flex flex-col gap-1.5 w-full ${className}`}>
       {label && (
         <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
-          {label}
-          {required && <span className="text-red-500 ml-0.5">*</span>}
+          {label}{required && <span className="text-red-500 ml-0.5">*</span>}
         </Label>
       )}
-      <div className="flex flex-col gap-2">
-        {/* Selector de país */}
-        <div className="w-full">
-          <SearchableSelect
-            options={ALL_COUNTRIES}
-            value={countryValue ? ALL_COUNTRIES.find(c => c.value === countryValue) || ALL_COUNTRIES.find(c => c.value === 'CO') : ALL_COUNTRIES.find(c => c.value === 'CO')}
-            onChange={(opt) => onCountryChange(opt?.value || 'CO')}
-            placeholder="País"
-            formatOptionLabel={formatCountryOption}
-            formatSingleValue={formatCountrySingleValue}
-            dark={dark}
+
+      {/* ── Unified input box ── */}
+      <div className={`relative flex w-full rounded-md border transition-all
+        focus-within:ring-4
+        ${dark
+          ? 'border-[#3A3A3A] focus-within:ring-white/10 focus-within:border-white/30'
+          : `border-gray-300 hover:border-gray-400 focus-within:border-[#D32F2F] focus-within:ring-[#D32F2F]/5 ${shownError ? 'border-red-500 ring-4 ring-red-500/10' : ''}`
+        }`}
+      >
+        {/* Country trigger */}
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className={`flex items-center gap-1.5 pl-3 pr-2 h-10 shrink-0 rounded-l-md border-r transition-colors
+            ${dark
+              ? 'border-[#3A3A3A] hover:bg-white/5'
+              : 'border-gray-300 hover:bg-gray-50'
+            }`}
+        >
+          <img
+            src={`https://flagcdn.com/w20/${country?.isoCode?.toLowerCase()}.png`}
+            alt={country?.label}
+            className="w-5 h-3.5 object-cover rounded-sm shrink-0"
+          />
+          <span className={`text-sm font-bold tabular-nums ${dark ? 'text-white' : 'text-gray-700'}`}>
+            {phoneCode}
+          </span>
+          <ChevronDown
+            size={13}
+            className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''} ${dark ? 'text-gray-400' : 'text-gray-400'}`}
+          />
+        </button>
+
+        {/* Number input */}
+        <div className="relative flex-1 group">
+          <Phone
+            size={15}
+            className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors
+              ${dark ? 'text-gray-500 group-focus-within:text-white' : 'text-gray-400 group-focus-within:text-[#D32F2F]'}`}
+          />
+          <input
+            ref={inputRef}
+            type="tel"
+            inputMode="numeric"
+            placeholder="Número"
+            value={phoneValue || ''}
+            onChange={e => onPhoneChange(e.target.value.replace(/\D/g, ''))}
+            onBlur={() => setTouched(true)}
+            required={required}
+            className={`w-full h-10 pl-9 pr-3 text-sm font-semibold outline-none bg-transparent rounded-r-md
+              ${dark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'}`}
           />
         </div>
 
-        {/* Input del número telefónico */}
-        <div className="relative w-full group">
-          {Icon && (
-            <Icon
-              size={16}
-              className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors pointer-events-none ${
-                dark ? 'text-gray-500 group-focus-within:text-white' : 'text-gray-400 group-focus-within:text-[#D32F2F]'
-              }`}
-            />
-          )}
-          <input
-            type="tel"
-            inputMode="numeric"
-            placeholder="Número de celular"
-            value={phoneValue || ''}
-            onChange={handlePhoneChange}
-            required={required}
-            className={`w-full h-10 ${Icon ? 'pl-9' : 'px-3'} pr-3 border rounded-md focus:outline-none focus:ring-4 transition-all text-sm font-semibold
-              ${dark
-                ? 'bg-[#2A2A2A] border-transparent text-white placeholder-gray-500 focus:ring-white/10'
-                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400'
-              } ${error ? 'border-red-500 ring-red-500/10' : ''}`}
-          />
-        </div>
+        {/* ── Dropdown ── */}
+        {open && (
+          <div className={`absolute left-0 top-full mt-1.5 z-[60] w-72 rounded-xl shadow-2xl border overflow-hidden
+            ${dark ? 'bg-[#2A2A2A] border-white/10' : 'bg-white border-gray-200'}`}
+          >
+            {/* Search box */}
+            <div className={`p-2 border-b ${dark ? 'border-white/10' : 'border-gray-100'}`}>
+              <div className="relative">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  placeholder="Buscar país o código..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className={`w-full h-8 pl-8 pr-3 text-xs rounded-md border focus:outline-none focus:border-[#D32F2F] transition-colors
+                    ${dark ? 'bg-[#3A3A3A] border-white/10 text-white placeholder-gray-500' : 'border-gray-200 text-gray-900'}`}
+                />
+              </div>
+            </div>
+
+            {/* Country list */}
+            <div className="max-h-52 overflow-y-auto">
+              {filteredCountries.length === 0 ? (
+                <p className="px-4 py-3 text-xs text-gray-400 text-center">Sin resultados</p>
+              ) : (
+                filteredCountries.slice(0, 60).map(c => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => handleSelect(c.value)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors text-left
+                      ${c.value === iso
+                        ? (dark ? 'bg-white/10 text-white' : 'bg-red-50 text-[#D32F2F]')
+                        : (dark ? 'hover:bg-white/5 text-gray-300' : 'hover:bg-gray-50 text-gray-700')
+                      }`}
+                  >
+                    <img
+                      src={`https://flagcdn.com/w20/${c.isoCode.toLowerCase()}.png`}
+                      alt={c.label}
+                      className="w-5 h-3.5 object-cover rounded-sm shrink-0"
+                    />
+                    <span className="flex-1 text-xs font-medium truncate">{c.label}</span>
+                    <span className={`text-xs font-bold tabular-nums shrink-0 ${dark ? 'text-gray-400' : 'text-gray-400'}`}>
+                      {getPhoneCode(c.isoCode)}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
-      {error && <span className="text-xs text-red-500 font-bold ml-1">{error}</span>}
+
+      {shownError && (
+        <span className="text-xs text-red-500 font-bold ml-1">{shownError}</span>
+      )}
     </div>
   );
 };

@@ -1,19 +1,26 @@
-import React, { useState, useMemo } from 'react';
-import { User, Building2, MapPin, Phone, Mail, Hash, Briefcase, Camera, Plus, Eye, Edit2, Search, FileText, Calendar } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import {
+  Building2, MapPin, Phone, Mail, Hash, Briefcase,
+  Camera, Plus, Edit2, Search, FileText, Calendar, Trash2, Link2, FileSignature,
+  Navigation,
+} from 'lucide-react';
 import { Country } from 'country-state-city';
 import Button from '../../ui/Button';
 import Input from '../../ui/Input';
 import Select from '../../ui/Select';
 import NitInput from '../../ui/NitInput';
 import Switch from '../../ui/Switch';
-import Checkbox from '../../ui/Checkbox';
 import Tabs from '../../ui/Tabs';
 import FileUploader from '../../ui/FileUploader';
+import PhoneInput from '../../ui/PhoneInput';
+import SchedulePicker from '../../ui/SchedulePicker';
 import { LocationPickerRows } from '../../forms/LocationPickerRows';
 import Card from '../../ui/Card';
 import { TextSmall, Subtitle, Label, TextTiny } from '../../ui/Typography';
-import { Table, THead, TBody, Tr, Th, Td } from '../../ui/Table';
 import IconButton from '../../ui/IconButton';
+import { supabase } from '../../../utils/supabase';
+import { useEstados, useCatalog, useActivoInactivo } from '../../../hooks/useCatalog';
+import { emptyContractDraft } from '../../../utils/entityMappers';
 
 const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
   value: c.isoCode,
@@ -22,91 +29,135 @@ const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
 }));
 
 const ClientForm = ({
-  draft, updateDraft, errors, showErrors, isEditing, 
-  onSave, isSaving, activeTab, onTabChange,
+  draft, updateDraft, errors = {}, showErrors = false, isEditing = false,
+  onSave, isSaving = false, activeTab, onTabChange,
   branches = [], onNewBranch, onEditBranch, onViewBranch,
-  newBranchDraft, updateNewBranchDraft, newBranchErrors, onSaveNewBranch,
-  onAssociateContacts,
-  onAssociateDevices,
-  totalSucursales = 0,
-  totalContactos = 0,
-  totalDispositivos = 0,
-  editingBranchId = null,
-  onCancelEdit = null,
+  newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
+  onAssociateContacts, onAssociateDevices,
+  totalSucursales = 0, totalContactos = 0, totalDispositivos = 0,
+  editingBranchId = null, onCancelEdit = null,
 }) => {
-  const getTipoPersonaLabel = (tipo) => {
-    return tipo === 'juridica' ? 'Persona Jurídica' : tipo === 'natural' ? 'Persona Natural' : 'No especificado';
-  };
+  const { options: estadoOptions, loading: loadingEstados } = useEstados();
+  const { options: tipoDocOptions, loading: loadingTipoDoc } = useCatalog('TIPO_DOCUMENTO');
+  const { activoId, inactivoId } = useActivoInactivo();
 
-  const getCountryName = (countryCode) => {
-    if (!countryCode) return '';
-    const country = ALL_COUNTRIES?.find(c => c.value === countryCode);
-    return country?.label || countryCode;
-  };
+  // Sigue usado por el Select de estado de contratos
+  const estadoSelectOptions = loadingEstados
+    ? [{ value: '', label: 'Cargando...' }]
+    : [{ value: '', label: 'Seleccionar estado...' }, ...estadoOptions];
 
-  // Estado para el buscador de sucursales
+  const tipoDocSelectOptions = loadingTipoDoc
+    ? [{ value: '', label: 'Cargando...' }]
+    : [{ value: '', label: 'Seleccionar tipo...' }, ...tipoDocOptions.map(o => ({ value: o.codigo, label: o.label }))];
+
+  // Derivar si es persona jurídica según el tipo de documento seleccionado
+  const isJuridica = draft.tipoDocumento === 'NIT';
+
+  const getCountryName = (code) => ALL_COUNTRIES.find(c => c.value === code)?.label || code;
+
   const [branchSearchQuery, setBranchSearchQuery] = useState('');
+  const logoInputRef = useRef(null);
 
-  // Filtrar sucursales por clave, nombre o país
   const filteredBranches = useMemo(() => {
     if (!branchSearchQuery.trim()) return branches;
-    
-    const query = branchSearchQuery.toLowerCase().trim();
-    return branches.filter(branch => {
-      const nombre = (branch.nombre || '').toLowerCase();
-      const id = (branch.id || '').toLowerCase();
-      const pais = getCountryName(branch.pais || '').toLowerCase();
-      
-      return nombre.includes(query) || 
-             id.includes(query) || 
-             pais.includes(query);
-    });
+    const q = branchSearchQuery.toLowerCase();
+    return branches.filter(b =>
+      (b.nombre || '').toLowerCase().includes(q) ||
+      (b.id || '').toLowerCase().includes(q) ||
+      getCountryName(b.pais || '').toLowerCase().includes(q)
+    );
   }, [branches, branchSearchQuery]);
+
+  // Logo upload
+  const handleLogoClick = () => {
+    if (!isEditing) return;
+    logoInputRef.current?.click();
+  };
+
+  const handleLogoChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !draft.id) return;
+    const ext = file.name.split('.').pop();
+    const path = `clientes/${draft.id}/logo.${ext}`;
+    try {
+      const { error } = await supabase.storage.from('inmotika').upload(path, file, { upsert: true });
+      if (error) throw error;
+      updateDraft({ logoUrl: path });
+    } catch (err) {
+      console.error('Logo upload error:', err);
+    } finally {
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  };
+
+  // Otros documentos
+  const addOtroDoc = () => {
+    const newDoc = { id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(), nombre: '', url: '' };
+    updateDraft({ otrosDocumentos: [...(draft.otrosDocumentos || []), newDoc] });
+  };
+
+  const removeOtroDoc = (id) => {
+    updateDraft({ otrosDocumentos: (draft.otrosDocumentos || []).filter(d => d.id !== id) });
+  };
+
+  const updateOtroDoc = (id, patch) => {
+    updateDraft({
+      otrosDocumentos: (draft.otrosDocumentos || []).map(d => d.id === id ? { ...d, ...patch } : d),
+    });
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-      {/* Left Column - Client Preview/Summary */}
+      {/* ─── Left Column — Summary ─── */}
       <div className="lg:col-span-1">
         <Card className="p-6 space-y-6 h-full">
-          {/* Profile Picture Section */}
+          {/* Logo / Avatar */}
           <div className="flex flex-col items-center">
             <div className="relative">
-              <div className="w-20 h-20 bg-gradient-to-br from-[#D32F2F] to-[#8B0000] rounded-full flex items-center justify-center shadow-lg">
-                <Building2 size={32} className="text-white" />
+              <div
+                onClick={handleLogoClick}
+                className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-lg border-2 border-gray-200 ${
+                  isEditing ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
+                } bg-gradient-to-br from-[#D32F2F] to-[#8B0000]`}
+              >
+                {draft.logoUrl ? (
+                  <img src={draft.logoUrl.startsWith('http') ? draft.logoUrl : undefined} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <Building2 size={32} className="text-white" />
+                )}
               </div>
               {isEditing && (
-                <button className="absolute bottom-0 right-0 p-2 bg-white rounded-full shadow-md border-2 border-gray-200 hover:bg-gray-50 transition-colors">
+                <button
+                  type="button"
+                  onClick={handleLogoClick}
+                  className="absolute bottom-0 right-0 p-2 bg-white rounded-full shadow border-2 border-gray-200 hover:bg-gray-50 transition-colors"
+                >
                   <Camera size={16} className="text-gray-700" />
                 </button>
               )}
+              <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
             </div>
             <div className="mt-4 text-center">
-              <h3 className="text-lg font-bold text-gray-900">
-                {draft.nombre || 'Nuevo Cliente'}
-              </h3>
+              <h3 className="text-lg font-bold text-gray-900">{draft.nombre || 'Nuevo Cliente'}</h3>
               <p className="text-sm text-gray-500 mt-1">
-                {getTipoPersonaLabel(draft.tipoPersona)}
+                {draft.tipoDocumento
+                  ? (isJuridica ? 'Persona Jurídica' : 'Persona Natural')
+                  : 'Nuevo Cliente'}
               </p>
             </div>
           </div>
 
-          {/* Client Info Summary - Solo informativo */}
+          {/* Resumen */}
           <div className="space-y-4 pt-4 border-t border-gray-200">
-            <div className="flex items-start gap-3">
-              <Hash size={18} className="text-gray-400 mt-0.5" />
-              <div>
-                <TextSmall className="text-gray-500">NIT / RUT</TextSmall>
-                <p className="text-sm font-medium text-gray-900 mt-0.5">
-                  {draft.nit ? `${draft.nit}${draft.dv ? `-${draft.dv}` : ''}` : 'No registrado'}
-                </p>
-              </div>
-            </div>
-            {draft.direccion && (
+            {draft.nit && (
               <div className="flex items-start gap-3">
-                <MapPin size={18} className="text-gray-400 mt-0.5" />
+                <Hash size={18} className="text-gray-400 mt-0.5" />
                 <div>
-                  <TextSmall className="text-gray-500">Dirección</TextSmall>
-                  <p className="text-sm font-medium text-gray-900 mt-0.5">{draft.direccion}</p>
+                  <TextSmall className="text-gray-500">Número de Identificación</TextSmall>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">
+                    {draft.tipoDocumento && <span className="text-gray-400 mr-1">{draft.tipoDocumento}</span>}
+                    {draft.nit}{isJuridica && draft.dv ? `-${draft.dv}` : ''}
+                  </p>
                 </div>
               </div>
             )}
@@ -119,12 +170,12 @@ const ClientForm = ({
                 </div>
               </div>
             )}
-            {draft.telefono && (
+            {draft.celular && (
               <div className="flex items-start gap-3">
                 <Phone size={18} className="text-gray-400 mt-0.5" />
                 <div>
-                  <TextSmall className="text-gray-500">Teléfono</TextSmall>
-                  <p className="text-sm font-medium text-gray-900 mt-0.5">{draft.telefono}</p>
+                  <TextSmall className="text-gray-500">Celular</TextSmall>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">{draft.celular}</p>
                 </div>
               </div>
             )}
@@ -135,36 +186,30 @@ const ClientForm = ({
                   <TextSmall className="text-gray-500">Ubicación</TextSmall>
                   <p className="text-sm font-medium text-gray-900 mt-0.5">
                     {draft.ciudad}{draft.estado_depto ? `, ${draft.estado_depto}` : ''}
-                    {draft.pais ? ` - ${getCountryName(draft.pais)}` : ''}
+                    {draft.pais ? ` — ${getCountryName(draft.pais)}` : ''}
                   </p>
                 </div>
               </div>
             )}
-            {draft.documentos && (
+            {/* Documentos cargados */}
+            {(draft.rutUrl || draft.certBancariaUrl || (draft.otrosDocumentos || []).some(d => d.url)) && (
               <div className="flex items-start gap-3">
                 <FileText size={18} className="text-gray-400 mt-0.5" />
                 <div>
                   <TextSmall className="text-gray-500">Documentos</TextSmall>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {draft.documentos.rut && (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded">RUT</span>
-                    )}
-                    {draft.documentos.certificacionBancaria && (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded">Cert. Bancaria</span>
-                    )}
-                    {draft.documentos.otros && (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded">Otros</span>
-                    )}
-                    {!draft.documentos.rut && !draft.documentos.certificacionBancaria && !draft.documentos.otros && (
-                      <span className="text-xs text-gray-400 italic">Sin documentos</span>
-                    )}
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {draft.rutUrl && <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded">RUT</span>}
+                    {draft.certBancariaUrl && <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded">Cert. Bancaria</span>}
+                    {(draft.otrosDocumentos || []).filter(d => d.url).map(d => (
+                      <span key={d.id} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded">{d.nombre || 'Doc'}</span>
+                    ))}
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Statistics or Additional Info */}
+          {/* Estadísticas */}
           <div className="pt-4 border-t border-gray-200">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
@@ -184,30 +229,30 @@ const ClientForm = ({
         </Card>
       </div>
 
-      {/* Right Column - Form */}
+      {/* ─── Right Column — Form ─── */}
       <div className="lg:col-span-2">
         <Card className="p-6 h-full flex flex-col">
           <div className="space-y-6 flex-1 flex flex-col">
             {/* Tabs */}
             <div className="flex items-center justify-between border-b border-gray-200 pb-4 flex-shrink-0">
-              <Tabs 
+              <Tabs
                 tabs={[
-                  {key:'details', label:'Paso 1 Detalle General'}, 
-                  {key:'branches', label:'Paso 2 Sucursal'}
-                ]} 
-                active={activeTab} 
-                onChange={onTabChange} 
+                  { key: 'details', label: 'Paso 1  Detalle General' },
+                  { key: 'branches', label: 'Paso 2  Sucursal' },
+                ]}
+                active={activeTab}
+                onChange={onTabChange}
               />
             </div>
 
-            {/* Form Fields */}
+            {/* ─────────── TAB: DETALLE GENERAL ─────────── */}
             {activeTab === 'details' && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {isEditing && (
                   <div className="flex items-center justify-between">
                     <Subtitle className="text-gray-700">Detalles generales</Subtitle>
-                    <Button 
-                      onClick={onSave} 
+                    <Button
+                      onClick={onSave}
                       disabled={isSaving}
                       className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
                     >
@@ -217,72 +262,91 @@ const ClientForm = ({
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Select 
-                    label="Tipo de Persona" 
-                    value={draft.tipoPersona} 
-                    onChange={e => updateDraft({tipoPersona: e.target.value})} 
-                    options={[{value:'natural', label:'Persona Natural'}, {value:'juridica', label:'Persona Jurídica'}]} 
-                    viewMode={!isEditing} 
-                    icon={User} 
-                    required 
+                  <Select
+                    label="Tipo de Documento"
+                    value={draft.tipoDocumento || ''}
+                    onChange={e => updateDraft({ tipoDocumento: e.target.value, dv: '' })}
+                    options={tipoDocSelectOptions}
+                    viewMode={!isEditing}
+                    icon={FileSignature}
+                    error={showErrors ? errors.tipoDocumento : null}
+                    required
                   />
-                  <Input 
-                    label="Nombre / Razón Social" 
-                    value={draft.nombre || ''} 
-                    onChange={e => updateDraft({nombre: e.target.value.toUpperCase()})} 
-                    error={showErrors ? errors.nombre : null} 
-                    viewMode={!isEditing} 
-                    icon={Building2} 
-                    required 
+                  <Input
+                    label={isJuridica ? 'Razón Social' : 'Nombre'}
+                    value={draft.nombre || ''}
+                    onChange={e => updateDraft({ nombre: e.target.value.toUpperCase() })}
+                    error={showErrors ? errors.nombre : null}
+                    viewMode={!isEditing}
+                    icon={Building2}
+                    uppercase
+                    required
                   />
-                  <NitInput 
-                    label="NIT / RUT" 
-                    nitValue={draft.nit} 
-                    dvValue={draft.dv} 
-                    onNitChange={v => updateDraft({nit: v})} 
-                    onDvChange={v => updateDraft({dv: v})} 
-                    error={showErrors ? (errors.nit || errors.dv) : null} 
-                    viewMode={!isEditing} 
-                    required 
+                  <NitInput
+                    label="Número de Identificación"
+                    nitValue={draft.nit}
+                    dvValue={draft.dv}
+                    onNitChange={v => updateDraft({ nit: v })}
+                    onDvChange={v => updateDraft({ dv: v })}
+                    showDv={isJuridica}
+                    error={showErrors ? (errors.nit || errors.dv) : null}
+                    viewMode={!isEditing}
+                    required
                   />
                   <Input
                     label="Dirección Física"
                     icon={MapPin}
                     value={draft.direccion || ''}
-                    onChange={(e) => updateDraft({direccion: e.target.value})}
+                    onChange={e => updateDraft({ direccion: e.target.value })}
                     error={showErrors ? errors.direccion : null}
                     viewMode={!isEditing}
                     required
                   />
-                  <Input 
-                    label="Email" 
-                    value={draft.email || ''} 
-                    onChange={e => updateDraft({email: e.target.value.toLowerCase()})} 
-                    error={showErrors ? errors.email : null} 
-                    viewMode={!isEditing} 
-                    icon={Mail} 
+                  <Input
+                    label="Email"
                     type="email"
+                    value={(draft.email || '').toLowerCase()}
+                    onChange={e => updateDraft({ email: e.target.value.toLowerCase() })}
+                    error={showErrors ? errors.email : null}
+                    viewMode={!isEditing}
+                    icon={Mail}
                   />
-                  <Input 
-                    label="Teléfono" 
-                    value={draft.telefono || ''} 
-                    onChange={e => updateDraft({telefono: e.target.value.toUpperCase()})} 
-                    error={showErrors ? errors.telefono : null} 
-                    viewMode={!isEditing} 
-                    icon={Phone} 
-                    type="tel"
+                  <PhoneInput
+                    label="Celular"
+                    countryValue={draft.celularPaisIso || 'CO'}
+                    phoneValue={draft.celular || ''}
+                    onCountryChange={v => updateDraft({ celularPaisIso: v })}
+                    onPhoneChange={v => updateDraft({ celular: v })}
+                    error={showErrors ? errors.celular : null}
+                    viewMode={!isEditing}
+                  />
+                  <Input
+                    label={isJuridica ? 'Fecha de Constitución' : 'Fecha de Nacimiento'}
+                    type="date"
+                    value={draft.fechaNacimiento || ''}
+                    onChange={e => updateDraft({ fechaNacimiento: e.target.value })}
+                    viewMode={!isEditing}
+                    icon={Calendar}
+                  />
+                  <Switch
+                    label="Estado"
+                    checked={!!activoId && draft.estadoId === activoId}
+                    onChange={checked => updateDraft({ estadoId: checked ? activoId : inactivoId })}
+                    viewMode={!isEditing}
+                    checkedLabel="Activo"
+                    uncheckedLabel="Inactivo"
                   />
                   <div className="md:col-span-2">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <LocationPickerRows 
-                        countryValue={draft.pais} 
-                        stateValue={draft.estado_depto} 
-                        cityValue={draft.ciudad} 
-                        direccion={draft.direccion} 
-                        onLocationChange={l => updateDraft({pais: l.country, estado_depto: l.state, ciudad: l.city})} 
-                        onDireccionChange={v => updateDraft({direccion: v})} 
-                        direccionError={showErrors ? errors.direccion : null} 
-                        viewMode={!isEditing} 
+                      <LocationPickerRows
+                        countryValue={draft.pais}
+                        stateValue={draft.estado_depto}
+                        cityValue={draft.ciudad}
+                        direccion={draft.direccion}
+                        onLocationChange={l => updateDraft({ pais: l.country, estado_depto: l.state, ciudad: l.city })}
+                        onDireccionChange={v => updateDraft({ direccion: v })}
+                        direccionError={showErrors ? errors.direccion : null}
+                        viewMode={!isEditing}
                         required
                         showDireccion={false}
                       />
@@ -290,252 +354,111 @@ const ClientForm = ({
                   </div>
                 </div>
 
-                {/* Sección de Documentos del Cliente */}
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-                      <FileText size={18} className="text-blue-600" />
+                {/* Documentos */}
+                <div className="pt-4 border-t border-gray-200 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 rounded-lg">
+                      <FileText size={16} className="text-blue-600" />
                     </div>
                     <div>
-                      <Label className="text-base font-bold text-gray-900">Documentos del Cliente</Label>
-                      <TextTiny className="text-gray-500">Subir documentos requeridos (RUT, certificaciones, etc.)</TextTiny>
+                      <Label className="text-sm font-bold text-gray-900">Documentos del Cliente</Label>
+                      <TextTiny className="text-gray-500">Subir documentos requeridos</TextTiny>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FileUploader
                       label="RUT"
-                      type="rut"
-                      isLoaded={draft.documentos?.rut || false}
+                      bucket="inmotika"
+                      storagePath={draft.id ? `clientes/${draft.id}/rut.pdf` : undefined}
+                      value={draft.rutUrl || ''}
+                      onChange={path => updateDraft({ rutUrl: path })}
+                      accept="application/pdf,image/*"
                       viewMode={!isEditing}
-                      onLoad={(type) => {
-                        const documentos = draft.documentos || {};
-                        updateDraft({ 
-                          documentos: { ...documentos, [type]: !documentos[type] }
-                        });
-                      }}
                     />
                     <FileUploader
                       label="Certificación Bancaria"
-                      type="certificacionBancaria"
-                      isLoaded={draft.documentos?.certificacionBancaria || false}
+                      bucket="inmotika"
+                      storagePath={draft.id ? `clientes/${draft.id}/cert_bancaria.pdf` : undefined}
+                      value={draft.certBancariaUrl || ''}
+                      onChange={path => updateDraft({ certBancariaUrl: path })}
+                      accept="application/pdf,image/*"
                       viewMode={!isEditing}
-                      onLoad={(type) => {
-                        const documentos = draft.documentos || {};
-                        updateDraft({ 
-                          documentos: { ...documentos, [type]: !documentos[type] }
-                        });
-                      }}
                     />
-                    <FileUploader
-                      label="Otros Documentos"
-                      type="otros"
-                      isLoaded={draft.documentos?.otros || false}
-                      viewMode={!isEditing}
-                      onLoad={(type) => {
-                        const documentos = draft.documentos || {};
-                        updateDraft({ 
-                          documentos: { ...documentos, [type]: !documentos[type] }
-                        });
-                      }}
-                    />
+                  </div>
+
+                  {/* Otros documentos dinámicos */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold text-gray-700">Otros Documentos</Label>
+                      {isEditing && (
+                        <button
+                          type="button"
+                          onClick={addOtroDoc}
+                          className="flex items-center gap-1 text-xs text-[#D32F2F] hover:text-[#B71C1C] font-semibold transition-colors"
+                        >
+                          <Plus size={13} /> Agregar
+                        </button>
+                      )}
+                    </div>
+                    {(draft.otrosDocumentos || []).length === 0 && !isEditing ? (
+                      <TextTiny className="text-gray-400 italic">Sin otros documentos</TextTiny>
+                    ) : (
+                      <div className="space-y-2">
+                        {(draft.otrosDocumentos || []).map(doc => (
+                          <div key={doc.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-md border border-gray-200">
+                            <Input
+                              placeholder="Nombre del documento"
+                              value={doc.nombre || ''}
+                              onChange={e => updateOtroDoc(doc.id, { nombre: e.target.value.toUpperCase() })}
+                              viewMode={!isEditing}
+                              uppercase
+                              className="flex-1"
+                            />
+                            <div className="flex-1">
+                              <FileUploader
+                                bucket="inmotika"
+                                storagePath={draft.id ? `clientes/${draft.id}/otros/${doc.id}.pdf` : undefined}
+                                value={doc.url || ''}
+                                onChange={path => updateOtroDoc(doc.id, { url: path })}
+                                accept="application/pdf,image/*"
+                                viewMode={!isEditing}
+                              />
+                            </div>
+                            {isEditing && (
+                              <button type="button" onClick={() => removeOtroDoc(doc.id)} className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded">
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Branches Tab */}
+            {/* ─────────── TAB: SUCURSAL ─────────── */}
             {activeTab === 'branches' && (
               (newBranchDraft || (branches.length === 0 && isEditing)) ? (
-                // Mostrar formulario de nueva sucursal cuando no hay sucursales o cuando se está editando
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <Subtitle className="text-gray-700">
-                      {editingBranchId ? 'Editar Sucursal' : 'Nueva Sucursal'}
-                    </Subtitle>
-                    <div className="flex gap-2">
-                      {editingBranchId && onCancelEdit && (
-                        <Button 
-                          onClick={onCancelEdit}
-                          className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
-                        >
-                          Cancelar
-                        </Button>
-                      )}
-                      <Button 
-                        onClick={onSaveNewBranch}
-                        disabled={isSaving}
-                        className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
-                      >
-                        {isSaving ? 'Guardando...' : editingBranchId ? 'Guardar Cambios' : 'Guardar Sucursal'}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Datos principales de la sucursal */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {/* Nombre de sucursal ocupa 2 columnas en escritorio */}
-                    <div className="md:col-span-2">
-                      <Input
-                        label="Nombre Sucursal"
-                        icon={Building2}
-                        value={newBranchDraft.nombre || ''}
-                        onChange={(e) => updateNewBranchDraft({nombre: e.target.value.toUpperCase()})}
-                        error={showErrors ? newBranchErrors.nombre : null}
-                        required
-                      />
-                    </div>
-
-                    {/* Sucursal principal en la tercera columna */}
-                    <div className="md:col-span-1 flex items-center">
-                      <Checkbox
-                        label="Principal"
-                        checked={newBranchDraft.clasificacion === 'principal'}
-                        onChange={(checked) => updateNewBranchDraft({clasificacion: checked ? 'principal' : 'secundaria'})}
-                      />
-                    </div>
-
-                    {/* Estado de la sucursal */}
-                    <div className="md:col-span-1 flex items-center">
-                      <Switch
-                        label="Estado"
-                        checked={newBranchDraft.estatus === 'activo'}
-                        onChange={(checked) => updateNewBranchDraft({estatus: checked ? 'activo' : 'inactivo'})}
-                      />
-                    </div>
-
-                    {/* País / Depto / Ciudad / Dirección en una fila completa */}
-                    <div className="md:col-span-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <LocationPickerRows 
-                          countryValue={newBranchDraft.pais} 
-                          stateValue={newBranchDraft.estado_depto} 
-                          cityValue={newBranchDraft.ciudad} 
-                          direccion={newBranchDraft.direccion} 
-                          onLocationChange={l => updateNewBranchDraft({pais: l.country, estado_depto: l.state, ciudad: l.city})} 
-                          onDireccionChange={v => updateNewBranchDraft({direccion: v})} 
-                          direccionError={showErrors ? newBranchErrors.direccion : null} 
-                          required
-                          showDireccion={true}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Asociaciones */}
-                  <div className="pt-4 border-t border-gray-200 space-y-4">
-                    <Subtitle className="text-gray-700">Asociaciones</Subtitle>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50">
-                        <div>
-                          <TextSmall className="text-gray-900 font-semibold">Asociar contactos</TextSmall>
-                          <TextSmall className="text-gray-600">
-                            Relaciona contactos responsables a esta sucursal.
-                            {newBranchDraft?.associatedContactIds?.length > 0 && (
-                              <span className="ml-2 text-[#D32F2F] font-semibold">
-                                ({newBranchDraft.associatedContactIds.length} asociados)
-                              </span>
-                            )}
-                          </TextSmall>
-                        </div>
-                        <Button
-                          type="button"
-                          onClick={onAssociateContacts}
-                          className="px-3 py-1 text-[10px] uppercase bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
-                        >
-                          Asociar
-                        </Button>
-                      </div>
-
-                      <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50">
-                        <div>
-                          <TextSmall className="text-gray-900 font-semibold">Asociar dispositivos</TextSmall>
-                          <TextSmall className="text-gray-600">
-                            Vincula los dispositivos instalados en esta sucursal.
-                            {newBranchDraft?.associatedDeviceIds?.length > 0 && (
-                              <span className="ml-2 text-[#D32F2F] font-semibold">
-                                ({newBranchDraft.associatedDeviceIds.length} asociados)
-                              </span>
-                            )}
-                          </TextSmall>
-                        </div>
-                        <Button
-                          type="button"
-                          onClick={onAssociateDevices}
-                          className="px-3 py-1 text-[10px] uppercase bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
-                        >
-                          Asociar
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Información del Contrato */}
-                  <div className="pt-4 border-t border-gray-200 space-y-4">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
-                        <Briefcase size={18} className="text-purple-600" />
-                      </div>
-                      <div>
-                        <Subtitle className="text-gray-700">Información del Contrato</Subtitle>
-                        <TextTiny className="text-gray-500">Datos y documentos del contrato de la sucursal</TextTiny>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <Input
-                        label="Tema del Contrato"
-                        icon={Briefcase}
-                        value={newBranchDraft.contrato?.tema || ''}
-                        onChange={(e) => updateNewBranchDraft({
-                          contrato: {
-                            ...(newBranchDraft.contrato || {}),
-                            tema: e.target.value
-                          }
-                        })}
-                        placeholder="Ej: Mantenimiento preventivo"
-                      />
-                      <Input
-                        label="Fecha Inicio"
-                        type="date"
-                        icon={Calendar}
-                        value={newBranchDraft.contrato?.fechaInicio || ''}
-                        onChange={(e) => updateNewBranchDraft({
-                          contrato: {
-                            ...(newBranchDraft.contrato || {}),
-                            fechaInicio: e.target.value
-                          }
-                        })}
-                      />
-                      <Input
-                        label="Fecha Fin"
-                        type="date"
-                        icon={Calendar}
-                        value={newBranchDraft.contrato?.fechaFin || ''}
-                        onChange={(e) => updateNewBranchDraft({
-                          contrato: {
-                            ...(newBranchDraft.contrato || {}),
-                            fechaFin: e.target.value
-                          }
-                        })}
-                      />
-                    </div>
-                    <div className="mt-4">
-                      <FileUploader
-                        label="Adjuntar Contrato"
-                        type="contrato"
-                        isLoaded={newBranchDraft.contrato?.documento || false}
-                        viewMode={false}
-                        onLoad={(type) => {
-                          updateNewBranchDraft({
-                            contrato: {
-                              ...(newBranchDraft.contrato || {}),
-                              documento: !newBranchDraft.contrato?.documento
-                            }
-                          });
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
+                <BranchSubForm
+                  newBranchDraft={newBranchDraft}
+                  updateNewBranchDraft={updateNewBranchDraft}
+                  newBranchErrors={newBranchErrors}
+                  onSaveNewBranch={onSaveNewBranch}
+                  isEditing={isEditing}
+                  isSaving={isSaving}
+                  editingBranchId={editingBranchId}
+                  onCancelEdit={onCancelEdit}
+                  onAssociateContacts={onAssociateContacts}
+                  onAssociateDevices={onAssociateDevices}
+                  showErrors={showErrors}
+                  estadoSelectOptions={estadoSelectOptions}
+                  activoId={activoId}
+                  inactivoId={inactivoId}
+                  clientId={draft.id}
+                />
               ) : branches.length === 0 ? (
                 <div className="text-center py-12">
                   <Building2 size={48} className="mx-auto mb-4 text-gray-300" />
@@ -546,125 +469,41 @@ const ClientForm = ({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    {/* Buscador */}
-                    <div className="flex-1 max-w-md">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-                        <input
-                          type="text"
-                          placeholder="Buscar por clave, nombre o país..."
-                          value={branchSearchQuery}
-                          onChange={(e) => setBranchSearchQuery(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-[#D32F2F] text-sm"
-                        />
-                      </div>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="relative flex-1 min-w-[200px] max-w-md">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                      <input
+                        type="text"
+                        placeholder="Buscar sucursal..."
+                        value={branchSearchQuery}
+                        onChange={e => setBranchSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F] text-sm"
+                      />
                     </div>
                     {isEditing && onNewBranch && (
-                      <Button 
+                      <Button
                         onClick={onNewBranch}
-                        className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+                        className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] text-white border-0 shrink-0"
                       >
-                        <Plus size={16} className="mr-2" />
-                        Nueva Sucursal
+                        <Plus size={16} className="mr-2" /> Nueva Sucursal
                       </Button>
                     )}
                   </div>
                   <div className="space-y-3">
                     {filteredBranches.length === 0 ? (
-                      <div className="text-center py-8">
-                        <TextSmall className="text-gray-500">
-                          {branchSearchQuery ? 'No se encontraron sucursales con ese criterio' : 'No hay sucursales registradas'}
-                        </TextSmall>
-                      </div>
+                      <TextSmall className="text-gray-500 text-center py-6">
+                        {branchSearchQuery ? 'Sin resultados' : 'Sin sucursales'}
+                      </TextSmall>
                     ) : (
                       filteredBranches.map(branch => (
-                      <div 
-                        key={branch.id}
-                        onClick={() => {
-                          if (isEditing && onEditBranch) {
-                            onEditBranch(branch);
-                          } else if (!isEditing && onViewBranch) {
-                            onViewBranch(branch);
-                          }
-                        }}
-                        className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow cursor-pointer"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <TextSmall className="font-bold text-gray-900 text-base">
-                                {branch.nombre}
-                              </TextSmall>
-                              {branch.clasificacion === 'principal' && (
-                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded">
-                                  Principal
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
-                                <MapPin size={12} />
-                                {branch.direccion || 'Sin dirección'}
-                              </span>
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
-                                <Building2 size={12} />
-                                {branch.ciudad || 'Sin ciudad'}
-                              </span>
-                              {branch.telefono && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
-                                  <Phone size={12} />
-                                  {branch.telefono}
-                                </span>
-                              )}
-                            </div>
-                            {branch.contrato && (
-                              <div className="mt-3 pt-3 border-t border-gray-100">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Briefcase size={14} className="text-purple-600" />
-                                  <TextSmall className="text-gray-700 font-semibold text-xs">Información del Contrato</TextSmall>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {branch.contrato.tema && (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded">
-                                      {branch.contrato.tema}
-                                    </span>
-                                  )}
-                                  {branch.contrato.fechaInicio && (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">
-                                      <Calendar size={12} />
-                                      Inicio: {new Date(branch.contrato.fechaInicio).toLocaleDateString('es-ES')}
-                                    </span>
-                                  )}
-                                  {branch.contrato.fechaFin && (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded">
-                                      <Calendar size={12} />
-                                      Fin: {new Date(branch.contrato.fechaFin).toLocaleDateString('es-ES')}
-                                    </span>
-                                  )}
-                                  {branch.contrato.documento && (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 text-xs font-medium rounded">
-                                      <FileText size={12} />
-                                      Contrato adjunto
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          {isEditing && !editingBranchId && (
-                            <div className="flex gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
-                              {onEditBranch && (
-                                <IconButton 
-                                  icon={Edit2} 
-                                  onClick={() => onEditBranch(branch)} 
-                                  className="text-gray-400 hover:text-green-600"
-                                />
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                        <BranchCard
+                          key={branch.id}
+                          branch={branch}
+                          isEditing={isEditing}
+                          editingBranchId={editingBranchId}
+                          onEditBranch={onEditBranch}
+                          onViewBranch={onViewBranch}
+                        />
                       ))
                     )}
                   </div>
@@ -677,5 +516,319 @@ const ClientForm = ({
     </div>
   );
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-componente: formulario de creación/edición de sucursal
+// ─────────────────────────────────────────────────────────────────────────────
+const BranchSubForm = ({
+  newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
+  isEditing, isSaving, editingBranchId, onCancelEdit,
+  onAssociateContacts, onAssociateDevices, showErrors,
+  estadoSelectOptions, activoId, inactivoId, clientId,
+}) => (
+  <div className="space-y-6">
+    <div className="flex items-center justify-between flex-wrap gap-2">
+      <Subtitle className="text-gray-700">
+        {editingBranchId ? 'Editar Sucursal' : 'Nueva Sucursal'}
+      </Subtitle>
+      <div className="flex gap-2">
+        {editingBranchId && onCancelEdit && (
+          <Button onClick={onCancelEdit} className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50">
+            Cancelar
+          </Button>
+        )}
+        <Button
+          onClick={onSaveNewBranch}
+          disabled={isSaving}
+          className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] text-white border-0"
+        >
+          {isSaving ? 'Guardando...' : editingBranchId ? 'Guardar Cambios' : 'Guardar Sucursal'}
+        </Button>
+      </div>
+    </div>
+
+    {/* Datos principales — nombre a la izquierda, sede+estado llenan la derecha */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Input
+        label="Nombre Sucursal"
+        icon={Building2}
+        value={newBranchDraft.nombre || ''}
+        onChange={e => updateNewBranchDraft({ nombre: e.target.value.toUpperCase() })}
+        error={showErrors ? newBranchErrors.nombre : null}
+        uppercase
+        required
+      />
+      <div className="flex items-end gap-4">
+        <div className="shrink-0">
+          <Switch
+            label="Sede Principal"
+            checked={!!newBranchDraft.esPrincipal}
+            onChange={checked => updateNewBranchDraft({ esPrincipal: checked })}
+            checkedLabel="Sí"
+            uncheckedLabel="No"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <Switch
+            label="Estado"
+            checked={!!activoId && newBranchDraft.estadoId === activoId}
+            onChange={checked => updateNewBranchDraft({ estadoId: checked ? activoId : inactivoId })}
+            checkedLabel="Activo"
+            uncheckedLabel="Inactivo"
+          />
+        </div>
+      </div>
+    </div>
+
+    {/* Ubicación — 2 columnas: País+Estado / Ciudad+Dirección / Latitud+Longitud */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <LocationPickerRows
+        countryValue={newBranchDraft.pais}
+        stateValue={newBranchDraft.estado_depto}
+        cityValue={newBranchDraft.ciudad}
+        direccion={newBranchDraft.direccion}
+        onLocationChange={l => updateNewBranchDraft({ pais: l.country, estado_depto: l.state, ciudad: l.city })}
+        onDireccionChange={v => updateNewBranchDraft({ direccion: v })}
+        direccionError={showErrors ? newBranchErrors.direccion : null}
+        required
+        showDireccion
+        twoColumns
+      />
+      <Input
+        label="Latitud (Opcional)"
+        icon={Navigation}
+        value={newBranchDraft.latitud || ''}
+        onChange={e => updateNewBranchDraft({ latitud: e.target.value })}
+        placeholder="Ej: 4.710989"
+        inputMode="decimal"
+      />
+      <Input
+        label="Longitud (Opcional)"
+        icon={Navigation}
+        value={newBranchDraft.longitud || ''}
+        onChange={e => updateNewBranchDraft({ longitud: e.target.value })}
+        placeholder="Ej: -74.072090"
+        inputMode="decimal"
+      />
+    </div>
+
+    {/* Horario de Atención */}
+    <div className="pt-4 border-t border-gray-200">
+      <SchedulePicker
+        label="Horario de Atención"
+        value={newBranchDraft.horarioAtencion || null}
+        onChange={v => updateNewBranchDraft({ horarioAtencion: v })}
+      />
+    </div>
+
+    {/* Asociaciones */}
+    <div className="pt-4 border-t border-gray-200 space-y-3">
+      <Subtitle className="text-gray-700">Asociaciones</Subtitle>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {[
+          { label: 'Asociar contactos', sub: 'Relaciona contactos responsables a esta sucursal.', count: newBranchDraft?.associatedContactIds?.length, onClick: onAssociateContacts },
+          { label: 'Asociar dispositivos', sub: 'Vincula los dispositivos instalados.', count: newBranchDraft?.associatedDeviceIds?.length, onClick: onAssociateDevices },
+        ].map(({ label, sub, count, onClick }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={onClick}
+            className="flex items-center justify-between p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm transition-all text-left w-full group"
+          >
+            <div className="flex-1 min-w-0">
+              <TextSmall className="font-semibold text-gray-900 group-hover:text-[#D32F2F] transition-colors">{label}</TextSmall>
+              <TextSmall className="text-gray-500 mt-0.5">
+                {count > 0
+                  ? <span className="text-[#D32F2F] font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
+                  : sub
+                }
+              </TextSmall>
+            </div>
+            <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-[#D32F2F] transition-colors shadow-sm">
+              <Link2 size={12} />
+              Asociar
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {/* Contratos */}
+    <div className="pt-4 border-t border-gray-200 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-purple-50 rounded-lg"><Briefcase size={16} className="text-purple-600" /></div>
+          <div>
+            <Subtitle className="text-gray-700">Contratos</Subtitle>
+            <TextTiny className="text-gray-500">Documentos y vigencias contractuales de la sucursal</TextTiny>
+          </div>
+        </div>
+        {isEditing && (
+          <button
+            type="button"
+            onClick={() => updateNewBranchDraft({ contratos: [...(newBranchDraft.contratos || []), emptyContractDraft()] })}
+            className="flex items-center gap-1.5 text-xs text-[#D32F2F] hover:text-[#B71C1C] font-semibold transition-colors"
+          >
+            <Plus size={13} /> Agregar
+          </button>
+        )}
+      </div>
+
+      {(!newBranchDraft.contratos || newBranchDraft.contratos.length === 0) ? (
+        <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+          <Briefcase size={28} className="mx-auto mb-2 text-gray-300" />
+          <TextTiny className="text-gray-400">
+            {isEditing ? 'Sin contratos — haz clic en "+ Agregar" para añadir uno' : 'Sin contratos registrados'}
+          </TextTiny>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {(newBranchDraft.contratos || []).map((contrato, idx) => {
+            const updateContrato = (patch) =>
+              updateNewBranchDraft({
+                contratos: newBranchDraft.contratos.map((c, i) => i === idx ? { ...c, ...patch } : c),
+              });
+            const removeContrato = () =>
+              updateNewBranchDraft({
+                contratos: newBranchDraft.contratos.filter((_, i) => i !== idx),
+              });
+
+            return (
+              <div key={contrato.id || idx} className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-4">
+                <div className="flex items-center justify-between">
+                  <TextSmall className="font-bold text-gray-700">Contrato {idx + 1}</TextSmall>
+                  {isEditing && (
+                    <button type="button" onClick={removeContrato} className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+                {/* Fila 1: Descripción + Estado */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Descripción del Contrato"
+                    icon={Briefcase}
+                    value={contrato.tema || ''}
+                    onChange={e => updateContrato({ tema: e.target.value })}
+                    placeholder="Ej: MANTENIMIENTO PREVENTIVO"
+                    viewMode={!isEditing}
+                  />
+                  <Select
+                    label="Estado del Contrato"
+                    value={contrato.estadoId || ''}
+                    onChange={e => updateContrato({ estadoId: e.target.value })}
+                    options={estadoSelectOptions}
+                    viewMode={!isEditing}
+                  />
+                </div>
+                {/* Fila 2: Fecha Inicio + Fecha Fin */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Fecha Inicio"
+                    type="date"
+                    icon={Calendar}
+                    value={contrato.fechaInicio || ''}
+                    onChange={e => updateContrato({ fechaInicio: e.target.value })}
+                    viewMode={!isEditing}
+                  />
+                  <Input
+                    label="Fecha Fin"
+                    type="date"
+                    icon={Calendar}
+                    value={contrato.fechaFin || ''}
+                    onChange={e => updateContrato({ fechaFin: e.target.value })}
+                    viewMode={!isEditing}
+                  />
+                </div>
+                {/* Fila 3: Adjuntar Contrato (fila completa) */}
+                <FileUploader
+                  label="Adjuntar Contrato"
+                  bucket="inmotika"
+                  storagePath={newBranchDraft.id ? `contratos/${newBranchDraft.id}/${contrato.id || idx}.pdf` : undefined}
+                  value={contrato.documentoUrl || ''}
+                  onChange={path => updateContrato({ documentoUrl: path })}
+                  accept="application/pdf"
+                  viewMode={!isEditing}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-componente: tarjeta de sucursal en el listado
+// ─────────────────────────────────────────────────────────────────────────────
+const BranchCard = ({ branch, isEditing, editingBranchId, onEditBranch, onViewBranch }) => (
+  <div
+    onClick={() => {
+      if (isEditing && onEditBranch) onEditBranch(branch);
+      else if (!isEditing && onViewBranch) onViewBranch(branch);
+    }}
+    className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow cursor-pointer"
+  >
+    <div className="flex items-start justify-between">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <TextSmall className="font-bold text-gray-900 text-base">{branch.nombre}</TextSmall>
+          {(branch.esPrincipal || branch.es_principal) && (
+            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded">Principal</span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+            <MapPin size={12} />{branch.direccion || 'Sin dirección'}
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+            <Building2 size={12} />{branch.ciudad || 'Sin ciudad'}
+          </span>
+        </div>
+        {/* Contratos (array) */}
+        {(() => {
+          const contratos = branch.contratos || (branch.contrato ? [branch.contrato] : []);
+          if (!contratos.length) return null;
+          return (
+            <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+              {contratos.map((c, i) => (
+                <div key={c.id || i} className="flex flex-wrap gap-2">
+                  {c.tema && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded">
+                      <Briefcase size={11} />{c.tema}
+                    </span>
+                  )}
+                  {c.fechaInicio && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">
+                      <Calendar size={11} />Inicio: {new Date(c.fechaInicio).toLocaleDateString('es-CO')}
+                    </span>
+                  )}
+                  {c.fechaFin && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded">
+                      <Calendar size={11} />Fin: {new Date(c.fechaFin).toLocaleDateString('es-CO')}
+                    </span>
+                  )}
+                  {c.documentoUrl && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 text-xs font-medium rounded">
+                      <FileText size={11} />Contrato adjunto
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+      </div>
+      {isEditing && !editingBranchId && (
+        <div className="flex gap-2 ml-4" onClick={e => e.stopPropagation()}>
+          {onEditBranch && (
+            <IconButton icon={Edit2} onClick={() => onEditBranch(branch)} className="text-gray-400 hover:text-green-600" />
+          )}
+        </div>
+      )}
+    </div>
+  </div>
+);
 
 export default ClientForm;

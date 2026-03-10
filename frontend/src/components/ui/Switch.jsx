@@ -1,8 +1,17 @@
 import React from 'react';
 import { Label } from './Typography';
 
-const Switch = ({ label, checked, onChange, viewMode = false, className = '', ...props }) => {
-  const statusLabel = checked ? 'Activo' : 'Inactivo';
+const Switch = ({
+  label,
+  checked,
+  onChange,
+  viewMode = false,
+  checkedLabel = 'Activo',
+  uncheckedLabel = 'Inactivo',
+  className = '',
+  ...props
+}) => {
+  const statusLabel = checked ? checkedLabel : uncheckedLabel;
 
   return (
     <div className={`flex flex-col gap-1.5 w-full ${className}`}>

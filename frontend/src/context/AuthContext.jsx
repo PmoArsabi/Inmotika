@@ -73,7 +73,7 @@ export const AuthProvider = ({ children }) => {
           catalogo_estado_general (codigo, nombre)
         `)
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (data) {
         setUser({
@@ -81,15 +81,18 @@ export const AuthProvider = ({ children }) => {
           role: data.catalogo_rol?.codigo || 'ADMIN',
           roleName: data.catalogo_rol?.nombre || 'Administrador',
           status: data.catalogo_estado_general?.codigo || 'ACTIVO',
-          email: currentSession?.user?.email || null
+          email: currentSession?.user?.email || null,
         });
       } else {
+        // Perfil no encontrado aún (ej: trigger aún no ejecutó)
+        const emailPrefix = currentSession?.user?.email?.split('@')[0] || 'Usuario';
         setUser({
           id: userId,
           email: currentSession?.user?.email,
           role: 'ADMIN',
           status: 'ACTIVO',
-          nombre_completo: currentSession?.user?.email?.split('@')[0] || 'Usuario'
+          nombres: emailPrefix,
+          apellidos: '',
         });
       }
     } catch (err) {
@@ -106,10 +109,11 @@ export const AuthProvider = ({ children }) => {
       setUser({
         id: 'mock-user',
         email: email,
-        role: 'ADMIN', // Usar el valor de ROLES.ADMIN
+        role: 'ADMIN',
         status: 'ACTIVO',
-        nombre_completo: email.split('@')[0] || 'Usuario',
-        roleName: 'Administrador'
+        nombres: email.split('@')[0] || 'Usuario',
+        apellidos: '',
+        roleName: 'Administrador',
       });
       return { user: { email }, session: null };
     }

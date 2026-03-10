@@ -251,8 +251,11 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
         setStack([{ type: 'contact', clientId, branchId, contactId, mode: openParams.mode || 'edit' }]);
       } else {
         const cId = openParams.clientId || openParams.id;
-        ensureDraft(entityKey('cliente', cId), () => toClientDraft(data.clientes?.find(c => String(c.id) === String(cId))));
-        setStack([{ type: 'cliente', clientId: cId, mode: openParams.mode || 'view', activeTab: 'details' }]);
+        ensureDraft(entityKey('cliente', cId), () => {
+          const existing = data.clientes?.find(c => String(c.id) === String(cId));
+          return existing ? toClientDraft(existing) : emptyClientDraft();
+        });
+        setStack([{ type: 'cliente', clientId: cId, mode: openParams.mode || 'edit', activeTab: 'details' }]);
       }
     }, 0);
     return () => clearTimeout(t);
@@ -662,6 +665,11 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
       }
     };
 
+    // Detectar si es un contacto nuevo (sin datos guardados en data)
+    const isNewContact = !data.clientes?.some(c =>
+      c.sucursales?.some(s => s.contactos?.some(co => String(co.id) === String(route.contactId)))
+    );
+
     const handleSave = async () => {
       if (!route.clientId || !draft.associatedBranchIds || draft.associatedBranchIds.length === 0) {
         setShowErrors(true);
@@ -672,7 +680,6 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
       setSaveState({ isSaving: true, savedAt: null });
       await new Promise(r => setTimeout(r, 400));
       
-      // Guardar el contacto en todas las sucursales seleccionadas
       const primaryBranchId = draft.associatedBranchIds[0];
       setData(prev => applyContactUpsert(prev, route.clientId, primaryBranchId, route.contactId, draft));
       
@@ -682,57 +689,26 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
     };
 
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-        {/* Columna izquierda - selectores de cliente y sucursales */}
-        <div className="lg:col-span-1">
-          <Card className="p-6 space-y-4 h-full">
-            <div className="space-y-4">
-              <SearchableSelect
-                label="Cliente*"
-                value={route.clientId || ''}
-                onChange={handleClientChange}
-                options={(data.clientes || []).map(c => ({ value: String(c.id), label: c.nombre }))}
-                required
-                error={showErrors && !route.clientId ? 'Debe seleccionar un cliente' : null}
-                placeholder="Seleccionar cliente..."
-              />
-              
-              {selectedClient && (
-                <div>
-                  <SearchableSelect
-                    label="Sucursales*"
-                    value={selectedBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
-                    onChange={handleBranchesChange}
-                    options={availableBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
-                    isMulti={true}
-                    required
-                    error={showErrors && (!draft.associatedBranchIds || draft.associatedBranchIds.length === 0) ? 'Debe seleccionar al menos una sucursal' : null}
-                    placeholder="Seleccionar sucursales..."
-                  />
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-
-        {/* Columna derecha - Formulario de contacto */}
-        <div className="lg:col-span-2">
-          <Card className="p-6 h-full flex flex-col">
-            <div className="space-y-6 flex-1 flex flex-col">
-              {/* Formulario de contacto */}
-              <ContactForm
-                draft={draft}
-                updateDraft={(patch) => updateDraft(key, patch)}
-                errors={errors}
-                showErrors={showErrors}
-                isEditing={isEditing}
-                onSave={handleSave}
-                isSaving={saveState.isSaving}
-              />
-            </div>
-          </Card>
-        </div>
-      </div>
+      <Card className="p-6">
+        <ContactForm
+          draft={draft}
+          updateDraft={(patch) => updateDraft(key, patch)}
+          errors={errors}
+          showErrors={showErrors}
+          isEditing={isEditing}
+          onSave={handleSave}
+          isSaving={saveState.isSaving}
+          isNew={isNewContact}
+          clientOptions={(data.clientes || []).map(c => ({ value: String(c.id), label: c.nombre }))}
+          selectedClientId={route.clientId || ''}
+          onClientChange={handleClientChange}
+          availableBranchOptions={availableBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
+          selectedBranchValues={selectedBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
+          onBranchesChange={handleBranchesChange}
+          clientError={showErrors && !route.clientId ? 'Debe seleccionar un cliente' : null}
+          branchError={showErrors && (!draft.associatedBranchIds || draft.associatedBranchIds.length === 0) ? 'Debe seleccionar al menos una sucursal' : null}
+        />
+      </Card>
     );
   };
 

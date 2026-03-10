@@ -19,6 +19,7 @@ import ClientDataPage from './pages/ClientDataPage';
 import ClientInventoryPage from './pages/ClientInventoryPage';
 import ClientVisitsPage from './pages/ClientVisitsPage';
 import UsersPage from './pages/UsersPage';
+import CategoriasPage from './pages/CategoriasPage';
 
 function App() {
   const { user, signOut, loading: authLoading } = useAuth();
@@ -93,6 +94,9 @@ function App() {
       const configSubTab = getConfigurationSubTab(activeTab);
       if (configSubTab === 'usuarios') {
         return <UsersPage data={data} setData={setData} />;
+      }
+      if (configSubTab === 'categorias') {
+        return <CategoriasPage />;
       }
       if (configSubTab) {
         return <ConfigurationPage key={activeTab} data={data} setData={setData} initialSubTab={configSubTab} isSingleTabView={true} />;
