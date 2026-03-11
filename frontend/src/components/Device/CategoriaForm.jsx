@@ -1,86 +1,222 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, ClipboardList, CheckCircle2, Plus, Trash2,
-  Loader2, ChevronUp, ChevronDown, Pencil, Tag,
+  Loader2, ChevronUp, ChevronDown, Pencil, Tag, List, X,
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Card from '../ui/Card';
 import { H2, Label, TextSmall } from '../ui/Typography';
-import { supabase } from '../../utils/supabase';
+import { INITIAL_DATA } from '../../utils/mockData';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CategoriaForm
-// Props:
-//   mode       'create' | 'view' | 'edit'
-//   categoria  { id, nombre, descripcion } | null  (null only in 'create')
-//   onSave(savedData)  — called after successful save
-//   onCancel()         — called when user clicks back/cancel
-//   onModeChange(mode) — optional, lets parent switch between view ↔ edit
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const emptyActividad = (orden) => ({
+  id: null,
+  tempId: `temp-act-${Date.now()}-${Math.random()}`,
+  descripcion: '',
+  esObligatorio: true,
+  orden,
+  isNew: true,
+  deleted: false,
+});
+
+// ─── Actividades sub-list for a paso ─────────────────────────────────────────
+const ActividadesList = ({ actividades, isEditing, onChange }) => {
+  const [showInput, setShowInput]   = useState(false);
+  const [inputText, setInputText]   = useState('');
+  const [inputOblig, setInputOblig] = useState(true);
+
+  const visible = actividades.filter(a => !a.deleted);
+
+  const addActividad = () => {
+    if (!inputText.trim()) return;
+    const newA = {
+      ...emptyActividad(visible.length + 1),
+      descripcion: inputText.trim(),
+      esObligatorio: inputOblig,
+    };
+    onChange([...actividades, newA]);
+    setInputText(''); setInputOblig(true); setShowInput(false);
+  };
+
+  const remove = (idx) => {
+    const realIdx = actividades.indexOf(visible[idx]);
+    const updated = [...actividades];
+    if (updated[realIdx].isNew) updated.splice(realIdx, 1);
+    else updated[realIdx] = { ...updated[realIdx], deleted: true };
+    let ord = 1;
+    onChange(updated.map(a => a.deleted ? a : { ...a, orden: ord++ }));
+  };
+
+  const updateDesc = (idx, val) => {
+    const realIdx = actividades.indexOf(visible[idx]);
+    onChange(actividades.map((a, i) => i === realIdx ? { ...a, descripcion: val } : a));
+  };
+
+  const toggleOblig = (idx) => {
+    const realIdx = actividades.indexOf(visible[idx]);
+    onChange(actividades.map((a, i) => i === realIdx ? { ...a, esObligatorio: !a.esObligatorio } : a));
+  };
+
+  return (
+    <div className="ml-8 mt-1.5 space-y-1">
+      {visible.map((act, i) => (
+        <div key={act.id || act.tempId} className="flex items-center gap-2 h-9 px-3 bg-gray-50 rounded border border-gray-100">
+          <span className="text-[10px] font-bold text-gray-400 w-4 shrink-0 text-center">{i + 1}</span>
+          {isEditing ? (
+            <input
+              className="flex-1 min-w-0 bg-transparent text-xs text-gray-700 outline-none"
+              value={act.descripcion}
+              onChange={e => updateDesc(i, e.target.value)}
+              placeholder="Descripción de la actividad..."
+            />
+          ) : (
+            <span className="flex-1 min-w-0 text-xs text-gray-700">{act.descripcion}</span>
+          )}
+          {/* Fixed-width obligatorio column */}
+          <div className="w-6 flex justify-center shrink-0">
+            {isEditing ? (
+              <input type="checkbox" checked={!!act.esObligatorio} onChange={() => toggleOblig(i)}
+                className="w-3.5 h-3.5 accent-[#D32F2F] cursor-pointer" />
+            ) : act.esObligatorio ? (
+              <span className="text-[#D32F2F] font-bold text-xs leading-none">*</span>
+            ) : null}
+          </div>
+          {/* Fixed-width trash column */}
+          <div className="w-6 flex justify-center shrink-0">
+            {isEditing && (
+              <button type="button" onClick={() => remove(i)}
+                className="p-0.5 text-gray-300 hover:text-red-500 transition-colors">
+                <Trash2 size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {isEditing && showInput && (
+        <div className="flex items-center gap-2 h-9 px-3 bg-blue-50 rounded border border-blue-100">
+          <input
+            autoFocus
+            className="flex-1 min-w-0 bg-transparent text-xs text-gray-700 outline-none placeholder:text-gray-400"
+            value={inputText}
+            onChange={e => setInputText(e.target.value)}
+            placeholder="Descripción de la actividad..."
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); addActividad(); }
+              if (e.key === 'Escape') { setShowInput(false); setInputText(''); }
+            }}
+          />
+          <div className="w-6 flex justify-center shrink-0">
+            <input type="checkbox" checked={inputOblig} onChange={e => setInputOblig(e.target.checked)}
+              className="w-3.5 h-3.5 accent-[#D32F2F] cursor-pointer" />
+          </div>
+          <div className="w-6 flex justify-center shrink-0">
+            <button type="button" onClick={addActividad} disabled={!inputText.trim()}
+              className="w-5 h-5 flex items-center justify-center rounded bg-[#D32F2F] text-white text-sm font-bold disabled:opacity-40 hover:bg-[#B71C1C] transition-colors">
+              +
+            </button>
+          </div>
+          <div className="w-6 flex justify-center shrink-0">
+            <button type="button" onClick={() => { setShowInput(false); setInputText(''); }}
+              className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors">
+              <X size={13} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isEditing && !showInput && (
+        <div className="flex justify-end pr-1 pt-0.5">
+          <button type="button" onClick={() => setShowInput(true)}
+            className="flex items-center gap-1 text-[10px] text-[#D32F2F] hover:text-[#B71C1C] font-semibold transition-colors">
+            <Plus size={11} /> Agregar actividad
+          </button>
+        </div>
+      )}
+
+      {!isEditing && visible.length === 0 && (
+        <p className="text-[10px] text-gray-400 italic ml-1">Sin actividades definidas</p>
+      )}
+    </div>
+  );
+};
+
+// ─── Main form ────────────────────────────────────────────────────────────────
 const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, onModeChange }) => {
   const isCreating = mode === 'create';
   const isEditing  = mode === 'create' || mode === 'edit';
   const isViewing  = mode === 'view';
 
-  // ─── Form state ─────────────────────────────────────────────────────────
-  const [nombre, setNombre]     = useState(categoria?.nombre || '');
-  const [desc, setDesc]         = useState(categoria?.descripcion || '');
-  const [pasos, setPasos]       = useState([]);
+  const [nombre,     setNombre]     = useState(categoria?.nombre || '');
+  const [desc,       setDesc]       = useState(categoria?.descripcion || '');
+  const [pasos,      setPasos]      = useState([]);
   const [loadingPasos, setLoadingPasos] = useState(!isCreating);
 
-  // ─── Step input state ────────────────────────────────────────────────────
   const [showPasoInput, setShowPasoInput] = useState(false);
-  const [pasoText, setPasoText]           = useState('');
-  const [pasoOblig, setPasoOblig]         = useState(true);
+  const [pasoText,      setPasoText]      = useState('');
+  const [pasoOblig,     setPasoOblig]     = useState(true);
 
-  // ─── Async state ─────────────────────────────────────────────────────────
-  const [saving, setSaving]       = useState(false);
-  const [success, setSuccess]     = useState('');
-  const [error, setError]         = useState('');
+  const [saving,  setSaving]  = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error,   setError]   = useState('');
 
-  // ─── Load pasos when editing/viewing existing category ───────────────────
+  // ── Load pasos + actividades (Mock Mode) ──────────────────────────────────
   useEffect(() => {
     if (!categoria?.id) { setLoadingPasos(false); return; }
     setLoadingPasos(true);
-    supabase
-      .from('paso_protocolo')
-      .select('*')
-      .eq('categoria_id', categoria.id)
-      .order('orden')
-      .then(({ data }) => {
-        setPasos((data || []).map(p => ({
-          id: p.id,
+    
+    // Simulate network delay
+    setTimeout(() => {
+      // Find the template in mock data (from a device with this category)
+      const targetCatName = categoria.nombre;
+      const mockDevWithSteps = INITIAL_DATA.dispositivos.find(d => 
+        d.categoria === targetCatName || d.categoriaId === categoria.id
+      );
+
+      if (mockDevWithSteps && mockDevWithSteps.pasos) {
+        const loadedPasos = mockDevWithSteps.pasos.map((p, pIdx) => ({
+          id: p.id || `p-${pIdx}`,
           tempId: null,
           descripcion: p.descripcion,
-          esObligatorio: p.es_obligatorio ?? true,
-          orden: p.orden,
+          esObligatorio: p.esObligatorio ?? true,
+          orden: p.orden || pIdx + 1,
           isNew: false,
           deleted: false,
-        })));
-        setLoadingPasos(false);
-      });
+           actividades: (p.actividades || []).map((a, aIdx) => ({
+            id: a.id || `a-${pIdx}-${aIdx}`,
+            tempId: null,
+            descripcion: a.descripcion,
+            esObligatorio: a.esObligatorio ?? true,
+            orden: a.orden || aIdx + 1,
+            isNew: false,
+            deleted: false,
+          })),
+        }));
+        setPasos(loadedPasos);
+      } else {
+        setPasos([]);
+      }
+      setLoadingPasos(false);
+    }, 300);
+  }, [categoria?.id, categoria?.nombre]);
+
+  useEffect(() => {
+    if (categoria) { setNombre(categoria.nombre || ''); setDesc(categoria.descripcion || ''); }
   }, [categoria?.id]);
 
-  // ─── Sync form fields when switching to edit mode ────────────────────────
-  useEffect(() => {
-    if (categoria) {
-      setNombre(categoria.nombre || '');
-      setDesc(categoria.descripcion || '');
-    }
-  }, [categoria]);
-
-  // ─── Step management ─────────────────────────────────────────────────────
+  // ── Paso management ───────────────────────────────────────────────────────
   const addPaso = () => {
     if (!pasoText.trim()) return;
     const newPaso = {
       id: null,
-      tempId: `temp-${Date.now()}`,
+      tempId: `temp-paso-${Date.now()}`,
       descripcion: pasoText.trim(),
       esObligatorio: pasoOblig,
       orden: pasos.filter(p => !p.deleted).length + 1,
       isNew: true,
       deleted: false,
+      actividades: [],
     };
     setPasos(prev => [...prev, newPaso]);
     setPasoText(''); setPasoOblig(true); setShowPasoInput(false);
@@ -89,19 +225,17 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
   const removePaso = (idx) => {
     setPasos(prev => {
       const updated = [...prev];
-      if (updated[idx].isNew) {
-        updated.splice(idx, 1);
-      } else {
-        updated[idx] = { ...updated[idx], deleted: true };
-      }
-      return updated.filter(p => !p.deleted || !p.isNew).map((p, i) => ({ ...p, orden: i + 1 }));
+      if (updated[idx].isNew) updated.splice(idx, 1);
+      else updated[idx] = { ...updated[idx], deleted: true };
+      let ord = 1;
+      return updated.map(p => p.deleted ? p : { ...p, orden: ord++ });
     });
   };
 
   const movePaso = (idx, dir) => {
     const visible = pasos.filter(p => !p.deleted);
-    const visIdx = visible.indexOf(pasos[idx]);
-    if (dir === 'up'   && visIdx === 0) return;
+    const visIdx  = visible.indexOf(pasos[idx]);
+    if (dir === 'up' && visIdx === 0) return;
     if (dir === 'down' && visIdx === visible.length - 1) return;
     const allIdxs = pasos.map((_, i) => i).filter(i => !pasos[i].deleted);
     const a = allIdxs[visIdx + (dir === 'up' ? -1 : 1)];
@@ -113,78 +247,26 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
     });
   };
 
-  const toggleOblig = (idx) =>
-    setPasos(prev => prev.map((p, i) => i === idx ? { ...p, esObligatorio: !p.esObligatorio } : p));
+  const updatePasoDesc   = (idx, val)  => setPasos(prev => prev.map((p, i) => i === idx ? { ...p, descripcion: val } : p));
+  const togglePasoOblig  = (idx)       => setPasos(prev => prev.map((p, i) => i === idx ? { ...p, esObligatorio: !p.esObligatorio } : p));
+  const updateActividades = (idx, acts) => setPasos(prev => prev.map((p, i) => i === idx ? { ...p, actividades: acts } : p));
 
-  // ─── Save ─────────────────────────────────────────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!nombre.trim()) { setError('El nombre es requerido'); return; }
-    setError('');
-    setSaving(true);
+    setError(''); setSaving(true);
     try {
-      let savedCat;
-      if (isCreating) {
-        const { data, error: err } = await supabase
-          .from('categoria_dispositivo')
-          .insert({ nombre: nombre.trim(), descripcion: desc.trim() || null })
-          .select().single();
-        if (err) throw err;
-        savedCat = data;
-
-        const newPasos = pasos.filter(p => !p.deleted);
-        if (newPasos.length > 0) {
-          await supabase.from('paso_protocolo').insert(
-            newPasos.map(p => ({
-              categoria_id: savedCat.id,
-              descripcion: p.descripcion,
-              es_obligatorio: p.esObligatorio,
-              orden: p.orden,
-            }))
-          );
-        }
-      } else {
-        const { data, error: err } = await supabase
-          .from('categoria_dispositivo')
-          .update({ nombre: nombre.trim(), descripcion: desc.trim() || null })
-          .eq('id', categoria.id)
-          .select().single();
-        if (err) throw err;
-        savedCat = data;
-
-        // Handle deleted pasos
-        const toDelete = pasos.filter(p => p.deleted && p.id);
-        if (toDelete.length > 0) {
-          await supabase.from('paso_protocolo').delete()
-            .in('id', toDelete.map(p => p.id));
-        }
-        // Handle new pasos
-        const toInsert = pasos.filter(p => p.isNew && !p.deleted);
-        if (toInsert.length > 0) {
-          await supabase.from('paso_protocolo').insert(
-            toInsert.map(p => ({
-              categoria_id: categoria.id,
-              descripcion: p.descripcion,
-              es_obligatorio: p.esObligatorio,
-              orden: p.orden,
-            }))
-          );
-        }
-        // Handle updated existing pasos (orden or esObligatorio changed)
-        const toUpdate = pasos.filter(p => !p.isNew && !p.deleted && p.id);
-        for (const p of toUpdate) {
-          await supabase.from('paso_protocolo').update({
-            descripcion: p.descripcion,
-            es_obligatorio: p.esObligatorio,
-            orden: p.orden,
-          }).eq('id', p.id);
-        }
-      }
+      // Mock Save: Simulate save latency
+      await new Promise(r => setTimeout(r, 600));
+      
+      const savedCat = {
+         id: isCreating ? `cat-mock-${Date.now()}` : categoria.id,
+         nombre: nombre.trim(),
+         descripcion: desc.trim() || null
+      };
 
       setSuccess(savedCat.nombre);
-      setTimeout(() => {
-        setSuccess('');
-        onSave?.(savedCat);
-      }, 1800);
+      setTimeout(() => { setSuccess(''); onSave?.(savedCat); }, 1800);
     } catch (err) {
       console.error('Error guardando categoría:', err);
       setError('Ocurrió un error al guardar. Intente nuevamente.');
@@ -193,10 +275,9 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
     }
   };
 
-  // ─── Visible pasos (excluding soft-deleted) ───────────────────────────────
   const visiblePasos = pasos.filter(p => !p.deleted);
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5 animate-in slide-in-from-right-4 duration-300">
 
@@ -234,8 +315,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
           </TextSmall>
         </div>
         {isViewing && onModeChange && (
-          <Button onClick={() => onModeChange('edit')}
-            className="flex items-center gap-2 shrink-0">
+          <Button onClick={() => onModeChange('edit')} className="flex items-center gap-2 shrink-0">
             <Pencil size={13} /> Editar
           </Button>
         )}
@@ -247,7 +327,6 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
           <Tag size={14} className="text-gray-500" />
           <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Datos de la Categoría</span>
         </div>
-
         {isEditing ? (
           <>
             <Input
@@ -255,19 +334,15 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
               value={nombre}
               onChange={e => setNombre(e.target.value.toUpperCase())}
               placeholder="Ej: TORNIQUETES, CÁMARA IP, SWITCH..."
-              uppercase
-              autoFocus={isCreating}
-              required
+              uppercase autoFocus={isCreating} required
               error={error && !nombre.trim() ? error : null}
             />
             <div className="flex flex-col gap-1.5">
               <Label>Descripción</Label>
               <textarea
                 className="w-full p-3 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all resize-none"
-                rows={2}
-                placeholder="Descripción opcional de la categoría"
-                value={desc}
-                onChange={e => setDesc(e.target.value)}
+                rows={2} placeholder="Descripción opcional de la categoría"
+                value={desc} onChange={e => setDesc(e.target.value)}
               />
             </div>
           </>
@@ -287,7 +362,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
         )}
       </Card>
 
-      {/* Protocolo de mantenimiento */}
+      {/* Protocolo */}
       <Card className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -302,38 +377,40 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
           )}
         </div>
 
-        {/* Step input */}
+        {/* New paso input */}
         {showPasoInput && (
-          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
-            <Input
-              placeholder="Descripción del paso..."
+          <div className="flex items-center gap-2 h-9 px-3 bg-gray-50 rounded-lg border border-gray-200">
+            <input
+              autoFocus
+              className="flex-1 min-w-0 bg-white border border-gray-300 rounded-md px-3 h-7 text-sm font-semibold text-gray-700 outline-none focus:border-[#D32F2F] transition-colors"
+              placeholder="Nombre / sección del paso..."
               value={pasoText}
               onChange={e => setPasoText(e.target.value)}
-              autoFocus
               onKeyDown={e => {
                 if (e.key === 'Enter') { e.preventDefault(); addPaso(); }
                 if (e.key === 'Escape') { setShowPasoInput(false); setPasoText(''); }
               }}
             />
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={pasoOblig} onChange={e => setPasoOblig(e.target.checked)} className="w-4 h-4 accent-[#D32F2F]" />
-                <span className="text-xs font-semibold text-gray-700">Paso obligatorio</span>
-              </label>
-              <div className="flex gap-2">
-                <Button onClick={addPaso} disabled={!pasoText.trim()} className="px-3 py-1 text-xs flex items-center gap-1">
-                  <Plus size={13} /> Agregar
-                </Button>
-                <Button onClick={() => { setShowPasoInput(false); setPasoText(''); }}
-                  className="px-3 py-1 text-xs bg-gray-100 text-gray-700 border border-gray-400 hover:bg-gray-200">
-                  Cancelar
-                </Button>
-              </div>
+            <div className="w-6 flex justify-center shrink-0">
+              <input type="checkbox" checked={pasoOblig} onChange={e => setPasoOblig(e.target.checked)}
+                className="w-3.5 h-3.5 accent-[#D32F2F] cursor-pointer" />
+            </div>
+            <div className="w-6 flex justify-center shrink-0">
+              <button type="button" onClick={addPaso} disabled={!pasoText.trim()}
+                className="w-5 h-5 flex items-center justify-center rounded bg-[#D32F2F] text-white text-sm font-bold disabled:opacity-40 hover:bg-[#B71C1C] transition-colors">
+                +
+              </button>
+            </div>
+            <div className="w-6 flex justify-center shrink-0">
+              <button type="button" onClick={() => { setShowPasoInput(false); setPasoText(''); }}
+                className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={13} />
+              </button>
             </div>
           </div>
         )}
 
-        {/* Steps list */}
+        {/* Pasos list */}
         {loadingPasos ? (
           <div className="flex items-center justify-center py-8 text-gray-400 gap-2">
             <Loader2 size={16} className="animate-spin" />
@@ -346,63 +423,80 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
             </TextSmall>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {visiblePasos.map((paso, visIdx) => {
               const realIdx = pasos.indexOf(paso);
+              const actVisible = (paso.actividades || []).filter(a => !a.deleted);
               return (
-                <div key={paso.id || paso.tempId}
-                  className="flex items-start gap-3 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
-                  {/* Order controls */}
-                  {isEditing && (
-                    <div className="flex flex-col gap-0.5 shrink-0 pt-0.5">
-                      <button onClick={() => movePaso(realIdx, 'up')} disabled={visIdx === 0}
-                        className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-20 transition-colors">
-                        <ChevronUp size={13} />
-                      </button>
-                      <span className="font-bold text-gray-400 text-[10px] text-center leading-none">{visIdx + 1}</span>
-                      <button onClick={() => movePaso(realIdx, 'down')} disabled={visIdx === visiblePasos.length - 1}
-                        className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-20 transition-colors">
-                        <ChevronDown size={13} />
-                      </button>
-                    </div>
-                  )}
-                  {!isEditing && (
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center text-white font-bold text-xs shrink-0">
-                      {visIdx + 1}
-                    </div>
-                  )}
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0 space-y-1">
+                <div key={paso.id || paso.tempId} className="border border-gray-100 rounded-lg bg-white shadow-sm overflow-hidden">
+                  {/* Paso header row */}
+                  <div className="flex items-center gap-2 px-3 min-h-[36px] py-2">
+                    {/* Order controls */}
                     {isEditing ? (
-                      <input
-                        className="w-full bg-transparent text-sm text-gray-700 outline-none font-medium"
-                        value={paso.descripcion}
-                        onChange={e => setPasos(prev => prev.map((p, i) => i === realIdx ? { ...p, descripcion: e.target.value } : p))}
-                        placeholder="Descripción del paso..."
-                      />
+                      <div className="flex flex-col items-center gap-0 shrink-0 w-5">
+                        <button onClick={() => movePaso(realIdx, 'up')} disabled={visIdx === 0}
+                          className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-20 transition-colors leading-none">
+                          <ChevronUp size={12} />
+                        </button>
+                        <span className="font-bold text-gray-400 text-[10px] text-center leading-none">{visIdx + 1}</span>
+                        <button onClick={() => movePaso(realIdx, 'down')} disabled={visIdx === visiblePasos.length - 1}
+                          className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-20 transition-colors leading-none">
+                          <ChevronDown size={12} />
+                        </button>
+                      </div>
                     ) : (
-                      <TextSmall className="font-medium text-gray-800">{paso.descripcion}</TextSmall>
+                      <div className="w-6 h-6 rounded-full bg-linear-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center text-white font-bold text-[10px] shrink-0">
+                        {visIdx + 1}
+                      </div>
                     )}
-                    {isEditing ? (
-                      <label className="flex items-center gap-1.5 cursor-pointer">
+
+                    {/* Description */}
+                    <div className="flex-1 min-w-0">
+                      {isEditing ? (
+                        <input
+                          className="w-full bg-transparent text-sm font-semibold text-gray-700 outline-none"
+                          value={paso.descripcion}
+                          onChange={e => updatePasoDesc(realIdx, e.target.value)}
+                          placeholder="Nombre / sección del paso..."
+                        />
+                      ) : (
+                        <TextSmall className="font-semibold text-gray-800">{paso.descripcion}</TextSmall>
+                      )}
+                      <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                        <List size={9} /> {actVisible.length} actividad{actVisible.length !== 1 ? 'es' : ''}
+                      </span>
+                    </div>
+
+                    {/* Fixed-width obligatorio column — matches actividad rows */}
+                    <div className="w-6 flex justify-center shrink-0">
+                      {isEditing ? (
                         <input type="checkbox" checked={!!paso.esObligatorio}
-                          onChange={() => toggleOblig(realIdx)}
-                          className="w-3 h-3 accent-[#D32F2F]" />
-                        <span className="text-[10px] font-semibold text-gray-500">Obligatorio</span>
-                      </label>
-                    ) : paso.esObligatorio ? (
-                      <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide">Obligatorio</span>
-                    ) : null}
+                          onChange={() => togglePasoOblig(realIdx)}
+                          className="w-3.5 h-3.5 accent-[#D32F2F] cursor-pointer" />
+                      ) : paso.esObligatorio ? (
+                        <span className="text-[#D32F2F] font-bold text-xs leading-none">*</span>
+                      ) : null}
+                    </div>
+
+                    {/* Fixed-width trash column — matches actividad rows */}
+                    <div className="w-6 flex justify-center shrink-0">
+                      {isEditing && (
+                        <button type="button" onClick={() => removePaso(realIdx)}
+                          className="p-0.5 text-gray-300 hover:text-red-500 rounded transition-colors">
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Delete */}
-                  {isEditing && (
-                    <button type="button" onClick={() => removePaso(realIdx)}
-                      className="p-1 text-gray-300 hover:text-red-500 rounded transition-colors shrink-0">
-                      <Trash2 size={14} />
-                    </button>
-                  )}
+                  {/* Actividades sub-list */}
+                  <div className="border-t border-gray-50 pb-2">
+                    <ActividadesList
+                      actividades={paso.actividades || []}
+                      isEditing={isEditing}
+                      onChange={acts => updateActividades(realIdx, acts)}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -410,16 +504,15 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
         )}
       </Card>
 
-      {/* Footer actions */}
+      {/* Footer */}
       {isEditing && (
         <div className="flex items-center justify-end gap-3">
           {error && <TextSmall className="text-red-500 mr-auto">{error}</TextSmall>}
-          <Button onClick={onCancel}
-            className="bg-gray-100 text-gray-700 border border-gray-400 hover:bg-gray-200">
+          <Button onClick={onCancel} className="bg-gray-100 text-gray-700 border border-gray-400 hover:bg-gray-200">
             Cancelar
           </Button>
           <Button onClick={handleSave} disabled={!nombre.trim() || saving}
-            className="flex items-center gap-2 bg-gradient-to-r from-[#D32F2F] to-[#8B0000] text-white border-0">
+            className="flex items-center gap-2 bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
             {saving ? 'Guardando...' : (isCreating ? 'Crear Categoría' : 'Guardar Cambios')}
           </Button>

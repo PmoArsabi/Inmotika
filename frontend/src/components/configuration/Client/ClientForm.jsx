@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import {
   Building2, MapPin, Phone, Mail, Hash, Briefcase,
   Camera, Plus, Edit2, Search, FileText, Calendar, Trash2, Link2, FileSignature,
-  Navigation,
+  Navigation, Eye,
 } from 'lucide-react';
 import { Country } from 'country-state-city';
 import Button from '../../ui/Button';
@@ -118,7 +118,7 @@ const ClientForm = ({
                 onClick={handleLogoClick}
                 className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-lg border-2 border-gray-200 ${
                   isEditing ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
-                } bg-gradient-to-br from-[#D32F2F] to-[#8B0000]`}
+                } bg-linear-to-brrom-[#D32F2F] to-[#8B0000]`}
               >
                 {draft.logoUrl ? (
                   <img src={draft.logoUrl.startsWith('http') ? draft.logoUrl : undefined} alt="Logo" className="w-full h-full object-cover" />
@@ -234,7 +234,7 @@ const ClientForm = ({
         <Card className="p-6 h-full flex flex-col">
           <div className="space-y-6 flex-1 flex flex-col">
             {/* Tabs */}
-            <div className="flex items-center justify-between border-b border-gray-200 pb-4 flex-shrink-0">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-4 shrink-0">
               <Tabs
                 tabs={[
                   { key: 'details', label: 'Paso 1  Detalle General' },
@@ -254,7 +254,7 @@ const ClientForm = ({
                     <Button
                       onClick={onSave}
                       disabled={isSaving}
-                      className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+                      className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
                     >
                       {isSaving ? 'Guardando...' : 'Guardar'}
                     </Button>
@@ -483,7 +483,7 @@ const ClientForm = ({
                     {isEditing && onNewBranch && (
                       <Button
                         onClick={onNewBranch}
-                        className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] text-white border-0 shrink-0"
+                        className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0 shrink-0"
                       >
                         <Plus size={16} className="mr-2" /> Nueva Sucursal
                       </Button>
@@ -520,7 +520,7 @@ const ClientForm = ({
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-componente: formulario de creación/edición de sucursal
 // ─────────────────────────────────────────────────────────────────────────────
-const BranchSubForm = ({
+export const BranchSubForm = ({
   newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
   isEditing, isSaving, editingBranchId, onCancelEdit,
   onAssociateContacts, onAssociateDevices, showErrors,
@@ -540,7 +540,7 @@ const BranchSubForm = ({
         <Button
           onClick={onSaveNewBranch}
           disabled={isSaving}
-          className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] text-white border-0"
+          className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0"
         >
           {isSaving ? 'Guardando...' : editingBranchId ? 'Guardar Cambios' : 'Guardar Sucursal'}
         </Button>
@@ -557,6 +557,7 @@ const BranchSubForm = ({
         error={showErrors ? newBranchErrors.nombre : null}
         uppercase
         required
+        viewMode={!isEditing}
       />
       <div className="flex items-end gap-4">
         <div className="shrink-0">
@@ -566,6 +567,7 @@ const BranchSubForm = ({
             onChange={checked => updateNewBranchDraft({ esPrincipal: checked })}
             checkedLabel="Sí"
             uncheckedLabel="No"
+            disabled={!isEditing}
           />
         </div>
         <div className="flex-1 min-w-0">
@@ -575,6 +577,7 @@ const BranchSubForm = ({
             onChange={checked => updateNewBranchDraft({ estadoId: checked ? activoId : inactivoId })}
             checkedLabel="Activo"
             uncheckedLabel="Inactivo"
+            viewMode={!isEditing}
           />
         </div>
       </div>
@@ -593,6 +596,7 @@ const BranchSubForm = ({
         required
         showDireccion
         twoColumns
+        viewMode={!isEditing}
       />
       <Input
         label="Latitud (Opcional)"
@@ -601,6 +605,7 @@ const BranchSubForm = ({
         onChange={e => updateNewBranchDraft({ latitud: e.target.value })}
         placeholder="Ej: 4.710989"
         inputMode="decimal"
+        viewMode={!isEditing}
       />
       <Input
         label="Longitud (Opcional)"
@@ -609,6 +614,7 @@ const BranchSubForm = ({
         onChange={e => updateNewBranchDraft({ longitud: e.target.value })}
         placeholder="Ej: -74.072090"
         inputMode="decimal"
+        viewMode={!isEditing}
       />
     </div>
 
@@ -618,6 +624,7 @@ const BranchSubForm = ({
         label="Horario de Atención"
         value={newBranchDraft.horarioAtencion || null}
         onChange={v => updateNewBranchDraft({ horarioAtencion: v })}
+        viewMode={!isEditing}
       />
     </div>
 
@@ -633,10 +640,12 @@ const BranchSubForm = ({
             key={label}
             type="button"
             onClick={onClick}
-            className="flex items-center justify-between p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm transition-all text-left w-full group"
+            disabled={!isEditing && (!count || count === 0)}
+            className={`flex items-center justify-between p-4 rounded-lg border border-gray-200 transition-all text-left w-full group
+              ${isEditing || count > 0 ? "bg-gray-50 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer" : "bg-gray-50 opacity-70 cursor-not-allowed"}`}
           >
             <div className="flex-1 min-w-0">
-              <TextSmall className="font-semibold text-gray-900 group-hover:text-[#D32F2F] transition-colors">{label}</TextSmall>
+              <TextSmall className={`font-semibold text-gray-900 transition-colors ${isEditing || count > 0 ? "group-hover:text-[#D32F2F]" : ""}`}>{label}</TextSmall>
               <TextSmall className="text-gray-500 mt-0.5">
                 {count > 0
                   ? <span className="text-[#D32F2F] font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
@@ -644,10 +653,11 @@ const BranchSubForm = ({
                 }
               </TextSmall>
             </div>
-            <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-[#D32F2F] transition-colors shadow-sm">
-              <Link2 size={12} />
-              Asociar
-            </div>
+            {(isEditing || count > 0) && (
+              <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-[#D32F2F] transition-colors shadow-sm">
+                {isEditing ? <><Link2 size={12} /> Asociar</> : <><Eye size={12} /> Ver</>}
+              </div>
+            )}
           </button>
         ))}
       </div>

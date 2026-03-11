@@ -16,7 +16,7 @@ import { Label, TextSmall } from '../ui/Typography';
 import Card from '../ui/Card';
 import { Table, THead, TBody, Tr, Th, Td } from '../ui/Table';
 import CategoriaForm from './CategoriaForm';
-import { supabase } from '../../utils/supabase';
+import { INITIAL_DATA } from '../../utils/mockData';
 import { useActivoInactivo } from '../../hooks/useCatalog';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -56,27 +56,35 @@ const DeviceForm = ({
   const [loadingCats, setLoadingCats]     = useState(true);
   const [categoryPasos, setCategoryPasos] = useState([]);
 
-  const loadCategorias = useCallback(async () => {
+  const loadCategorias = useCallback(() => {
     setLoadingCats(true);
-    const { data } = await supabase.from('categoria_dispositivo').select('*').order('nombre');
-    setCategorias((data || []).map(c => ({ value: c.id, label: c.nombre, raw: c })));
-    setLoadingCats(false);
+    setTimeout(() => {
+      const catsMock = INITIAL_DATA.categorias || [];
+      setCategorias(catsMock.map(c => ({ value: c.id, label: c.nombre, raw: c })));
+      setLoadingCats(false);
+    }, 200);
   }, []);
 
   useEffect(() => { loadCategorias(); }, [loadCategorias]);
 
   useEffect(() => {
     if (!draft.categoriaId) { setCategoryPasos([]); return; }
-    supabase
-      .from('paso_protocolo')
-      .select('*')
-      .eq('categoria_id', draft.categoriaId)
-      .order('orden')
-      .then(({ data }) => setCategoryPasos((data || []).map(p => ({
-        id: p.id, descripcion: p.descripcion,
-        esObligatorio: p.es_obligatorio ?? true, orden: p.orden,
-      }))));
-  }, [draft.categoriaId]);
+    
+    // Extrayendo plantilla de pasos mockeados buscando un dispositivo de esa categoría
+    const targetCat = categorias.find(c => c.value === draft.categoriaId);
+    if (!targetCat) return;
+
+    // Buscar si hay algun dispositivo asociado a esta categoría (por nombre o id)
+    const mockDevWithSteps = INITIAL_DATA.dispositivos.find(d => 
+      d.categoria === targetCat.label || d.categoriaId === draft.categoriaId
+    );
+
+    if (mockDevWithSteps && mockDevWithSteps.pasos) {
+      setCategoryPasos(mockDevWithSteps.pasos);
+    } else {
+      setCategoryPasos([]); // Simular que no tiene protocolo mockeado
+    }
+  }, [draft.categoriaId, categorias]);
 
   // ─── Frecuencia → fecha automática ────────────────────────────────────────
   const handleFrecuenciaChange = (val) => {
@@ -137,7 +145,7 @@ const DeviceForm = ({
       <div className="lg:col-span-1">
         <Card className="p-6 space-y-6 h-full">
           <div className="flex flex-col items-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-[#D32F2F] to-[#8B0000] rounded-full flex items-center justify-center shadow-lg">
+            <div className="w-20 h-20 bg-linear-to-br from-[#D32F2F] to-[#8B0000] rounded-full flex items-center justify-center shadow-lg">
               <Monitor size={32} className="text-white" />
             </div>
             <div className="mt-4 text-center">
@@ -183,7 +191,7 @@ const DeviceForm = ({
         <Card className="p-6 h-full flex flex-col gap-4">
 
           {/* Header: solo tabs */}
-          <div className="border-b border-gray-200 pb-2 flex-shrink-0">
+          <div className="border-b border-gray-200 pb-2 shrink-0">
             <Tabs tabs={FORM_TABS} active={activeTab} onChange={setActiveTab} />
           </div>
 
@@ -200,7 +208,7 @@ const DeviceForm = ({
                   </div>
                   {isEditing && (
                     <Button onClick={onSave} disabled={isSaving}
-                      className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] text-white border-0 shrink-0">
+                      className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0 shrink-0">
                       {isSaving ? 'Guardando...' : 'Guardar Equipo'}
                     </Button>
                   )}
@@ -522,16 +530,33 @@ const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdate
     {categoriaId && categoryPasos.length > 0 ? (
       <div className="space-y-2">
         {categoryPasos.map((paso, idx) => (
-          <div key={paso.id || idx} className="flex items-start gap-3 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center text-white font-bold text-xs shrink-0">
-              {idx + 1}
+          <div key={paso.id || idx} className="flex flex-col gap-2 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-full bg-linear-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center text-white font-bold text-xs shrink-0">
+                {idx + 1}
+              </div>
+              <div className="flex-1">
+                <TextSmall className="font-semibold text-gray-800">{paso.descripcion}</TextSmall>
+                {paso.esObligatorio && (
+                  <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide block mt-0.5">Obligatorio</span>
+                )}
+              </div>
             </div>
-            <div className="flex-1">
-              <TextSmall className="font-semibold text-gray-800">{paso.descripcion}</TextSmall>
-              {paso.esObligatorio && (
-                <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide">Obligatorio</span>
-              )}
-            </div>
+            
+            {/* Actividades del paso (si existen) de Categorias */}
+            {paso.actividades && paso.actividades.length > 0 && (
+              <div className="pl-10 space-y-1.5 mt-1 border-l-2 border-gray-100 ml-3">
+                {paso.actividades.map((act, actIdx) => (
+                  <div key={actIdx} className="flex items-start gap-2">
+                    <CheckCircle2 size={13} className="text-gray-400 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <TextSmall className="text-gray-600">{act.descripcion}</TextSmall>
+                      {act.esObligatorio && <span className="ml-2 text-[9px] font-bold text-orange-500 uppercase tracking-wide">Oblig.</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -546,35 +571,52 @@ const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdate
     ) : (
       <div className="space-y-2">
         {pasos.map((step, idx) => (
-          <div key={idx} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
-            <div className="flex flex-col gap-0.5 shrink-0">
-              {isEditing && <button onClick={() => onMoveStep(idx, 'up')} disabled={idx === 0} className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-30"><ChevronUp size={13} /></button>}
-              <span className="font-bold text-gray-400 text-[10px] text-center">{idx + 1}</span>
-              {isEditing && <button onClick={() => onMoveStep(idx, 'down')} disabled={idx === pasos.length - 1} className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-30"><ChevronDown size={13} /></button>}
-            </div>
-            <div className="flex-1 space-y-1">
-              {isEditing ? (
-                <input
-                  className="w-full bg-transparent text-sm text-gray-700 outline-none font-medium"
-                  value={step.descripcion}
-                  onChange={e => onUpdateStep(idx, { descripcion: e.target.value })}
-                  placeholder="Descripción del paso..."
-                />
-              ) : (
-                <TextSmall className="font-medium text-gray-700">{step.descripcion}</TextSmall>
-              )}
+          <div key={idx} className="flex flex-col gap-2 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-0.5 shrink-0">
+                {isEditing && <button onClick={() => onMoveStep(idx, 'up')} disabled={idx === 0} className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-30"><ChevronUp size={13} /></button>}
+                <span className="font-bold text-gray-400 text-[10px] text-center">{idx + 1}</span>
+                {isEditing && <button onClick={() => onMoveStep(idx, 'down')} disabled={idx === pasos.length - 1} className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-30"><ChevronDown size={13} /></button>}
+              </div>
+              <div className="flex-1 space-y-1">
+                {isEditing ? (
+                  <input
+                    className="w-full bg-transparent text-sm text-gray-700 outline-none font-medium"
+                    value={step.descripcion}
+                    onChange={e => onUpdateStep(idx, { descripcion: e.target.value })}
+                    placeholder="Descripción del paso..."
+                  />
+                ) : (
+                  <TextSmall className="font-medium text-gray-700">{step.descripcion}</TextSmall>
+                )}
+                {isEditing && (
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={!!step.esObligatorio} onChange={e => onUpdateStep(idx, { esObligatorio: e.target.checked })} className="w-3 h-3 accent-[#D32F2F]" />
+                    <span className="text-[10px] font-semibold text-gray-500">Obligatorio</span>
+                  </label>
+                )}
+                {!isEditing && step.esObligatorio && (
+                  <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide">Obligatorio</span>
+                )}
+              </div>
               {isEditing && (
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" checked={!!step.esObligatorio} onChange={e => onUpdateStep(idx, { esObligatorio: e.target.checked })} className="w-3 h-3 accent-[#D32F2F]" />
-                  <span className="text-[10px] font-semibold text-gray-500">Obligatorio</span>
-                </label>
-              )}
-              {!isEditing && step.esObligatorio && (
-                <span className="text-[10px] font-bold text-orange-600 uppercase">Obligatorio</span>
+                <IconButton icon={Trash2} onClick={() => onRemoveStep(idx)} className="text-gray-300 hover:text-red-500 shrink-0" size={13} />
               )}
             </div>
-            {isEditing && (
-              <IconButton icon={Trash2} onClick={() => onRemoveStep(idx)} className="text-gray-300 hover:text-red-500 shrink-0" size={13} />
+            
+            {/* Actividades del paso (si existen) */}
+            {step.actividades && step.actividades.length > 0 && (
+              <div className="pl-10 space-y-1.5 mt-1 border-l-2 border-gray-100 ml-3">
+                {step.actividades.map((act, actIdx) => (
+                  <div key={actIdx} className="flex items-start gap-2">
+                    <CheckCircle2 size={13} className="text-gray-400 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <TextSmall className="text-gray-600">{act.descripcion}</TextSmall>
+                      {act.esObligatorio && <span className="ml-2 text-[9px] font-bold text-orange-500 uppercase tracking-wide">Oblig.</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         ))}

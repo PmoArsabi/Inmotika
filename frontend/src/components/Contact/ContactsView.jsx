@@ -53,31 +53,27 @@ const ContactsView = ({ config, data }) => {
         title="Información Contactos"
         icon={Users}
         onNewClick={() => handleNew('contacto')}
-        newButtonLabel={<><Plus size={16} /> Nuevo Contacto</>}
-        showFilter={true}
-        onFilterClick={() => setShowFilters(!showFilters)}
-      />
-
-      {/* Barra secundaria con buscador */}
-      {showFilters && (
-        <div className="flex items-center justify-end">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar: Nombre / Email / Celular"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="pl-9 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm w-64"
-              />
+        newButtonLabel="Nuevo Contacto"
+        filterContent={
+          <div className="flex items-center justify-end">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar: Nombre / Email / Celular"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="pl-9 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm w-64"
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        }
+      />
 
       {/* Pagination */}
       {filteredContacts.length > 0 && (
@@ -125,7 +121,7 @@ const ContactsView = ({ config, data }) => {
                   onClick={() => setCurrentPage(pageNum)}
                   className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
                     currentPage === pageNum
-                      ? 'bg-gradient-to-r from-red-500 to-red-700 text-white'
+                      ? 'bg-linear-to-r from-red-500 to-red-700 text-white'
                       : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
@@ -156,23 +152,13 @@ const ContactsView = ({ config, data }) => {
       ) : (
         <Card className="p-0 overflow-hidden rounded-md border border-gray-200 shadow-sm">
           <Table>
-            <THead>
-              <tr className="bg-blue-600">
-                <th className="py-3 px-5 text-left text-gray-900 font-semibold text-[9px]">
-                  <Subtitle className="text-gray-900">Nombre</Subtitle>
-                </th>
-                <th className="py-3 px-5 text-left text-gray-900 font-semibold text-[9px]">
-                  <Subtitle className="text-gray-900">Correo</Subtitle>
-                </th>
-                <th className="py-3 px-5 text-left text-gray-900 font-semibold text-[9px]">
-                  <Subtitle className="text-gray-900">Celular</Subtitle>
-                </th>
-                <th className="py-3 px-5 text-left text-gray-900 font-semibold text-[9px]">
-                  <Subtitle className="text-gray-900">Cliente / Sucursal</Subtitle>
-                </th>
-                <th className="py-3 px-5 text-right text-gray-900 font-semibold text-[9px]">
-                  <Subtitle className="text-gray-900">Acciones</Subtitle>
-                </th>
+            <THead variant="dark">
+              <tr>
+                <Th>Nombre</Th>
+                <Th>Correo</Th>
+                <Th>Celular</Th>
+                <Th>Cliente / Sucursal</Th>
+                <Th narrow className="text-right">Acciones</Th>
               </tr>
             </THead>
             <TBody>

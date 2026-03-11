@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase';
+import { INITIAL_DATA } from '../utils/mockData';
 
 const AuthContext = createContext({});
 
@@ -11,11 +12,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    
-    // Si no hay configuración de Supabase, usar modo mock
-    if (!supabaseUrl || !supabaseAnonKey) {
+    const enforceMock = true;
+    if (!supabaseUrl || !supabaseAnonKey || enforceMock) {
+      // Simular que no hay sesión activa real pero ya cargó el store
       setLoading(false);
-      return;
+      return () => {}; // return empty cleanup function
     }
     
     // Failsafe: Si en 8 segundos no ha respondido, forzamos el cierre del loading
@@ -101,20 +102,34 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signIn = async (email, password) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const enforceMock = true;
     
-    if (!supabaseUrl || !supabaseAnonKey) {
-      // Modo mock: permitir login sin Supabase
-      setUser({
-        id: 'mock-user',
-        email: email,
-        role: 'ADMIN',
-        status: 'ACTIVO',
-        nombres: email.split('@')[0] || 'Usuario',
-        apellidos: '',
-        roleName: 'Administrador',
-      });
+    if (enforceMock) {
+      // Find user in mock data
+      const mockUser = INITIAL_DATA.usuarios.find(u => u.email === email);
+      
+      if (mockUser) {
+        setUser({
+          id: mockUser.id,
+          email: mockUser.email,
+          role: mockUser.rol,
+          status: mockUser.estado || 'ACTIVO',
+          nombres: mockUser.nombres,
+          apellidos: mockUser.apellidos,
+          roleName: mockUser.rolNombre,
+        });
+      } else {
+        // Fallback admin si mete cualquier otro correo
+        setUser({
+          id: 'mock-user',
+          email: email,
+          role: 'ADMIN',
+          status: 'ACTIVO',
+          nombres: email.split('@')[0] || 'Usuario',
+          apellidos: '',
+          roleName: 'Administrador',
+        });
+      }
       return { user: { email }, session: null };
     }
     
@@ -135,7 +150,9 @@ export const AuthProvider = ({ children }) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     
-    if (!supabaseUrl || !supabaseAnonKey) {
+    const enforceMock = true;
+    
+    if (!supabaseUrl || !supabaseAnonKey || enforceMock) {
       // Modo mock: solo limpiar el estado local
       setUser(null);
       setSession(null);

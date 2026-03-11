@@ -17,9 +17,9 @@ export const Table = ({ children }) => (
 export const THead = ({ children, variant = "light", className = "" }) => (
   (() => {
     const isDark = variant === 'dark';
-    const defaultVarClassName = isDark ? '[--table-head-text:#E5E7EB]' : '[--table-head-text:#9CA3AF]';
+    const defaultVarClassName = isDark ? '[--table-head-text:white]' : '[--table-head-text:#6B7280]';
     const defaultRowClassName = isDark
-      ? `border-b border-white/10 bg-[#1A1A1A] ${defaultVarClassName}`
+      ? `border-b border-white/10 bg-black ${defaultVarClassName}`
       : `border-b border-gray-100 bg-gray-50/50 ${defaultVarClassName}`;
 
     const childArray = React.Children.toArray(children);

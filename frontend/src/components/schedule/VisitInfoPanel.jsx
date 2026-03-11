@@ -13,6 +13,7 @@ import SectionHeader from '../ui/SectionHeader';
 import StatusBadge from '../ui/StatusBadge';
 import CardHeader from '../ui/CardHeader';
 import DeviceReportCard from './DeviceReportCard';
+import { Table, THead, TBody, Tr, Th, Td } from '../ui/Table';
 
 const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiveVisit }) => {
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
@@ -148,7 +149,7 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4 mb-8"><DataField label="Marca" value={dev.marca} /><DataField label="Modelo" value={dev.modelo} /><DataField label="Código Único" value={dev.codigoUnico} /><DataField label="Serial #" value={dev.serial} /><DataField label="Dirección MAC" value={dev.imac} /><DataField label="Mantenimiento" value={dev.frecuencia} /></div>
                   <div className="mt-4 pt-6 border-t border-gray-100 space-y-4">
                     <div className="flex items-center gap-2"><History size={16} className="text-[#D32F2F]" /><Label>Bitácora Técnica</Label></div>
-                    <div className="overflow-hidden border border-gray-50 rounded-md bg-gray-50/20"><div className="overflow-x-auto"><table className="w-full text-left border-collapse min-w-[500px]"><thead><tr className="bg-gray-50/50"><th className="px-4 py-3"><TextTiny className="text-gray-400">Fecha</TextTiny></th><th className="px-4 py-3"><TextTiny className="text-gray-400">Técnico</TextTiny></th><th className="px-4 py-3"><TextTiny className="text-gray-400">Tipo</TextTiny></th><th className="px-4 py-3"><TextTiny className="text-gray-400">Observaciones</TextTiny></th></tr></thead><tbody className="divide-y divide-gray-50">{dev.historial?.map((log, lIdx) => (<tr key={lIdx} className="hover:bg-white"><td className="px-4 py-3"><TextSmall className="text-gray-600">{log.fecha}</TextSmall></td><td className="px-4 py-3"><TextSmall className="text-gray-800">{log.tecnico}</TextSmall></td><td className="px-4 py-3"><StatusBadge status={log.tipo} className="text-[7px]" /></td><td className="px-4 py-3"><TextSmall className="text-gray-500 italic font-medium">{log.observaciones}</TextSmall></td></tr>))}</tbody></table></div></div>
+                    <div className="overflow-hidden border border-gray-200 shadow-sm rounded-md"><Table><THead variant="dark"><Tr><Th>Fecha</Th><Th>Técnico</Th><Th>Tipo</Th><Th>Observaciones</Th></Tr></THead><TBody>{dev.historial?.map((log, lIdx) => (<Tr key={lIdx}><Td>{log.fecha}</Td><Td>{log.tecnico}</Td><Td><StatusBadge status={log.tipo} className="text-[7px]" /></Td><Td><span className="italic">{log.observaciones}</span></Td></Tr>))}</TBody></Table></div>
                   </div>
                 </div>
               ))}

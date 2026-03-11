@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, ClipboardList, Settings, Calendar, Building2,
   Cpu, Eye, LogOut, Menu, ChevronUp, ChevronDown, Users,
-  FileText, Wallet, BarChart, Bell, Phone, UserCog, Tag
+  FileText, Wallet, BarChart, Bell, Phone, UserCog, Tag,
+  CalendarCheck, PlayCircle, List
 } from 'lucide-react';
 import { ROLES } from '../../utils/constants';
 import { H3, TextSmall, Subtitle } from '../ui/Typography';
@@ -54,20 +55,47 @@ const Sidebar = ({
             { id: 'configuration-usuarios',     label: 'Usuarios Ap', icon: UserCog },
           ]
         },
-        { 
-          id: 'visits', 
-          label: 'Gestión Visitas', 
-          icon: ClipboardList 
+        {
+          id: 'visits',
+          label: 'Gestión Visitas',
+          icon: ClipboardList,
+          hasSubItems: true,
+          subItems: [
+            { id: 'visits-solicitudes',  label: 'Solicitud Visita', icon: List         },
+            { id: 'visits-programacion', label: 'Programación',     icon: CalendarCheck },
+            { id: 'visits-gestion',      label: 'Gestión Visitas',  icon: PlayCircle   },
+          ],
         },
       ];
     }
-    if (user.role === ROLES.TECNICO)  return [{ id: 'schedule', label: 'Mi Agenda', icon: Calendar }];
-    if (user.role === ROLES.CLIENTE) {
+    if (userRole === ROLES.TECNICO || userRole === 'TECNICO') {
+      return [
+        { id: 'schedule', label: 'Mi Agenda', icon: Calendar },
+        {
+          id: 'visits',
+          label: 'Gestión Visitas',
+          icon: ClipboardList,
+          hasSubItems: true,
+          subItems: [
+            { id: 'visits-gestion', label: 'Gestión Visitas', icon: PlayCircle },
+          ],
+        }
+      ];
+    }
+    if (userRole === ROLES.CLIENTE || userRole === 'CLIENTE') {
       return [
         { id: 'client-dashboard', label: 'Dashboard',  icon: LayoutDashboard },
-        { id: 'client-data',      label: 'Datos',      icon: Building2 },
+        { id: 'client-data',      label: 'Mis Datos',  icon: Building2 },
         { id: 'client-inventory', label: 'Inventario', icon: Cpu },
-        { id: 'client-visits',    label: 'Visitas',    icon: Eye },
+        {
+          id: 'visits',
+          label: 'Reportar Novedad',
+          icon: ClipboardList,
+          hasSubItems: true,
+          subItems: [
+            { id: 'visits-solicitudes', label: 'Solicitar Visita', icon: List }
+          ],
+        }
       ];
     }
     return [];

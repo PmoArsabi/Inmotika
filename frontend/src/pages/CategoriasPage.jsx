@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Tag, Plus, Eye, Pencil, ClipboardList, RefreshCw, Loader2 } from 'lucide-react';
+import { Tag, Plus, Eye, Edit, ClipboardList, RefreshCw, Loader2 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import ModuleHeader from '../components/ui/ModuleHeader';
 import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
-import { H2, TextSmall } from '../components/ui/Typography';
+import { TextSmall, Subtitle } from '../components/ui/Typography';
 import CategoriaForm from '../components/Device/CategoriaForm';
-import { supabase } from '../utils/supabase';
+import { INITIAL_DATA } from '../utils/mockData';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CategoriasPage
@@ -17,23 +18,26 @@ const CategoriasPage = () => {
   const [selected, setSelected]       = useState(null);   // { categoria, mode }
   const [refreshKey, setRefreshKey]   = useState(0);
 
-  // ─── Load categories with step counts ────────────────────────────────────
-  const loadData = useCallback(async () => {
+  // ─── Load categories with step counts (Desde Mocks) ──────────────────────
+  const loadData = useCallback(() => {
     setLoading(true);
-    const { data: cats } = await supabase
-      .from('categoria_dispositivo')
-      .select('id, nombre, descripcion')
-      .order('nombre');
+    
+    // Simular ligera latencia de red para la UI
+    setTimeout(() => {
+      const catsMock = INITIAL_DATA.categorias || [];
+      const countMap = {
+        'cat-1': 3,
+        'cat-2': 4,
+        'cat-3': 2,
+        'cat-4': 5
+      };
 
-    const { data: pasos } = await supabase
-      .from('paso_protocolo')
-      .select('categoria_id');
-
-    const countMap = {};
-    (pasos || []).forEach(p => { countMap[p.categoria_id] = (countMap[p.categoria_id] || 0) + 1; });
-
-    setCategorias((cats || []).map(c => ({ ...c, numPasos: countMap[c.id] || 0 })));
-    setLoading(false);
+      setCategorias(catsMock.map(c => ({ 
+        ...c, 
+        numPasos: countMap[c.id] || 0 
+      })));
+      setLoading(false);
+    }, 400);
   }, []);
 
   useEffect(() => { loadData(); }, [loadData, refreshKey]);
@@ -64,31 +68,20 @@ const CategoriasPage = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
 
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-[#D32F2F] to-[#8B0000] rounded-lg flex items-center justify-center shadow">
-            <Tag size={18} className="text-white" />
-          </div>
-          <div>
-            <H2>Categorías de Dispositivos</H2>
-            <TextSmall className="text-gray-500">
-              {loading ? 'Cargando...' : `${categorias.length} categoría${categorias.length !== 1 ? 's' : ''} registrada${categorias.length !== 1 ? 's' : ''}`}
-            </TextSmall>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+      <ModuleHeader
+        icon={Tag}
+        title="Categorías de Dispositivos"
+        subtitle={loading ? 'Cargando...' : `${categorias.length} categoría${categorias.length !== 1 ? 's' : ''} registrada${categorias.length !== 1 ? 's' : ''}`}
+        onNewClick={() => setSelected({ categoria: null, mode: 'create' })}
+        newButtonLabel="Nueva Categoría"
+        extraActions={
           <button onClick={refresh}
-            className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all"
+            className="p-1.5 text-white/70 hover:text-white hover:bg-white/20 rounded-md transition-all"
             title="Actualizar">
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
-          <Button onClick={() => setSelected({ categoria: null, mode: 'create' })}
-            className="flex items-center gap-2 bg-gradient-to-r from-[#D32F2F] to-[#8B0000] text-white border-0">
-            <Plus size={14} /> Nueva Categoría
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Table */}
       <Card className="p-0 overflow-hidden">
@@ -125,15 +118,10 @@ const CategoriasPage = () => {
               {categorias.map(cat => (
                 <Tr key={cat.id}>
                   <Td>
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 bg-[#D32F2F]/10 rounded-md flex items-center justify-center shrink-0">
-                        <Tag size={13} className="text-[#D32F2F]" />
-                      </div>
-                      <span className="font-bold text-gray-900 text-sm">{cat.nombre}</span>
-                    </div>
+                    <Subtitle className="text-gray-900">{cat.nombre}</Subtitle>
                   </Td>
                   <Td>
-                    <TextSmall className="text-gray-500 truncate max-w-xs">
+                    <TextSmall className="text-gray-500">
                       {cat.descripcion || <span className="italic text-gray-300">Sin descripción</span>}
                     </TextSmall>
                   </Td>
@@ -145,19 +133,19 @@ const CategoriasPage = () => {
                       </TextSmall>
                     </div>
                   </Td>
-                  <Td narrow>
-                    <div className="flex items-center gap-1">
+                  <Td align="right">
+                    <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => setSelected({ categoria: cat, mode: 'view' })}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors"
+                        className="p-2 hover:bg-blue-50 rounded-md transition-colors"
                         title="Ver detalle">
-                        <Eye size={13} /> Ver
+                        <Eye size={16} className="text-blue-600" />
                       </button>
                       <button
                         onClick={() => setSelected({ categoria: cat, mode: 'edit' })}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#D32F2F] bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition-colors"
+                        className="p-2 hover:bg-green-50 rounded-md transition-colors"
                         title="Editar">
-                        <Pencil size={13} /> Editar
+                        <Edit size={16} className="text-green-600" />
                       </button>
                     </div>
                   </Td>

@@ -22,7 +22,7 @@ import { useLocationData } from '../../hooks/useLocationData';
 import Breadcrumbs from './Breadcrumbs';
 import Tabs from '../ui/Tabs';
 
-import ClientForm from './Client/ClientForm';
+import ClientForm, { BranchSubForm } from './Client/ClientForm';
 import ContactForm from '../Contact/ContactForm';
 import DeviceForm from '../Device/DeviceForm';
 import TechnicianForm from '../forms/TechnicianForm';
@@ -534,8 +534,14 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
                   <Td><TextSmall>{b.ciudad}</TextSmall></Td>
                   <Td align="right">
                     <div className="flex justify-end gap-2">
-                      <IconButton icon={Eye} onClick={() => setStack(p => [...p, { type: 'branch', clientId: route.clientId, branchId: b.id, mode: 'view', activeTab: 'details' }])} />
-                      <IconButton icon={Edit2} onClick={() => setStack(p => [...p, { type: 'branch', clientId: route.clientId, branchId: b.id, mode: 'edit', activeTab: 'details' }])} />
+                      <IconButton icon={Eye} onClick={() => {
+                        ensureDraft(entityKey('branch', b.id), () => toBranchDraft(b));
+                        setStack(p => [...p, { type: 'branch', clientId: route.clientId, branchId: b.id, mode: 'view', activeTab: 'details' }]);
+                      }} />
+                      <IconButton icon={Edit2} onClick={() => {
+                        ensureDraft(entityKey('branch', b.id), () => toBranchDraft(b));
+                        setStack(p => [...p, { type: 'branch', clientId: route.clientId, branchId: b.id, mode: 'edit', activeTab: 'details' }]);
+                      }} />
                     </div>
                   </Td>
                 </Tr>
@@ -615,8 +621,14 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
                   <Td><TextSmall>{ct.telefonoMovil || ct.celular}</TextSmall></Td>
                   <Td align="right">
                     <div className="flex justify-end gap-2">
-                      <IconButton icon={Eye} onClick={() => setStack(p => [...p, { type: 'contact', clientId: route.clientId, branchId: route.branchId, contactId: ct.id, mode: 'view' }])} />
-                      <IconButton icon={Edit2} onClick={() => setStack(p => [...p, { type: 'contact', clientId: route.clientId, branchId: route.branchId, contactId: ct.id, mode: 'edit' }])} />
+                      <IconButton icon={Eye} onClick={() => {
+                        ensureDraft(entityKey('contact', ct.id), () => toContactDraft(ct));
+                        setStack(p => [...p, { type: 'contact', clientId: route.clientId, branchId: route.branchId, contactId: ct.id, mode: 'view' }]);
+                      }} />
+                      <IconButton icon={Edit2} onClick={() => {
+                        ensureDraft(entityKey('contact', ct.id), () => toContactDraft(ct));
+                        setStack(p => [...p, { type: 'contact', clientId: route.clientId, branchId: route.branchId, contactId: ct.id, mode: 'edit' }]);
+                      }} />
                     </div>
                   </Td>
                 </Tr>
@@ -743,6 +755,45 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
       />
     );
   };
+
+  const renderBranchForm = () => {
+    const key = entityKey('branch', route.branchId);
+    const draft = drafts[key] || emptyBranchDraft();
+    const errors = validateBranch(draft);
+    const hasErrors = Object.keys(errors).length > 0;
+    const isEditing = route.mode === 'edit';
+
+    const handleSave = async () => {
+      setShowErrors(true);
+      if (hasErrors) return;
+      setSaveState({ isSaving: true, savedAt: null });
+      await new Promise(r => setTimeout(r, 400));
+      setData(prev => applyBranchUpsert(prev, route.clientId, route.branchId, draft));
+      setSaveState({ isSaving: false, savedAt: Date.now() });
+      setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view' } : s));
+    };
+
+    return (
+      <Card className="p-6">
+        <BranchSubForm
+          newBranchDraft={draft}
+          updateNewBranchDraft={(patch) => updateDraft(key, patch)}
+          newBranchErrors={errors}
+          showErrors={showErrors}
+          isEditing={isEditing}
+          onSaveNewBranch={handleSave}
+          isSaving={saveState.isSaving}
+          onAssociateContacts={() => setAssociateContactsModal({ branchKey: key })}
+          onAssociateDevices={() => setAssociateDevicesModal({ branchKey: key })}
+          estadoSelectOptions={[{value: 'est-1', label: 'ACTIVO'}, {value: 'est-2', label: 'INACTIVO'}]}
+          activoId="est-1"
+          inactivoId="est-2"
+          clientId={route.clientId}
+        />
+      </Card>
+    );
+  };
+
 
   const NavigatorBreadcrumbs = () => {
     const items = [];
@@ -1092,6 +1143,7 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
         {route?.type === 'contact' && renderContactForm()}
         {route?.type === 'dispositivo' && renderDeviceForm()}
         {route?.type === 'tecnico' && renderTecnicoForm()}
+        {route?.type === 'branch' && renderBranchForm()}
       </div>
 
       {/* Success Modal - Cliente */}

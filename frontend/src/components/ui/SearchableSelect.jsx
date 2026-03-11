@@ -116,8 +116,9 @@ const SearchableSelect = ({
       backgroundColor: dark ? '#2A2A2A' : 'white',
       borderRadius: '0.5rem',
       boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
-      zIndex: 50,
+      zIndex: 9999,
     }),
+    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
     option: (base, state) => ({
       ...base,
       backgroundColor: state.isSelected ? '#D32F2F' : (state.isFocused ? (dark ? '#3A3A3A' : '#F9FAFB') : 'transparent'),
@@ -199,6 +200,8 @@ const SearchableSelect = ({
           isDisabled={isDisabled}
           isMulti={isMulti}
           isClearable={false}
+          menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+          menuPosition="fixed"
           {...props}
         />
       </div>

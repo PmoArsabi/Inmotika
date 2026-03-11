@@ -56,7 +56,7 @@ const ClientInventoryPage = ({ data }) => {
 
       <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
         <Table>
-          <THead>
+          <THead variant="dark">
             <tr>
               <Th>Equipo / Código</Th>
               <Th>Sede y Categoría</Th>

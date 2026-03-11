@@ -20,6 +20,9 @@ import ClientInventoryPage from './pages/ClientInventoryPage';
 import ClientVisitsPage from './pages/ClientVisitsPage';
 import UsersPage from './pages/UsersPage';
 import CategoriasPage from './pages/CategoriasPage';
+import SolicitudVisitaPage from './pages/visits/SolicitudVisitaPage';
+import ProgramacionVisitaPage from './pages/visits/ProgramacionVisitaPage';
+import GestionVisitasPage from './pages/visits/GestionVisitasPage';
 
 function App() {
   const { user, signOut, loading: authLoading } = useAuth();
@@ -32,15 +35,30 @@ function App() {
 
   // Efecto para limpiar la URL y redirigir según el rol
   useEffect(() => {
-    // Si la URL tiene un path (como /dashboard), lo limpiamos ya que usamos estado interno
     if (window.location.pathname !== '/') {
       window.history.replaceState(null, '', '/');
     }
+    
+    // Sólo empujamos la pestaña por defecto si el usuario se acaba de firmar
+    // (o sea, si estaba en dashboard que es el origen por default)
+    if (user && activeTab === 'dashboard') {
+      const uRole = user.role || 'TECNICO';
+      const isAdmGrp = uRole === 'ADMIN' || uRole === 'DIRECTOR' || uRole === 'COORDINADOR';
 
-    if (user) {
-      if (user.role === ROLES.TECNICO || user.role === 'TECNICO') setActiveTab('schedule');
-      else if (user.role === ROLES.CLIENTE || user.role === 'CLIENTE') setActiveTab('client-dashboard');
-      else setActiveTab('dashboard');
+      // Default tabs & protection from URL forcing
+      if (uRole === 'CLIENTE') {
+        if (!activeTab.startsWith('client-') && activeTab !== 'visits-solicitudes') {
+          setActiveTab('client-dashboard');
+        }
+      } else if (uRole === 'TECNICO') {
+        if (activeTab !== 'schedule' && activeTab !== 'visits-gestion') {
+          setActiveTab('schedule');
+        }
+      } else if (isAdmGrp) {
+        if (!activeTab || activeTab.startsWith('client-')) {
+          setActiveTab('dashboard');
+        }
+      }
     }
   }, [user]);
 
@@ -71,6 +89,12 @@ function App() {
     return <LoginPage />;
   }
 
+  // Extract subTab from visits tabs
+  const getVisitsSubTab = (tab) => {
+    if (tab.startsWith('visits-')) return tab.replace('visits-', '');
+    return null;
+  };
+
   // Extract subTab from configuration tabs
   const getConfigurationSubTab = (tab) => {
     if (tab.startsWith('configuration-')) {
@@ -90,28 +114,55 @@ function App() {
 
   const renderPage = () => {
     try {
-      // Handle configuration sub-tabs
+      // Identificar el rol del usuario para restringir módulos
+      const userRole = user?.role || 'TECNICO';
+      const isAdminGroup = userRole === 'ADMIN' || userRole === 'DIRECTOR' || userRole === 'COORDINADOR';
+
+      // 1. Handle visits sub-tabs
+      const visitsSubTab = getVisitsSubTab(activeTab);
+      
+      if (visitsSubTab === 'solicitudes') {
+        if (isAdminGroup || userRole === 'CLIENTE') return <SolicitudVisitaPage data={data} setData={setData} />;
+        return <div className="p-8 text-red-500 font-bold">Acceso Denegado</div>;
+      }
+      
+      if (visitsSubTab === 'programacion') {
+        if (isAdminGroup) return <ProgramacionVisitaPage data={data} setData={setData} />;
+        return <div className="p-8 text-red-500 font-bold">Acceso Denegado</div>;
+      }
+      
+      if (visitsSubTab === 'gestion') {
+        if (isAdminGroup || userRole === 'TECNICO') return <GestionVisitasPage data={data} setData={setData} />;
+        return <div className="p-8 text-red-500 font-bold">Acceso Denegado</div>;
+      }
+
+      // Handle configuration sub-tabs (Sólo Admin Group)
       const configSubTab = getConfigurationSubTab(activeTab);
-      if (configSubTab === 'usuarios') {
-        return <UsersPage data={data} setData={setData} />;
-      }
-      if (configSubTab === 'categorias') {
-        return <CategoriasPage />;
-      }
       if (configSubTab) {
+        if (!isAdminGroup) return <div className="p-8 text-red-500 font-bold">Acceso Denegado: Requiere permisos de Administración</div>;
+        
+        if (configSubTab === 'usuarios') return <UsersPage data={data} setData={setData} />;
+        if (configSubTab === 'categorias') return <CategoriasPage />;
         return <ConfigurationPage key={activeTab} data={data} setData={setData} initialSubTab={configSubTab} isSingleTabView={true} />;
       }
 
       switch (activeTab) {
-        case 'dashboard':        return <DashboardPage data={data} />;
-        case 'visits':           return <VisitsPage data={data} setData={setData} />;
-        case 'configuration':    return <ConfigurationPage key={activeTab} data={data} setData={setData} isSingleTabView={false} />;
-        case 'schedule':         return <SchedulePage data={data} setData={setData} />;
-        case 'client-dashboard': return <ClientDashboardPage data={data} />;
-        case 'client-data':      return <ClientDataPage data={data} />;
-        case 'client-inventory': return <ClientInventoryPage data={data} />;
-        case 'client-visits':    return <ClientVisitsPage data={data} />;
-        default:                 return <DashboardPage data={data} />;
+        case 'dashboard':        return isAdminGroup ? <DashboardPage data={data} /> : <div className="p-8">Acceso Denegado</div>;
+        case 'visits':           return <VisitsPage data={data} setData={setData} />; // Esta página madre debe manejar su propio render
+        case 'configuration':    return isAdminGroup ? <ConfigurationPage key={activeTab} data={data} setData={setData} isSingleTabView={false} /> : <div className="p-8">Acceso Denegado</div>;
+        case 'schedule':         return (isAdminGroup || userRole === 'TECNICO') ? <SchedulePage data={data} setData={setData} /> : <div className="p-8">Acceso Denegado</div>;
+        
+        // Vistas específicas de cliente
+        case 'client-dashboard': return userRole === 'CLIENTE' ? <ClientDashboardPage data={data} /> : <div className="p-8">Acceso Denegado</div>;
+        case 'client-data':      return userRole === 'CLIENTE' ? <ClientDataPage data={data} /> : <div className="p-8">Acceso Denegado</div>;
+        case 'client-inventory': return userRole === 'CLIENTE' ? <ClientInventoryPage data={data} /> : <div className="p-8">Acceso Denegado</div>;
+        case 'client-visits':    return userRole === 'CLIENTE' ? <ClientVisitsPage data={data} /> : <div className="p-8">Acceso Denegado</div>;
+        
+        default:                 
+          // Default fallbacks by role
+          if (userRole === 'CLIENTE') return <ClientDashboardPage data={data} />;
+          if (userRole === 'TECNICO') return <SchedulePage data={data} setData={setData} />;
+          return <DashboardPage data={data} />;
       }
     } catch (error) {
       console.error('Error al renderizar página:', error);

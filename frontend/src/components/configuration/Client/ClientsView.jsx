@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Plus, Eye, Edit2, Trash2, Building2, Navigation2, MapPin, Search, Filter, ChevronLeft, ChevronRight, ChevronDown, Globe, Users } from 'lucide-react';
 import { Country } from 'country-state-city';
 import Card from '../../ui/Card';
@@ -9,6 +9,33 @@ import { Table, THead, TBody, Tr, Th, Td } from '../../ui/Table';
 import { Subtitle, TextSmall, Label, H3 } from '../../ui/Typography';
 import SectionHeader from '../../ui/SectionHeader';
 import ModuleHeader from '../../ui/ModuleHeader';
+import { BranchSubForm } from './ClientForm';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+    this.setState({ errorInfo });
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg overflow-auto">
+          <h2 className="text-red-700 font-bold mb-2">Error de React Detectado</h2>
+          <pre className="text-xs text-red-600 whitespace-pre-wrap">{this.state.error && this.state.error.toString()}</pre>
+          <pre className="text-xs text-red-500 whitespace-pre-wrap mt-2">{this.state.errorInfo && this.state.errorInfo.componentStack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
   value: c.isoCode,
@@ -23,6 +50,8 @@ const ClientsView = ({ config, data }) => {
     setViewLevel, setSelectedBranch,
     setEditingItem, setEditingType, setIsViewMode, setSucursales, setShowForm, setEditingParentId
   } = config;
+
+  const [activeTab, setActiveTab] = useState('details');
 
   // 1. Client Details View
   if (viewLevel === 'client-details' && selectedClient) {
@@ -117,47 +146,37 @@ const ClientsView = ({ config, data }) => {
   // 3. Branch Details View
   if (viewLevel === 'branch-details' && selectedBranch) {
     return (
-      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
-        <div className="space-y-4">
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
+        <div className="flex items-center justify-between mb-2">
           <SectionHeader 
-            title={`Contactos — ${selectedBranch.nombre}`} 
-            className="px-2 mb-2! items-center"
-            rightContent={
-              <Button onClick={() => {
-                setEditingItem(null); setEditingType('contacto');
-                setEditingParentId(selectedBranch.id); setShowForm(true);
-              }}>
-                <Plus size={16}/> Nuevo Contacto
-              </Button>
-            }
+            title={`Detalles de Sucursal — ${selectedBranch.nombre}`} 
+            className="px-2 mb-0! items-center"
           />
-          <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
-            <Table>
-              <THead variant="dark">
-                <tr><Th>Nombre / Razón</Th><Th>Detalles Técnicos</Th><Th narrow>Acción</Th></tr>
-              </THead>
-              <TBody>
-                {(selectedBranch.contactos || []).map((contacto, idx) => (
-                  <Tr key={idx}>
-                    <Td>
-                      <Subtitle className="text-primary normal-case tracking-normal">{contacto.nombre}</Subtitle>
-                      <TextSmall className="text-gray-400 mt-1">{contacto.cargo}</TextSmall>
-                    </Td>
-                    <Td>
-                      <Subtitle className="normal-case tracking-normal">{contacto.celular}</Subtitle>
-                      <TextSmall className="text-gray-400 mt-1">{contacto.email}</TextSmall>
-                    </Td>
-                    <Td narrow>
-                      <div className="flex gap-3">
-                        <IconButton icon={Edit2} className="text-gray-300 hover:text-primary" onClick={() => handleEdit(contacto, 'contacto', selectedBranch.id)} />
-                        <IconButton icon={Trash2} className="text-gray-300 hover:text-red-500" onClick={() => removeContacto(selectedBranch.id, contacto.id)} />
-                      </div>
-                    </Td>
-                  </Tr>
-                ))}
-              </TBody>
-            </Table>
-          </Card>
+        </div>
+        
+        <div className="bg-white rounded-md shadow-xs border border-gray-100 p-6">
+          <ErrorBoundary>
+            <BranchSubForm
+              newBranchDraft={{
+                ...selectedBranch, 
+                associatedContactIds: (selectedBranch.contactos || []).map(c => String(c.id)),
+                associatedDeviceIds: (data?.dispositivos?.filter(d => String(d.sucursalId) === String(selectedBranch.id)) || []).map(d => String(d.id))
+              }}
+              updateNewBranchDraft={() => {}}
+              newBranchErrors={{}}
+              onSaveNewBranch={() => {}}
+              isEditing={false}
+              isSaving={false}
+              editingBranchId={null}
+              onCancelEdit={null}
+              onAssociateContacts={() => {}}
+              onAssociateDevices={() => {}}
+              showErrors={false}
+              activoId="est-1"
+              inactivoId="est-2"
+              clientId={selectedClient.id}
+            />
+          </ErrorBoundary>
         </div>
       </div>
     );
@@ -237,13 +256,8 @@ const ClientsView = ({ config, data }) => {
         title="Información Clientes"
         icon={Users}
         onNewClick={() => handleNew('cliente')}
-        newButtonLabel={<><Plus size={16}/> Nuevo Cliente</>}
-        showFilter={true}
-        onFilterClick={() => setShowFilters(!showFilters)}
-      />
-
-      {/* Secondary controls bar */}
-      {showFilters && (
+        newButtonLabel="Nuevo Cliente"
+        filterContent={
           <div className="flex items-center justify-end">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -274,7 +288,8 @@ const ClientsView = ({ config, data }) => {
               />
             </div>
           </div>
-        )}
+        }
+      />
 
       {/* Pagination */}
       {filteredAndSortedClients.length > 0 && (
@@ -322,7 +337,7 @@ const ClientsView = ({ config, data }) => {
                   onClick={() => setCurrentPage(pageNum)}
                   className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
                     currentPage === pageNum
-                      ? 'bg-gradient-to-r from-red-500 to-red-700 text-white'
+                      ? 'bg-linear-to-r from-red-500 to-red-700 text-white'
                       : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
@@ -353,23 +368,13 @@ const ClientsView = ({ config, data }) => {
       ) : (
         <Card className="p-0 overflow-hidden rounded-md border border-gray-200 shadow-sm">
           <Table>
-            <THead>
-              <tr className="bg-blue-600">
-                <th className="py-3 px-5 text-left text-gray-900 font-semibold text-[9px]">
-                  <Subtitle className="text-gray-900">Razón Social / Nombre</Subtitle>
-                </th>
-                <th className="py-3 px-5 text-left text-gray-900 font-semibold text-[9px]">
-                  <Subtitle className="text-gray-900">NIT / Identificación</Subtitle>
-                </th>
-                <th className="py-3 px-5 text-left text-gray-900 font-semibold text-[9px]">
-                  <Subtitle className="text-gray-900">País</Subtitle>
-                </th>
-                <th className="py-3 px-5 text-left text-gray-900 font-semibold text-[9px]">
-                  <Subtitle className="text-gray-900">Tipo de Negocio</Subtitle>
-                </th>
-                <th className="py-3 px-5 text-right text-gray-900 font-semibold text-[9px]">
-                  <Subtitle className="text-gray-900">Acciones</Subtitle>
-                </th>
+            <THead variant="dark">
+              <tr>
+                <Th>Razón Social / Nombre</Th>
+                <Th>NIT / Identificación</Th>
+                <Th>País</Th>
+                <Th>Tipo de Negocio</Th>
+                <Th narrow className="text-right">Acciones</Th>
               </tr>
             </THead>
             <TBody>

@@ -1,61 +1,85 @@
-import { Filter } from 'lucide-react';
-import Button from './Button';
-import { H3 } from './Typography';
+import { useState } from 'react';
+import { Plus, Filter } from 'lucide-react';
 
 const ModuleHeader = ({
   title,
+  subtitle,
   icon: Icon,
   onNewClick,
-  newButtonLabel = "Nuevo",
-  showFilter = true,
-  onFilterClick,
-  rightContent
+  newButtonLabel = 'Nuevo',
+  newButtonIcon: NewIcon = Plus,
+  extraActions,
+  filterContent,
 }) => {
+  const [showFilters, setShowFilters] = useState(false);
+  const hasFilters = !!filterContent;
+
   return (
-    <div className="bg-gradient-to-r from-[#D32F2F] via-[#B71C1C] to-[#8B0000] rounded-lg p-5 border-0 shadow-xl relative overflow-hidden">
-      {/* Decorative elements */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full blur-2xl"></div>
-      </div>
-      
-      <div className="relative z-10 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {Icon && (
-            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm border border-white/30">
-              <Icon size={20} className="text-white" />
+    <div className="rounded-lg overflow-hidden shadow-sm border border-gray-200">
+      {/* Red gradient bar — same line as original */}
+      <div className="bg-linear-to-r from-[#D32F2F] via-[#B71C1C] to-[#8B0000] px-5 py-4 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full blur-2xl" />
+        </div>
+
+        <div className="relative z-10 flex items-center justify-between gap-4">
+          {/* Left: icon + title + subtitle */}
+          <div className="flex items-center gap-3 min-w-0">
+            {Icon && (
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm border border-white/30 shrink-0">
+                <Icon size={18} className="text-white" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-white font-bold text-base leading-tight truncate drop-shadow-sm uppercase">
+                {title}
+              </p>
+              {subtitle && (
+                <p className="text-white/80 text-xs mt-0.5 truncate">{subtitle}</p>
+              )}
             </div>
-          )}
-          <H3 className="text-white font-semibold normal-case text-lg drop-shadow-sm">
-            {title}
-          </H3>
-        </div>
-        <div className="flex items-center gap-3">
-          {onNewClick && (
-            <Button 
-              onClick={onNewClick}
-              variant="outline"
-              className="bg-gray-100/90 backdrop-blur-sm border-gray-300 text-gray-900 hover:bg-gray-200 hover:border-gray-400 shadow-md font-semibold"
-            >
-              {newButtonLabel}
-            </Button>
-          )}
-          {showFilter && onFilterClick && (
-            <Button 
-              variant="outline" 
-              className="bg-gray-100/90 backdrop-blur-sm border-gray-300 text-gray-900 hover:bg-gray-200 hover:border-gray-400 shadow-md"
-              onClick={onFilterClick}
-            >
-              <Filter size={16} className="mr-2" />
-              Filtro
-            </Button>
-          )}
-          {rightContent}
+          </div>
+
+          {/* Right: Nuevo + Filtro (toggle) + extra */}
+          <div className="flex items-center gap-2 shrink-0">
+            {onNewClick && (
+              <button
+                type="button"
+                onClick={onNewClick}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/95 border border-gray-300 text-gray-800 hover:bg-white hover:border-gray-400 text-xs font-bold uppercase shadow-sm transition-all"
+              >
+                <NewIcon size={14} />
+                {newButtonLabel}
+              </button>
+            )}
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={() => setShowFilters(f => !f)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-bold uppercase transition-all ${
+                  showFilters
+                    ? 'bg-white border-gray-400 text-gray-800 shadow-sm'
+                    : 'bg-white/95 border-gray-300 text-gray-700 hover:bg-white hover:border-gray-400'
+                }`}
+              >
+                <Filter size={14} />
+                Filtro
+              </button>
+            )}
+            {extraActions}
+          </div>
         </div>
       </div>
+
+      {/* Filter section — only visible when "Filtro" is toggled on */}
+      {hasFilters && showFilters && (
+        <div className="bg-white border-t border-gray-200 px-5 py-3">
+          {filterContent}
+        </div>
+      )}
     </div>
   );
 };
 
 export default ModuleHeader;
-

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import ModuleHeader from '../components/ui/ModuleHeader';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import Switch from '../components/ui/Switch';
@@ -255,7 +256,7 @@ const UsersPage = ({ data, setData }) => {
           <div className="lg:col-span-2 space-y-6">
             <Card className="p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
+                <div className="p-3 bg-linear-to-br from-blue-50 to-blue-100 rounded-xl">
                   <User size={24} className="text-blue-600" />
                 </div>
                 <div>
@@ -409,7 +410,7 @@ const UsersPage = ({ data, setData }) => {
 
           {/* Panel Lateral */}
           <div className="space-y-6">
-            <Card className="p-6 bg-gradient-to-br from-gray-50 to-gray-100">
+            <Card className="p-6 bg-linear-to-br from-gray-50 to-gray-100">
               <div className="flex items-center gap-3 mb-4">
                 <Shield size={20} className="text-gray-600" />
                 <Label className="text-base font-bold text-gray-900">Información del Rol</Label>
@@ -432,7 +433,7 @@ const UsersPage = ({ data, setData }) => {
 
             {/* Información de Documentos para Técnicos */}
             {viewingUser && viewingUser.rol === ROLES.TECNICO && viewingUser.documentos && (
-              <Card className="p-6 bg-gradient-to-br from-orange-50 to-orange-100/50">
+              <Card className="p-6 bg-linear-to-br from-orange-50 to-orange-100/50">
                 <div className="flex items-center gap-3 mb-4">
                   <FileText size={20} className="text-orange-600" />
                   <Label className="text-base font-bold text-gray-900">Documentos del Técnico</Label>
@@ -485,54 +486,42 @@ const UsersPage = ({ data, setData }) => {
   // Vista de lista
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <H2>Usuarios del Sistema</H2>
-          <TextSmall className="text-gray-500">Gestione los usuarios y sus roles en el sistema</TextSmall>
-        </div>
-        <Button onClick={handleCreate} className="flex items-center gap-2">
-          <UserPlus size={16} />
-          Nuevo Usuario
-        </Button>
-      </div>
-
-      {/* Filtros */}
-      <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-          <div className="relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o email..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full h-10 pl-10 pr-9 border border-gray-300 rounded-md text-sm font-semibold bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400 transition-all"
+      <ModuleHeader
+        icon={UserPlus}
+        title="Usuarios del Sistema"
+        subtitle="Gestione los usuarios y sus roles en el sistema"
+        onNewClick={handleCreate}
+        newButtonLabel="Nuevo Usuario"
+        filterContent={
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o email..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-md text-sm bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
+              />
+              {searchTerm && (
+                <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded">
+                  <X size={13} className="text-gray-400" />
+                </button>
+              )}
+            </div>
+            <Select
+              options={[{ value: 'Todos', label: 'Todos los roles' }, ...roleOptions.slice(1)]}
+              value={filterRole}
+              onChange={e => setFilterRole(e.target.value)}
             />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
-              >
-                <X size={16} className="text-gray-400" />
-              </button>
-            )}
           </div>
-          <Select
-            options={[
-              { value: 'Todos', label: 'Todos los roles' },
-              ...roleOptions.slice(1)
-            ]}
-            value={filterRole}
-            onChange={e => setFilterRole(e.target.value)}
-          />
-        </div>
-      </Card>
+        }
+      />
 
       {/* Tabla de Usuarios */}
       <Card className="p-0 overflow-hidden">
         <Table>
-          <THead>
+          <THead variant="dark">
             <tr>
               <Th>Usuario</Th>
               <Th>Email</Th>
@@ -557,16 +546,11 @@ const UsersPage = ({ data, setData }) => {
               filteredUsers.map(user => (
                 <Tr key={user.id}>
                   <Td>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                        {(user.nombres || user.apellidos || 'U').charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <Subtitle className="text-gray-900">
-                          {`${user.nombres || ''} ${user.apellidos || ''}`.trim() || '—'}
-                        </Subtitle>
-                        <TextTiny className="text-gray-500">{user.id}</TextTiny>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <User size={14} className="text-gray-400 shrink-0" />
+                      <Subtitle className="text-gray-900">
+                        {`${user.nombres || ''} ${user.apellidos || ''}`.trim() || '—'}
+                      </Subtitle>
                     </div>
                   </Td>
                   <Td>
@@ -592,7 +576,7 @@ const UsersPage = ({ data, setData }) => {
                     </div>
                   </Td>
                   <Td>
-                    <StatusBadge status={user.activo ? 'Activo' : 'Inactivo'} />
+                    <StatusBadge status={user.estado === 'ACTIVO' || user.activo ? 'Activo' : 'Inactivo'} />
                   </Td>
                   <Td align="right">
                     <div className="flex items-center justify-end gap-2">
@@ -719,7 +703,7 @@ const RoleSection = ({ icon: Icon, label, color = 'blue', children }) => {
   return (
     <div className={`mt-5 pt-5 border-t border-gray-100 space-y-4`}>
       <div className="flex items-center gap-3">
-        <div className={`p-2 bg-gradient-to-br ${c.ring} rounded-lg`}>
+        <div className={`p-2 bg-linear-to-br ${c.ring} rounded-lg`}>
           <Icon size={16} className={c.icon} />
         </div>
         <Label className="text-sm font-bold text-gray-800">{label}</Label>
