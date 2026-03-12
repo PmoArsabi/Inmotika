@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { useNotify } from '../context/NotificationContext';
+import { useConfirm } from '../context/ConfirmContext';
 import {
   Plus, CheckCircle2, ChevronRight, ArrowLeft, Building2, MapPin,
   CalendarDays, Clock, UserCog, Phone, UserCircle2, Cpu, Activity,
@@ -152,11 +154,23 @@ const VisitsPage = ({ data, setData }) => {
     setNewVisit({ cliente: '', tecnico: '', prioridad: 'Media', fecha: '', hora: '', contactoNombre: '', contactoCelular: '', dispositivos: [], tipoMantenimiento: 'Preventivo', solicitadoPor: 'Cliente', observaciones: '', sucursal: '' });
   };
 
-  const handleDeleteVisit = (visitId) => {
-    if (window.confirm('¿Está seguro de que desea eliminar esta visita?')) {
+  const confirm = useConfirm();
+  const notify = useNotify();
+
+  const handleDeleteVisit = async (visitId) => {
+    const confirmed = await confirm({
+      title: '¿Eliminar visita?',
+      message: '¿Está seguro de que desea eliminar esta visita? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      cancelText: 'Descartar',
+      type: 'danger'
+    });
+
+    if (confirmed) {
       setData({ ...data, visitas: (data.visitas || []).filter(v => v.id !== visitId) });
       setDetailPanelOpen(false);
       setSelectedVisit(null);
+      notify('success', 'Visita eliminada correctamente');
     }
   };
 
@@ -290,7 +304,7 @@ const VisitsPage = ({ data, setData }) => {
     return (
       <div className="space-y-6 animate-in slide-in-from-right-12 duration-500 pb-20">
         {/* Modern Header */}
-        <header className="bg-gradient-to-r from-[#D32F2F] to-[#B71C1C] rounded-xl shadow-lg p-6 text-white">
+        <header className="bg-linear-to-r from-[#D32F2F] to-[#B71C1C] rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button 
@@ -329,7 +343,7 @@ const VisitsPage = ({ data, setData }) => {
             {/* Location Section */}
             <Card className="p-6 bg-white shadow-md border border-gray-100">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-gradient-to-br from-red-50 to-red-100 rounded-xl">
+                <div className="p-3 bg-linear-to-br from-red-50 to-red-100 rounded-xl">
                   <MapPin size={24} className="text-[#D32F2F]" />
                 </div>
                 <div>
@@ -365,7 +379,7 @@ const VisitsPage = ({ data, setData }) => {
             {/* Devices Section */}
             <Card className="p-6 bg-white shadow-md border border-gray-100">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
+                <div className="p-3 bg-linear-to-br from-blue-50 to-blue-100 rounded-xl">
                   <Cpu size={24} className="text-blue-600" />
                 </div>
                 <div>
@@ -374,12 +388,12 @@ const VisitsPage = ({ data, setData }) => {
                 </div>
               </div>
               {!newVisit.cliente ? (
-                <div className="p-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-200 text-center">
+                <div className="p-12 bg-linear-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-200 text-center">
                   <Cpu size={48} className="mx-auto mb-4 text-gray-300" />
                   <Label className="text-gray-400 text-base">Seleccione un cliente para ver dispositivos disponibles</Label>
                 </div>
               ) : getClientDevices.length === 0 ? (
-                <div className="p-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-200 text-center">
+                <div className="p-12 bg-linear-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-200 text-center">
                   <Cpu size={48} className="mx-auto mb-4 text-gray-300" />
                   <Label className="text-gray-400 text-base">Este cliente no tiene dispositivos registrados</Label>
                 </div>
@@ -394,7 +408,7 @@ const VisitsPage = ({ data, setData }) => {
                         onClick={() => handleToggleDevice(device.code)} 
                         className={`flex flex-col p-4 rounded-xl border-2 transition-all group text-left ${
                           isSelected
-                            ? 'bg-gradient-to-br from-[#1A1A1A] to-gray-900 border-[#1A1A1A] text-white shadow-lg scale-[1.02]' 
+                            ? 'bg-linear-to-br from-[#1A1A1A] to-gray-900 border-[#1A1A1A] text-white shadow-lg scale-[1.02]' 
                             : 'bg-white border-gray-200 hover:border-[#D32F2F] hover:shadow-md text-gray-700'
                         }`}
                       >
@@ -439,7 +453,7 @@ const VisitsPage = ({ data, setData }) => {
             <Card className="p-6 bg-white shadow-md border border-gray-100">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
+                  <div className="p-3 bg-linear-to-br from-purple-50 to-purple-100 rounded-xl">
                     <FileText size={24} className="text-purple-600" />
                   </div>
                   <div>
@@ -467,7 +481,7 @@ const VisitsPage = ({ data, setData }) => {
 
           {/* Sidebar - Agenda */}
           <aside className="lg:col-span-4 space-y-6">
-            <Card className="p-6 bg-gradient-to-br from-[#1A1A1A] to-gray-900 text-white shadow-2xl border-0">
+            <Card className="p-6 bg-linear-to-br from-[#1A1A1A] to-gray-900 text-white shadow-2xl border-0">
               <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
                 <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm">
                   <CalendarDays size={24} className="text-[#D32F2F]" />
@@ -1203,7 +1217,7 @@ const VisitsPage = ({ data, setData }) => {
                   </div>
 
                   {/* Schedule Card */}
-                  <div className="lg:w-48 flex-shrink-0">
+                  <div className="lg:w-48 shrink-0">
                     <Card className="p-4 bg-blue-50 border-blue-200">
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">

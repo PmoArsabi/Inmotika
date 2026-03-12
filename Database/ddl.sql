@@ -1,6 +1,17 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.actividad_protocolo (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  paso_id uuid NOT NULL,
+  descripcion text NOT NULL,
+  orden integer NOT NULL DEFAULT 1,
+  es_obligatorio boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT actividad_protocolo_pkey PRIMARY KEY (id),
+  CONSTRAINT actividad_protocolo_paso_id_fkey FOREIGN KEY (paso_id) REFERENCES public.paso_protocolo(id)
+);
 CREATE TABLE public.catalogo (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   tipo character varying NOT NULL,
@@ -52,6 +63,10 @@ CREATE TABLE public.cliente (
   estado_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  celular_pais_iso character DEFAULT 'CO'::bpchar,
+  cert_bancaria_url text,
+  otros_documentos jsonb DEFAULT '[]'::jsonb,
+  tipo_documento character varying,
   CONSTRAINT cliente_pkey PRIMARY KEY (id),
   CONSTRAINT cliente_estado_id_fkey FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id)
 );
@@ -59,21 +74,30 @@ CREATE TABLE public.contacto (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   cliente_id uuid,
   identificacion character varying,
-  nombre character varying NOT NULL,
+  nombres character varying NOT NULL,
   genero character varying,
   cargo character varying,
   area_departamento character varying,
   email character varying,
   telefono_movil character varying NOT NULL,
-  telefono_oficina character varying,
   fecha_nacimiento date,
   fecha_matrimonio date,
   estado_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  apellidos character varying,
+  tipo_documento character varying,
+  genero_id uuid,
+  cargo_id uuid,
+  descripcion_cargo text,
+  telefono_movil_pais_iso character DEFAULT 'CO'::bpchar,
+  usuario_id uuid UNIQUE,
   CONSTRAINT contacto_pkey PRIMARY KEY (id),
   CONSTRAINT contacto_cliente_id_fkey FOREIGN KEY (cliente_id) REFERENCES public.cliente(id),
-  CONSTRAINT contacto_estado_id_fkey FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id)
+  CONSTRAINT contacto_estado_id_fkey FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id),
+  CONSTRAINT contacto_genero_id_fkey FOREIGN KEY (genero_id) REFERENCES public.catalogo(id),
+  CONSTRAINT contacto_cargo_id_fkey FOREIGN KEY (cargo_id) REFERENCES public.catalogo(id),
+  CONSTRAINT contacto_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfil_usuario(id)
 );
 CREATE TABLE public.contacto_sucursal (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -88,7 +112,7 @@ CREATE TABLE public.contrato (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   sucursal_id uuid,
   cliente_id uuid,
-  numero_contrato character varying,
+  tema character varying,
   fecha_inicio date,
   fecha_fin date,
   documento_url text,
@@ -104,23 +128,19 @@ CREATE TABLE public.coordinador (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   usuario_id uuid,
   director_id uuid,
-  estado_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT coordinador_pkey PRIMARY KEY (id),
   CONSTRAINT coordinador_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfil_usuario(id),
-  CONSTRAINT coordinador_director_id_fkey FOREIGN KEY (director_id) REFERENCES public.director(id),
-  CONSTRAINT coordinador_estado_id_fkey FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id)
+  CONSTRAINT coordinador_director_id_fkey FOREIGN KEY (director_id) REFERENCES public.director(id)
 );
 CREATE TABLE public.director (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   usuario_id uuid,
-  estado_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT director_pkey PRIMARY KEY (id),
-  CONSTRAINT director_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfil_usuario(id),
-  CONSTRAINT director_estado_id_fkey FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id)
+  CONSTRAINT director_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfil_usuario(id)
 );
 CREATE TABLE public.disponibilidad_tecnico (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -139,7 +159,6 @@ CREATE TABLE public.dispositivo (
   categoria_id uuid,
   cliente_id uuid,
   propiedad_de character varying,
-  id_cliente_interno character varying,
   id_inmotika character varying UNIQUE,
   codigo_unico character varying UNIQUE,
   serial character varying,
@@ -149,11 +168,27 @@ CREATE TABLE public.dispositivo (
   estado_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  linea character varying,
+  mac_address character varying,
+  notas_tecnicas text,
+  descripcion text,
+  identificacion_cliente character varying,
+  es_de_inmotika boolean NOT NULL DEFAULT false,
   CONSTRAINT dispositivo_pkey PRIMARY KEY (id),
   CONSTRAINT dispositivo_sucursal_id_fkey FOREIGN KEY (sucursal_id) REFERENCES public.sucursal(id),
   CONSTRAINT dispositivo_categoria_id_fkey FOREIGN KEY (categoria_id) REFERENCES public.categoria_dispositivo(id),
   CONSTRAINT dispositivo_cliente_id_fkey FOREIGN KEY (cliente_id) REFERENCES public.cliente(id),
   CONSTRAINT dispositivo_estado_id_fkey FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id)
+);
+CREATE TABLE public.ejecucion_actividad (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  intervencion_id uuid NOT NULL,
+  actividad_id uuid NOT NULL,
+  completada boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ejecucion_actividad_pkey PRIMARY KEY (id),
+  CONSTRAINT ejecucion_actividad_intervencion_id_fkey FOREIGN KEY (intervencion_id) REFERENCES public.intervencion(id),
+  CONSTRAINT ejecucion_actividad_actividad_id_fkey FOREIGN KEY (actividad_id) REFERENCES public.actividad_protocolo(id)
 );
 CREATE TABLE public.ejecucion_paso (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -165,6 +200,7 @@ CREATE TABLE public.ejecucion_paso (
   estado_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  evidencia_url text,
   CONSTRAINT ejecucion_paso_pkey PRIMARY KEY (id),
   CONSTRAINT ejecucion_paso_intervencion_id_fkey FOREIGN KEY (intervencion_id) REFERENCES public.intervencion(id),
   CONSTRAINT ejecucion_paso_paso_protocolo_id_fkey FOREIGN KEY (paso_protocolo_id) REFERENCES public.paso_protocolo(id),
@@ -231,13 +267,18 @@ CREATE TABLE public.paso_protocolo (
 );
 CREATE TABLE public.perfil_usuario (
   id uuid NOT NULL,
-  nombre_completo character varying NOT NULL,
   telefono character varying,
   avatar_url text,
   estado_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   rol_id uuid NOT NULL,
+  nombres character varying,
+  apellidos character varying,
+  telefono_pais_iso character DEFAULT 'CO'::bpchar,
+  tipo_documento character varying,
+  identificacion character varying,
+  email text,
   CONSTRAINT perfil_usuario_pkey PRIMARY KEY (id),
   CONSTRAINT perfil_usuario_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT perfil_usuario_estado_id_fkey FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id),
@@ -273,10 +314,12 @@ CREATE TABLE public.sucursal (
   estado_depto character varying,
   pais character varying,
   clasificacion character varying,
-  horarios_atencion text,
+  horarios_atencion jsonb,
   estado_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  latitud numeric,
+  longitud numeric,
   CONSTRAINT sucursal_pkey PRIMARY KEY (id),
   CONSTRAINT sucursal_cliente_id_fkey FOREIGN KEY (cliente_id) REFERENCES public.cliente(id),
   CONSTRAINT sucursal_estado_id_fkey FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id)
@@ -284,17 +327,22 @@ CREATE TABLE public.sucursal (
 CREATE TABLE public.tecnico (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   usuario_id uuid,
-  tipo_documento character varying,
-  identificacion character varying UNIQUE,
   documento_cedula_url text,
   planilla_seg_social_url text,
   certificados text,
-  estado_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT tecnico_pkey PRIMARY KEY (id),
-  CONSTRAINT tecnico_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfil_usuario(id),
-  CONSTRAINT tecnico_estado_id_fkey FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id)
+  CONSTRAINT tecnico_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfil_usuario(id)
+);
+CREATE TABLE public.tecnico_certificado (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  tecnico_id uuid NOT NULL,
+  nombre character varying NOT NULL,
+  url text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT tecnico_certificado_pkey PRIMARY KEY (id),
+  CONSTRAINT tecnico_certificado_tecnico_id_fkey FOREIGN KEY (tecnico_id) REFERENCES public.tecnico(id)
 );
 CREATE TABLE public.visita (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

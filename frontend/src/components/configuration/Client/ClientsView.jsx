@@ -420,11 +420,7 @@ const ClientsView = ({ config, data }) => {
                         <Edit2 size={16} />
                       </button>
                       <button
-                        onClick={() => {
-                          if (window.confirm('¿Está seguro de eliminar este cliente?')) {
-                            config.removeItem(item.id, 'clientes');
-                          }
-                        }}
+                        onClick={() => config.removeItem(item.id, 'clientes')}
                         className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors"
                         title="Eliminar"
                       >

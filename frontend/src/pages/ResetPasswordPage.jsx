@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import LoginBackground from '../components/auth/LoginBackground';
 import ResetPasswordForm from '../components/auth/ResetPasswordForm';
 
-const ResetPasswordPage = () => {
+const ResetPasswordPage = ({ onComplete }) => {
   const { updatePassword } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -31,6 +31,7 @@ const ResetPasswordPage = () => {
       <div className="relative z-10 w-full max-w-md">
         <ResetPasswordForm 
           onUpdatePassword={handleUpdatePassword} 
+          onComplete={onComplete}
           loading={loading}
         />
       </div>

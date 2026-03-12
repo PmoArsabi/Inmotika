@@ -4,7 +4,7 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { Label } from '../ui/Typography';
 
-const ResetPasswordForm = ({ onUpdatePassword, loading: externalLoading }) => {
+const ResetPasswordForm = ({ onUpdatePassword, onComplete, loading: externalLoading }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -48,7 +48,13 @@ const ResetPasswordForm = ({ onUpdatePassword, loading: externalLoading }) => {
           Tu contraseña ha sido configurada correctamente. Ya puedes acceder a todas las funciones de Inmotika.
         </p>
         <Button 
-          onClick={() => window.location.href = '/'}
+          onClick={() => {
+            if (onComplete) {
+              onComplete();
+            } else {
+              window.location.href = '/';
+            }
+          }}
           className="w-full py-4 bg-linear-to-r from-green-600 to-green-800 text-white font-bold rounded-full"
         >
           IR AL PANEL PRINCIPAL

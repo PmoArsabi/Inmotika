@@ -1,15 +1,17 @@
 import { useAuth } from '../context/AuthContext';
+import { useNotify } from '../context/NotificationContext';
 import LoginBackground from '../components/auth/LoginBackground';
 import LoginForm from '../components/auth/LoginForm';
 
 const LoginPage = () => {
   const { signIn, resetPassword } = useAuth();
+  const notify = useNotify();
 
   const handleSignIn = async ({ email, password }) => {
     try {
       await signIn(email, password);
     } catch (error) {
-      alert('Error al iniciar sesión: ' + error.message);
+      notify('error', 'Error al iniciar sesión: ' + error.message);
     }
   };
 

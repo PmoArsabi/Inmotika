@@ -23,16 +23,17 @@ const ContactsView = ({ config, data }) => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(ct =>
-        (ct.nombre || '').toLowerCase().includes(q) ||
+        (ct.nombres || '').toLowerCase().includes(q) ||
+        (ct.apellidos || '').toLowerCase().includes(q) ||
         (ct.email || '').toLowerCase().includes(q) ||
-        String(ct.celular || '').includes(q) ||
+        String(ct.telefonoMovil || '').includes(q) ||
         (ct.clienteNombre || '').toLowerCase().includes(q) ||
         (ct.sucursalNombre || '').toLowerCase().includes(q)
       );
     }
 
-    // Ordenar por nombre
-    result.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+    // Ordenar por nombres
+    result.sort((a, b) => (a.nombres || '').localeCompare(b.nombres || ''));
     return result;
   }, [contacts, searchQuery]);
 
@@ -166,11 +167,11 @@ const ContactsView = ({ config, data }) => {
                 <Tr key={ct.id} className="hover:bg-gray-50">
                   <Td>
                     <div className="text-sm font-medium text-gray-900">
-                      {ct.nombre || 'Sin nombre'}
+                      {ct.nombres || ct.apellidos ? `${ct.nombres || ''} ${ct.apellidos || ''}`.trim() : 'Sin nombre'}
                     </div>
-                    {ct.cargo && (
+                    {(ct.cargoNombre || ct.cargo) && (
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {ct.cargo}
+                        {ct.cargoNombre || ct.cargo}
                       </div>
                     )}
                   </Td>
@@ -181,7 +182,7 @@ const ContactsView = ({ config, data }) => {
                   </Td>
                   <Td>
                     <div className="text-sm font-medium text-gray-700">
-                      {ct.celular || '—'}
+                      {ct.telefonoMovil || '—'}
                     </div>
                   </Td>
                   <Td>
@@ -206,11 +207,7 @@ const ContactsView = ({ config, data }) => {
                         <Edit2 size={16} />
                       </button>
                       <button
-                        onClick={() => {
-                          if (window.confirm('¿Está seguro de eliminar este contacto?')) {
-                            // TODO: Implementar eliminación de contacto
-                          }
-                        }}
+                        onClick={() => config.removeItem(ct.id, 'contactos')}
                         className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors"
                         title="Eliminar"
                       >

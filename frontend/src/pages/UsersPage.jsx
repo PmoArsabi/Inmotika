@@ -1,9 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
+import { useNotify } from '../context/NotificationContext';
+import { useConfirm } from '../context/ConfirmContext';
 import {
   Plus, Edit, Eye, Trash2, UserPlus, Shield, Mail, Phone,
   User, Search, X, Save, ArrowLeft, FileText, Lock, IdCard,
-  Hash, Tag,
+  Hash, Tag, CheckCircle, Send, RefreshCw, Clock,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -35,6 +37,11 @@ const UsersPage = ({ data, setData }) => {
   const [filterRole, setFilterRole] = useState('Todos');
   const [roles, setRoles] = useState([]);
   const [loadingRoles, setLoadingRoles] = useState(true);
+  const [successInfo, setSuccessInfo] = useState(null);
+  const [resendingIds, setResendingIds] = useState(new Set()); // IDs de usuarios con reenvío en progreso
+
+  const notify = useNotify();
+  const confirm = useConfirm();
 
   // Cargar roles desde Supabase
   useEffect(() => {
@@ -72,8 +79,59 @@ const UsersPage = ({ data, setData }) => {
 
   const [tecnicoDocumentos, setTecnicoDocumentos] = useState(emptyDocs());
 
-  // Obtener usuarios del sistema
-  const usuarios = data?.usuarios || [];
+  const [usuarios, setUsuarios] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+
+  // Obtener usuarios del sistema desde Supabase
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoadingUsers(true);
+      const { data: usersData, error } = await supabase
+        .from('perfil_usuario')
+        .select(`
+          id, nombres, apellidos, email, telefono, tipo_documento, identificacion,
+          catalogo_rol (id, codigo, nombre),
+          catalogo_estado_general (id, codigo, nombre, activo)
+        `)
+        .order('nombres');
+
+      if (usersData) {
+        setUsuarios(usersData.map(u => ({
+          ...u,
+          rol: u.catalogo_rol?.codigo || '',
+          rolNombre: u.catalogo_rol?.nombre || '',
+          activo: u.catalogo_estado_general?.activo ?? true,
+          estado: u.catalogo_estado_general?.codigo || '',
+          estadoNombre: u.catalogo_estado_general?.nombre || '',
+        })));
+      } else if (error?.message?.includes('email')) {
+        // email column doesn't exist yet — fetch without it
+        const { data: fallback } = await supabase
+          .from('perfil_usuario')
+          .select(`
+            id, nombres, apellidos, telefono, tipo_documento, identificacion,
+            catalogo_rol (id, codigo, nombre),
+            catalogo_estado_general (id, codigo, nombre, activo)
+          `)
+          .order('nombres');
+        if (fallback) {
+          setUsuarios(fallback.map(u => ({
+            ...u,
+            email: '(pendiente - ejecutar migración)',
+            rol: u.catalogo_rol?.codigo || '',
+            rolNombre: u.catalogo_rol?.nombre || '',
+            activo: u.catalogo_estado_general?.activo ?? true,
+            estado: u.catalogo_estado_general?.codigo || '',
+            estadoNombre: u.catalogo_estado_general?.nombre || '',
+          })));
+        }
+      } else {
+        console.error('Error al cargar usuarios:', error);
+      }
+      setLoadingUsers(false);
+    };
+    fetchUsers();
+  }, []);
 
   // Filtrar usuarios
   const filteredUsers = useMemo(() => {
@@ -146,18 +204,64 @@ const UsersPage = ({ data, setData }) => {
     setEditingUser(null);
   };
 
-  const handleDelete = (userId) => {
-    if (window.confirm('¿Está seguro de eliminar este usuario?')) {
+  const handleDelete = async (userId) => {
+    const user = usuarios.find(u => u.id === userId);
+    const confirmed = await confirm({
+      title: '¿Eliminar usuario?',
+      message: `¿Estás seguro de que deseas eliminar a ${user?.nombres || 'este usuario'}? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Descartar',
+      type: 'danger'
+    });
+
+    if (confirmed) {
       setData(prev => ({
         ...prev,
         usuarios: (prev.usuarios || []).filter(u => u.id !== userId)
       }));
+      notify('success', 'Usuario eliminado correctamente');
+    }
+  };
+
+  const handleResendInvitation = async (user) => {
+    if (resendingIds.has(user.id)) return;
+    setResendingIds(prev => new Set([...prev, user.id]));
+    try {
+      const { data: inviteData, error: inviteError } = await supabase.functions.invoke('invite-user', {
+        body: {
+          email: user.email,
+          nombres: user.nombres,
+          apellidos: user.apellidos,
+          role_code: user.rol,
+          redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
+        }
+      });
+
+      if (inviteError) {
+        // Intentar extraer el mensaje real del cuerpo de la respuesta
+        let mensaje = inviteError.message;
+        try {
+          if (inviteError.context?.json) {
+            const body = await inviteError.context.json();
+            if (body?.error) mensaje = body.error;
+            else if (body?.message) mensaje = body.message;
+          }
+        } catch (_) {}
+        throw new Error(mensaje);
+      }
+      if (inviteData?.error) throw new Error(inviteData.error);
+
+      setSuccessInfo({ email: user.email, nombres: user.nombres, rol: user.rol, isResend: true });
+    } catch (err) {
+      setSuccessInfo({ error: true, message: err.message || 'No se pudo reenviar la invitación' });
+    } finally {
+      setResendingIds(prev => { const n = new Set(prev); n.delete(user.id); return n; });
     }
   };
 
   const handleSave = async () => {
     if (!newUser.nombres || !newUser.email || !newUser.rol) {
-      alert('Por favor complete todos los campos obligatorios');
+      notify('warning', 'Por favor complete todos los campos obligatorios');
       return;
     }
 
@@ -174,12 +278,66 @@ const UsersPage = ({ data, setData }) => {
           }
         });
 
-        if (inviteError || (inviteData && inviteData.error)) {
-          throw new Error(inviteError?.message || inviteData?.error);
+        if (inviteError) {
+          console.error('FULL INVITE ERROR:', inviteError);
+          const status = inviteError.status || 'N/A';
+          let errorMessage = inviteError.message;
+          
+          try {
+            const response = inviteError.context;
+            if (response && typeof response.json === 'function') {
+              const body = await response.json();
+              if (body && body.error) errorMessage = body.error;
+            }
+          } catch (e) {}
+
+          throw new Error(`[Status ${status}] ${errorMessage}`);
         }
 
-        alert(`Invitación enviada exitosamente a ${newUser.email}`);
+        if (inviteData && inviteData.error) {
+          throw new Error(inviteData.error);
+        }
+
+        setSuccessInfo({ email: newUser.email, nombres: newUser.nombres, rol: newUser.rol });
         setIsCreating(false);
+
+        // Actualizar campos adicionales en perfil_usuario (el trigger solo guarda nombre/rol/email)
+        // La invitación crea el registro, esperamos un momento y luego actualizamos
+        // Buscamos el perfil recién creado por email para obtener su ID
+        const findAndUpdate = async () => {
+          await new Promise(r => setTimeout(r, 1500)); // esperar a que el trigger cree el perfil
+          const { data: newProfile } = await supabase
+            .from('perfil_usuario')
+            .select('id')
+            .eq('email', newUser.email)
+            .maybeSingle();
+
+          if (newProfile?.id && (newUser.telefono || newUser.tipoDocumento || newUser.identificacion)) {
+            await supabase
+              .from('perfil_usuario')
+              .update({
+                telefono: newUser.telefono || null,
+                tipo_documento: newUser.tipoDocumento || null,
+                identificacion: newUser.identificacion || null,
+              })
+              .eq('id', newProfile.id);
+          }
+          // Recargar la lista de usuarios
+          const { data: usersData } = await supabase
+            .from('perfil_usuario')
+            .select(`id, nombres, apellidos, email, telefono, tipo_documento, identificacion, catalogo_rol (id, codigo, nombre), catalogo_estado_general (id, codigo, nombre, activo)`)
+            .order('nombres');
+          if (usersData) {
+            setUsuarios(usersData.map(u => ({
+              ...u,
+              rol: u.catalogo_rol?.codigo || '',
+              rolNombre: u.catalogo_rol?.nombre || '',
+              activo: u.catalogo_estado_general?.activo ?? true,
+              estado: u.catalogo_estado_general?.codigo || '',
+            })));
+          }
+        };
+        findAndUpdate();
       } else if (editingUser) {
         // Encontrar el rol_id basado en el código seleccionado
         const selectedRole = roles.find(r => r.codigo === newUser.rol);
@@ -190,14 +348,15 @@ const UsersPage = ({ data, setData }) => {
           .update({
             nombres: newUser.nombres,
             apellidos: newUser.apellidos,
-            rol_id: selectedRole?.id, // Usamos el UUID real
-            telefono: newUser.telefono,
-            tipo_documento_id: (await supabase.from('catalogo_tipo_documento').select('id').eq('codigo', newUser.tipoDocumento).maybeSingle())?.data?.id
+            rol_id: selectedRole?.id,
+            telefono: newUser.telefono || null,
+            tipo_documento: newUser.tipoDocumento || null,
+            identificacion: newUser.identificacion || null,
           })
           .eq('id', editingUser.id);
 
         if (updateError) throw updateError;
-        alert('Usuario actualizado exitosamente');
+        setSuccessInfo({ email: newUser.email, nombres: newUser.nombres, rol: null, isUpdate: true });
         setEditingUser(null);
       }
       
@@ -205,7 +364,7 @@ const UsersPage = ({ data, setData }) => {
       setTecnicoDocumentos(emptyDocs());
     } catch (err) {
       console.error('Error al guardar usuario:', err);
-      alert('Error al realizar la operación: ' + (err.message || err));
+      setSuccessInfo({ error: true, message: err.message || 'Error desconocido' });
     }
   };
 
@@ -482,11 +641,12 @@ const UsersPage = ({ data, setData }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
       <ModuleHeader
+        title="USUARIOS AP"
+        subtitle="Gestión de usuarios con acceso a la plataforma"
         icon={UserPlus}
-        title="Usuarios del Sistema"
-        subtitle="Gestione los usuarios y sus roles en el sistema"
         onNewClick={handleCreate}
-        newButtonLabel="Nuevo Usuario"
+        newButtonLabel="Crear Usuario"
+        newButtonIcon={Plus}
         filterContent={
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
             <div className="relative">
@@ -571,7 +731,13 @@ const UsersPage = ({ data, setData }) => {
                     </div>
                   </Td>
                   <Td>
-                    <StatusBadge status={user.estado === 'ACTIVO' || user.activo ? 'Activo' : 'Inactivo'} />
+                    {/* Estado: Activo/Inactivo o Pendiente si nunca se confirmó */}
+                    {user.activo === undefined && !user.estado
+                      ? <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 w-fit">
+                          <Clock size={11} /> Pendiente
+                        </span>
+                      : <StatusBadge status={user.estado === 'ACTIVO' || user.activo ? 'Activo' : 'Inactivo'} />
+                    }
                   </Td>
                   <Td align="right">
                     <div className="flex items-center justify-end gap-2">
@@ -585,14 +751,22 @@ const UsersPage = ({ data, setData }) => {
                       <button
                         onClick={() => handleEdit(user)}
                         className="p-2 hover:bg-green-50 rounded-md transition-colors"
-                        title="Editar"
+                        title="Editar usuario"
                       >
                         <Edit size={16} className="text-green-600" />
                       </button>
                       <button
+                        onClick={() => handleResendInvitation(user)}
+                        disabled={resendingIds.has(user.id)}
+                        className="p-2 hover:bg-amber-50 rounded-md transition-colors disabled:opacity-50"
+                        title="Reenviar invitación al correo"
+                      >
+                        <RefreshCw size={16} className={`text-amber-600 ${resendingIds.has(user.id) ? 'animate-spin' : ''}`} />
+                      </button>
+                      <button
                         onClick={() => handleDelete(user.id)}
                         className="p-2 hover:bg-red-50 rounded-md transition-colors"
-                        title="Eliminar"
+                        title="Eliminar usuario"
                       >
                         <Trash2 size={16} className="text-red-600" />
                       </button>
@@ -604,6 +778,100 @@ const UsersPage = ({ data, setData }) => {
           </TBody>
         </Table>
       </Card>
+
+      {/* ─── Modal de Éxito / Error ─── */}
+      {successInfo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setSuccessInfo(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            {successInfo.error ? (
+              /* ── Error ── */
+              <>
+                <div className="bg-linear-to-br from-red-500 to-red-700 p-6 text-center">
+                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <X size={32} className="text-white" />
+                  </div>
+                  <h2 className="text-white font-bold text-xl">Error en la operación</h2>
+                </div>
+                <div className="p-6 text-center space-y-4">
+                  <p className="text-gray-600 text-sm">{successInfo.message}</p>
+                  <button
+                    onClick={() => setSuccessInfo(null)}
+                    className="w-full py-2.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
+                  >
+                    Entendido
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* ── Éxito ── */
+              <>
+                <div className="bg-linear-to-br from-[#D32F2F] via-[#B71C1C] to-[#8B0000] p-6 text-center relative overflow-hidden">
+                  <div className="absolute inset-0 opacity-10">
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
+                  </div>
+                  <div className="relative z-10">
+                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 border-2 border-white/30">
+                      {successInfo.isUpdate
+                        ? <CheckCircle size={32} className="text-white" />
+                        : <Send size={28} className="text-white" />
+                      }
+                    </div>
+                    <h2 className="text-white font-bold text-xl">
+                      {successInfo.isResend ? '¡Invitación Reenviada!' : successInfo.isUpdate ? '¡Actualizado!' : '¡Invitación Enviada!'}
+                    </h2>
+                    <p className="text-white/70 text-sm mt-1">
+                      {successInfo.isResend ? 'Se volvió a enviar el correo de activación.' : successInfo.isUpdate ? 'Los datos han sido guardados exitosamente.' : 'El correo de activación fue enviado con éxito.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <User size={15} className="text-gray-400 shrink-0" />
+                      <span className="text-gray-500">Usuario:</span>
+                      <span className="font-semibold text-gray-800">{successInfo.nombres}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail size={15} className="text-gray-400 shrink-0" />
+                      <span className="text-gray-500">Correo:</span>
+                      <span className="font-semibold text-gray-800 break-all">{successInfo.email}</span>
+                    </div>
+                    {!successInfo.isUpdate && successInfo.rol && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Shield size={15} className="text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Rol asignado:</span>
+                        <span className="font-semibold text-gray-800">{successInfo.rol}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {!successInfo.isUpdate && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                      <p className="text-amber-700 text-xs leading-relaxed">
+                        <strong>Próximo paso:</strong> El usuario recibirá un correo con un enlace para configurar su contraseña y acceder a la plataforma.
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => setSuccessInfo(null)}
+                    className="w-full py-2.5 rounded-lg bg-[#D32F2F] text-white font-semibold hover:bg-[#B71C1C] transition-colors"
+                  >
+                    Perfecto
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -685,39 +685,129 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
       c.sucursales?.some(s => s.contactos?.some(co => String(co.id) === String(route.contactId)))
     );
 
+    const notify = useNotify();
+
     const handleSave = async () => {
       setShowErrors(true);
       if (hasErrors) return;
-      const primaryBranchId = draft.associatedBranchIds[0];
-      
-      try {
-        // Guardar en la base de datos (lógica actual de mock/real)
-        setData(prev => applyContactUpsert(prev, route.clientId, primaryBranchId, route.contactId, draft));
 
-        // Si se marca darAcceso, enviar invitación de Supabase
-        if (draft.darAcceso && isNewContact) {
-          const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
-            draft.email,
-            {
-              data: {
-                nombres: draft.nombres,
-                apellidos: draft.apellidos,
-                role_code: 'CLIENTE', // Por defecto para contactos de cliente
-              },
-              redirectTo: `${window.location.origin}`,
-            }
-          );
-          if (inviteError) throw inviteError;
-          alert(`Invitación enviada a ${draft.email}`);
+      setSaveState({ isSaving: true, savedAt: null });
+      try {
+        const primaryBranchId = draft.associatedBranchIds?.[0] || route.branchId || null;
+
+        // ── 1. Obtener estado_id activo si no se ha definido ──────────────────
+        let estadoId = draft.estadoId || null;
+        if (!estadoId) {
+          const { data: estData } = await supabase
+            .from('catalogo_estado_general')
+            .select('id')
+            .eq('activo', true)
+            .limit(1)
+            .maybeSingle();
+          estadoId = estData?.id || null;
         }
 
+        // ── 2. Construir el payload para la tabla `contacto` ──────────────────
+        const isRealId = route.contactId && !String(route.contactId).startsWith('C-');
+        const payload = {
+          nombres:                  draft.nombres             || null,
+          apellidos:                draft.apellidos           || null,
+          tipo_documento:           draft.tipoDocumento       || null,
+          identificacion:           draft.identificacion      || null,
+          genero_id:                draft.generoId            || null,
+          cargo_id:                 draft.cargoId             || null,
+          descripcion_cargo:        draft.descripcionCargo    || null,
+          email:                    draft.email               || null,
+          telefono_movil:           draft.telefonoMovil       || null,
+          telefono_movil_pais_iso:  draft.telefonoMovilPais   || 'CO',
+          fecha_nacimiento:         draft.fechaNacimiento     || null,
+          fecha_matrimonio:         draft.esMarido ? (draft.fechaMatrimonio || null) : null,
+          estado_id:                estadoId,
+          cliente_id:               route.clientId            || null,
+        };
+
+        let contactId = route.contactId;
+
+        if (isRealId) {
+          // UPDATE
+          const { error: updErr } = await supabase
+            .from('contacto')
+            .update(payload)
+            .eq('id', contactId);
+          if (updErr) throw updErr;
+        } else {
+          // INSERT → devuelve el ID real de la DB
+          const { data: inserted, error: insErr } = await supabase
+            .from('contacto')
+            .insert(payload)
+            .select('id')
+            .single();
+          if (insErr) throw insErr;
+          contactId = inserted.id;
+        }
+
+        // ── 3. Gestionar contacto_sucursal (bridge) ───────────────────────────
+        const branchIds = draft.associatedBranchIds || (primaryBranchId ? [primaryBranchId] : []);
+        if (branchIds.length > 0) {
+          // Eliminar asociaciones previas
+          await supabase
+            .from('contacto_sucursal')
+            .delete()
+            .eq('contacto_id', contactId);
+          // Insertar las nuevas
+          const bridgeRows = branchIds.map(bId => ({
+            contacto_id: contactId,
+            sucursal_id: bId,
+          }));
+          const { error: bridgeErr } = await supabase
+            .from('contacto_sucursal')
+            .insert(bridgeRows);
+          if (bridgeErr) console.warn('Error en contacto_sucursal:', bridgeErr.message);
+        }
+
+        // ── 4. Enviar invitación por Edge Function (si se marcó darAcceso) ────
+        if (draft.darAcceso && isNewContact && draft.email) {
+          const { data: invData, error: invErr } = await supabase.functions.invoke('invite-user', {
+            body: {
+              email:      draft.email,
+              nombres:    draft.nombres,
+              apellidos:  draft.apellidos,
+              role_code:  'CLIENTE',
+              redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
+            },
+          });
+          if (invErr) {
+            let msg = invErr.message;
+            try {
+              if (invErr.context?.json) {
+                const b = await invErr.context.json();
+                if (b?.error) msg = b.error;
+              }
+            } catch (_) {}
+            console.warn('Invitación no enviada:', msg);
+            notify('warning', 'Contacto guardado pero la invitación falló: ' + msg);
+          } else {
+            notify('success', 'Invitación enviada correctamente');
+          }
+        }
+
+        // ── 5. Actualizar estado local ────────────────────────────────────────
+        setData(prev => applyContactUpsert(prev, route.clientId, primaryBranchId, contactId, {
+          ...draft,
+          id: contactId,
+        }));
+
         setSaveState({ isSaving: false, savedAt: Date.now() });
-        setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view' } : s));
+        setStack(prev => prev.map((s, idx) =>
+          idx === prev.length - 1 ? { ...s, mode: 'view', contactId } : s
+        ));
         setContactSuccessInfo({ clientId: route.clientId, branchId: primaryBranchId });
+        notify('success', 'Contacto guardado con éxito');
+
       } catch (err) {
-        console.error('Error al guardar contacto/enviar invitación:', err);
-        alert('Error: ' + (err.message || err));
+        console.error('Error al guardar contacto:', err);
         setSaveState({ isSaving: false, savedAt: null });
+        notify('error', 'Error al guardar: ' + (err.message || err));
       }
     };
 

@@ -26,8 +26,8 @@ dist-ssr
 *.sw?
 
 # Supabase
+/supabase
 .supabase
-.supabase/*
 
 # Environment variables
 .env

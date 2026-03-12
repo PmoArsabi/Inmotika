@@ -3,6 +3,7 @@ import {
   Plus, ArrowLeft, Search, X, Eye, FileText,
   Calendar, Building2, Cpu, User, Clock, AlertCircle,
 } from 'lucide-react';
+import { useNotify } from '../../context/NotificationContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ModuleHeader from '../../components/ui/ModuleHeader';
@@ -60,52 +61,11 @@ const SolicitudVisitaPage = ({ data, setData }) => {
   const [draft,         setDraft]        = useState(emptySolicitud());
   const [searchTerm,    setSearchTerm]   = useState('');
   const [filterEstado,  setFilterEstado] = useState('Todos');
-
-  const solicitudes = data?.solicitudesVisita || [];
-  const visitas     = data?.visitas           || [];
-  const clientes    = data?.clientes          || [];
-  const dispositivos = data?.dispositivos     || [];
-
-  // ── Derived options ──────────────────────────────────────────────────────
-  const clienteOptions = useMemo(() =>
-    clientes.map(c => ({ value: c.id, label: c.nombre || c.razonSocial || c.id })),
-    [clientes],
-  );
-
-  const sucursalOptions = useMemo(() => {
-    if (!draft.clienteId) return [];
-    const cliente = clientes.find(c => c.id === draft.clienteId);
-    return (cliente?.sucursales || []).map(s => ({ value: s.id, label: s.nombre }));
-  }, [draft.clienteId, clientes]);
-
-  const dispositivoOptions = useMemo(() =>
-    dispositivos.map(d => ({ value: String(d.id), label: d.nombre || `Dispositivo ${d.id}` })),
-    [dispositivos],
-  );
-
-  // ── Filtered list ────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    let list = solicitudes;
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      list = list.filter(s =>
-        s.clienteNombre?.toLowerCase().includes(q) ||
-        s.sucursalNombre?.toLowerCase().includes(q) ||
-        s.tipoVisita?.toLowerCase().includes(q),
-      );
-    }
-    if (filterEstado !== 'Todos') list = list.filter(s => s.estado === filterEstado);
-    return list;
-  }, [solicitudes, searchTerm, filterEstado]);
-
-  // ── Handlers ─────────────────────────────────────────────────────────────
-  const handleCreate = () => { setIsCreating(true); setViewingSol(null); setDraft(emptySolicitud()); };
-  const handleView   = (sol) => { setViewingSol(sol); setIsCreating(false); };
-  const handleCancel = () => { setIsCreating(false); setViewingSol(null); setDraft(emptySolicitud()); };
+  const notify = useNotify();
 
   const handleSave = () => {
     if (!draft.tipoVisita || !draft.sucursalId || !draft.fechaSugerida) {
-      alert('Complete los campos obligatorios: Tipo, Sucursal y Fecha sugerida.');
+      notify('warning', 'Complete los campos obligatorios: Tipo, Sucursal y Fecha sugerida.');
       return;
     }
     const nueva = {
@@ -226,7 +186,7 @@ const SolicitudVisitaPage = ({ data, setData }) => {
 
           {/* Side info */}
           <div>
-            <Card className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 space-y-4">
+            <Card className="p-5 bg-linear-to-br from-blue-50 to-indigo-50 border-blue-100 space-y-4">
               <div className="flex items-center gap-2">
                 <AlertCircle size={16} className="text-blue-600" />
                 <Label className="text-sm font-bold text-blue-900">Información</Label>
@@ -341,7 +301,7 @@ const SolicitudVisitaPage = ({ data, setData }) => {
 
           {/* Right side panel */}
           <div className="space-y-4">
-            <Card className="p-5 bg-gradient-to-br from-gray-50 to-gray-100">
+            <Card className="p-5 bg-linear-to-br from-gray-50 to-gray-100">
               <div className="flex items-center gap-2 mb-3">
                 <Building2 size={16} className="text-gray-600" />
                 <Label className="text-sm font-bold text-gray-900">Información del Cliente</Label>

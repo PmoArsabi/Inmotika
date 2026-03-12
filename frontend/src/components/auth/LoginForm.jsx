@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
-import { Label, TextSmall } from '../ui/Typography';
+import { Label } from '../ui/Typography';
+import { useNotify } from '../../context/NotificationContext';
 
 const LoginForm = ({ onSignIn, onResetPassword }) => {
+  const notify = useNotify();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +37,7 @@ const LoginForm = ({ onSignIn, onResetPassword }) => {
         }
       }
     } catch (err) {
-      alert(err.message);
+      notify('error', err.message);
     } finally {
       setLoading(false);
     }

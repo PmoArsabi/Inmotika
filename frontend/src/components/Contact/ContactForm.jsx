@@ -12,10 +12,6 @@ import SearchableSelect from '../ui/SearchableSelect';
 import { useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
 import { Label } from '../ui/Typography';
 
-/** Convierte texto a Nombre Propio (como Excel NOMPROPIO / PROPER) */
-const toProperCase = (str) =>
-  str.toLowerCase().replace(/(?:^|\s)\S/g, c => c.toUpperCase());
-
 const ContactForm = ({
   draft,
   updateDraft,
@@ -105,7 +101,7 @@ const ContactForm = ({
           <Input
             label="Nombres"
             value={draft.nombres || ''}
-            onChange={e => updateDraft({ nombres: toProperCase(e.target.value) })}
+            onChange={e => updateDraft({ nombres: e.target.value.toUpperCase() })}
             error={showErrors ? errors.nombres : null}
             viewMode={!isEditing}
             icon={User}
@@ -114,7 +110,7 @@ const ContactForm = ({
           <Input
             label="Apellidos"
             value={draft.apellidos || ''}
-            onChange={e => updateDraft({ apellidos: toProperCase(e.target.value) })}
+            onChange={e => updateDraft({ apellidos: e.target.value.toUpperCase() })}
             error={showErrors ? errors.apellidos : null}
             viewMode={!isEditing}
             icon={User}

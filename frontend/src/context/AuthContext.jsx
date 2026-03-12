@@ -8,8 +8,15 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
 
   useEffect(() => {
+    // Detectar flujo de recuperación ANTES que nada
+    const hash = window.location.hash;
+    if (hash && (hash.includes('type=recovery') || hash.includes('type=invite') || hash.includes('type=signup'))) {
+      setIsRecoveryFlow(true);
+    }
+
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     const enforceMock = false;
@@ -185,6 +192,8 @@ export const AuthProvider = ({ children }) => {
     signOut,
     updatePassword,
     resetPassword,
+    isRecoveryFlow,
+    setIsRecoveryFlow,
     refreshProfile: () => fetchProfile(session?.user?.id)
   };
 

@@ -1,7 +1,28 @@
 import { useState, useEffect } from 'react';
+import { useNotify } from '../context/NotificationContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 export const useConfiguration = (data, setData, initialSubTab = 'clientes') => {
+  const notify = useNotify();
+  const confirm = useConfirm();
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab);
+
+  // ... (rest of state)
+
+  const removeItem = async (id, type) => {
+    const confirmed = await confirm({
+      title: '¿Eliminar registro?',
+      message: '¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      cancelText: 'Descartar',
+      type: 'danger'
+    });
+
+    if (confirmed) {
+      setData({ ...data, [type]: data[type].filter(i => i.id !== id) });
+      notify('success', 'Registro eliminado correctamente');
+    }
+  };
 
   // Update activeSubTab when initialSubTab changes
   useEffect(() => {
@@ -52,12 +73,6 @@ export const useConfiguration = (data, setData, initialSubTab = 'clientes') => {
     setEditingType(type);
     setIsViewMode(false);
     setShowForm(true);
-  };
-
-  const removeItem = (id, type) => {
-    if (window.confirm('¿Está seguro de eliminar este registro?')) {
-      setData({ ...data, [type]: data[type].filter(i => i.id !== id) });
-    }
   };
 
   const handleCloseForm = () => {
