@@ -23,6 +23,7 @@ import CategoriasPage from './pages/CategoriasPage';
 import SolicitudVisitaPage from './pages/visits/SolicitudVisitaPage';
 import ProgramacionVisitaPage from './pages/visits/ProgramacionVisitaPage';
 import GestionVisitasPage from './pages/visits/GestionVisitasPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 function App() {
   const { user, signOut, loading: authLoading } = useAuth();
@@ -32,10 +33,18 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem('sidebar-collapsed') === 'true'
   );
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   // Efecto para limpiar la URL y redirigir según el rol
   useEffect(() => {
-    if (window.location.pathname !== '/') {
+    // Detectar si venimos de un correo de recuperación o invitación (Supabase hash)
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery') || hash.includes('type=invite') || hash.includes('type=signup')) {
+      setIsResettingPassword(true);
+      return; // No limpiar la URL aún para que Supabase procese el token
+    }
+
+    if (window.location.pathname !== '/' && !isResettingPassword) {
       window.history.replaceState(null, '', '/');
     }
     
@@ -73,6 +82,11 @@ function App() {
     setSidebarCollapsed(next);
     localStorage.setItem('sidebar-collapsed', String(next));
   };
+
+  // Mostrar ResetPasswordPage si se detecta flujo de recuperación o invitación
+  if (isResettingPassword) {
+    return <ResetPasswordPage />;
+  }
 
   // Mostrar LoginPage si no hay usuario y no está cargando
   if (!authLoading && !user) {

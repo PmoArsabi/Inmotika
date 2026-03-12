@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   User, IdCard, Mail, Calendar, Briefcase, Heart, MessageSquare,
-  Building2, GitBranch,
+  Building2, GitBranch, Shield, Lock,
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -55,7 +55,7 @@ const ContactForm = ({
           <Button
             onClick={onSave}
             disabled={isSaving}
-            className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+            className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
           >
             {isSaving ? 'Guardando...' : 'GUARDAR CONTACTO'}
           </Button>
@@ -74,7 +74,6 @@ const ContactForm = ({
             value={selectedClientId}
             onChange={onClientChange}
             options={clientOptions}
-            required
             error={clientError}
             placeholder="Seleccionar cliente..."
             icon={Building2}
@@ -87,7 +86,6 @@ const ContactForm = ({
               onChange={onBranchesChange}
               options={availableBranchOptions}
               isMulti
-              required
               error={branchError}
               placeholder="Seleccionar sucursales..."
               icon={GitBranch}
@@ -155,34 +153,27 @@ const ContactForm = ({
             icon={Calendar}
           />
 
-          {/* Casado — switch + fecha aniversario en fila */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="ml-1">Estado Civil</Label>
-            <div className="flex items-center h-10 gap-3">
-              {isEditing ? (
-                <Switch
-                  checked={!!draft.esMarido}
-                  onChange={checked => updateDraft({ esMarido: checked, fechaMatrimonio: checked ? draft.fechaMatrimonio : '' })}
-                  label={draft.esMarido ? 'Casado/a' : 'Soltero/a'}
-                />
-              ) : (
-                <span className="text-sm font-semibold text-gray-900">
-                  {draft.esMarido ? 'Casado/a' : 'Soltero/a'}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {draft.esMarido && (
-            <Input
-              label="Fecha de Aniversario"
-              type="date"
-              value={draft.fechaMatrimonio || ''}
-              onChange={e => updateDraft({ fechaMatrimonio: e.target.value })}
+          {/* ESTADO CIVIL */}
+          <div className="space-y-4">
+            <Switch
+              label="Estado Civil"
+              checked={!!draft.esMarido}
+              onChange={checked => updateDraft({ esMarido: checked, fechaMatrimonio: checked ? draft.fechaMatrimonio : '' })}
               viewMode={!isEditing}
-              icon={Heart}
+              checkedLabel="Casado/a"
+              uncheckedLabel="Soltero/a"
             />
-          )}
+            {draft.esMarido && (
+              <Input
+                label="Fecha de Aniversario"
+                type="date"
+                value={draft.fechaMatrimonio || ''}
+                onChange={e => updateDraft({ fechaMatrimonio: e.target.value })}
+                viewMode={!isEditing}
+                icon={Heart}
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -238,6 +229,34 @@ const ContactForm = ({
             icon={MessageSquare}
             placeholder="Descripción opcional del rol"
           />
+        </div>
+      </div>
+
+      {/* ─── Acceso a la Plataforma ─── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
+          <Shield size={15} className="text-gray-500" />
+          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Acceso a la plataforma</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <Switch
+              label="¿Dar acceso al sistema?"
+              checked={!!draft.darAcceso}
+              onChange={checked => updateDraft({ darAcceso: checked })}
+              viewMode={!isEditing}
+              checkedLabel="Activo"
+              uncheckedLabel="Inactivo"
+            />
+            {draft.darAcceso && (
+              <div className="mt-4 flex items-center gap-3 p-3 bg-blue-50/30 border-l-2 border-blue-400 rounded-r-lg animate-in fade-in slide-in-from-top-1 duration-300">
+                <Mail size={14} className="text-blue-500 shrink-0" />
+                <p className="text-[12px] text-blue-900/80 leading-relaxed">
+                  Se enviará una invitación a <span className="font-bold text-blue-700 underline decoration-blue-200 underline-offset-4">{draft.email || 'la dirección registrada'}</span> al guardar.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

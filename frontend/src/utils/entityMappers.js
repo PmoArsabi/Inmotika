@@ -245,20 +245,32 @@ export const applyBranchUpsert = (prevData, clientId, branchId, branchDraft) => 
 };
 
 export const applyContactUpsert = (prevData, clientId, branchId, contactId, contactDraft) => {
+  const telefonoCompleto = contactDraft.telefonoMovilPais && contactDraft.telefonoMovil
+    ? formatFullPhone(contactDraft.telefonoMovilPais, contactDraft.telefonoMovil)
+    : contactDraft.telefonoMovil;
+  
+  const mapped = {
+    id: contactId,
+    ...contactDraft,
+    telefonoMovil: telefonoCompleto,
+  };
+
+  // Si no hay cliente ni sede, se guarda en el array global de contactos
+  if (!clientId || !branchId) {
+    const current = prevData?.contactos || [];
+    const exists = current.some(ct => String(ct.id) === String(contactId));
+    const upserted = exists
+      ? current.map(ct => String(ct.id) === String(contactId) ? { ...ct, ...mapped } : ct)
+      : [...current, mapped];
+    return { ...prevData, contactos: upserted };
+  }
+
   const updatedClients = (prevData?.clientes || []).map(c => {
     if (String(c.id) !== String(clientId)) return c;
     const updatedBranches = (c.sucursales || []).map(b => {
       if (String(b.id) !== String(branchId)) return b;
       const current = b.contactos || [];
       const exists = current.some(ct => String(ct.id) === String(contactId));
-      const telefonoCompleto = contactDraft.telefonoMovilPais && contactDraft.telefonoMovil
-        ? formatFullPhone(contactDraft.telefonoMovilPais, contactDraft.telefonoMovil)
-        : contactDraft.telefonoMovil;
-      const mapped = {
-        id: contactId,
-        ...contactDraft,
-        telefonoMovil: telefonoCompleto,
-      };
       const upserted = exists
         ? current.map(ct => String(ct.id) === String(contactId) ? { ...ct, ...mapped } : ct)
         : [...current, mapped];

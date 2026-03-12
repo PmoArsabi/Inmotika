@@ -12,8 +12,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const enforceMock = true;
-    if (!supabaseUrl || !supabaseAnonKey || enforceMock) {
+    const enforceMock = false;
+    if (!supabaseUrl || !supabaseAnonKey || (enforceMock && import.meta.env.DEV)) {
       // Simular que no hay sesión activa real pero ya cargó el store
       setLoading(false);
       return () => {}; // return empty cleanup function
@@ -83,6 +83,8 @@ export const AuthProvider = ({ children }) => {
           roleName: data.catalogo_rol?.nombre || 'Administrador',
           status: data.catalogo_estado_general?.codigo || 'ACTIVO',
           email: currentSession?.user?.email || null,
+          nombres: data.nombres || '',
+          apellidos: data.apellidos || '',
         });
       } else {
         // Perfil no encontrado aún (ej: trigger aún no ejecutó)
@@ -102,7 +104,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signIn = async (email, password) => {
-    const enforceMock = true;
+    const enforceMock = false;
     
     if (enforceMock) {
       // Find user in mock data
@@ -147,19 +149,31 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    
-    const enforceMock = true;
-    
-    if (!supabaseUrl || !supabaseAnonKey || enforceMock) {
-      // Modo mock: solo limpiar el estado local
-      setUser(null);
-      setSession(null);
-      return;
-    }
-    
     const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  };
+
+  const updatePassword = async (newPassword) => {
+    const enforceMock = false;
+    if (enforceMock) {
+      return new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+    if (error) throw error;
+  };
+
+  const resetPassword = async (email) => {
+    const enforceMock = false;
+    if (enforceMock) {
+      return new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}`,
+    });
     if (error) throw error;
   };
 
@@ -169,6 +183,8 @@ export const AuthProvider = ({ children }) => {
     loading,
     signIn,
     signOut,
+    updatePassword,
+    resetPassword,
     refreshProfile: () => fetchProfile(session?.user?.id)
   };
 

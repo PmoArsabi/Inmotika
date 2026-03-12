@@ -42,6 +42,7 @@ const ConfigurationPage = ({ data, setData, initialSubTab = 'clientes', isSingle
 
   const contactsFlat = useMemo(() => {
     const result = [];
+    // Contactos asociados a sedes
     (data?.clientes || []).forEach(c => {
       (c.sucursales || []).forEach(s => {
         (s.contactos || []).forEach(ct => {
@@ -53,6 +54,16 @@ const ConfigurationPage = ({ data, setData, initialSubTab = 'clientes', isSingle
             sucursalNombre: s.nombre,
           });
         });
+      });
+    });
+    // Contactos independientes
+    (data?.contactos || []).forEach(ct => {
+      result.push({
+        ...ct,
+        clientId: null,
+        branchId: null,
+        clienteNombre: 'Sin Asignar',
+        sucursalNombre: '-',
       });
     });
     return result;

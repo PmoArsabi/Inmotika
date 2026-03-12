@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '../../utils/supabase';
 import { 
   Building2, Hash, Map, MapPin, Phone, Mail, User, Briefcase, 
   ChevronLeft, ChevronRight, Home, Users, Edit2, Eye, Plus, Save, Trash2, Calendar, Lock,
@@ -232,21 +233,23 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
         const clientId = openParams.clientId || null;
         const branchId = openParams.branchId || null;
         ensureDraft(entityKey('contact', contactId), () => {
-          if (clientId && branchId) {
-            const client = data.clientes?.find(c => String(c.id) === String(clientId));
-            const branch = client?.sucursales?.find(s => String(s.id) === String(branchId));
-            const contact = branch?.contactos?.find(ct => String(ct.id) === String(contactId));
-            if (contact) {
-              const draft = toContactDraft(contact);
-              // Inicializar sucursales asociadas con la sucursal actual si no existe
-              if (!draft.associatedBranchIds || draft.associatedBranchIds.length === 0) {
-                draft.associatedBranchIds = [String(branchId)];
+            if (clientId && branchId) {
+              const client = data.clientes?.find(c => String(c.id) === String(clientId));
+              const branch = client?.sucursales?.find(s => String(s.id) === String(branchId));
+              const contact = branch?.contactos?.find(ct => String(ct.id) === String(contactId));
+              if (contact) {
+                const draft = toContactDraft(contact);
+                if (!draft.associatedBranchIds || draft.associatedBranchIds.length === 0) {
+                  draft.associatedBranchIds = [String(branchId)];
+                }
+                return draft;
               }
-              return draft;
             }
+            // Buscar en contactos independientes si no se encontró en sedes
+            const independentContact = data.contactos?.find(ct => String(ct.id) === String(contactId));
+            if (independentContact) return toContactDraft(independentContact);
+            
             return emptyContactDraft();
-          }
-          return emptyContactDraft();
         });
         setStack([{ type: 'contact', clientId, branchId, contactId, mode: openParams.mode || 'edit' }]);
       } else {
@@ -683,21 +686,39 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
     );
 
     const handleSave = async () => {
-      if (!route.clientId || !draft.associatedBranchIds || draft.associatedBranchIds.length === 0) {
-        setShowErrors(true);
-        return;
-      }
       setShowErrors(true);
       if (hasErrors) return;
-      setSaveState({ isSaving: true, savedAt: null });
-      await new Promise(r => setTimeout(r, 400));
-      
       const primaryBranchId = draft.associatedBranchIds[0];
-      setData(prev => applyContactUpsert(prev, route.clientId, primaryBranchId, route.contactId, draft));
       
-      setSaveState({ isSaving: false, savedAt: Date.now() });
-      setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view' } : s));
-      setContactSuccessInfo({ clientId: route.clientId, branchId: primaryBranchId });
+      try {
+        // Guardar en la base de datos (lógica actual de mock/real)
+        setData(prev => applyContactUpsert(prev, route.clientId, primaryBranchId, route.contactId, draft));
+
+        // Si se marca darAcceso, enviar invitación de Supabase
+        if (draft.darAcceso && isNewContact) {
+          const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+            draft.email,
+            {
+              data: {
+                nombres: draft.nombres,
+                apellidos: draft.apellidos,
+                role_code: 'CLIENTE', // Por defecto para contactos de cliente
+              },
+              redirectTo: `${window.location.origin}`,
+            }
+          );
+          if (inviteError) throw inviteError;
+          alert(`Invitación enviada a ${draft.email}`);
+        }
+
+        setSaveState({ isSaving: false, savedAt: Date.now() });
+        setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view' } : s));
+        setContactSuccessInfo({ clientId: route.clientId, branchId: primaryBranchId });
+      } catch (err) {
+        console.error('Error al guardar contacto/enviar invitación:', err);
+        alert('Error: ' + (err.message || err));
+        setSaveState({ isSaving: false, savedAt: null });
+      }
     };
 
     return (
@@ -717,8 +738,8 @@ const ConfigurationNavigator = ({ openParams, data, setData, onClose }) => {
           availableBranchOptions={availableBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
           selectedBranchValues={selectedBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
           onBranchesChange={handleBranchesChange}
-          clientError={showErrors && !route.clientId ? 'Debe seleccionar un cliente' : null}
-          branchError={showErrors && (!draft.associatedBranchIds || draft.associatedBranchIds.length === 0) ? 'Debe seleccionar al menos una sucursal' : null}
+          clientError={null}
+          branchError={null}
         />
       </Card>
     );

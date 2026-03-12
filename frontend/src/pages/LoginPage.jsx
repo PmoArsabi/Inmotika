@@ -3,14 +3,21 @@ import LoginBackground from '../components/auth/LoginBackground';
 import LoginForm from '../components/auth/LoginForm';
 
 const LoginPage = () => {
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
 
   const handleSignIn = async ({ email, password }) => {
     try {
       await signIn(email, password);
-      // El AuthContext detectará el cambio y el useEffect en App.jsx redirigirá al usuario
     } catch (error) {
       alert('Error al iniciar sesión: ' + error.message);
+    }
+  };
+
+  const handleResetPassword = async (email) => {
+    try {
+      await resetPassword(email);
+    } catch (error) {
+      throw error;
     }
   };
 
@@ -19,7 +26,7 @@ const LoginPage = () => {
       <LoginBackground />
       
       <div className="relative z-10 w-full max-w-md">
-        <LoginForm onSignIn={handleSignIn} />
+        <LoginForm onSignIn={handleSignIn} onResetPassword={handleResetPassword} />
       </div>
     </div>
   );

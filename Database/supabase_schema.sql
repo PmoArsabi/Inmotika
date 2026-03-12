@@ -71,7 +71,6 @@ CREATE TABLE perfil_usuario (
 CREATE TABLE director (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     usuario_id UUID REFERENCES perfil_usuario(id) ON DELETE CASCADE,
-    estado_id UUID REFERENCES catalogo_estado_general(id),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -80,7 +79,6 @@ CREATE TABLE coordinador (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     usuario_id UUID REFERENCES perfil_usuario(id) ON DELETE CASCADE,
     director_id UUID REFERENCES director(id),
-    estado_id UUID REFERENCES catalogo_estado_general(id),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -93,7 +91,6 @@ CREATE TABLE tecnico (
     documento_cedula_url TEXT,
     planilla_seg_social_url TEXT,
     certificados TEXT,
-    estado_id UUID REFERENCES catalogo_estado_general(id),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -145,6 +142,7 @@ CREATE TABLE sucursal (
 CREATE TABLE contacto (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     cliente_id UUID REFERENCES cliente(id) ON DELETE CASCADE,
+    usuario_id UUID REFERENCES perfil_usuario(id) ON DELETE SET NULL,
     identificacion VARCHAR(100),
     nombre VARCHAR(255) NOT NULL,
     genero VARCHAR(50),
@@ -157,7 +155,8 @@ CREATE TABLE contacto (
     fecha_matrimonio DATE,
     estado_id UUID REFERENCES catalogo_estado_general(id),
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(usuario_id)
 );
 
 CREATE TABLE contacto_sucursal (

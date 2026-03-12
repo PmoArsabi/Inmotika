@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { supabase } from '../utils/supabase';
 import {
   Plus, Edit, Eye, Trash2, UserPlus, Shield, Mail, Phone,
   User, Search, X, Save, ArrowLeft, FileText, Lock, IdCard,
@@ -32,6 +33,24 @@ const UsersPage = ({ data, setData }) => {
   const [viewingUser, setViewingUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('Todos');
+  const [roles, setRoles] = useState([]);
+  const [loadingRoles, setLoadingRoles] = useState(true);
+
+  // Cargar roles desde Supabase
+  useEffect(() => {
+    const fetchRoles = async () => {
+      const { data: rolesData, error } = await supabase
+        .from('catalogo_rol')
+        .select('id, codigo, nombre')
+        .order('nombre');
+      
+      if (rolesData) {
+        setRoles(rolesData);
+      }
+      setLoadingRoles(false);
+    };
+    fetchRoles();
+  }, []);
   
   const emptyUser = () => ({
     nombres: '',
@@ -43,7 +62,6 @@ const UsersPage = ({ data, setData }) => {
     identificacion: '',
     rol: '',
     activo: true,
-    password: '',
     certificados: [],   // solo para Técnico: [{ id, nombre, fileLoaded }]
     directorId: '',     // solo para Coordinador
   });
@@ -77,13 +95,11 @@ const UsersPage = ({ data, setData }) => {
     return filtered;
   }, [usuarios, searchTerm, filterRole]);
 
-  // Roles disponibles
-  const roleOptions = [
+  // Roles disponibles para el Select
+  const roleOptions = useMemo(() => [
     { value: '', label: 'Seleccionar rol' },
-    { value: ROLES.DIRECTOR, label: 'Director' },
-    { value: ROLES.COORDINADOR, label: 'Coordinador' },
-    { value: ROLES.TECNICO, label: 'Técnico' },
-  ];
+    ...roles.filter(r => r.codigo !== 'CLIENTE').map(r => ({ value: r.codigo, label: r.nombre }))
+  ], [roles]);
 
   const roleLabels = {
     [ROLES.DIRECTOR]: 'Director',
@@ -139,76 +155,57 @@ const UsersPage = ({ data, setData }) => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!newUser.nombres || !newUser.email || !newUser.rol) {
       alert('Por favor complete todos los campos obligatorios');
       return;
     }
 
-    if (isCreating) {
-      if (usuarios.some(u => u.email === newUser.email)) {
-        alert('Ya existe un usuario con este email');
-        return;
+    try {
+      if (isCreating) {
+        // Enviar invitación de Supabase mediante Edge Function (Seguro)
+        const { data: inviteData, error: inviteError } = await supabase.functions.invoke('invite-user', {
+          body: {
+            email: newUser.email,
+            nombres: newUser.nombres,
+            apellidos: newUser.apellidos,
+            role_code: newUser.rol,
+            redirectTo: `${window.location.origin}`,
+          }
+        });
+
+        if (inviteError || (inviteData && inviteData.error)) {
+          throw new Error(inviteError?.message || inviteData?.error);
+        }
+
+        alert(`Invitación enviada exitosamente a ${newUser.email}`);
+        setIsCreating(false);
+      } else if (editingUser) {
+        // Encontrar el rol_id basado en el código seleccionado
+        const selectedRole = roles.find(r => r.codigo === newUser.rol);
+        
+        // Lógica de actualización de perfil
+        const { error: updateError } = await supabase
+          .from('perfil_usuario')
+          .update({
+            nombres: newUser.nombres,
+            apellidos: newUser.apellidos,
+            rol_id: selectedRole?.id, // Usamos el UUID real
+            telefono: newUser.telefono,
+            tipo_documento_id: (await supabase.from('catalogo_tipo_documento').select('id').eq('codigo', newUser.tipoDocumento).maybeSingle())?.data?.id
+          })
+          .eq('id', editingUser.id);
+
+        if (updateError) throw updateError;
+        alert('Usuario actualizado exitosamente');
+        setEditingUser(null);
       }
-
-      const newId = `USR-${String(usuarios.length + 1).padStart(3, '0')}`;
-      const userToAdd = {
-        id: newId,
-        nombres: newUser.nombres,
-        apellidos: newUser.apellidos,
-        email: newUser.email,
-        telefono: newUser.telefono || '',
-        telefonoPais: newUser.telefonoPais || 'CO',
-        tipoDocumento: newUser.tipoDocumento || '',
-        identificacion: newUser.identificacion || '',
-        rol: newUser.rol,
-        activo: newUser.activo,
-        fechaCreacion: new Date().toISOString().split('T')[0],
-        password: newUser.password || 'password123',
-        ...(newUser.rol === ROLES.TECNICO && {
-          documentos: tecnicoDocumentos,
-          certificados: newUser.certificados,
-        }),
-        ...(newUser.rol === ROLES.COORDINADOR && {
-          directorId: newUser.directorId,
-        }),
-      };
-
-      setData(prev => ({ ...prev, usuarios: [...(prev.usuarios || []), userToAdd] }));
-      setIsCreating(false);
+      
       setNewUser(emptyUser());
       setTecnicoDocumentos(emptyDocs());
-    } else if (editingUser) {
-      setData(prev => ({
-        ...prev,
-        usuarios: (prev.usuarios || []).map(u =>
-          u.id === editingUser.id
-            ? {
-                ...u,
-                nombres: newUser.nombres,
-                apellidos: newUser.apellidos,
-                email: newUser.email,
-                telefono: newUser.telefono,
-                telefonoPais: newUser.telefonoPais || 'CO',
-                tipoDocumento: newUser.tipoDocumento || '',
-                identificacion: newUser.identificacion || '',
-                rol: newUser.rol,
-                activo: newUser.activo,
-                ...(newUser.password && { password: newUser.password }),
-                ...(newUser.rol === ROLES.TECNICO && {
-                  documentos: tecnicoDocumentos,
-                  certificados: newUser.certificados,
-                }),
-                ...(newUser.rol === ROLES.COORDINADOR && {
-                  directorId: newUser.directorId,
-                }),
-              }
-            : u
-        ),
-      }));
-      setEditingUser(null);
-      setNewUser(emptyUser());
-      setTecnicoDocumentos(emptyDocs());
+    } catch (err) {
+      console.error('Error al guardar usuario:', err);
+      alert('Error al realizar la operación: ' + (err.message || err));
     }
   };
 
@@ -340,18 +337,16 @@ const UsersPage = ({ data, setData }) => {
                 />
               </div>
 
-              {/* Contraseña — inmediatamente bajo los datos base */}
-              {!viewingUser && (
-                <div className="mt-4">
-                  <Input
-                    label={isCreating ? 'Contraseña' : 'Nueva Contraseña'}
-                    icon={Lock}
-                    type="password"
-                    placeholder={isCreating ? '' : 'Dejar vacío para mantener la actual'}
-                    value={newUser.password}
-                    onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                    required={isCreating}
-                  />
+              {/* Invitación Informativa */}
+              {isCreating && (
+                <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-3">
+                  <Mail className="text-blue-600 shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <TextSmall className="text-blue-900 font-bold">Invitación por Correo</TextSmall>
+                    <TextTiny className="text-blue-700 leading-relaxed">
+                      Al guardar, el sistema enviará automáticamente un correo electrónico a este usuario con un enlace seguro para que cree su propia contraseña.
+                    </TextTiny>
+                  </div>
                 </div>
               )}
 
