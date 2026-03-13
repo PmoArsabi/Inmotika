@@ -20,6 +20,7 @@ import { H2, H3, Subtitle, TextSmall, Label } from '../ui/Typography';
 import FileUploader from '../ui/FileUploader';
 import LoadingInline from './LoadingInline';
 import { useLocationData } from '../../hooks/useLocationData';
+import { useNotify } from '../../context/NotificationContext';
 import Breadcrumbs from './Breadcrumbs';
 import Tabs from '../ui/Tabs';
 

@@ -18,6 +18,7 @@ import { LocationPickerRows } from '../../forms/LocationPickerRows';
 import Card from '../../ui/Card';
 import { TextSmall, Subtitle, Label, TextTiny } from '../../ui/Typography';
 import IconButton from '../../ui/IconButton';
+import DynamicDocumentList from '../../ui/DynamicDocumentList';
 import { supabase } from '../../../utils/supabase';
 import { useEstados, useCatalog, useActivoInactivo } from '../../../hooks/useCatalog';
 import { emptyContractDraft } from '../../../utils/entityMappers';
@@ -90,20 +91,9 @@ const ClientForm = ({
     }
   };
 
-  // Otros documentos
-  const addOtroDoc = () => {
-    const newDoc = { id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(), nombre: '', url: '' };
-    updateDraft({ otrosDocumentos: [...(draft.otrosDocumentos || []), newDoc] });
-  };
-
-  const removeOtroDoc = (id) => {
-    updateDraft({ otrosDocumentos: (draft.otrosDocumentos || []).filter(d => d.id !== id) });
-  };
-
-  const updateOtroDoc = (id, patch) => {
-    updateDraft({
-      otrosDocumentos: (draft.otrosDocumentos || []).map(d => d.id === id ? { ...d, ...patch } : d),
-    });
+  // Document change handler
+  const handleOtrosDocumentosChange = (newDocs) => {
+    updateDraft({ otrosDocumentos: newDocs });
   };
 
   return (
@@ -388,53 +378,15 @@ const ClientForm = ({
                   </div>
 
                   {/* Otros documentos dinámicos */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold text-gray-700">Otros Documentos</Label>
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={addOtroDoc}
-                          className="flex items-center gap-1 text-xs text-[#D32F2F] hover:text-[#B71C1C] font-semibold transition-colors"
-                        >
-                          <Plus size={13} /> Agregar
-                        </button>
-                      )}
-                    </div>
-                    {(draft.otrosDocumentos || []).length === 0 && !isEditing ? (
-                      <TextTiny className="text-gray-400 italic">Sin otros documentos</TextTiny>
-                    ) : (
-                      <div className="space-y-2">
-                        {(draft.otrosDocumentos || []).map(doc => (
-                          <div key={doc.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-md border border-gray-200">
-                            <Input
-                              placeholder="Nombre del documento"
-                              value={doc.nombre || ''}
-                              onChange={e => updateOtroDoc(doc.id, { nombre: e.target.value.toUpperCase() })}
-                              viewMode={!isEditing}
-                              uppercase
-                              className="flex-1"
-                            />
-                            <div className="flex-1">
-                              <FileUploader
-                                bucket="inmotika"
-                                storagePath={draft.id ? `clientes/${draft.id}/otros/${doc.id}.pdf` : undefined}
-                                value={doc.url || ''}
-                                onChange={path => updateOtroDoc(doc.id, { url: path })}
-                                accept="application/pdf,image/*"
-                                viewMode={!isEditing}
-                              />
-                            </div>
-                            {isEditing && (
-                              <button type="button" onClick={() => removeOtroDoc(doc.id)} className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded">
-                                <Trash2 size={14} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <DynamicDocumentList
+                    title="Otros Documentos"
+                    addButtonLabel="Agregar"
+                    items={draft.otrosDocumentos || []}
+                    onChange={handleOtrosDocumentosChange}
+                    viewMode={!isEditing}
+                    storagePathPrefix={draft.id ? `clientes/${draft.id}/otros` : null}
+                    itemPlaceholder="Nombre del documento"
+                  />
                 </div>
               </div>
             )}
