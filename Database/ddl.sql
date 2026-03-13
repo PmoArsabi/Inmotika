@@ -130,6 +130,7 @@ CREATE TABLE public.coordinador (
   director_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  activo boolean NOT NULL DEFAULT true,
   CONSTRAINT coordinador_pkey PRIMARY KEY (id),
   CONSTRAINT coordinador_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfil_usuario(id),
   CONSTRAINT coordinador_director_id_fkey FOREIGN KEY (director_id) REFERENCES public.director(id)
@@ -139,6 +140,7 @@ CREATE TABLE public.director (
   usuario_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  activo boolean NOT NULL DEFAULT true,
   CONSTRAINT director_pkey PRIMARY KEY (id),
   CONSTRAINT director_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfil_usuario(id)
 );
@@ -329,9 +331,9 @@ CREATE TABLE public.tecnico (
   usuario_id uuid,
   documento_cedula_url text,
   planilla_seg_social_url text,
-  certificados text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  activo boolean NOT NULL DEFAULT true,
   CONSTRAINT tecnico_pkey PRIMARY KEY (id),
   CONSTRAINT tecnico_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfil_usuario(id)
 );
@@ -341,6 +343,7 @@ CREATE TABLE public.tecnico_certificado (
   nombre character varying NOT NULL,
   url text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
+  activo boolean NOT NULL DEFAULT true,
   CONSTRAINT tecnico_certificado_pkey PRIMARY KEY (id),
   CONSTRAINT tecnico_certificado_tecnico_id_fkey FOREIGN KEY (tecnico_id) REFERENCES public.tecnico(id)
 );

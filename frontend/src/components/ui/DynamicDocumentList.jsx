@@ -23,7 +23,8 @@ const DynamicDocumentList = ({
   viewMode = false, 
   storagePathPrefix = null,
   itemPlaceholder = 'Nombre del documento',
-  renderExtraFields = null
+  renderExtraFields = null,
+  deferred = false
 }) => {
   const addRow = () => {
     const newItems = [...items, { id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(), nombre: '', url: null }];
@@ -76,9 +77,8 @@ const DynamicDocumentList = ({
                   label="Descripción"
                   placeholder={itemPlaceholder}
                   value={item.nombre}
-                  onChange={e => updateRow(item.id, { nombre: e.target.value.toUpperCase() })}
+                  onChange={e => updateRow(item.id, { nombre: e.target.value })} // Removed toUpperCase()
                   viewMode={viewMode}
-                  uppercase
                   className="h-10"
                 />
               )}
@@ -88,10 +88,22 @@ const DynamicDocumentList = ({
               <FileUploader
                 label="Documento"
                 bucket="inmotika"
-                storagePath={storagePathPrefix ? `${storagePathPrefix}/${item.id}.pdf` : null}
+                storagePath={(() => {
+                  if (!storagePathPrefix) return null;
+                  const sanitizedName = (item.nombre || '')
+                    .trim()
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+                    .replace(/[^a-z0-9]/g, '_')     // Replace non-alphanumeric with _
+                    .replace(/_+/g, '_');           // Collapse multiple _
+                  const filename = sanitizedName || item.id;
+                  return `${storagePathPrefix}/${filename}.pdf`;
+                })()}
                 value={item.url}
                 viewMode={viewMode}
                 onChange={(path) => updateRow(item.id, { url: path })}
+                deferred={deferred}
               />
             </div>
 

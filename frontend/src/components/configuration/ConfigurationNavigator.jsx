@@ -28,17 +28,15 @@ const ConfigurationNavigator = ({ onClose }) => {
     editingBranchId, setEditingBranchId, 
     viewBranchMode, setViewBranchMode,
     creatingNewBranch, setCreatingNewBranch,
+    showErrors, setShowErrors,
+    saveState, setSaveState,
+    showSuccessModal, setShowSuccessModal,
+    branchSuccessInfo, setBranchSuccessInfo,
+    savedClientId, setSavedClientId,
   } = useConfigurationContext();
 
   const { data, setData } = useMasterData();
   const notify = useNotify();
-
-  // Local helper states for orchestration
-  const [showErrors, setShowErrors] = useState(false);
-  const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [branchSuccessInfo, setBranchSuccessInfo] = useState(null);
-  const [savedClientId, setSavedClientId] = useState(null);
 
   // Association modals
   const [associateContactsModal, setAssociateContactsModal] = useState(null);
@@ -161,23 +159,7 @@ const ConfigurationNavigator = ({ onClose }) => {
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 -mt-4">
         <NavigatorBreadcrumbs />
         
-        {route?.type === 'cliente' && (
-          <ClientNavigator 
-            setShowSuccessModal={setShowSuccessModal}
-            setSavedClientId={setSavedClientId}
-            setBranchSuccessInfo={setBranchSuccessInfo}
-            setAssociateContactsModal={setAssociateContactsModal}
-            setAssociateDevicesModal={setAssociateDevicesModal}
-            setAssociateContactsSelected={setAssociateContactsSelected}
-            setAssociateContactsSearch={setAssociateContactsSearch}
-            setAssociateDevicesSelected={setAssociateDevicesSelected}
-            setAssociateDevicesSearch={setAssociateDevicesSearch}
-            setShowErrors={setShowErrors}
-            showErrors={showErrors}
-            saveState={saveState}
-            setSaveState={setSaveState}
-          />
-        )}
+        {route?.type === 'cliente' && <ClientNavigator />}
         
         {route?.type === 'contact' && <ContactNavigator onClose={onClose} />}
         {route?.type === 'dispositivo' && <DeviceNavigator onClose={onClose} />}
@@ -202,7 +184,7 @@ const ConfigurationNavigator = ({ onClose }) => {
               El cliente se ha guardado correctamente. ¿Qué deseas hacer ahora?
             </TextSmall>
             <div className="flex flex-col gap-3">
-              <Button onClick={handleGoToStep2} className="w-full bg-linear-to-r from-red-600 to-red-800 text-white border-0">Paso 2 Sucursal</Button>
+              <Button onClick={handleGoToStep2} variant="success" className="w-full">Paso 2 Sucursal</Button>
               <Button onClick={handleGoToClients} variant="outline" className="w-full">Volver a Clientes</Button>
             </div>
           </div>
@@ -219,7 +201,7 @@ const ConfigurationNavigator = ({ onClose }) => {
             </div>
             <TextSmall className="text-gray-600 mb-6 leading-relaxed">La sucursal se ha guardado correctamente. ¿Qué deseas hacer ahora?</TextSmall>
             <div className="flex flex-col gap-3">
-              <Button onClick={handleBranchGoToStep3Contact} className="w-full bg-linear-to-r from-red-600 to-red-800 text-white border-0">Paso 3 Crear Contacto</Button>
+              <Button onClick={handleBranchGoToStep3Contact} variant="success" className="w-full">Paso 3 Crear Contacto</Button>
               <Button onClick={handleBranchBackToBranches} variant="outline" className="w-full">Volver a Sucursales</Button>
             </div>
           </div>

@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase';
 import { useNotify } from '../context/NotificationContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { ROLES } from '../utils/constants';
+import { uploadAndSyncFile } from '../utils/storageUtils';
 
 export const useUsers = () => {
   const [usuarios, setUsuarios] = useState([]);
@@ -186,40 +187,76 @@ export const useUsers = () => {
         if (updateError) throw updateError;
 
         if (newUser.rol === ROLES.TECNICO) {
-          const tecnicoPayload = {
-            usuario_id: editingUser.id,
-            documento_cedula_url: tecnicoDocumentos.cedula || null,
-            planilla_seg_social_url: tecnicoDocumentos.planillaSS || null,
-          };
-
+          // 0. Ensure tecnico record exists first (to get a valid ID if it's new)
           let techId = editingUser.tecnicoId;
           const { data: existingTech } = await supabase.from('tecnico').select('id').eq('usuario_id', editingUser.id).maybeSingle();
           techId = existingTech?.id;
 
-          if (techId) {
-            await supabase.from('tecnico').update(tecnicoPayload).eq('id', techId);
-          } else {
-            const { data: nT } = await supabase.from('tecnico').insert(tecnicoPayload).select('id').single();
+          if (!techId) {
+            const { data: nT, error: insErr } = await supabase
+              .from('tecnico')
+              .insert({ usuario_id: editingUser.id })
+              .select('id')
+              .single();
+            if (insErr) throw insErr;
             techId = nT?.id;
           }
 
+          // 1. Upload & Sync Cédula and Planilla
+          const finalCedulaUrl = await uploadAndSyncFile({
+            file: tecnicoDocumentos.cedula,
+            fileName: 'cedula.pdf',
+            storageFolder: `tecnicos/${techId}`,
+            dbTarget: { table: 'tecnico', id: techId, column: 'documento_cedula_url' }
+          });
+
+          const finalPlanillaUrl = await uploadAndSyncFile({
+            file: tecnicoDocumentos.planillaSS,
+            fileName: 'planilla_seg_social.pdf',
+            storageFolder: `tecnicos/${techId}`,
+            dbTarget: { table: 'tecnico', id: techId, column: 'planilla_seg_social_url' }
+          });
+
+          // 2. Sync Certificates
           if (techId) {
             const currentCerts = newUser.certificados || [];
-            const { data: dbCerts } = await supabase.from('tecnico_certificado').select('*').eq('tecnico_id', techId);
-            
-            const toSoftDelete = (dbCerts || []).filter(db => db.activo && !currentCerts.find(ui => ui.id === db.id));
-            for (const doc of toSoftDelete) {
-              await supabase.from('tecnico_certificado').update({ activo: false }).eq('id', doc.id);
-              if (doc.url) await supabase.storage.from('inmotika').remove([doc.url]);
-            }
+            const updatedCerts = [];
 
             for (const uiCert of currentCerts) {
-              const certPayload = { tecnico_id: techId, nombre: uiCert.nombre || 'Certificado', url: uiCert.url || null, activo: true };
-              if (dbCerts?.find(db => db.id === uiCert.id)) {
-                await supabase.from('tecnico_certificado').update(certPayload).eq('id', uiCert.id);
-              } else {
-                await supabase.from('tecnico_certificado').insert(certPayload);
-              }
+              // First ensure the cert record exists
+              const isNewId = String(uiCert.id).length < 20;
+              const { data: certRec, error: certErr } = await supabase
+                .from('tecnico_certificado')
+                .upsert({
+                  id: isNewId ? undefined : uiCert.id,
+                  tecnico_id: techId,
+                  nombre: uiCert.nombre || 'Certificado',
+                  activo: true
+                })
+                .select()
+                .single();
+
+              if (certErr) throw certErr;
+
+              // Then upload & sync file
+              const finalPath = await uploadAndSyncFile({
+                file: uiCert.url,
+                fileName: `${certRec.id}.pdf`,
+                storageFolder: `tecnicos/${techId}/certificados`,
+                dbTarget: { table: 'tecnico_certificado', id: certRec.id, column: 'url' }
+              });
+
+              updatedCerts.push({ ...uiCert, id: certRec.id, url: finalPath });
+            }
+
+            // Deactivate others
+            const activeIds = updatedCerts.map(c => c.id);
+            if (activeIds.length > 0) {
+              await supabase.from('tecnico_certificado').update({ activo: false })
+                .eq('tecnico_id', techId)
+                .not('id', 'in', `(${activeIds.map(id => `'${id}'`).join(',')})`);
+            } else {
+              await supabase.from('tecnico_certificado').update({ activo: false }).eq('tecnico_id', techId);
             }
           }
         }

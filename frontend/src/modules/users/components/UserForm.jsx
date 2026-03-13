@@ -228,18 +228,18 @@ const UserForm = ({
                   <FileUploader
                     label="Cédula / Documento de Identidad"
                     bucket="inmotika"
-                    storagePath={(editingUser || viewingUser) ? `tecnicos/${(editingUser || viewingUser).id}/cedula.pdf` : null}
                     value={tecnicoDocumentos.cedula}
                     viewMode={isView}
-                    onChange={(path) => setTecnicoDocumentos(prev => ({ ...prev, cedula: path }))}
+                    deferred={true}
+                    onChange={(file) => setTecnicoDocumentos(prev => ({ ...prev, cedula: file }))}
                   />
                   <FileUploader
                     label="Planilla de Seguridad Social"
                     bucket="inmotika"
-                    storagePath={(editingUser || viewingUser) ? `tecnicos/${(editingUser || viewingUser).id}/planilla.pdf` : null}
                     value={tecnicoDocumentos.planillaSS}
                     viewMode={isView}
-                    onChange={(path) => setTecnicoDocumentos(prev => ({ ...prev, planillaSS: path }))}
+                    deferred={true}
+                    onChange={(file) => setTecnicoDocumentos(prev => ({ ...prev, planillaSS: file }))}
                   />
                 </div>
 

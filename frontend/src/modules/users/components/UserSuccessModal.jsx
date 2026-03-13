@@ -51,7 +51,7 @@ const UserSuccessModal = ({ successInfo, onClose }) => {
                 </div>
               </div>
             ) : (
-              <div className="bg-linear-to-br from-[#D32F2F] via-[#B71C1C] to-[#8B0000] p-8 text-center relative overflow-hidden text-white">
+              <div className="bg-linear-to-br from-emerald-500 via-emerald-600 to-emerald-700 p-8 text-center relative overflow-hidden text-white">
                 <div className="absolute inset-0 opacity-10">
                   <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
                 </div>
@@ -100,7 +100,7 @@ const UserSuccessModal = ({ successInfo, onClose }) => {
 
               <button
                 onClick={onClose}
-                className="w-full py-2.5 rounded-lg bg-[#D32F2F] text-white font-semibold hover:bg-[#B71C1C] transition-colors"
+                className="w-full py-2.5 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-colors"
               >
                 Perfecto
               </button>

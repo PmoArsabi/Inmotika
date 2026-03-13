@@ -113,6 +113,7 @@ export const emptyTecnicoDraft = () => ({
   planillaSegSocialUrl: '',
   certificados: [],        // [{id, nombre, url}]
   estadoId: '',            // UUID → catalogo_estado_general
+  usuarioId: '',           // UUID → perfil_usuario.id
 });
 
 // ─── FROM-DB CONVERTERS ───────────────────────────────────────────────────────
@@ -203,12 +204,15 @@ export const toTecnicoDraft = (tecnico, perfil) => ({
   telefono: perfil?.telefono || '',
   telefonoPaisIso: perfil?.telefono_pais_iso || 'CO',
   avatarUrl: perfil?.avatar_url || '',
-  tipoDocumento: tecnico?.tipo_documento || '',
-  identificacion: tecnico?.identificacion || '',
+  tipoDocumento: perfil?.tipo_documento || tecnico?.tipo_documento || '',
+  identificacion: perfil?.identificacion || tecnico?.identificacion || '',
   documentoCedulaUrl: tecnico?.documento_cedula_url || '',
   planillaSegSocialUrl: tecnico?.planilla_seg_social_url || '',
-  certificados: Array.isArray(tecnico?.certificados) ? tecnico.certificados : [],
-  estadoId: tecnico?.estado_id || '',
+  certificados: Array.isArray(tecnico?.tecnico_certificado) 
+    ? tecnico.tecnico_certificado.filter(c => c.activo) 
+    : (Array.isArray(tecnico?.certificados) ? tecnico.certificados : []),
+  estadoId: tecnico?.estado_id || perfil?.estado_id || '',
+  usuarioId: perfil?.id || tecnico?.usuario_id || '',
 });
 
 // ─── IMMUTABLE STATE UPDATERS ─────────────────────────────────────────────────

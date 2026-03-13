@@ -26,23 +26,35 @@ const FileUploader = ({
   viewMode = false,
   dark = false,
   className = '',
+  deferred = false,
 }) => {
   const fileRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
 
+  // If deferred, the value might be a File object from a local selection
   const isLoaded = !!value;
+  const isLocalFile = value instanceof File;
   const canUpload = !!storagePath && !uploading;
 
   const handleClick = () => {
-    if (!canUpload) return;
+    if (!canUpload && !deferred) return; // If deferred, storagePath might not be needed yet
     setUploadError(null);
     fileRef.current?.click();
   };
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !storagePath) return;
+    if (!file) return;
+
+    if (deferred) {
+      // In deferred mode, we just pass the File object back
+      onChange?.(file);
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+
+    if (!storagePath) return;
 
     setUploading(true);
     setUploadError(null);
@@ -133,9 +145,9 @@ const FileUploader = ({
               <UploadCloud size={18} />
             )}
             <span className="text-xs font-bold uppercase tracking-normal">
-              {uploading ? 'Subiendo...' : isLoaded ? 'Documento Listo' : 'Subir Archivo'}
+              {uploading ? 'Subiendo...' : isLocalFile ? 'Listo Para Guardar' : (isLoaded ? 'Documento Listo' : 'Subir Archivo')}
             </span>
-            {isLoaded && !uploading && (
+            {isLoaded && !uploading && !isLocalFile && (
               <button
                 type="button"
                 onClick={handleView}
@@ -146,11 +158,6 @@ const FileUploader = ({
               </button>
             )}
           </div>
-          {isLoaded && (
-            <p className="text-[10px] text-amber-600 font-semibold ml-1">
-              ⚠ Al subir un nuevo archivo, el anterior se perderá permanentemente.
-            </p>
-          )}
         </div>
       )}
 

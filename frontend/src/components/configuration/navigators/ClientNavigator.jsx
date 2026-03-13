@@ -13,25 +13,23 @@ import {
 import { validateClient, validateBranch } from '../../../utils/validators';
 
 const ClientNavigator = ({ 
-  setShowSuccessModal, 
-  setSavedClientId, 
-  setBranchSuccessInfo,
   setAssociateContactsModal,
   setAssociateDevicesModal,
   setAssociateContactsSelected,
   setAssociateContactsSearch,
   setAssociateDevicesSelected,
   setAssociateDevicesSearch,
-  setShowErrors,
-  showErrors,
-  saveState,
-  setSaveState,
 }) => {
   const { 
     route, drafts, setDrafts, updateDraft, setStack,
     editingBranchId, setEditingBranchId, 
     viewBranchMode, setViewBranchMode,
     creatingNewBranch, setCreatingNewBranch,
+    showErrors, setShowErrors,
+    saveState, setSaveState,
+    showSuccessModal, setShowSuccessModal,
+    branchSuccessInfo, setBranchSuccessInfo,
+    savedClientId, setSavedClientId,
   } = useConfigurationContext();
   const { data, setData } = useMasterData();
 

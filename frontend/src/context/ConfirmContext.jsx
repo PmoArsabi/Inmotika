@@ -55,7 +55,9 @@ export const ConfirmProvider = ({ children }) => {
             {/* Header / Icon */}
             <div className={`p-6 pb-2 flex flex-col items-center text-center`}>
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
-                config.type === 'danger' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'
+                config.type === 'danger' ? 'bg-red-50 text-red-500' : 
+                config.type === 'success' ? 'bg-emerald-50 text-emerald-500' :
+                'bg-blue-50 text-blue-500'
               }`}>
                 <AlertTriangle size={32} />
               </div>
@@ -73,9 +75,8 @@ export const ConfirmProvider = ({ children }) => {
             <div className="p-6 pt-8 flex flex-col sm:flex-row-reverse gap-3">
               <Button 
                 onClick={handleConfirm}
-                className={`w-full sm:w-auto px-8 ${
-                  config.type === 'danger' ? 'bg-[#D32F2F] hover:bg-[#B71C1C]' : ''
-                }`}
+                variant={config.type === 'danger' ? 'danger' : config.type === 'success' ? 'success' : 'primary'}
+                className="w-full sm:w-auto px-8"
               >
                 {config.confirmText}
               </Button>

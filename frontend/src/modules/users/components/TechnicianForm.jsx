@@ -151,6 +151,7 @@ const TechnicianForm = ({
             onChange={path => updateDraft({ documentoCedulaUrl: path })}
             accept="application/pdf,image/*"
             viewMode={!isEditing}
+            deferred={true}
           />
           <FileUploader
             label="Planilla Seguridad Social"
@@ -160,6 +161,7 @@ const TechnicianForm = ({
             onChange={path => updateDraft({ planillaSegSocialUrl: path })}
             accept="application/pdf"
             viewMode={!isEditing}
+            deferred={true}
           />
         </div>
       </Card>
@@ -238,6 +240,7 @@ const TechnicianForm = ({
                   onChange={path => updateCertUrl(cert.id, path)}
                   accept="application/pdf,image/*"
                   viewMode={!isEditing}
+                  deferred={true}
                 />
               </div>
             ))}

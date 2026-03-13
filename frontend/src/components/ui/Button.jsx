@@ -2,6 +2,7 @@ const Button = ({ children, variant = "primary", className = "", type = "button"
   const variants = {
     primary: `bg-[#1A1A1A] text-white hover:bg-black shadow-lg shadow-black/10`,
     danger: `bg-[#D32F2F] text-white hover:bg-[#B71C1C] shadow-lg shadow-red-900/10`,
+    success: `bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-900/10`,
     secondary: `bg-gray-100 text-gray-800 hover:bg-gray-200`,
     outline: `border-2 border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300`
   };

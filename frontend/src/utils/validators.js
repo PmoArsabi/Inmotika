@@ -81,5 +81,10 @@ export const validateTecnico = (draft) => {
     const phoneErr = validatePhoneNumber(draft.telefono, draft.telefonoPaisIso || 'CO');
     if (phoneErr) errors.telefono = phoneErr;
   }
+  // Validate certificates have names
+  if (Array.isArray(draft.certificados)) {
+    const invalidCerts = draft.certificados.some(c => !String(c.nombre || '').trim());
+    if (invalidCerts) errors.certificados = 'Todos los certificados deben tener nombre';
+  }
   return errors;
 };

@@ -18,6 +18,13 @@ export const ConfigurationProvider = ({ children, initialParams = {} }) => {
   const [viewBranchMode, setViewBranchMode] = useState(null); // 'view' or 'edit'
   const [creatingNewBranch, setCreatingNewBranch] = useState(false);
 
+  // Orchestration States
+  const [showErrors, setShowErrors] = useState(false);
+  const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [branchSuccessInfo, setBranchSuccessInfo] = useState(null);
+  const [savedClientId, setSavedClientId] = useState(null);
+
   // Drafts Management (LocalStorage + State)
   const [drafts, setDrafts] = useState(() => {
     try {
@@ -73,7 +80,17 @@ export const ConfigurationProvider = ({ children, initialParams = {} }) => {
     viewBranchMode,
     setViewBranchMode,
     creatingNewBranch,
-    setCreatingNewBranch
+    setCreatingNewBranch,
+    showErrors,
+    setShowErrors,
+    saveState,
+    setSaveState,
+    showSuccessModal,
+    setShowSuccessModal,
+    branchSuccessInfo,
+    setBranchSuccessInfo,
+    savedClientId,
+    setSavedClientId
   };
 
   return (
