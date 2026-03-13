@@ -12,6 +12,7 @@ import { H2, Subtitle, TextSmall, TextTiny, Label } from '../../components/ui/Ty
 import Select from '../../components/ui/Select';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
+import Modal from '../../components/ui/Modal';
 import VisitProgressPanel from '../../components/visits/VisitProgressPanel';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -61,11 +62,70 @@ const SolicitudVisitaPage = ({ data, setData }) => {
   const [draft,         setDraft]        = useState(emptySolicitud());
   const [searchTerm,    setSearchTerm]   = useState('');
   const [filterEstado,  setFilterEstado] = useState('Todos');
+  const [showHelpModal,     setShowHelpModal]     = useState(false);
+  const [modalTitle,        setModalTitle]        = useState('');
+  const [modalMessage,      setModalMessage]      = useState('');
   const notify = useNotify();
+  const solicitudes = data?.solicitudesVisita || [];
+  const visitas = data?.visitas || [];
+  const clientes = data?.clientes || [];
+
+  const handleCreate = () => {
+    setIsCreating(true);
+    setDraft(emptySolicitud());
+  };
+
+  const handleCancel = () => {
+    setIsCreating(false);
+    setViewingSol(null);
+  };
+
+  const handleView = (sol) => {
+    setViewingSol(sol);
+    setIsCreating(false);
+  };
+
+  const clienteOptions = useMemo(() => 
+    clientes.map(c => ({ value: c.id, label: c.nombre })),
+    [clientes]
+  );
+
+  const sucursalOptions = useMemo(() => {
+    if (!draft.clienteId) return [];
+    const c = clientes.find(cl => String(cl.id) === String(draft.clienteId));
+    return (c?.sucursales || []).map(s => ({ value: s.id, label: s.nombre }));
+  }, [clientes, draft.clienteId]);
+
+  const dispositivoOptions = useMemo(() => {
+    if (!draft.sucursalId) return [];
+    // Assuming dispositivos are linked to branches in data.dispositivos
+    return (data?.dispositivos || [])
+      .filter(d => String(d.branchId) === String(draft.sucursalId))
+      .map(d => ({ value: String(d.id), label: d.nombre || `Dispositivo ${d.id}` }));
+  }, [data?.dispositivos, draft.sucursalId]);
+
+  const filtered = useMemo(() => {
+    let list = solicitudes;
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      list = list.filter(s => 
+        s.id.toLowerCase().includes(q) ||
+        s.clienteNombre?.toLowerCase().includes(q) ||
+        s.sucursalNombre?.toLowerCase().includes(q) ||
+        s.tipoVisita?.toLowerCase().includes(q)
+      );
+    }
+    if (filterEstado !== 'Todos') {
+      list = list.filter(s => s.estado === filterEstado);
+    }
+    return list;
+  }, [solicitudes, searchTerm, filterEstado]);
 
   const handleSave = () => {
     if (!draft.tipoVisita || !draft.sucursalId || !draft.fechaSugerida) {
-      notify('warning', 'Complete los campos obligatorios: Tipo, Sucursal y Fecha sugerida.');
+      setModalTitle('Información Faltante');
+      setModalMessage('Por favor completa los campos obligatorios: Tipo de Mantenimiento, Sucursal y Fecha sugerida.');
+      setShowHelpModal(true);
       return;
     }
     const nueva = {
@@ -449,6 +509,22 @@ const SolicitudVisitaPage = ({ data, setData }) => {
           </TBody>
         </Table>
       </Card>
+
+      <Modal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title={modalTitle}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <TextSmall className="text-gray-600 leading-relaxed text-base normal-case">
+            {modalMessage}
+          </TextSmall>
+          <div className="flex justify-end pt-2">
+            <Button onClick={() => setShowHelpModal(false)}>Aceptar</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

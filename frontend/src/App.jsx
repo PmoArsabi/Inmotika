@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ROLES } from './utils/constants';
-import { INITIAL_DATA } from './utils/mockData';
 import { useAuth } from './context/AuthContext';
+import { useMasterData } from './context/MasterDataContext';
 
 // Layout
 import Sidebar from './components/layout/Sidebar';
@@ -18,7 +18,7 @@ import ClientDashboardPage from './pages/ClientDashboardPage';
 import ClientDataPage from './pages/ClientDataPage';
 import ClientInventoryPage from './pages/ClientInventoryPage';
 import ClientVisitsPage from './pages/ClientVisitsPage';
-import UsersPage from './pages/UsersPage';
+import UsersPage from './modules/users/UsersPage';
 import CategoriasPage from './pages/CategoriasPage';
 import SolicitudVisitaPage from './pages/visits/SolicitudVisitaPage';
 import ProgramacionVisitaPage from './pages/visits/ProgramacionVisitaPage';
@@ -27,8 +27,8 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 
 function App() {
   const { user, signOut, loading: authLoading, isRecoveryFlow, setIsRecoveryFlow } = useAuth();
+  const { data, setData } = useMasterData();
   const [activeTab, setActiveTab]     = useState('dashboard');
-  const [data, setData]               = useState(INITIAL_DATA);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem('sidebar-collapsed') === 'true'

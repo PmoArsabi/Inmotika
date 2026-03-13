@@ -3,10 +3,10 @@ import {
   ArrowLeft, ClipboardList, CheckCircle2, Plus, Trash2,
   Loader2, ChevronUp, ChevronDown, Pencil, Tag, List, X,
 } from 'lucide-react';
-import Button from '../ui/Button';
-import Input from '../ui/Input';
-import Card from '../ui/Card';
-import { H2, Label, TextSmall } from '../ui/Typography';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import Card from '../../components/ui/Card';
+import { H2, Label, TextSmall } from '../../components/ui/Typography';
 import { INITIAL_DATA } from '../../utils/mockData';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

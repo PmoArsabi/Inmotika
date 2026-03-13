@@ -6,15 +6,18 @@ import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import { H3, Subtitle, TextSmall } from '../components/ui/Typography';
 import { useConfiguration } from '../hooks/useConfiguration';
-import ClientsView from '../components/configuration/Client/ClientsView';
-import ContactsView from '../components/Contact/ContactsView';
-import DevicesView from '../components/Device/DevicesView';
-import GenericListView from '../components/configuration/GenericListView';
+import ClientsView from '../modules/clients/ClientsView';
+import ContactsView from '../modules/contacts/ContactsView';
+import DevicesView from '../modules/devices/DevicesView';
+import GenericListView from '../components/shared/GenericListView';
 import Breadcrumbs from '../components/configuration/Breadcrumbs';
 import ConfigurationNavigator from '../components/configuration/ConfigurationNavigator';
 import Tabs from '../components/ui/Tabs';
+import { useMasterData } from '../context/MasterDataContext';
+import { ConfigurationProvider } from '../context/ConfigurationContext';
 
-const ConfigurationPage = ({ data, setData, initialSubTab = 'clientes', isSingleTabView = false }) => {
+const ConfigurationPage = ({ initialSubTab = 'clientes', isSingleTabView = false }) => {
+  const { data, setData } = useMasterData();
   const config = useConfiguration(data, setData, initialSubTab);
   const [clientModalParams, setClientModalParams] = useState(null);
   const { 
@@ -203,17 +206,18 @@ const ConfigurationPage = ({ data, setData, initialSubTab = 'clientes', isSingle
 
       <div className="space-y-4">
         {clientModalParams ? (
-          <ConfigurationNavigator
-            openParams={clientModalParams}
-            data={data}
-            setData={setData}
-            onClose={() => {
-              setClientModalParams(null);
-              config.setViewLevel('list');
-              config.setSelectedClient(null);
-              config.setSelectedBranch(null);
-            }}
-          />
+          <ConfigurationProvider initialParams={clientModalParams}>
+            <ConfigurationNavigator
+              data={data}
+              setData={setData}
+              onClose={() => {
+                setClientModalParams(null);
+                config.setViewLevel('list');
+                config.setSelectedClient(null);
+                config.setSelectedBranch(null);
+              }}
+            />
+          </ConfigurationProvider>
         ) : (
           <>
             {activeSubTab === 'clientes' ? (

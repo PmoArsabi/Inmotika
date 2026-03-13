@@ -3,14 +3,14 @@ import {
   User, IdCard, Mail, Calendar, Briefcase, Heart, MessageSquare,
   Building2, GitBranch, Shield, Lock,
 } from 'lucide-react';
-import Button from '../ui/Button';
-import Input from '../ui/Input';
-import Select from '../ui/Select';
-import Switch from '../ui/Switch';
-import PhoneInput from '../ui/PhoneInput';
-import SearchableSelect from '../ui/SearchableSelect';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import Select from '../../components/ui/Select';
+import Switch from '../../components/ui/Switch';
+import PhoneInput from '../../components/ui/PhoneInput';
+import SearchableSelect from '../../components/ui/SearchableSelect';
 import { useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
-import { Label } from '../ui/Typography';
+import { Label } from '../../components/ui/Typography';
 
 const ContactForm = ({
   draft,

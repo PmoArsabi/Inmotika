@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
 import { Plus, UserPlus, Search, X } from 'lucide-react';
-import ModuleHeader from '../components/ui/ModuleHeader';
-import Card from '../components/ui/Card';
-import Select from '../components/ui/Select';
-import { useUsers } from '../hooks/useUsers';
-import UserTable from './Users/components/UserTable';
-import UserForm from './Users/components/UserForm';
-import UserSuccessModal from './Users/components/UserSuccessModal';
+import ModuleHeader from '../../components/ui/ModuleHeader';
+import Card from '../../components/ui/Card';
+import Select from '../../components/ui/Select';
+import { useUsers } from '../../hooks/useUsers';
+import UserTable from './components/UserTable';
+import UserForm from './components/UserForm';
+import UserSuccessModal from './components/UserSuccessModal';
 
 const emptyUser = () => ({
   nombres: '',

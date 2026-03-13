@@ -1,142 +1,204 @@
 import React from 'react';
-import { Building2 } from 'lucide-react';
+import { 
+  Building2, MapPin, Navigation, Link2, Eye,
+  Plus
+} from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import Tabs from '../ui/Tabs';
+import Select from '../ui/Select';
+import Switch from '../ui/Switch';
 import { LocationPickerRows } from './LocationPickerRows';
-import { Table, THead, TBody, Tr, Th, Td } from '../ui/Table';
-import { TextSmall, Subtitle } from '../ui/Typography';
-import { User, Phone, Mail, Cpu, Settings } from 'lucide-react';
+import SchedulePicker from '../ui/SchedulePicker';
+import DynamicDocumentList from '../ui/DynamicDocumentList';
+import { Subtitle, TextSmall } from '../ui/Typography';
 
-const BranchForm = ({
-  draft, updateDraft, errors, showErrors, isEditing, 
-  onSave, isSaving, activeTab, onTabChange
-}) => {
+/**
+ * Formulario dedicado para la creación y edición de sucursales (sedes).
+ * Extraído de ClientForm para mejorar la modularidad.
+ */
+export const BranchForm = (props) => {
+  console.log('BranchForm render props:', { editingBranchId: props.editingBranchId, hasDraft: !!props.newBranchDraft, viewBranchMode: props.viewBranchMode });
+  const {
+    newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
+    isEditing, isSaving, editingBranchId, onCancelEdit,
+    onAssociateContacts, onAssociateDevices, showErrors,
+    estadoSelectOptions, activoId, inactivoId, clientId, viewBranchMode
+  } = props;
+
+  if (!newBranchDraft) return null;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Tabs 
-          tabs={[
-            {key:'details', label:'Detalles'}, 
-            {key:'contacts', label:'Contactos'}, 
-            {key:'devices', label:'Dispositivos'}
-          ]} 
-          active={activeTab} 
-          onChange={onTabChange} 
-        />
-        {isEditing && (
-          <Button onClick={onSave} disabled={isSaving}>
-            {isSaving ? 'Guardando...' : 'Guardar'}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <Subtitle className="text-gray-700">
+          {editingBranchId ? 'Editar Sucursal' : 'Nueva Sucursal'}
+        </Subtitle>
+        <div className="flex gap-2">
+          {editingBranchId && onCancelEdit && (
+            <Button onClick={onCancelEdit} className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50">
+              Cancelar
+            </Button>
+          )}
+          <Button
+            onClick={onSaveNewBranch}
+            disabled={isSaving}
+            className={`${!isEditing ? 'hidden' : ''} bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0`}
+          >
+            {isSaving ? 'Guardando...' : (editingBranchId ? 'Guardar Cambios' : 'Crear Sucursal')}
           </Button>
-        )}
+        </div>
       </div>
-      {activeTab === 'details' && (
+
+      {/* Datos principales — nombre a la izquierda, sede+estado llenan la derecha */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input
+          label="Nombre Sucursal"
+          icon={Building2}
+          value={newBranchDraft.nombre || ''}
+          onChange={e => updateNewBranchDraft({ nombre: e.target.value.toUpperCase() })}
+          error={showErrors ? newBranchErrors.nombre : null}
+          uppercase
+          required
+          viewMode={!isEditing}
+        />
+        <div className="flex items-end gap-4">
+          <div className="shrink-0">
+            <Switch
+              label="Sede Principal"
+              checked={!!newBranchDraft.esPrincipal}
+              onChange={checked => updateNewBranchDraft({ esPrincipal: checked })}
+              checkedLabel="Sí"
+              uncheckedLabel="No"
+              disabled={!isEditing}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <Switch
+              label="Estado"
+              checked={!!activoId && newBranchDraft.estadoId === activoId}
+              onChange={checked => updateNewBranchDraft({ estadoId: checked ? activoId : inactivoId })}
+              checkedLabel="Activo"
+              uncheckedLabel="Inactivo"
+              viewMode={!isEditing}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Ubicación — 2 columnas: País+Estado / Ciudad+Dirección / Latitud+Longitud */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <LocationPickerRows
+          countryValue={newBranchDraft.pais}
+          stateValue={newBranchDraft.estado_depto}
+          cityValue={newBranchDraft.ciudad}
+          direccion={newBranchDraft.direccion}
+          onLocationChange={l => updateNewBranchDraft({ pais: l.country, estado_depto: l.state, ciudad: l.city })}
+          onDireccionChange={v => updateNewBranchDraft({ direccion: v })}
+          direccionError={showErrors ? newBranchErrors.direccion : null}
+          required
+          showDireccion
+          twoColumns
+          viewMode={!isEditing}
+        />
+        <Input
+          label="Latitud (Opcional)"
+          icon={Navigation}
+          value={newBranchDraft.latitud || ''}
+          onChange={e => updateNewBranchDraft({ latitud: e.target.value })}
+          placeholder="Ej: 4.710989"
+          inputMode="decimal"
+          viewMode={!isEditing}
+        />
+        <Input
+          label="Longitud (Opcional)"
+          icon={Navigation}
+          value={newBranchDraft.longitud || ''}
+          onChange={e => updateNewBranchDraft({ longitud: e.target.value })}
+          placeholder="Ej: -74.072090"
+          inputMode="decimal"
+          viewMode={!isEditing}
+        />
+      </div>
+
+      {/* Horario de Atención */}
+      <div className="pt-4 border-t border-gray-200">
+        <SchedulePicker
+          label="Horario de Atención"
+          value={newBranchDraft.horarioAtencion || null}
+          onChange={v => updateNewBranchDraft({ horarioAtencion: v })}
+          viewMode={!isEditing}
+        />
+      </div>
+
+      {/* Asociaciones */}
+      <div className="pt-4 border-t border-gray-200 space-y-3">
+        <Subtitle className="text-gray-700">Asociaciones</Subtitle>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input 
-            label="Nombre de Sucursal" 
-            value={draft.nombre} 
-            onChange={e => updateDraft({nombre: e.target.value})} 
-            error={showErrors ? errors.nombre : null} 
-            viewMode={!isEditing} 
-            icon={Building2} 
-            required 
-          />
-          <LocationPickerRows 
-            countryValue={draft.pais} 
-            stateValue={draft.estado_depto} 
-            cityValue={draft.ciudad} 
-            direccion={draft.direccion} 
-            onLocationChange={l => updateDraft({pais: l.country, estado_depto: l.state, ciudad: l.city})} 
-            onDireccionChange={v => updateDraft({direccion: v})} 
-            direccionError={showErrors ? errors.direccion : null} 
-            viewMode={!isEditing} 
-            required 
-          />
-        </div>
-      )}
-
-      {activeTab === 'contacts' && (
-        <div className="mt-4 border rounded-md overflow-hidden">
-          <Table>
-            <THead variant="dark">
-              <tr>
-                <Th>Nombre</Th>
-                <Th>Cargo / Rol</Th>
-                <Th>Contacto</Th>
-              </tr>
-            </THead>
-            <TBody>
-              {draft.contactos && draft.contactos.length > 0 ? (
-                draft.contactos.map((contact, idx) => (
-                  <Tr key={idx}>
-                    <Td>
-                      <div className="flex items-center gap-2">
-                        <User size={14} className="text-gray-400" />
-                        <span className="font-medium text-gray-900">{contact.nombre} {contact.apellido}</span>
-                      </div>
-                    </Td>
-                    <Td>{contact.cargo || contact.tipo || '—'}</Td>
-                    <Td>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <Phone size={13} className="shrink-0" />
-                          <TextSmall>{contact.telefono || contact.celular || '—'}</TextSmall>
-                        </div>
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <Mail size={13} className="shrink-0" />
-                          <TextSmall>{contact.email || '—'}</TextSmall>
-                        </div>
-                      </div>
-                    </Td>
-                  </Tr>
-                ))
-              ) : (
-                <Tr><Td colSpan={3} className="text-center text-gray-400 py-6">No hay contactos registrados</Td></Tr>
+          {[
+            { label: 'Asociar contactos', sub: 'Relaciona contactos responsables a esta sucursal.', count: newBranchDraft?.associatedContactIds?.length, onClick: onAssociateContacts },
+            { label: 'Asociar dispositivos', sub: 'Vincula los dispositivos instalados.', count: newBranchDraft?.associatedDeviceIds?.length, onClick: onAssociateDevices },
+          ].map(({ label, sub, count, onClick }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={onClick}
+              disabled={!isEditing && (!count || count === 0)}
+              className={`flex items-center justify-between p-4 rounded-lg border border-gray-200 transition-all text-left w-full group
+                ${isEditing || count > 0 ? "bg-gray-50 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer" : "bg-gray-50 opacity-70 cursor-not-allowed"}`}
+            >
+              <div className="flex-1 min-w-0">
+                <TextSmall className={`font-semibold text-gray-900 transition-colors ${isEditing || count > 0 ? "group-hover:text-[#D32F2F]" : ""}`}>{label}</TextSmall>
+                <TextSmall className="text-gray-500 mt-0.5">
+                  {count > 0
+                    ? <span className="text-[#D32F2F] font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
+                    : sub
+                  }
+                </TextSmall>
+              </div>
+              {(isEditing || count > 0) && (
+                <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-[#D32F2F] transition-colors shadow-sm">
+                  {isEditing ? <><Link2 size={12} /> Asociar</> : <><Eye size={12} /> Ver</>}
+                </div>
               )}
-            </TBody>
-          </Table>
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
-      {activeTab === 'devices' && (
-        <div className="mt-4 border rounded-md overflow-hidden">
-          <Table>
-            <THead variant="dark">
-              <tr>
-                <Th>Dispositivo / Modelo</Th>
-                <Th>Categoría</Th>
-                <Th>Serial / Ref</Th>
-              </tr>
-            </THead>
-            <TBody>
-              {draft.dispositivos && draft.dispositivos.length > 0 ? (
-                draft.dispositivos.map((dev, idx) => (
-                  <Tr key={idx}>
-                    <Td>
-                      <div className="flex items-center gap-2">
-                        <Cpu size={14} className="text-gray-400" />
-                        <span className="font-medium text-gray-900">{dev.nombre} {dev.modelo}</span>
-                      </div>
-                    </Td>
-                    <Td>
-                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium">
-                        {dev.categoria || '—'}
-                      </span>
-                    </Td>
-                    <Td>
-                      <TextSmall className="font-mono text-gray-600 border border-gray-200 bg-gray-50 px-1 py-0.5 rounded inline-block">
-                        {dev.serial || '—'}
-                      </TextSmall>
-                    </Td>
-                  </Tr>
-                ))
-              ) : (
-                <Tr><Td colSpan={3} className="text-center text-gray-400 py-6">No hay dispositivos instalados</Td></Tr>
-              )}
-            </TBody>
-          </Table>
-        </div>
-      )}
+      {/* Contratos */}
+      <div className="pt-4 border-t border-gray-200 space-y-4">
+        <DynamicDocumentList
+          title="Contratos"
+          addButtonLabel="Agregar Contrato"
+          items={(newBranchDraft.contratos || []).map(c => ({
+            ...c,
+            nombre: c.tema || '',
+            url: c.documentoUrl || ''
+          }))}
+          onChange={(newItems) => {
+            updateNewBranchDraft({
+              contratos: newItems.map(item => ({
+                ...item,
+                tema: item.nombre,
+                documentoUrl: item.url
+              }))
+            });
+          }}
+          viewMode={!isEditing}
+          storagePathPrefix={newBranchDraft.id ? `contratos/${newBranchDraft.id}` : null}
+          renderExtraFields={(item, updateItem) => (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+              <Select
+                label="Estado"
+                value={item.estadoId || ''}
+                options={estadoSelectOptions}
+                onChange={e => updateItem({ estadoId: e.target.value })}
+                viewMode={!isEditing}
+              />
+            </div>
+          )}
+        />
+      </div>
     </div>
   );
 };

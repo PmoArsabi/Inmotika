@@ -72,7 +72,7 @@ export const Th = ({ children, narrow = false, className = "" }) => (
 
 export const Td = ({ children, narrow = false, className = "" }) => (
   <td className={`py-3 px-5 text-left ${narrow ? 'w-px whitespace-nowrap' : ''} ${className}`}>
-    <div className="text-[11px] font-medium text-gray-700">
+    <div className="text-[9px] font-bold text-gray-700">
       {children}
     </div>
   </td>

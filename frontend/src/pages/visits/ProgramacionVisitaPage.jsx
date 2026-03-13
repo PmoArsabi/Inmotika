@@ -12,6 +12,7 @@ import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
 import { H2, Subtitle, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import { TechnicianChipList } from '../../components/ui/TechnicianChip';
+import Modal from '../../components/ui/Modal';
 import VisitProgressPanel from '../../components/visits/VisitProgressPanel';
 import { ROLES } from '../../utils/constants';
 
@@ -79,6 +80,9 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
   const [draft,           setDraft]           = useState(emptyVisitaDraft());
   const [searchTerm,      setSearchTerm]      = useState('');
   const [filterEstado,    setFilterEstado]    = useState('Todos');
+  const [showHelpModal,     setShowHelpModal]   = useState(false);
+  const [modalTitle,        setModalTitle]      = useState('');
+  const [modalMessage,      setModalMessage]    = useState('');
 
   const solicitudes = data?.solicitudesVisita || [];
   const visitas     = data?.visitas           || [];
@@ -126,6 +130,8 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
     setDraft(emptyVisitaDraft());
     setEditingVisita(null);
     setViewingVisita(null);
+    // Para mostrar el formulario de "Nueva Visita" manual
+    setEditingVisita('new');
   };
 
   const handleSchedule = (item) => {
@@ -162,7 +168,9 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
 
   const handleSave = () => {
     if (!draft.tipoVisita || !draft.fechaInicio || !draft.estado) {
-      alert('Complete los campos obligatorios: Tipo, Fecha de Inicio y Estado.');
+      setModalTitle('Campos Incompletos');
+      setModalMessage('Por favor completa los campos obligatorios: Tipo de Visita, Fecha de Inicio y Estado.');
+      setShowHelpModal(true);
       return;
     }
     const tecnicosNombres = (draft.tecnicoIds || []).map(id => {
@@ -170,7 +178,7 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
       return u ? `${u.nombres || ''} ${u.apellidos || ''}`.trim() : id;
     });
 
-    if (editingVisita) {
+    if (editingVisita && editingVisita !== 'new') {
       // Update existing visita
       setData(prev => ({
         ...prev,
@@ -213,7 +221,7 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
   // SCHEDULE / EDIT FORM
   // ══════════════════════════════════════════════════════════════════════════
   if (editingVisita !== null || (draft.solicitudId && !viewingVisita)) {
-    const isEditing = !!editingVisita;
+    const isEditing = editingVisita && editingVisita !== 'new';
     return (
       <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
         <header className="flex items-center justify-between bg-white p-4 rounded-md border border-gray-100 shadow-sm flex-wrap gap-3">
@@ -331,7 +339,7 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
           {/* Side panel: solicitud origin */}
           <div className="space-y-4">
             {solicitudOrigen && (
-              <Card className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 space-y-3">
+              <Card className="p-5 bg-linear-to-br from-blue-50 to-indigo-50 border-blue-100 space-y-3">
                 <div className="flex items-center gap-2">
                   <AlertCircle size={15} className="text-blue-600" />
                   <Label className="text-sm font-bold text-blue-900">Solicitud Origen</Label>
@@ -352,7 +360,7 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
               </Card>
             )}
 
-            <Card className="p-5 bg-gradient-to-br from-gray-50 to-gray-100 space-y-3">
+            <Card className="p-5 bg-linear-to-br from-gray-50 to-gray-100 space-y-3">
               <div className="flex items-center gap-2">
                 <CalendarCheck size={15} className="text-gray-600" />
                 <Label className="text-sm font-bold text-gray-900">Resumen de Programación</Label>
@@ -439,7 +447,7 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
 
           <div className="space-y-4">
             {solicitudOrigen && (
-              <Card className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 space-y-3">
+              <Card className="p-5 bg-linear-to-br from-blue-50 to-indigo-50 border-blue-100 space-y-3">
                 <div className="flex items-center gap-2">
                   <AlertCircle size={14} className="text-blue-600" />
                   <Label className="text-sm font-bold text-blue-900">Solicitud Origen</Label>
@@ -577,6 +585,22 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
           </TBody>
         </Table>
       </Card>
+
+      <Modal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title={modalTitle}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <TextSmall className="text-gray-600 leading-relaxed text-base normal-case">
+            {modalMessage}
+          </TextSmall>
+          <div className="flex justify-end pt-2">
+            <Button onClick={() => setShowHelpModal(false)}>Aceptar</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

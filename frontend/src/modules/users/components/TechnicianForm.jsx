@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Hash, IdCard, ShieldCheck, FileText, Plus, Trash2 } from 'lucide-react';
-import Button from '../ui/Button';
-import Input from '../ui/Input';
-import Select from '../ui/Select';
-import FileUploader from '../ui/FileUploader';
-import Card from '../ui/Card';
-import { H2, Label, TextSmall, TextTiny, Subtitle } from '../ui/Typography';
-import PersonalInfoSection from '../shared/PersonalInfoSection';
-import { useCatalog, useEstados } from '../../hooks/useCatalog';
+import Button from '../../../components/ui/Button';
+import Input from '../../../components/ui/Input';
+import Select from '../../../components/ui/Select';
+import FileUploader from '../../../components/ui/FileUploader';
+import Card from '../../../components/ui/Card';
+import { H2, Label, TextSmall, TextTiny, Subtitle } from '../../../components/ui/Typography';
+import PersonalInfoSection from '../../../components/shared/PersonalInfoSection';
+import { useCatalog, useEstados } from '../../../hooks/useCatalog';
 
 const TechnicianForm = ({
   draft,
@@ -63,7 +63,7 @@ const TechnicianForm = ({
           <Button
             onClick={onSave}
             disabled={isSaving}
-            className="bg-gradient-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+            className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
           >
             {isSaving ? 'Guardando...' : 'Guardar Técnico'}
           </Button>

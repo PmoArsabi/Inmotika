@@ -5,16 +5,16 @@ import {
   Trash2, ArrowRightLeft, Calendar, Plus, Loader2,
   FileText, Tag, Wrench, Navigation2, IdCard, Layers,
 } from 'lucide-react';
-import Button from '../ui/Button';
-import IconButton from '../ui/IconButton';
-import Input from '../ui/Input';
-import Select from '../ui/Select';
-import Switch from '../ui/Switch';
-import SearchableSelect from '../ui/SearchableSelect';
-import Tabs from '../ui/Tabs';
-import { Label, TextSmall } from '../ui/Typography';
-import Card from '../ui/Card';
-import { Table, THead, TBody, Tr, Th, Td } from '../ui/Table';
+import Button from '../../components/ui/Button';
+import IconButton from '../../components/ui/IconButton';
+import Input from '../../components/ui/Input';
+import Select from '../../components/ui/Select';
+import Switch from '../../components/ui/Switch';
+import SearchableSelect from '../../components/ui/SearchableSelect';
+import Tabs from '../../components/ui/Tabs';
+import { Label, TextSmall } from '../../components/ui/Typography';
+import Card from '../../components/ui/Card';
+import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
 import CategoriaForm from './CategoriaForm';
 import { INITIAL_DATA } from '../../utils/mockData';
 import { useActivoInactivo } from '../../hooks/useCatalog';

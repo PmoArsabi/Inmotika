@@ -22,7 +22,8 @@ const DynamicDocumentList = ({
   onChange, 
   viewMode = false, 
   storagePathPrefix = null,
-  itemPlaceholder = 'Nombre del documento'
+  itemPlaceholder = 'Nombre del documento',
+  renderExtraFields = null
 }) => {
   const addRow = () => {
     const newItems = [...items, { id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(), nombre: '', url: null }];
@@ -63,44 +64,53 @@ const DynamicDocumentList = ({
       )}
 
       {items.map(item => (
-        <div key={item.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm hover:border-gray-300 transition-all">
-          <div className="w-full sm:w-48 shrink-0">
-            {viewMode ? (
-              <p className="text-sm font-semibold text-gray-700 px-1 truncate">
-                {item.nombre || <span className="italic text-gray-400">Sin nombre</span>}
-              </p>
-            ) : (
-              <Input
-                placeholder={itemPlaceholder}
-                value={item.nombre}
-                onChange={e => updateRow(item.id, { nombre: e.target.value.toUpperCase() })}
+        <div key={item.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-gray-300 transition-all space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="w-full sm:w-64 shrink-0">
+              {viewMode ? (
+                <p className="text-sm font-semibold text-gray-700 px-1 truncate">
+                  {item.nombre || <span className="italic text-gray-400">Sin nombre</span>}
+                </p>
+              ) : (
+                <Input
+                  label="Descripción"
+                  placeholder={itemPlaceholder}
+                  value={item.nombre}
+                  onChange={e => updateRow(item.id, { nombre: e.target.value.toUpperCase() })}
+                  viewMode={viewMode}
+                  uppercase
+                  className="h-10"
+                />
+              )}
+            </div>
+
+            <div className="flex-1 w-full min-w-0">
+              <FileUploader
+                label="Documento"
+                bucket="inmotika"
+                storagePath={storagePathPrefix ? `${storagePathPrefix}/${item.id}.pdf` : null}
+                value={item.url}
                 viewMode={viewMode}
-                uppercase
-                className="h-10"
+                onChange={(path) => updateRow(item.id, { url: path })}
               />
+            </div>
+
+            {!viewMode && (
+              <button
+                type="button"
+                onClick={() => removeRow(item.id)}
+                className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0 self-end sm:self-center"
+                title="Quitar"
+              >
+                <Trash2 size={16} />
+              </button>
             )}
           </div>
 
-          <div className="flex-1 w-full min-w-0">
-            <FileUploader
-              label=""
-              bucket="inmotika"
-              storagePath={storagePathPrefix ? `${storagePathPrefix}/${item.id}.pdf` : null}
-              value={item.url}
-              viewMode={viewMode}
-              onChange={(path) => updateRow(item.id, { url: path })}
-            />
-          </div>
-
-          {!viewMode && (
-            <button
-              type="button"
-              onClick={() => removeRow(item.id)}
-              className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0 self-end sm:self-center"
-              title="Quitar"
-            >
-              <Trash2 size={16} />
-            </button>
+          {renderExtraFields && (
+            <div className="pt-2 border-t border-gray-100">
+              {renderExtraFields(item, (patch) => updateRow(item.id, patch))}
+            </div>
           )}
         </div>
       ))}

@@ -5,30 +5,30 @@ import {
   Navigation, Eye,
 } from 'lucide-react';
 import { Country } from 'country-state-city';
-import Button from '../../ui/Button';
-import Input from '../../ui/Input';
-import Select from '../../ui/Select';
-import NitInput from '../../ui/NitInput';
-import Switch from '../../ui/Switch';
-import Tabs from '../../ui/Tabs';
-import FileUploader from '../../ui/FileUploader';
-import PhoneInput from '../../ui/PhoneInput';
-import SchedulePicker from '../../ui/SchedulePicker';
-import { LocationPickerRows } from '../../forms/LocationPickerRows';
-import Card from '../../ui/Card';
-import { TextSmall, Subtitle, Label, TextTiny } from '../../ui/Typography';
-import IconButton from '../../ui/IconButton';
-import DynamicDocumentList from '../../ui/DynamicDocumentList';
-import { supabase } from '../../../utils/supabase';
-import { useEstados, useCatalog, useActivoInactivo } from '../../../hooks/useCatalog';
-import { emptyContractDraft } from '../../../utils/entityMappers';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import Select from '../../components/ui/Select';
+import NitInput from '../../components/ui/NitInput';
+import Switch from '../../components/ui/Switch';
+import Tabs from '../../components/ui/Tabs';
+import FileUploader from '../../components/ui/FileUploader';
+import PhoneInput from '../../components/ui/PhoneInput';
+import SchedulePicker from '../../components/ui/SchedulePicker';
+import { LocationPickerRows } from '../../components/forms/LocationPickerRows';
+import Card from '../../components/ui/Card';
+import { TextSmall, Subtitle, Label, TextTiny } from '../../components/ui/Typography';
+import IconButton from '../../components/ui/IconButton';
+import DynamicDocumentList from '../../components/ui/DynamicDocumentList';
+import { supabase } from '../../utils/supabase';
+import { useEstados, useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
+import { emptyContractDraft } from '../../utils/entityMappers';
+import BranchForm from '../../components/forms/BranchForm';
 
 const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
   value: c.isoCode,
   label: c.name,
   isoCode: c.isoCode,
 }));
-
 const ClientForm = ({
   draft, updateDraft, errors = {}, showErrors = false, isEditing = false,
   onSave, isSaving = false, activeTab, onTabChange,
@@ -37,6 +37,7 @@ const ClientForm = ({
   onAssociateContacts, onAssociateDevices,
   totalSucursales = 0, totalContactos = 0, totalDispositivos = 0,
   editingBranchId = null, onCancelEdit = null,
+  viewBranchMode = null,
 }) => {
   const { options: estadoOptions, loading: loadingEstados } = useEstados();
   const { options: tipoDocOptions, loading: loadingTipoDoc } = useCatalog('TIPO_DOCUMENTO');
@@ -108,7 +109,7 @@ const ClientForm = ({
                 onClick={handleLogoClick}
                 className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-lg border-2 border-gray-200 ${
                   isEditing ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
-                } bg-linear-to-brrom-[#D32F2F] to-[#8B0000]`}
+                  } bg-linear-to-br from-[#D32F2F] to-[#8B0000]`}
               >
                 {draft.logoUrl ? (
                   <img src={draft.logoUrl.startsWith('http') ? draft.logoUrl : undefined} alt="Logo" className="w-full h-full object-cover" />
@@ -132,7 +133,7 @@ const ClientForm = ({
               <p className="text-sm text-gray-500 mt-1">
                 {draft.tipoDocumento
                   ? (isJuridica ? 'Persona Jurídica' : 'Persona Natural')
-                  : 'Nuevo Cliente'}
+                  : 'Cliente'}
               </p>
             </div>
           </div>
@@ -393,13 +394,13 @@ const ClientForm = ({
 
             {/* ─────────── TAB: SUCURSAL ─────────── */}
             {activeTab === 'branches' && (
-              (newBranchDraft || (branches.length === 0 && isEditing)) ? (
-                <BranchSubForm
+              (newBranchDraft || editingBranchId || (branches.length === 0 && isEditing)) ? (
+                <BranchForm
                   newBranchDraft={newBranchDraft}
                   updateNewBranchDraft={updateNewBranchDraft}
                   newBranchErrors={newBranchErrors}
                   onSaveNewBranch={onSaveNewBranch}
-                  isEditing={isEditing}
+                  isEditing={viewBranchMode ? (viewBranchMode === 'edit') : isEditing}
                   isSaving={isSaving}
                   editingBranchId={editingBranchId}
                   onCancelEdit={onCancelEdit}
@@ -410,6 +411,7 @@ const ClientForm = ({
                   activoId={activoId}
                   inactivoId={inactivoId}
                   clientId={draft.id}
+                  viewBranchMode={viewBranchMode}
                 />
               ) : branches.length === 0 ? (
                 <div className="text-center py-12">
@@ -469,259 +471,6 @@ const ClientForm = ({
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-componente: formulario de creación/edición de sucursal
-// ─────────────────────────────────────────────────────────────────────────────
-export const BranchSubForm = ({
-  newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
-  isEditing, isSaving, editingBranchId, onCancelEdit,
-  onAssociateContacts, onAssociateDevices, showErrors,
-  estadoSelectOptions, activoId, inactivoId, clientId,
-}) => (
-  <div className="space-y-6">
-    <div className="flex items-center justify-between flex-wrap gap-2">
-      <Subtitle className="text-gray-700">
-        {editingBranchId ? 'Editar Sucursal' : 'Nueva Sucursal'}
-      </Subtitle>
-      <div className="flex gap-2">
-        {editingBranchId && onCancelEdit && (
-          <Button onClick={onCancelEdit} className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50">
-            Cancelar
-          </Button>
-        )}
-        <Button
-          onClick={onSaveNewBranch}
-          disabled={isSaving}
-          className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0"
-        >
-          {isSaving ? 'Guardando...' : editingBranchId ? 'Guardar Cambios' : 'Guardar Sucursal'}
-        </Button>
-      </div>
-    </div>
-
-    {/* Datos principales — nombre a la izquierda, sede+estado llenan la derecha */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <Input
-        label="Nombre Sucursal"
-        icon={Building2}
-        value={newBranchDraft.nombre || ''}
-        onChange={e => updateNewBranchDraft({ nombre: e.target.value.toUpperCase() })}
-        error={showErrors ? newBranchErrors.nombre : null}
-        uppercase
-        required
-        viewMode={!isEditing}
-      />
-      <div className="flex items-end gap-4">
-        <div className="shrink-0">
-          <Switch
-            label="Sede Principal"
-            checked={!!newBranchDraft.esPrincipal}
-            onChange={checked => updateNewBranchDraft({ esPrincipal: checked })}
-            checkedLabel="Sí"
-            uncheckedLabel="No"
-            disabled={!isEditing}
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <Switch
-            label="Estado"
-            checked={!!activoId && newBranchDraft.estadoId === activoId}
-            onChange={checked => updateNewBranchDraft({ estadoId: checked ? activoId : inactivoId })}
-            checkedLabel="Activo"
-            uncheckedLabel="Inactivo"
-            viewMode={!isEditing}
-          />
-        </div>
-      </div>
-    </div>
-
-    {/* Ubicación — 2 columnas: País+Estado / Ciudad+Dirección / Latitud+Longitud */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <LocationPickerRows
-        countryValue={newBranchDraft.pais}
-        stateValue={newBranchDraft.estado_depto}
-        cityValue={newBranchDraft.ciudad}
-        direccion={newBranchDraft.direccion}
-        onLocationChange={l => updateNewBranchDraft({ pais: l.country, estado_depto: l.state, ciudad: l.city })}
-        onDireccionChange={v => updateNewBranchDraft({ direccion: v })}
-        direccionError={showErrors ? newBranchErrors.direccion : null}
-        required
-        showDireccion
-        twoColumns
-        viewMode={!isEditing}
-      />
-      <Input
-        label="Latitud (Opcional)"
-        icon={Navigation}
-        value={newBranchDraft.latitud || ''}
-        onChange={e => updateNewBranchDraft({ latitud: e.target.value })}
-        placeholder="Ej: 4.710989"
-        inputMode="decimal"
-        viewMode={!isEditing}
-      />
-      <Input
-        label="Longitud (Opcional)"
-        icon={Navigation}
-        value={newBranchDraft.longitud || ''}
-        onChange={e => updateNewBranchDraft({ longitud: e.target.value })}
-        placeholder="Ej: -74.072090"
-        inputMode="decimal"
-        viewMode={!isEditing}
-      />
-    </div>
-
-    {/* Horario de Atención */}
-    <div className="pt-4 border-t border-gray-200">
-      <SchedulePicker
-        label="Horario de Atención"
-        value={newBranchDraft.horarioAtencion || null}
-        onChange={v => updateNewBranchDraft({ horarioAtencion: v })}
-        viewMode={!isEditing}
-      />
-    </div>
-
-    {/* Asociaciones */}
-    <div className="pt-4 border-t border-gray-200 space-y-3">
-      <Subtitle className="text-gray-700">Asociaciones</Subtitle>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {[
-          { label: 'Asociar contactos', sub: 'Relaciona contactos responsables a esta sucursal.', count: newBranchDraft?.associatedContactIds?.length, onClick: onAssociateContacts },
-          { label: 'Asociar dispositivos', sub: 'Vincula los dispositivos instalados.', count: newBranchDraft?.associatedDeviceIds?.length, onClick: onAssociateDevices },
-        ].map(({ label, sub, count, onClick }) => (
-          <button
-            key={label}
-            type="button"
-            onClick={onClick}
-            disabled={!isEditing && (!count || count === 0)}
-            className={`flex items-center justify-between p-4 rounded-lg border border-gray-200 transition-all text-left w-full group
-              ${isEditing || count > 0 ? "bg-gray-50 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer" : "bg-gray-50 opacity-70 cursor-not-allowed"}`}
-          >
-            <div className="flex-1 min-w-0">
-              <TextSmall className={`font-semibold text-gray-900 transition-colors ${isEditing || count > 0 ? "group-hover:text-[#D32F2F]" : ""}`}>{label}</TextSmall>
-              <TextSmall className="text-gray-500 mt-0.5">
-                {count > 0
-                  ? <span className="text-[#D32F2F] font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
-                  : sub
-                }
-              </TextSmall>
-            </div>
-            {(isEditing || count > 0) && (
-              <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-[#D32F2F] transition-colors shadow-sm">
-                {isEditing ? <><Link2 size={12} /> Asociar</> : <><Eye size={12} /> Ver</>}
-              </div>
-            )}
-          </button>
-        ))}
-      </div>
-    </div>
-
-    {/* Contratos */}
-    <div className="pt-4 border-t border-gray-200 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-purple-50 rounded-lg"><Briefcase size={16} className="text-purple-600" /></div>
-          <div>
-            <Subtitle className="text-gray-700">Contratos</Subtitle>
-            <TextTiny className="text-gray-500">Documentos y vigencias contractuales de la sucursal</TextTiny>
-          </div>
-        </div>
-        {isEditing && (
-          <button
-            type="button"
-            onClick={() => updateNewBranchDraft({ contratos: [...(newBranchDraft.contratos || []), emptyContractDraft()] })}
-            className="flex items-center gap-1.5 text-xs text-[#D32F2F] hover:text-[#B71C1C] font-semibold transition-colors"
-          >
-            <Plus size={13} /> Agregar
-          </button>
-        )}
-      </div>
-
-      {(!newBranchDraft.contratos || newBranchDraft.contratos.length === 0) ? (
-        <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-          <Briefcase size={28} className="mx-auto mb-2 text-gray-300" />
-          <TextTiny className="text-gray-400">
-            {isEditing ? 'Sin contratos — haz clic en "+ Agregar" para añadir uno' : 'Sin contratos registrados'}
-          </TextTiny>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {(newBranchDraft.contratos || []).map((contrato, idx) => {
-            const updateContrato = (patch) =>
-              updateNewBranchDraft({
-                contratos: newBranchDraft.contratos.map((c, i) => i === idx ? { ...c, ...patch } : c),
-              });
-            const removeContrato = () =>
-              updateNewBranchDraft({
-                contratos: newBranchDraft.contratos.filter((_, i) => i !== idx),
-              });
-
-            return (
-              <div key={contrato.id || idx} className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-4">
-                <div className="flex items-center justify-between">
-                  <TextSmall className="font-bold text-gray-700">Contrato {idx + 1}</TextSmall>
-                  {isEditing && (
-                    <button type="button" onClick={removeContrato} className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded">
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-                {/* Fila 1: Descripción + Estado */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Descripción del Contrato"
-                    icon={Briefcase}
-                    value={contrato.tema || ''}
-                    onChange={e => updateContrato({ tema: e.target.value })}
-                    placeholder="Ej: MANTENIMIENTO PREVENTIVO"
-                    viewMode={!isEditing}
-                  />
-                  <Select
-                    label="Estado del Contrato"
-                    value={contrato.estadoId || ''}
-                    onChange={e => updateContrato({ estadoId: e.target.value })}
-                    options={estadoSelectOptions}
-                    viewMode={!isEditing}
-                  />
-                </div>
-                {/* Fila 2: Fecha Inicio + Fecha Fin */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Fecha Inicio"
-                    type="date"
-                    icon={Calendar}
-                    value={contrato.fechaInicio || ''}
-                    onChange={e => updateContrato({ fechaInicio: e.target.value })}
-                    viewMode={!isEditing}
-                  />
-                  <Input
-                    label="Fecha Fin"
-                    type="date"
-                    icon={Calendar}
-                    value={contrato.fechaFin || ''}
-                    onChange={e => updateContrato({ fechaFin: e.target.value })}
-                    viewMode={!isEditing}
-                  />
-                </div>
-                {/* Fila 3: Adjuntar Contrato (fila completa) */}
-                <FileUploader
-                  label="Adjuntar Contrato"
-                  bucket="inmotika"
-                  storagePath={newBranchDraft.id ? `contratos/${newBranchDraft.id}/${contrato.id || idx}.pdf` : undefined}
-                  value={contrato.documentoUrl || ''}
-                  onChange={path => updateContrato({ documentoUrl: path })}
-                  accept="application/pdf"
-                  viewMode={!isEditing}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  </div>
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Sub-componente: tarjeta de sucursal en el listado
 // ─────────────────────────────────────────────────────────────────────────────
 const BranchCard = ({ branch, isEditing, editingBranchId, onEditBranch, onViewBranch }) => (
@@ -735,7 +484,7 @@ const BranchCard = ({ branch, isEditing, editingBranchId, onEditBranch, onViewBr
     <div className="flex items-start justify-between">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-2 flex-wrap">
-          <TextSmall className="font-bold text-gray-900 text-base">{branch.nombre}</TextSmall>
+          <TextSmall className="font-bold text-gray-900">{branch.nombre}</TextSmall>
           {(branch.esPrincipal || branch.es_principal) && (
             <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded">Principal</span>
           )}
@@ -782,13 +531,26 @@ const BranchCard = ({ branch, isEditing, editingBranchId, onEditBranch, onViewBr
           );
         })()}
       </div>
-      {isEditing && !editingBranchId && (
-        <div className="flex gap-2 ml-4" onClick={e => e.stopPropagation()}>
-          {onEditBranch && (
-            <IconButton icon={Edit2} onClick={() => onEditBranch(branch)} className="text-gray-400 hover:text-green-600" />
-          )}
-        </div>
-      )}
+      <div className="flex gap-2 ml-4" onClick={e => e.stopPropagation()}>
+        {isEditing && !editingBranchId && onEditBranch && (
+          <IconButton 
+            icon={Edit2} 
+            size={16}
+            onClick={() => onEditBranch(branch)} 
+            className="text-gray-400 hover:text-green-600 bg-gray-50 hover:bg-green-50" 
+            title="Editar Sucursal"
+          />
+        )}
+        {!isEditing && onViewBranch && (
+          <IconButton 
+            icon={Eye} 
+            size={16}
+            onClick={() => onViewBranch(branch)} 
+            className="text-gray-400 hover:text-blue-600 bg-gray-50 hover:bg-blue-50" 
+            title="Ver Detalles"
+          />
+        )}
+      </div>
     </div>
   </div>
 );

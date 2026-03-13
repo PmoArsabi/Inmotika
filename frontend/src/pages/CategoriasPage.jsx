@@ -5,7 +5,7 @@ import Card from '../components/ui/Card';
 import ModuleHeader from '../components/ui/ModuleHeader';
 import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
 import { TextSmall, Subtitle } from '../components/ui/Typography';
-import CategoriaForm from '../components/Device/CategoriaForm';
+import CategoriaForm from '../modules/devices/CategoriaForm';
 import { INITIAL_DATA } from '../utils/mockData';
 
 // ─────────────────────────────────────────────────────────────────────────────

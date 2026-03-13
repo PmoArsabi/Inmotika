@@ -12,6 +12,7 @@ import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
 import { H2, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import { TechnicianChipList } from '../../components/ui/TechnicianChip';
+import Modal from '../../components/ui/Modal';
 import DeviceChecklistCard from '../../components/visits/DeviceChecklistCard';
 
 // ─── Info row helper ──────────────────────────────────────────────────────────
@@ -35,6 +36,9 @@ const GestionVisitasPage = ({ data, setData }) => {
   // Actividad-level: { [actividadId]: { completada: bool } }
   const [ejecucionActividades, setEjecucionActividades] = useState({});
   const [observacionFinal,  setObservacionFinal]  = useState('');
+  const [showHelpModal,     setShowHelpModal]     = useState(false);
+  const [modalTitle,        setModalTitle]        = useState('');
+  const [modalMessage,      setModalMessage]      = useState('');
 
   const visitas = data?.visitas || [];
 
@@ -112,13 +116,17 @@ const GestionVisitasPage = ({ data, setData }) => {
           : v,
       ),
     }));
-    alert('Avance guardado y enviado al coordinador.');
+    setModalTitle('Avance Guardado');
+    setModalMessage('Avance guardado y enviado al coordinador correctamente.');
+    setShowHelpModal(true);
   };
 
   // ── Finalizar visita ──────────────────────────────────────────────────────
   const handleFinalizar = () => {
     if (!observacionFinal.trim()) {
-      alert('Agrega una observación final antes de finalizar.');
+      setModalTitle('Observación Requerida');
+      setModalMessage('Agrega una observación final antes de finalizar la visita.');
+      setShowHelpModal(true);
       return;
     }
     setData(prev => ({
@@ -339,6 +347,12 @@ const GestionVisitasPage = ({ data, setData }) => {
         icon={ClipboardList}
         title="Gestión de Visitas"
         subtitle="Ejecuta y registra el avance de las visitas técnicas asignadas"
+        onNewClick={() => {
+          setModalTitle('¿Cómo crear una visita?');
+          setModalMessage('Para crear una visita técnica, por favor diríjase al módulo de "Programación de Visitas" para asignar técnicos a una solicitud existente, o cree una nueva "Solicitud de Visita" desde el módulo correspondiente.');
+          setShowHelpModal(true);
+        }}
+        newButtonLabel="Ayuda Creación"
         filterContent={
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
             <div className="relative">
@@ -474,6 +488,22 @@ const GestionVisitasPage = ({ data, setData }) => {
           </TBody>
         </Table>
       </Card>
+
+      <Modal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title={modalTitle}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <TextSmall className="text-gray-600 leading-relaxed text-base normal-case">
+            {modalMessage}
+          </TextSmall>
+          <div className="flex justify-end pt-2">
+            <Button onClick={() => setShowHelpModal(false)}>Aceptar</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
