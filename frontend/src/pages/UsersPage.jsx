@@ -5,7 +5,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import {
   Plus, Edit, Eye, Trash2, UserPlus, Shield, Mail, Phone,
   User, Search, X, Save, ArrowLeft, FileText, Lock, IdCard,
-  Hash, Tag, CheckCircle, Send, RefreshCw, Clock,
+  Hash, Tag, CheckCircle, Send, RefreshCw, Clock, AlertTriangle,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -91,40 +91,42 @@ const UsersPage = ({ data, setData }) => {
         .select(`
           id, nombres, apellidos, email, telefono, tipo_documento, identificacion,
           catalogo_rol (id, codigo, nombre),
-          catalogo_estado_general (id, codigo, nombre, activo)
+          catalogo_estado_general (id, codigo, nombre, activo),
+          tecnico!tecnico_usuario_id_fkey (
+            id, tipo_documento, identificacion,
+            documento_cedula_url, planilla_seg_social_url, activo,
+            tecnico_certificado (id, nombre, url, activo)
+          )
         `)
         .order('nombres');
 
       if (usersData) {
-        setUsuarios(usersData.map(u => ({
-          ...u,
-          rol: u.catalogo_rol?.codigo || '',
-          rolNombre: u.catalogo_rol?.nombre || '',
-          activo: u.catalogo_estado_general?.activo ?? true,
-          estado: u.catalogo_estado_general?.codigo || '',
-          estadoNombre: u.catalogo_estado_general?.nombre || '',
-        })));
-      } else if (error?.message?.includes('email')) {
-        // email column doesn't exist yet — fetch without it
-        const { data: fallback } = await supabase
-          .from('perfil_usuario')
-          .select(`
-            id, nombres, apellidos, telefono, tipo_documento, identificacion,
-            catalogo_rol (id, codigo, nombre),
-            catalogo_estado_general (id, codigo, nombre, activo)
-          `)
-          .order('nombres');
-        if (fallback) {
-          setUsuarios(fallback.map(u => ({
+        setUsuarios(usersData.map(u => {
+          // tecnico es un array por el join 1-a-muchos (o null)
+          const techArr = Array.isArray(u.tecnico) ? u.tecnico : (u.tecnico ? [u.tecnico] : []);
+          const tec = techArr.find(t => t.activo) || techArr[0] || null;
+          
+          // Filtrar solo certificados activos
+          const certs = tec?.tecnico_certificado 
+            ? tec.tecnico_certificado.filter(c => c.activo)
+            : [];
+
+          return {
             ...u,
-            email: '(pendiente - ejecutar migración)',
             rol: u.catalogo_rol?.codigo || '',
             rolNombre: u.catalogo_rol?.nombre || '',
             activo: u.catalogo_estado_general?.activo ?? true,
             estado: u.catalogo_estado_general?.codigo || '',
             estadoNombre: u.catalogo_estado_general?.nombre || '',
-          })));
-        }
+            // Campos de tecnico
+            tecnicoId: tec?.id || null,
+            certificados: certs, // id, nombre, url
+            documentos: {
+              cedula: tec?.documento_cedula_url || null,
+              planillaSS: tec?.planilla_seg_social_url || null,
+            },
+          };
+        }));
       } else {
         console.error('Error al cargar usuarios:', error);
       }
@@ -183,18 +185,18 @@ const UsersPage = ({ data, setData }) => {
       apellidos: user.apellidos || '',
       email: user.email || '',
       telefono: user.telefono || '',
-      telefonoPais: user.telefonoPais || 'CO',
-      tipoDocumento: user.tipoDocumento || '',
+      telefonoPais: user.telefono_pais_iso || 'CO',
+      tipoDocumento: user.tipo_documento || '',
       identificacion: user.identificacion || '',
       rol: user.rol || '',
       activo: user.activo !== undefined ? user.activo : true,
       password: '',
       certificados: Array.isArray(user.certificados) ? user.certificados : [],
-      directorId: user.directorId || '',
+      directorId: user.director_id || '',
     });
     setTecnicoDocumentos({
-      cedula:    user.documentos?.cedula    || false,
-      planillaSS: user.documentos?.planillaSS || false,
+      cedula:    user.documentos?.cedula    || null,
+      planillaSS: user.documentos?.planillaSS || null,
     });
   };
 
@@ -342,7 +344,8 @@ const UsersPage = ({ data, setData }) => {
         // Encontrar el rol_id basado en el código seleccionado
         const selectedRole = roles.find(r => r.codigo === newUser.rol);
         
-        // Lógica de actualización de perfil
+        // Actualizar perfil — el trigger on_user_role_change se encarga
+        // de sincronizar las tablas especializadas (tecnico, coordinador, director)
         const { error: updateError } = await supabase
           .from('perfil_usuario')
           .update({
@@ -356,6 +359,104 @@ const UsersPage = ({ data, setData }) => {
           .eq('id', editingUser.id);
 
         if (updateError) throw updateError;
+
+        // Si el rol es TÉCNICO, también actualizar la tabla especializada y certificados
+        if (newUser.rol === ROLES.TECNICO) {
+          const tecnicoPayload = {
+            usuario_id: editingUser.id,
+            tipo_documento: newUser.tipoDocumento || null,
+            identificacion: newUser.identificacion || null,
+            documento_cedula_url: tecnicoDocumentos.cedula || null,
+            planilla_seg_social_url: tecnicoDocumentos.planillaSS || null,
+            activo: true,
+          };
+
+          let techId = editingUser.tecnicoId;
+          if (techId) {
+            const { error: techUpErr } = await supabase.from('tecnico').update(tecnicoPayload).eq('id', techId);
+            if (techUpErr) throw new Error(`Error tecnico: ${techUpErr.message}`);
+          } else {
+            const { data: nT, error: techInsErr } = await supabase.from('tecnico').insert(tecnicoPayload).select('id').single();
+            if (techInsErr) throw new Error(`Error tecnico: ${techInsErr.message}`);
+            techId = nT?.id;
+          }
+
+          if (techId) {
+            // Sincronizar Certificados
+            const currentCerts = newUser.certificados || [];
+            const { data: dbCerts, error: dbFetchError } = await supabase
+              .from('tecnico_certificado')
+              .select('*')
+              .eq('tecnico_id', techId);
+            
+            if (dbFetchError) throw new Error(`Error certificados: ${dbFetchError.message}`);
+
+            // 1. Soft Delete de los que ya no están
+            const toSoftDelete = (dbCerts || []).filter(db => 
+              db.activo && !currentCerts.find(ui => ui.id === db.id)
+            );
+
+            for (const doc of toSoftDelete) {
+              await supabase.from('tecnico_certificado').update({ activo: false }).eq('id', doc.id);
+              if (doc.url) {
+                await supabase.storage.from('inmotika').remove([doc.url]);
+              }
+            }
+
+            // 2. Insert/Update de los actuales
+            for (const uiCert of currentCerts) {
+              const certPayload = {
+                tecnico_id: techId,
+                nombre: uiCert.nombre || 'Certificado',
+                url: uiCert.url || null,
+                activo: true
+              };
+
+              if (dbCerts?.find(db => db.id === uiCert.id)) {
+                await supabase.from('tecnico_certificado').update(certPayload).eq('id', uiCert.id);
+              } else {
+                await supabase.from('tecnico_certificado').insert(certPayload);
+              }
+            }
+          }
+        }
+
+        // Recargar lista después de guardar todo
+        const { data: usersData } = await supabase
+          .from('perfil_usuario')
+          .select(`
+            id, nombres, apellidos, email, telefono, tipo_documento, identificacion,
+            catalogo_rol (id, codigo, nombre),
+            catalogo_estado_general (id, codigo, nombre, activo),
+            tecnico!tecnico_usuario_id_fkey (
+              id, tipo_documento, identificacion,
+              documento_cedula_url, planilla_seg_social_url, activo,
+              tecnico_certificado (id, nombre, url, activo)
+            )
+          `)
+          .order('nombres');
+        
+        if (usersData) {
+          setUsuarios(usersData.map(u => {
+            const techArr = Array.isArray(u.tecnico) ? u.tecnico : (u.tecnico ? [u.tecnico] : []);
+            const tec = techArr.find(t => t.activo) || techArr[0] || null;
+            const certs = tec?.tecnico_certificado ? tec.tecnico_certificado.filter(c => c.activo) : [];
+            return {
+              ...u,
+              rol: u.catalogo_rol?.codigo || '',
+              rolNombre: u.catalogo_rol?.nombre || '',
+              activo: u.catalogo_estado_general?.activo ?? true,
+              estado: u.catalogo_estado_general?.codigo || '',
+              tecnicoId: tec?.id || null,
+              certificados: certs,
+              documentos: {
+                cedula: tec?.documento_cedula_url || null,
+                planillaSS: tec?.planilla_seg_social_url || null,
+              },
+            };
+          }));
+        }
+
         setSuccessInfo({ email: newUser.email, nombres: newUser.nombres, rol: null, isUpdate: true });
         setEditingUser(null);
       }
@@ -496,6 +597,21 @@ const UsersPage = ({ data, setData }) => {
                 />
               </div>
 
+              {/* Advertencia de cambio de rol */}
+              {editingUser && newUser.rol && editingUser.rol && newUser.rol !== editingUser.rol && (
+                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                  <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <TextSmall className="text-amber-900 font-bold">Cambio de Rol Detectado</TextSmall>
+                    <TextTiny className="text-amber-700 leading-relaxed">
+                      Estás cambiando el rol de <strong>{roleLabels[editingUser.rol] || editingUser.rol}</strong>{' '}
+                      a <strong>{roleLabels[newUser.rol] || newUser.rol}</strong>. Al guardar, el registro anterior
+                      quedará inactivo y se creará o reactivará el registro correspondiente al nuevo rol automáticamente.
+                    </TextTiny>
+                  </div>
+                </div>
+              )}
+
               {/* Invitación Informativa */}
               {isCreating && (
                 <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-3">
@@ -536,22 +652,25 @@ const UsersPage = ({ data, setData }) => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FileUploader
                       label="Cédula / Documento de Identidad"
-                      type="cedula"
-                      isLoaded={tecnicoDocumentos.cedula}
+                      bucket="inmotika"
+                      storagePath={editingUser ? `tecnicos/${editingUser.id}/cedula.pdf` : null}
+                      value={tecnicoDocumentos.cedula}
                       viewMode={!!viewingUser}
-                      onLoad={(type) => setTecnicoDocumentos(prev => ({ ...prev, [type]: !prev[type] }))}
+                      onChange={(path) => setTecnicoDocumentos(prev => ({ ...prev, cedula: path }))}
                     />
                     <FileUploader
                       label="Planilla de Seguridad Social"
-                      type="planillaSS"
-                      isLoaded={tecnicoDocumentos.planillaSS}
+                      bucket="inmotika"
+                      storagePath={editingUser ? `tecnicos/${editingUser.id}/planilla.pdf` : null}
+                      value={tecnicoDocumentos.planillaSS}
                       viewMode={!!viewingUser}
-                      onLoad={(type) => setTecnicoDocumentos(prev => ({ ...prev, [type]: !prev[type] }))}
+                      onChange={(path) => setTecnicoDocumentos(prev => ({ ...prev, planillaSS: path }))}
                     />
                   </div>
 
                   {/* Certificados — lista dinámica */}
                   <CertificadosList
+                    userId={editingUser?.id}
                     items={newUser.certificados || []}
                     viewMode={!!viewingUser}
                     onChange={certs => setNewUser(prev => ({ ...prev, certificados: certs }))}
@@ -811,25 +930,39 @@ const UsersPage = ({ data, setData }) => {
             ) : (
               /* ── Éxito ── */
               <>
-                <div className="bg-linear-to-br from-[#D32F2F] via-[#B71C1C] to-[#8B0000] p-6 text-center relative overflow-hidden">
-                  <div className="absolute inset-0 opacity-10">
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
-                  </div>
-                  <div className="relative z-10">
-                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 border-2 border-white/30">
-                      {successInfo.isUpdate
-                        ? <CheckCircle size={32} className="text-white" />
-                        : <Send size={28} className="text-white" />
-                      }
+                {successInfo.isUpdate ? (
+                  <div className="bg-emerald-600 p-8 text-white relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 blur-2xl" />
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -translate-x-12 translate-y-12 blur-xl" />
+                    
+                    <div className="relative flex flex-col items-center text-center">
+                      <div className="bg-white/20 p-3 rounded-full mb-4 backdrop-blur-sm">
+                        <CheckCircle size={32} />
+                      </div>
+                      <H2 className="text-white font-black text-2xl tracking-tight">¡Actualizado!</H2>
+                      <p className="text-white/80 text-sm mt-1">
+                        Los datos han sido guardados exitosamente.
+                      </p>
                     </div>
-                    <h2 className="text-white font-bold text-xl">
-                      {successInfo.isResend ? '¡Invitación Reenviada!' : successInfo.isUpdate ? '¡Actualizado!' : '¡Invitación Enviada!'}
-                    </h2>
-                    <p className="text-white/70 text-sm mt-1">
-                      {successInfo.isResend ? 'Se volvió a enviar el correo de activación.' : successInfo.isUpdate ? 'Los datos han sido guardados exitosamente.' : 'El correo de activación fue enviado con éxito.'}
-                    </p>
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-linear-to-br from-[#D32F2F] via-[#B71C1C] to-[#8B0000] p-8 text-center relative overflow-hidden text-white">
+                    <div className="absolute inset-0 opacity-10">
+                      <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
+                    </div>
+                    <div className="relative z-10 flex flex-col items-center">
+                      <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-3 border-2 border-white/30 backdrop-blur-sm">
+                        {successInfo.isResend ? <RefreshCw size={28} /> : <Send size={28} />}
+                      </div>
+                      <h2 className="font-black text-2xl tracking-tight">
+                        {successInfo.isResend ? '¡Invitación Reenviada!' : '¡Invitación Enviada!'}
+                      </h2>
+                      <p className="text-white/80 text-sm mt-1">
+                        {successInfo.isResend ? 'Se volvió a enviar el correo de activación.' : 'El correo de activación fue enviado con éxito.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="p-6 space-y-4">
                   <div className="bg-gray-50 rounded-xl p-4 space-y-2">
@@ -876,10 +1009,9 @@ const UsersPage = ({ data, setData }) => {
   );
 };
 
-// ─── Certificados: dynamic list of named file uploaders ──────────────────────
-const CertificadosList = ({ items = [], viewMode = false, onChange }) => {
+const CertificadosList = ({ userId, items = [], viewMode = false, onChange }) => {
   const addRow = () =>
-    onChange([...items, { id: `cert-${Date.now()}`, nombre: '', fileLoaded: false }]);
+    onChange([...items, { id: crypto.randomUUID(), nombre: '', url: null, fileLoaded: false }]);
 
   const updateRow = (id, patch) =>
     onChange(items.map(c => (c.id === id ? { ...c, ...patch } : c)));
@@ -891,9 +1023,9 @@ const CertificadosList = ({ items = [], viewMode = false, onChange }) => {
     <div className="mt-3 space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
-          Certificados
+          Certificados Adicionales
         </span>
-        {!viewMode && (
+        {!viewMode && userId && (
           <button
             type="button"
             onClick={addRow}
@@ -909,9 +1041,9 @@ const CertificadosList = ({ items = [], viewMode = false, onChange }) => {
       )}
 
       {items.map(cert => (
-        <div key={cert.id} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-2">
+        <div key={cert.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm hover:border-gray-300 transition-all">
           {/* Nombre del documento */}
-          <div className="w-44 shrink-0">
+          <div className="w-full sm:w-48 shrink-0">
             {viewMode ? (
               <p className="text-sm font-semibold text-gray-700 px-1 truncate">
                 {cert.nombre || <span className="italic text-gray-400">Sin nombre</span>}
@@ -921,20 +1053,21 @@ const CertificadosList = ({ items = [], viewMode = false, onChange }) => {
                 type="text"
                 value={cert.nombre}
                 onChange={e => updateRow(cert.id, { nombre: e.target.value })}
-                placeholder="Nombre del documento"
-                className="w-full h-9 px-3 text-sm font-semibold border border-gray-200 rounded-md focus:outline-none focus:border-[#D32F2F] focus:ring-4 focus:ring-[#D32F2F]/5 transition-all bg-gray-50"
+                placeholder="Nombre (ej: Alturas)"
+                className="w-full h-10 px-3 text-sm font-semibold border border-gray-200 rounded-md focus:outline-none focus:border-[#D32F2F] focus:ring-4 focus:ring-[#D32F2F]/5 transition-all bg-gray-50/50"
               />
             )}
           </div>
 
           {/* FileUploader */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 w-full min-w-0">
             <FileUploader
               label=""
-              type={cert.id}
-              isLoaded={cert.fileLoaded}
+              bucket="inmotika"
+              storagePath={userId ? `tecnicos/${userId}/certificados/${cert.id}.pdf` : null}
+              value={cert.url}
               viewMode={viewMode}
-              onLoad={() => updateRow(cert.id, { fileLoaded: !cert.fileLoaded })}
+              onChange={(path) => updateRow(cert.id, { url: path, fileLoaded: !!path })}
             />
           </div>
 
@@ -943,9 +1076,10 @@ const CertificadosList = ({ items = [], viewMode = false, onChange }) => {
             <button
               type="button"
               onClick={() => removeRow(cert.id)}
-              className="p-1.5 text-gray-300 hover:text-red-500 rounded transition-colors shrink-0"
+              className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0 self-end sm:self-center"
+              title="Quitar certificado"
             >
-              <Trash2 size={15} />
+              <Trash2 size={16} />
             </button>
           )}
         </div>
