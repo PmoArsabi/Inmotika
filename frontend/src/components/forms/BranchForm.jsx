@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Building2, MapPin, Navigation, Link2, Eye,
-  Plus
+  Plus, Calendar
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -10,7 +10,7 @@ import Switch from '../ui/Switch';
 import { LocationPickerRows } from './LocationPickerRows';
 import SchedulePicker from '../ui/SchedulePicker';
 import DynamicDocumentList from '../ui/DynamicDocumentList';
-import { Subtitle, TextSmall } from '../ui/Typography';
+import { Subtitle, TextSmall, Label } from '../ui/Typography';
 
 /**
  * Formulario dedicado para la creación y edición de sucursales (sedes).
@@ -173,30 +173,55 @@ export const BranchForm = (props) => {
           items={(newBranchDraft.contratos || []).map(c => ({
             ...c,
             nombre: c.tema || '',
-            url: c.documentoUrl || ''
+            url: c.documentoUrl || '',
+            fechaInicio: c.fechaInicio || '',
+            fechaFin: c.fechaFin || '',
           }))}
           onChange={(newItems) => {
             updateNewBranchDraft({
               contratos: newItems.map(item => ({
-                ...item,
+                id: item.id,
                 tema: item.nombre,
-                documentoUrl: item.url
+                documentoUrl: item.url,
+                fechaInicio: item.fechaInicio || '',
+                fechaFin: item.fechaFin || '',
               }))
             });
           }}
           viewMode={!isEditing}
-          storagePathPrefix={newBranchDraft.id ? `contratos/${newBranchDraft.id}` : null}
-          renderExtraFields={(item, updateItem) => (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-              <Select
-                label="Estado"
-                value={item.estadoId || ''}
-                options={estadoSelectOptions}
-                onChange={e => updateItem({ estadoId: e.target.value })}
-                viewMode={!isEditing}
-              />
+          storagePathPrefix={null}
+          deferred
+          renderExtraFields={(item, updateRow) => isEditing ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-gray-600 mb-1 block">Fecha inicio</Label>
+                <input
+                  type="date"
+                  value={item.fechaInicio || ''}
+                  onChange={e => updateRow({ fechaInicio: e.target.value || '' })}
+                  className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-600 mb-1 block">Fecha fin</Label>
+                <input
+                  type="date"
+                  value={item.fechaFin || ''}
+                  onChange={e => updateRow({ fechaFin: e.target.value || '' })}
+                  className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                />
+              </div>
             </div>
-          )}
+          ) : (item.fechaInicio || item.fechaFin) ? (
+            <div className="flex flex-wrap gap-3 text-sm text-gray-600">
+              {item.fechaInicio && (
+                <span><Calendar size={12} className="inline mr-1" />Inicio: {new Date(item.fechaInicio).toLocaleDateString('es-CO')}</span>
+              )}
+              {item.fechaFin && (
+                <span><Calendar size={12} className="inline mr-1" />Fin: {new Date(item.fechaFin).toLocaleDateString('es-CO')}</span>
+              )}
+            </div>
+          ) : null}
         />
       </div>
     </div>

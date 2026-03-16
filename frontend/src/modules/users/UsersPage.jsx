@@ -33,6 +33,7 @@ const UsersPage = ({ data, setData }) => {
   const [filterRole, setFilterRole] = useState('Todos');
   const [newUser, setNewUser] = useState(emptyUser());
   const [tecnicoDocumentos, setTecnicoDocumentos] = useState(emptyDocs());
+  const [savingUser, setSavingUser] = useState(false);
 
   // Data & Logic Hook
   const {
@@ -127,13 +128,25 @@ const UsersPage = ({ data, setData }) => {
   };
 
   const onSave = async () => {
-    const success = await saveUser(isCreating, editingUser, newUser, tecnicoDocumentos);
-    if (success) {
-      setIsCreating(false);
-      setEditingUser(null);
-      if (setData) {
-        setData(prev => ({ ...prev, usuarios: usuarios }));
+    if (savingUser) return;
+    setSavingUser(true);
+    setSuccessInfo(null);
+    try {
+      const success = await saveUser(isCreating, editingUser, newUser, tecnicoDocumentos);
+      if (success) {
+        setIsCreating(false);
+        setEditingUser(null);
+        if (setData) {
+          setData(prev => ({ ...prev, usuarios: usuarios }));
+        }
       }
+    } catch (err) {
+      setSuccessInfo({
+        error: true,
+        message: err?.message || 'Error al guardar el usuario. Revise la consola.',
+      });
+    } finally {
+      setSavingUser(false);
     }
   };
 
@@ -155,20 +168,29 @@ const UsersPage = ({ data, setData }) => {
 
   if (isCreating || editingUser || viewingUser) {
     return (
-      <UserForm
-        newUser={newUser}
-        setNewUser={setNewUser}
-        tecnicoDocumentos={tecnicoDocumentos}
-        setTecnicoDocumentos={setTecnicoDocumentos}
-        isCreating={isCreating}
-        editingUser={editingUser}
-        viewingUser={viewingUser}
-        onSave={onSave}
-        onCancel={onCancel}
-        roleOptions={roleOptions}
-        allUsers={usuarios}
-        activeDirectors={activeDirectors}
-      />
+      <>
+        <UserForm
+          newUser={newUser}
+          setNewUser={setNewUser}
+          tecnicoDocumentos={tecnicoDocumentos}
+          setTecnicoDocumentos={setTecnicoDocumentos}
+          isCreating={isCreating}
+          editingUser={editingUser}
+          viewingUser={viewingUser}
+          onSave={onSave}
+          onCancel={onCancel}
+          roleOptions={roleOptions}
+          allUsers={usuarios}
+          activeDirectors={activeDirectors}
+          onResendInvitation={handleResendInvitation}
+          resendingIds={resendingIds}
+          isSaving={savingUser}
+        />
+        <UserSuccessModal
+          successInfo={successInfo}
+          onClose={() => setSuccessInfo(null)}
+        />
+      </>
     );
   }
 
@@ -214,8 +236,6 @@ const UsersPage = ({ data, setData }) => {
           onView={handleView}
           onEdit={handleEdit}
           onDelete={onDeleteInternal}
-          onResend={handleResendInvitation}
-          resendingIds={resendingIds}
           searchTerm={searchTerm}
           filterRole={filterRole}
         />

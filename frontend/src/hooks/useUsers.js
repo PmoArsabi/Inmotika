@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useNotify } from '../context/NotificationContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { ROLES } from '../utils/constants';
-import { uploadAndSyncFile } from '../utils/storageUtils';
+import { saveTecnico } from '../api/tecnicoApi';
 
 export const useUsers = () => {
   const [usuarios, setUsuarios] = useState([]);
@@ -14,6 +14,7 @@ export const useUsers = () => {
   const [resendingIds, setResendingIds] = useState(new Set());
   const [activeDirectors, setActiveDirectors] = useState([]);
   const [loadingActiveDirectors, setLoadingActiveDirectors] = useState(false);
+  const inviteInFlightRef = useRef(false);
 
   const notify = useNotify();
   const confirm = useConfirm();
@@ -188,41 +189,88 @@ export const useUsers = () => {
     }
   };
 
+  const INVITE_USER_TIMEOUT_MS = 35000;
+
   const saveUser = async (isCreating, editingUser, newUser, tecnicoDocumentos) => {
     try {
       if (isCreating) {
-        const { data: inviteData, error: inviteError } = await supabase.functions.invoke('invite-user', {
-          body: {
-            email: newUser.email,
-            nombres: newUser.nombres,
-            apellidos: newUser.apellidos,
-            role_code: newUser.rol,
-            redirectTo: window.location.origin,
-          }
-        });
+        if (inviteInFlightRef.current) return false;
+        inviteInFlightRef.current = true;
+        try {
+          const invitePromise = supabase.functions.invoke('invite-user', {
+            body: {
+              email: newUser.email,
+              nombres: newUser.nombres,
+              apellidos: newUser.apellidos,
+              role_code: newUser.rol,
+              redirectTo: window.location.origin,
+            }
+          });
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Tiempo de espera agotado. La función de invitación no respondió. Compruebe que la Edge Function esté desplegada y que el correo no esté en límite.')), INVITE_USER_TIMEOUT_MS)
+          );
 
-        if (inviteError) {
-          let errorMessage = inviteError.message;
-          try {
-            const body = await inviteError.context.json();
-            if (body && body.error) errorMessage = body.error;
-          } catch (e) {}
-          throw new Error(errorMessage);
+          const { data: inviteData, error: inviteError } = await Promise.race([invitePromise, timeoutPromise]);
+
+          if (inviteError) {
+            let errorMessage = inviteError.message || 'Error al enviar invitación';
+            try {
+              const ctx = inviteError.context;
+              if (ctx && typeof ctx.json === 'function') {
+                const body = await ctx.json();
+                if (body?.error) errorMessage = body.error;
+                else if (body?.message) errorMessage = body.message;
+              }
+            } catch (_) {}
+            setSuccessInfo({ error: true, message: errorMessage });
+            return false;
+          }
+
+          if (inviteData?.error) {
+            setSuccessInfo({ error: true, message: inviteData.error || 'Error al crear usuario' });
+            return false;
+          }
+
+          setSuccessInfo({ email: newUser.email, nombres: newUser.nombres, rol: newUser.rol });
+        } finally {
+          inviteInFlightRef.current = false;
         }
 
-        if (inviteData?.error) throw new Error(inviteData.error);
-
-        setSuccessInfo({ email: newUser.email, nombres: newUser.nombres, rol: newUser.rol });
-        
-        // Actualización diferida de campos adicionales
+        // Actualización diferida: perfil (rol_id, teléfono, etc.) y, si es técnico, documentos y certificados
+        const payloadUser = newUser;
+        const payloadDocs = tecnicoDocumentos;
+        const payloadRoles = roles;
         setTimeout(async () => {
-          const { data: p } = await supabase.from('perfil_usuario').select('id').eq('email', newUser.email).maybeSingle();
+          const { data: p } = await supabase.from('perfil_usuario').select('id').eq('email', payloadUser.email).maybeSingle();
           if (p?.id) {
+            const selectedRole = payloadRoles.find(r => r.codigo === payloadUser.rol);
             await supabase.from('perfil_usuario').update({
-              telefono: newUser.telefono || null,
-              tipo_documento: newUser.tipoDocumento || null,
-              identificacion: newUser.identificacion || null,
+              telefono: payloadUser.telefono || null,
+              tipo_documento: payloadUser.tipoDocumento || null,
+              identificacion: payloadUser.identificacion || null,
+              ...(selectedRole?.id && { rol_id: selectedRole.id }),
             }).eq('id', p.id);
+
+            if (payloadUser.rol === ROLES.TECNICO) {
+              try {
+                await saveTecnico({
+                  usuarioId: p.id,
+                  techId: null,
+                  draft: {
+                    nombres: payloadUser.nombres,
+                    apellidos: payloadUser.apellidos,
+                    telefono: payloadUser.telefono,
+                    tipoDocumento: payloadUser.tipoDocumento,
+                    identificacion: payloadUser.identificacion,
+                    cedula: payloadDocs?.cedula ?? null,
+                    planillaSS: payloadDocs?.planillaSS ?? null,
+                    certificados: payloadUser.certificados || [],
+                  },
+                });
+              } catch (err) {
+                console.error('Error guardando datos de técnico (documentos/certificados):', err);
+              }
+            }
             fetchUsers();
           }
         }, 2000);
@@ -242,78 +290,20 @@ export const useUsers = () => {
         if (updateError) throw updateError;
 
         if (newUser.rol === ROLES.TECNICO) {
-          // 0. Ensure tecnico record exists first (to get a valid ID if it's new)
-          let techId = editingUser.tecnicoId;
-          const { data: existingTech } = await supabase.from('tecnico').select('id').eq('usuario_id', editingUser.id).maybeSingle();
-          techId = existingTech?.id;
-
-          if (!techId) {
-            const { data: nT, error: insErr } = await supabase
-              .from('tecnico')
-              .insert({ usuario_id: editingUser.id })
-              .select('id')
-              .single();
-            if (insErr) throw insErr;
-            techId = nT?.id;
-          }
-
-          // 1. Upload & Sync Cédula and Planilla
-          const finalCedulaUrl = await uploadAndSyncFile({
-            file: tecnicoDocumentos.cedula,
-            fileName: 'cedula.pdf',
-            storageFolder: `tecnicos/${techId}`,
-            dbTarget: { table: 'tecnico', id: techId, column: 'documento_cedula_url' }
+          await saveTecnico({
+            usuarioId: editingUser.id,
+            techId: editingUser.tecnicoId || null,
+            draft: {
+              nombres: newUser.nombres,
+              apellidos: newUser.apellidos,
+              telefono: newUser.telefono,
+              tipoDocumento: newUser.tipoDocumento,
+              identificacion: newUser.identificacion,
+              cedula: tecnicoDocumentos.cedula,
+              planillaSS: tecnicoDocumentos.planillaSS,
+              certificados: newUser.certificados || [],
+            },
           });
-
-          const finalPlanillaUrl = await uploadAndSyncFile({
-            file: tecnicoDocumentos.planillaSS,
-            fileName: 'planilla_seg_social.pdf',
-            storageFolder: `tecnicos/${techId}`,
-            dbTarget: { table: 'tecnico', id: techId, column: 'planilla_seg_social_url' }
-          });
-
-          // 2. Sync Certificates
-          if (techId) {
-            const currentCerts = newUser.certificados || [];
-            const updatedCerts = [];
-
-            for (const uiCert of currentCerts) {
-              // First ensure the cert record exists
-              const isNewId = String(uiCert.id).length < 20;
-              const { data: certRec, error: certErr } = await supabase
-                .from('tecnico_certificado')
-                .upsert({
-                  id: isNewId ? undefined : uiCert.id,
-                  tecnico_id: techId,
-                  nombre: uiCert.nombre || 'Certificado',
-                  activo: true
-                })
-                .select()
-                .single();
-
-              if (certErr) throw certErr;
-
-              // Then upload & sync file
-              const finalPath = await uploadAndSyncFile({
-                file: uiCert.url,
-                fileName: `${certRec.id}.pdf`,
-                storageFolder: `tecnicos/${techId}/certificados`,
-                dbTarget: { table: 'tecnico_certificado', id: certRec.id, column: 'url' }
-              });
-
-              updatedCerts.push({ ...uiCert, id: certRec.id, url: finalPath });
-            }
-
-            // Deactivate others
-            const activeIds = updatedCerts.map(c => c.id);
-            if (activeIds.length > 0) {
-              await supabase.from('tecnico_certificado').update({ activo: false })
-                .eq('tecnico_id', techId)
-                .not('id', 'in', `(${activeIds.map(id => `'${id}'`).join(',')})`);
-            } else {
-              await supabase.from('tecnico_certificado').update({ activo: false }).eq('tecnico_id', techId);
-            }
-          }
         }
 
         // --- COORDINADOR Logic ---

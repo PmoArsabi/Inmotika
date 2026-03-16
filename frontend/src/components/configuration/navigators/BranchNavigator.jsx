@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Card from '../../ui/Card';
 import BranchForm from '../../forms/BranchForm';
 import { useConfigurationContext } from '../../../context/ConfigurationContext';
 import { useMasterData } from '../../../context/MasterDataContext';
-import { emptyBranchDraft, applyBranchUpsert } from '../../../utils/entityMappers';
+import { emptyBranchDraft, toBranchDraft, applyBranchUpsert } from '../../../utils/entityMappers';
 import { validateBranch } from '../../../utils/validators';
 import { useNotify } from '../../../context/NotificationContext';
+import { saveSucursal } from '../../../api/sucursalApi';
 
 const BranchNavigator = ({ setAssociateContactsModal, setAssociateDevicesModal }) => {
   const { route, drafts, updateDraft, setStack } = useConfigurationContext();
@@ -13,6 +14,7 @@ const BranchNavigator = ({ setAssociateContactsModal, setAssociateDevicesModal }
   const notify = useNotify();
   const [showErrors, setShowErrors] = useState(false);
   const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
+  const saveBranchInFlightRef = useRef(false);
 
   const entityKey = (type, id) => `${type}:${id}`;
   const key = entityKey('branch', route.branchId);
@@ -38,21 +40,35 @@ const BranchNavigator = ({ setAssociateContactsModal, setAssociateDevicesModal }
 
   const draft = getDraft();
   const errors = validateBranch(draft);
+  const hasErrors = Object.keys(errors).length > 0;
 
   const handleSave = async () => {
     setShowErrors(true);
     if (hasErrors) return;
-
+    if (saveBranchInFlightRef.current) return;
+    saveBranchInFlightRef.current = true;
     setSaveState({ isSaving: true, savedAt: null });
-    
-    // Simulate API call as in original
-    await new Promise(r => setTimeout(r, 400));
-    
-    setData(prev => applyBranchUpsert(prev, route.clientId, route.branchId, draft));
-    
-    setSaveState({ isSaving: false, savedAt: Date.now() });
-    setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view' } : s));
-    notify('success', 'Sucursal guardada con éxito');
+
+    try {
+      const { sucursalId, contratos } = await saveSucursal({
+        sucursalId: route.branchId,
+        clienteId: route.clientId,
+        draft,
+      });
+      const finalDraft = { ...draft, id: sucursalId, contratos };
+
+      setData(prev => applyBranchUpsert(prev, route.clientId, sucursalId, finalDraft));
+
+      setSaveState({ isSaving: false, savedAt: Date.now() });
+      setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view', branchId: sucursalId } : s));
+      notify('success', 'Sucursal guardada con éxito');
+    } catch (err) {
+      console.error('Error guardando sucursal:', err);
+      notify('error', err?.message || 'Error al guardar la sucursal');
+      setSaveState({ isSaving: false, savedAt: null });
+    } finally {
+      saveBranchInFlightRef.current = false;
+    }
   };
 
   return (

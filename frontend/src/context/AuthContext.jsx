@@ -72,33 +72,54 @@ export const AuthProvider = ({ children }) => {
 
   const fetchProfile = async (userId, currentSession = null) => {
     try {
-      const { data, error } = await supabase
+      // Una sola consulta con joins: más rápido que 3 peticiones (RLS ya permite leer rol y estado)
+      const { data: profile, error: profileError } = await supabase
         .from('perfil_usuario')
         .select(`
-          *,
+          id, rol_id, estado_id, nombres, apellidos, email, telefono, avatar_url,
           catalogo_rol (codigo, nombre),
-          catalogo_estado_general (codigo, nombre)
+          catalogo_estado_general (codigo)
         `)
         .eq('id', userId)
         .maybeSingle();
 
-      if (data) {
+      if (profileError) {
+        console.error('Error al cargar perfil_usuario:', profileError);
+      }
+
+      if (profile) {
+        let roleCode = profile.catalogo_rol?.codigo ?? null;
+        let roleName = profile.catalogo_rol?.nombre ?? null;
+        let statusCode = profile.catalogo_estado_general?.codigo ?? 'ACTIVO';
+        // Si el join no trajo el rol (p. ej. RLS puntual), fallback con una consulta extra
+        if (!roleCode && profile.rol_id) {
+          const { data: rol } = await supabase
+            .from('catalogo_rol')
+            .select('codigo, nombre')
+            .eq('id', profile.rol_id)
+            .maybeSingle();
+          if (rol) {
+            roleCode = rol.codigo;
+            roleName = rol.nombre;
+          }
+        }
+
         setUser({
-          ...data,
-          role: data.catalogo_rol?.codigo || 'ADMIN',
-          roleName: data.catalogo_rol?.nombre || 'Administrador',
-          status: data.catalogo_estado_general?.codigo || 'ACTIVO',
-          email: currentSession?.user?.email || null,
-          nombres: data.nombres || '',
-          apellidos: data.apellidos || '',
+          ...profile,
+          role: roleCode || 'CLIENTE',
+          roleName: roleName || 'Cliente',
+          status: statusCode,
+          email: currentSession?.user?.email ?? profile.email ?? null,
+          nombres: profile.nombres || '',
+          apellidos: profile.apellidos || '',
         });
       } else {
-        // Perfil no encontrado aún (ej: trigger aún no ejecutó)
+        // Perfil no encontrado (trigger pendiente o RLS): no asumir ADMIN
         const emailPrefix = currentSession?.user?.email?.split('@')[0] || 'Usuario';
         setUser({
           id: userId,
           email: currentSession?.user?.email,
-          role: 'ADMIN',
+          role: 'CLIENTE',
           status: 'ACTIVO',
           nombres: emailPrefix,
           apellidos: '',

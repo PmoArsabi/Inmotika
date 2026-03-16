@@ -36,9 +36,10 @@ const FileUploader = ({
   const isLoaded = !!value;
   const isLocalFile = value instanceof File;
   const canUpload = !!storagePath && !uploading;
+  const isClickable = deferred || canUpload;
 
   const handleClick = () => {
-    if (!canUpload && !deferred) return; // If deferred, storagePath might not be needed yet
+    if (!isClickable) return;
     setUploadError(null);
     fileRef.current?.click();
   };
@@ -128,7 +129,7 @@ const FileUploader = ({
           <div
             onClick={handleClick}
             className={`h-14 border-2 border-dashed rounded-md flex items-center justify-center gap-3 transition-all select-none ${
-              !canUpload ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              !isClickable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
             } ${
               isLoaded
                 ? 'border-green-500 bg-green-50 text-green-700 hover:bg-green-100'

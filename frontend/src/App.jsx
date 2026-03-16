@@ -101,18 +101,12 @@ function App() {
     return null;
   };
 
-  // Extract subTab from configuration tabs
+  // Extract subTab from configuration tabs (cada ítem lleva directo a su módulo)
   const getConfigurationSubTab = (tab) => {
     if (tab.startsWith('configuration-')) {
       const subTab = tab.replace('configuration-', '');
-      // Map 'sucursal' to 'clientes' (se maneja dentro del flujo de clientes)
-      if (subTab === 'sucursal') {
-        return 'clientes';
-      }
-      // Contacto tiene su propia vista de contactos
-      if (subTab === 'contacto') {
-        return 'contactos';
-      }
+      if (subTab === 'sucursal') return 'clientes';
+      if (subTab === 'contacto') return 'contactos';
       return subTab;
     }
     return null;
@@ -154,8 +148,7 @@ function App() {
 
       switch (activeTab) {
         case 'dashboard':        return isAdminGroup ? <DashboardPage data={data} /> : <div className="p-8">Acceso Denegado</div>;
-        case 'visits':           return <VisitsPage data={data} setData={setData} />; // Esta página madre debe manejar su propio render
-        case 'configuration':    return isAdminGroup ? <ConfigurationPage key={activeTab} data={data} setData={setData} isSingleTabView={false} /> : <div className="p-8">Acceso Denegado</div>;
+        case 'visits':           return <VisitsPage data={data} setData={setData} />;
         case 'schedule':         return (isAdminGroup || userRole === 'TECNICO') ? <SchedulePage data={data} setData={setData} /> : <div className="p-8">Acceso Denegado</div>;
         
         // Vistas específicas de cliente

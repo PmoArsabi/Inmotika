@@ -1,6 +1,8 @@
-import { User, Mail, Shield, IdCard, Hash, FileText, AlertTriangle, Save, ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
+import { User, Mail, Shield, IdCard, Hash, FileText, AlertTriangle, Save, ArrowLeft, RefreshCw, Loader2 } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
+import Modal from '../../../components/ui/Modal';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import Switch from '../../../components/ui/Switch';
@@ -60,9 +62,14 @@ const UserForm = ({
   onCancel,
   roleOptions,
   allUsers = [],
-  activeDirectors = []
+  activeDirectors = [],
+  onResendInvitation,
+  resendingIds = new Set(),
+  isSaving = false
 }) => {
   const isView = !!viewingUser;
+  const [showResendModal, setShowResendModal] = useState(false);
+  const isResending = editingUser && resendingIds.has(editingUser.id);
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
@@ -86,9 +93,13 @@ const UserForm = ({
           </div>
         </div>
         {!isView && (
-          <Button onClick={onSave} className="flex items-center gap-2">
-            <Save size={16} />
-            Guardar
+          <Button
+            onClick={onSave}
+            disabled={isSaving}
+            className="flex items-center gap-2 min-w-[120px]"
+          >
+            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {isSaving ? 'Guardando...' : 'Guardar'}
           </Button>
         )}
       </header>
@@ -291,8 +302,64 @@ const UserForm = ({
               </div>
             </Card>
           )}
+
+          {editingUser && !isView && onResendInvitation && (
+            <Card className="p-6 border-amber-200/60 bg-amber-50/30">
+              <div className="flex flex-col gap-3">
+                <Label className="text-sm font-bold text-gray-800">Invitación por correo</Label>
+                <TextTiny className="text-gray-600">
+                  Si el usuario no recibió el correo o ha expirado el enlace, puede volver a enviar la invitación al mismo correo.
+                </TextTiny>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => setShowResendModal(true)}
+                  disabled={isResending}
+                  className="w-full justify-center gap-2 !bg-amber-500 hover:!bg-amber-600 !text-white border-0 text-sm normal-case tracking-normal"
+                >
+                  {isResending ? <RefreshCw size={16} className="animate-spin" /> : null}
+                  Volver a enviar invitación
+                </Button>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
+
+      <Modal
+        isOpen={showResendModal}
+        onClose={() => setShowResendModal(false)}
+        title="Volver a enviar invitación"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            Se enviará un nuevo correo de invitación a <strong>{editingUser?.email}</strong> para que el usuario pueda activar su cuenta o restablecer el acceso.
+          </p>
+          <p className="text-sm text-gray-500">
+            El enlace anterior dejará de ser válido. ¿Desea continuar?
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setShowResendModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              className="!bg-amber-500 hover:!bg-amber-600 !text-white border-0 text-sm normal-case"
+              onClick={async () => {
+                if (editingUser && onResendInvitation) {
+                  await onResendInvitation(editingUser);
+                  setShowResendModal(false);
+                }
+              }}
+              disabled={isResending}
+            >
+              {isResending ? <RefreshCw size={14} className="animate-spin inline mr-1" /> : null}
+              Enviar invitación
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -184,7 +184,7 @@ const ConfigurationNavigator = ({ onClose }) => {
               El cliente se ha guardado correctamente. ¿Qué deseas hacer ahora?
             </TextSmall>
             <div className="flex flex-col gap-3">
-              <Button onClick={handleGoToStep2} variant="success" className="w-full">Paso 2 Sucursal</Button>
+              <Button onClick={handleGoToStep2} variant="success" className="w-full">Ir a Sucursales</Button>
               <Button onClick={handleGoToClients} variant="outline" className="w-full">Volver a Clientes</Button>
             </div>
           </div>

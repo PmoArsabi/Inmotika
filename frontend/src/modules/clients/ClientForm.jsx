@@ -70,7 +70,7 @@ const ClientForm = ({
     );
   }, [branches, branchSearchQuery]);
 
-  // Logo upload
+  // Logo upload (deferred, real upload happens in ClientNavigator with uploadAndSyncFile)
   const handleLogoClick = () => {
     if (!isEditing) return;
     logoInputRef.current?.click();
@@ -78,18 +78,9 @@ const ClientForm = ({
 
   const handleLogoChange = async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !draft.id) return;
-    const ext = file.name.split('.').pop();
-    const path = `clientes/${draft.id}/logo.${ext}`;
-    try {
-      const { error } = await supabase.storage.from('inmotika').upload(path, file, { upsert: true });
-      if (error) throw error;
-      updateDraft({ logoUrl: path });
-    } catch (err) {
-      console.error('Logo upload error:', err);
-    } finally {
-      if (logoInputRef.current) logoInputRef.current.value = '';
-    }
+    if (!file) return;
+    updateDraft({ logoUrl: file });
+    if (logoInputRef.current) logoInputRef.current.value = '';
   };
 
   // Document change handler
@@ -228,8 +219,8 @@ const ClientForm = ({
             <div className="flex items-center justify-between border-b border-gray-200 pb-4 shrink-0">
               <Tabs
                 tabs={[
-                  { key: 'details', label: 'Paso 1  Detalle General' },
-                  { key: 'branches', label: 'Paso 2  Sucursal' },
+                  { key: 'details', label: 'Detalle General' },
+                  { key: 'branches', label: 'Sucursal' },
                 ]}
                 active={activeTab}
                 onChange={onTabChange}
@@ -363,18 +354,20 @@ const ClientForm = ({
                       bucket="inmotika"
                       storagePath={draft.id ? `clientes/${draft.id}/rut.pdf` : undefined}
                       value={draft.rutUrl || ''}
-                      onChange={path => updateDraft({ rutUrl: path })}
+                      onChange={fileOrPath => updateDraft({ rutUrl: fileOrPath })}
                       accept="application/pdf,image/*"
                       viewMode={!isEditing}
+                      deferred
                     />
                     <FileUploader
                       label="Certificación Bancaria"
                       bucket="inmotika"
                       storagePath={draft.id ? `clientes/${draft.id}/cert_bancaria.pdf` : undefined}
                       value={draft.certBancariaUrl || ''}
-                      onChange={path => updateDraft({ certBancariaUrl: path })}
+                      onChange={fileOrPath => updateDraft({ certBancariaUrl: fileOrPath })}
                       accept="application/pdf,image/*"
                       viewMode={!isEditing}
+                      deferred
                     />
                   </div>
 
@@ -387,6 +380,7 @@ const ClientForm = ({
                     viewMode={!isEditing}
                     storagePathPrefix={draft.id ? `clientes/${draft.id}/otros` : null}
                     itemPlaceholder="Nombre del documento"
+                    deferred
                   />
                 </div>
               </div>

@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Card from '../../ui/Card';
 import ContactForm from '../../../modules/contacts/ContactForm';
 import { useConfigurationContext } from '../../../context/ConfigurationContext';
 import { useMasterData } from '../../../context/MasterDataContext';
-import { emptyContactDraft, toContactDraft } from '../../../utils/entityMappers';
+import { emptyContactDraft, toContactDraft, applyContactUpsert } from '../../../utils/entityMappers';
 import { validateContact } from '../../../utils/validators';
 import { useNotify } from '../../../context/NotificationContext';
 import { supabase } from '../../../utils/supabase';
-import { applyContactUpsert } from '../../../utils/entityMappers';
+import { saveContacto } from '../../../api/contactoApi';
 
 const ContactNavigator = ({ onClose }) => {
   const { route, drafts, updateDraft, setStack } = useConfigurationContext();
@@ -15,6 +15,7 @@ const ContactNavigator = ({ onClose }) => {
   const notify = useNotify();
   const [showErrors, setShowErrors] = useState(false);
   const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
+  const inviteInFlightRef = useRef(false);
 
   const entityKey = (type, id) => `${type}:${id}`;
   const key = entityKey('contact', route.contactId);
@@ -70,81 +71,29 @@ const ContactNavigator = ({ onClose }) => {
 
     setSaveState({ isSaving: true, savedAt: null });
     try {
+      const { contactId } = await saveContacto({
+        contactId: route.contactId,
+        clienteId: route.clientId,
+        draft: currentDraft,
+      });
+
       const primaryBranchId = currentDraft.associatedBranchIds?.[0] || route.branchId || null;
 
-      let estadoId = currentDraft.estadoId || null;
-      if (!estadoId) {
-        const { data: estData } = await supabase
-          .from('catalogo_estado_general')
-          .select('id')
-          .eq('activo', true)
-          .limit(1)
-          .maybeSingle();
-        estadoId = estData?.id || null;
-      }
-
-      const isRealId = route.contactId && !String(route.contactId).startsWith('C-');
-      const payload = {
-        nombres:                  currentDraft.nombres             || null,
-        apellidos:                currentDraft.apellidos           || null,
-        tipo_documento:           currentDraft.tipoDocumento       || null,
-        identificacion:           currentDraft.identificacion      || null,
-        genero_id:                currentDraft.generoId            || null,
-        cargo_id:                 currentDraft.cargoId             || null,
-        descripcion_cargo:        currentDraft.descripcionCargo    || null,
-        email:                    currentDraft.email               || null,
-        telefono_movil:           currentDraft.telefonoMovil       || null,
-        telefono_movil_pais_iso:  currentDraft.telefonoMovilPais   || 'CO',
-        fecha_nacimiento:         currentDraft.fechaNacimiento     || null,
-        fecha_matrimonio:         currentDraft.esMarido ? (currentDraft.fechaMatrimonio || null) : null,
-        estado_id:                estadoId,
-        cliente_id:               route.clientId            || null,
-      };
-
-      let contactId = route.contactId;
-
-      if (isRealId) {
-        const { error: updErr } = await supabase
-          .from('contacto')
-          .update(payload)
-          .eq('id', contactId);
-        if (updErr) throw updErr;
-      } else {
-        const { data: inserted, error: insErr } = await supabase
-          .from('contacto')
-          .insert(payload)
-          .select('id')
-          .single();
-        if (insErr) throw insErr;
-        contactId = inserted.id;
-      }
-
-      const branchIds = currentDraft.associatedBranchIds || (primaryBranchId ? [primaryBranchId] : []);
-      if (branchIds.length > 0) {
-        await supabase
-          .from('contacto_sucursal')
-          .delete()
-          .eq('contacto_id', contactId);
-        const bridgeRows = branchIds.map(bId => ({
-          contacto_id: contactId,
-          sucursal_id: bId,
-        }));
-        const { error: bridgeErr } = await supabase
-          .from('contacto_sucursal')
-          .insert(bridgeRows);
-        if (bridgeErr) console.warn('Error en contacto_sucursal:', bridgeErr.message);
-      }
-
-      if (currentDraft.darAcceso && isNewContact && currentDraft.email) {
-        await supabase.functions.invoke('invite-user', {
-          body: {
-            email:      currentDraft.email,
-            nombres:    currentDraft.nombres,
-            apellidos:  currentDraft.apellidos,
-            role_code:  'CLIENTE',
-            redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
-          },
-        });
+      if (currentDraft.darAcceso && isNewContact && currentDraft.email && !inviteInFlightRef.current) {
+        inviteInFlightRef.current = true;
+        try {
+          await supabase.functions.invoke('invite-user', {
+            body: {
+              email: currentDraft.email,
+              nombres: currentDraft.nombres,
+              apellidos: currentDraft.apellidos,
+              role_code: 'CLIENTE',
+              redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
+            },
+          });
+        } finally {
+          inviteInFlightRef.current = false;
+        }
       }
 
       setData(prev => applyContactUpsert(prev, route.clientId, primaryBranchId, contactId, {
@@ -157,7 +106,6 @@ const ContactNavigator = ({ onClose }) => {
         idx === prev.length - 1 ? { ...s, mode: 'view', contactId } : s
       ));
       notify('success', 'Contacto guardado con éxito');
-
     } catch (err) {
       console.error('Error al guardar contacto:', err);
       setSaveState({ isSaving: false, savedAt: null });

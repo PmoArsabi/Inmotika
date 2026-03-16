@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import ClientForm from '../../../modules/clients/ClientForm';
 import { useConfigurationContext } from '../../../context/ConfigurationContext';
 import { useMasterData } from '../../../context/MasterDataContext';
-import { 
-  emptyClientDraft, 
-  toClientDraft, 
+import {
+  emptyClientDraft,
+  toClientDraft,
   applyClientUpdate,
   emptyBranchDraft,
   toBranchDraft,
   applyBranchUpsert
 } from '../../../utils/entityMappers';
 import { validateClient, validateBranch } from '../../../utils/validators';
+import { useCatalog } from '../../../hooks/useCatalog';
+import { saveSucursal } from '../../../api/sucursalApi';
+import { saveCliente } from '../../../api/clienteApi';
 
 const ClientNavigator = ({ 
   setAssociateContactsModal,
@@ -32,6 +35,9 @@ const ClientNavigator = ({
     savedClientId, setSavedClientId,
   } = useConfigurationContext();
   const { data, setData } = useMasterData();
+  const { options: tipoPersonaOptions } = useCatalog('TIPO_PERSONA');
+  const tipoPersonaIdNatural = tipoPersonaOptions.find(o => o.codigo === 'NATURAL')?.value || '';
+  const tipoPersonaIdJuridica = tipoPersonaOptions.find(o => o.codigo === 'JURIDICA')?.value || '';
 
   const entityKey = (type, id) => `${type}:${id}`;
   const key = entityKey('cliente', route.clientId);
@@ -44,21 +50,49 @@ const ClientNavigator = ({
   const errors = validateClient(draft);
   const hasErrors = Object.keys(errors).length > 0;
 
+  const [saveError, setSaveError] = useState(null);
+  const saveBranchInFlightRef = useRef(false);
+
   const handleSave = async () => {
     setShowErrors(true);
+    setSaveError(null);
     if (hasErrors) return;
+    const tipoPersonaId = draft.tipoPersonaId || (draft.tipoDocumento === 'NIT' ? tipoPersonaIdJuridica : tipoPersonaIdNatural) || tipoPersonaIdNatural;
+    if (!tipoPersonaId) {
+      setSaveError('Cargando opciones de tipo de persona. Espere un momento e intente de nuevo.');
+      return;
+    }
     setSaveState({ isSaving: true, savedAt: null });
-    await new Promise(r => setTimeout(r, 400));
-    
-    const savedData = { ...draft, nit: `${draft.nit}-${draft.dv}`, id: route.clientId };
-    setData(prev => applyClientUpdate(prev, route.clientId, savedData));
-    
-    const updatedDraft = toClientDraft(savedData);
-    setDrafts(prev => ({ ...prev, [key]: updatedDraft }));
-    
-    setSaveState({ isSaving: false, savedAt: Date.now() });
-    setSavedClientId(route.clientId);
-    setShowSuccessModal(true);
+
+    try {
+      const { clientId: realId, savedData } = await saveCliente({
+        clientId: route.clientId,
+        draft,
+        tipoPersonaId,
+      });
+
+      const isNew = key !== entityKey('cliente', realId);
+      if (isNew) {
+        setData(prev => ({ ...prev, clientes: [...(prev.clientes || []), savedData] }));
+        const updatedDraft = toClientDraft({ ...savedData, razon_social: draft.nombre });
+        setDrafts(prev => {
+          const next = { ...prev };
+          delete next[key];
+          next[entityKey('cliente', realId)] = updatedDraft;
+          return next;
+        });
+        setStack(prev => prev.map((r, i) => i === prev.length - 1 ? { ...r, clientId: realId } : r));
+      } else {
+        setData(prev => applyClientUpdate(prev, realId, savedData));
+        setDrafts(prev => ({ ...prev, [key]: toClientDraft(savedData) }));
+      }
+      setSavedClientId(realId);
+      setSaveState({ isSaving: false, savedAt: Date.now() });
+      setShowSuccessModal(true);
+    } catch (err) {
+      setSaveError(err?.message ?? 'Error al guardar el cliente');
+      setSaveState({ isSaving: false, savedAt: null });
+    }
   };
 
   const ensureDraft = (k, factory) => {
@@ -146,35 +180,44 @@ const ClientNavigator = ({
 
   const { draft: activeBranchDraft, key: activeBranchKey } = getDraftWithFallback();
   const activeBranchErrors = activeBranchDraft ? validateBranch(activeBranchDraft) : {};
-  
+
   const handleSaveNewBranch = async () => {
     if (!activeBranchDraft) return;
+    if (saveBranchInFlightRef.current) return;
     setShowErrors(true);
     if (Object.keys(activeBranchErrors).length > 0) return;
+    saveBranchInFlightRef.current = true;
     setSaveState({ isSaving: true, savedAt: null });
-    await new Promise(r => setTimeout(r, 400));
-    
-    if (editingBranchId) {
-      setData(prev => applyBranchUpsert(prev, route.clientId, editingBranchId, activeBranchDraft));
+
+    try {
+      const { sucursalId, contratos } = await saveSucursal({
+        sucursalId: editingBranchId,
+        clienteId: route.clientId,
+        draft: activeBranchDraft,
+      });
+      const finalDraft = { ...activeBranchDraft, id: sucursalId, contratos };
+
+      setData(prev => applyBranchUpsert(prev, route.clientId, sucursalId, finalDraft));
       setDrafts(prev => {
         const updated = { ...prev };
         delete updated[activeBranchKey];
         return updated;
       });
-      setEditingBranchId(null);
-    } else {
-      const newId = `NEW-SUC-${Date.now()}`;
-      setData(prev => applyBranchUpsert(prev, route.clientId, newId, activeBranchDraft));
-      setDrafts(prev => {
-        const updated = { ...prev };
-        delete updated[activeBranchKey];
-        return updated;
-      });
-      setBranchSuccessInfo({ clientId: route.clientId, branchId: newId });
-      setCreatingNewBranch(false);
+      if (editingBranchId) {
+        setEditingBranchId(null);
+      } else {
+        setBranchSuccessInfo({ clientId: route.clientId, branchId: sucursalId });
+        setCreatingNewBranch(false);
+      }
+      setSaveState({ isSaving: false, savedAt: Date.now() });
+      setSaveError(null);
+    } catch (err) {
+      console.error('Error guardando sucursal:', err);
+      setSaveState({ isSaving: false, savedAt: null });
+      setSaveError(err?.message ?? 'Error al guardar la sucursal');
+    } finally {
+      saveBranchInFlightRef.current = false;
     }
-    
-    setSaveState({ isSaving: false, savedAt: Date.now() });
   };
 
   const handleOpenAssociateContacts = () => {
@@ -198,8 +241,14 @@ const ClientNavigator = ({
   const totalDispositivos = (data?.dispositivos || []).filter(d => compareIds(d.clientId, route.clientId)).length;
 
   return (
-    <ClientForm
-      draft={draft}
+    <>
+      {saveError && (
+        <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+          {saveError}
+        </div>
+      )}
+      <ClientForm
+        draft={draft}
       updateDraft={(patch) => updateDraft(key, patch)}
       errors={errors}
       showErrors={showErrors}
@@ -226,7 +275,8 @@ const ClientNavigator = ({
       totalSucursales={totalSucursales}
       totalContactos={totalContactos}
       totalDispositivos={totalDispositivos}
-    />
+      />
+    </>
   );
 };
 

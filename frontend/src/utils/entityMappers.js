@@ -13,16 +13,17 @@ const generateUUID = () =>
 export const emptyClientDraft = () => ({
   id: generateUUID(),
   nombre: '',           // razon_social o nombre según tipo_documento
-  tipoDocumento: '',    // código: 'CC', 'CE', 'NIT', 'PAS', 'TI', 'PPT'
-  nit: '',              // número de identificación (todos los tipos)
-  dv: '',               // dígito de verificación (solo NIT)
+  tipoDocumento: '',
+  tipoPersonaId: '',    // FK catalogo (TIPO_PERSONA): NATURAL | JURIDICA
+  nit: '',
+  dv: '',
   celular: '',
   celularPaisIso: 'CO',
   email: '',
   logoUrl: '',
   rutUrl: '',
   certBancariaUrl: '',
-  otrosDocumentos: [],  // [{id, nombre, url}]
+  otrosDocumentos: [],  // desde tabla cliente_documento: [{id, nombre, url}]
   fechaNacimiento: '',
   estadoId: '',
   direccion: '',
@@ -120,32 +121,65 @@ export const emptyTecnicoDraft = () => ({
 
 export const toClientDraft = (client) => {
   if (!client) return emptyClientDraft();
+  const nitStr = client.nit != null ? String(client.nit) : '';
+  const [nit, dv] = nitStr.includes('-') ? nitStr.split('-') : [nitStr, ''];
+  const otrosFromTable = client.cliente_documento;
+  const otrosDocumentos = Array.isArray(otrosFromTable)
+    ? otrosFromTable.filter(d => d.activo !== false).map(d => ({ id: d.id, nombre: d.nombre || '', url: d.url || '' }))
+    : (Array.isArray(client.otros_documentos) ? client.otros_documentos : (Array.isArray(client.otrosDocumentos) ? client.otrosDocumentos : []));
   return {
     ...emptyClientDraft(),
-    ...client,
     id: client.id || generateUUID(),
-    tipoDocumento: client.tipo_documento || client.tipoDocumento || '',
-    nit: client.nit ? client.nit.split('-')[0] : '',
-    dv:  client.nit ? (client.nit.split('-')[1] || '') : '',
-    otrosDocumentos: Array.isArray(client.otrosDocumentos) ? client.otrosDocumentos : [],
+    nombre: client.razon_social ?? client.nombre ?? '',
+    tipoDocumento: client.tipo_documento ?? client.tipoDocumento ?? '',
+    tipoPersonaId: client.tipo_persona_id ?? client.tipoPersonaId ?? '',
+    nit: nit || '',
+    dv: dv || '',
+    celular: client.celular ?? '',
+    celularPaisIso: client.celular_pais_iso ?? client.celularPaisIso ?? 'CO',
+    email: client.email ?? '',
+    logoUrl: client.logo_url ?? client.logoUrl ?? '',
+    rutUrl: client.rut_url ?? client.rutUrl ?? '',
+    certBancariaUrl: client.cert_bancaria_url ?? client.certBancariaUrl ?? '',
+    fechaNacimiento: client.fecha_nacimiento ?? client.fechaNacimiento ?? '',
+    estadoId: client.estado_id ?? client.estadoId ?? '',
+    direccion: client.direccion ?? '',
+    pais: client.pais ?? 'CO',
+    estado_depto: client.estado_depto ?? '',
+    ciudad: client.ciudad ?? '',
+    otrosDocumentos,
   };
 };
 
 export const toBranchDraft = (branch) => {
   if (!branch) return emptyBranchDraft();
-  // backward-compat: if DB returns single `contrato` object, wrap it in array
-  const rawContratos = branch.contratos
+  let rawContratos = branch.contratos
     ? branch.contratos
     : branch.contrato
       ? [{ ...emptyContractDraft(), ...branch.contrato }]
       : [];
+  rawContratos = rawContratos.filter(c => c.activo !== false);
   return {
     ...emptyBranchDraft(),
-    ...branch,
     id: branch.id || generateUUID(),
-    estado_depto: branch.estado_depto || branch.estado || '',
+    nombre: branch.nombre ?? '',
+    direccion: branch.direccion ?? '',
+    ciudad: branch.ciudad ?? '',
+    estado_depto: branch.estado_depto ?? branch.estado ?? '',
+    pais: branch.pais ?? 'CO',
+    latitud: branch.latitud != null ? String(branch.latitud) : '',
+    longitud: branch.longitud != null ? String(branch.longitud) : '',
     esPrincipal: branch.esPrincipal ?? branch.es_principal ?? false,
-    contratos: rawContratos.map(c => ({ ...emptyContractDraft(), ...c })),
+    estadoId: branch.estado_id ?? branch.estadoId ?? '',
+    horarioAtencion: branch.horarios_atencion ?? branch.horarioAtencion ?? null,
+    contratos: rawContratos.map(c => ({
+      ...emptyContractDraft(),
+      id: c.id,
+      tema: c.tema ?? c.nombre ?? '',
+      documentoUrl: c.documento_url ?? c.documentoUrl ?? '',
+      fechaInicio: c.fecha_inicio ?? c.fechaInicio ?? '',
+      fechaFin: c.fecha_fin ?? c.fechaFin ?? '',
+    })),
   };
 };
 

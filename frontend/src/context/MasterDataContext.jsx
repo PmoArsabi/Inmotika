@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
+import { toClientDraft, toBranchDraft } from '../utils/entityMappers';
 
 const MasterDataContext = createContext();
 
@@ -19,16 +20,27 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
   const refreshData = useCallback(async () => {
     setLoading(true);
     try {
-      // For now, this is a placeholder. 
-      // In a real scenario, we might fetch all master data or specific bits.
-      // But the app currently passes initial data from the root.
       setError(null);
+      const { data: rows, error: fetchError } = await supabase
+        .from('cliente')
+        .select('*, cliente_documento(id, nombre, url, activo), sucursal(*, contrato(*))')
+        .order('razon_social');
+      if (fetchError) throw fetchError;
+      const clientes = (rows || []).map(row => ({
+        ...toClientDraft(row),
+        sucursales: (row.sucursal || []).map(s => toBranchDraft(s)),
+      }));
+      setData(prev => ({ ...prev, clientes }));
     } catch (err) {
-      setError(err.message);
+      setError(err?.message ?? 'Error al cargar datos');
     } finally {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
 
   const value = useMemo(() => ({
     data,

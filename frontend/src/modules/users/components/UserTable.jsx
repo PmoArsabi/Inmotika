@@ -1,4 +1,4 @@
-import { Eye, Edit, RefreshCw, Trash2, User, Mail, Phone, Shield, Clock } from 'lucide-react';
+import { Eye, Edit, Trash2, User, Mail, Phone, Shield, Clock, RefreshCw } from 'lucide-react';
 import { Table, THead, TBody, Tr, Th, Td } from '../../../components/ui/Table';
 import { Subtitle, TextSmall } from '../../../components/ui/Typography';
 import StatusBadge from '../../../components/ui/StatusBadge';
@@ -16,8 +16,6 @@ const UserTable = ({
   onView, 
   onEdit, 
   onDelete, 
-  onResend, 
-  resendingIds = new Set(),
   loading = false,
   searchTerm = '',
   filterRole = 'Todos'
@@ -110,14 +108,6 @@ const UserTable = ({
                     title="Editar usuario"
                   >
                     <Edit size={16} className="text-green-600" />
-                  </button>
-                  <button
-                    onClick={() => onResend(user)}
-                    disabled={resendingIds.has(user.id)}
-                    className="p-2 hover:bg-amber-50 rounded-md transition-colors disabled:opacity-50"
-                    title="Reenviar invitación al correo"
-                  >
-                    <RefreshCw size={16} className={`text-amber-600 ${resendingIds.has(user.id) ? 'animate-spin' : ''}`} />
                   </button>
                   <button
                     onClick={() => onDelete(user.id)}
