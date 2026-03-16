@@ -17,7 +17,7 @@ const SchedulePage = ({ data, setData }) => {
   const [filterDate, setFilterDate] = useState('');
   const [filterCity, setFilterCity] = useState('');
 
-  const myVisits = data.visitas.filter(v => v.tecnico_asignado === "Carlos Perez");
+  const myVisits = (data.visitas || []).filter(v => v.tecnico_asignado === "Carlos Perez");
 
   const kpis = useMemo(() => {
     const total = myVisits.length;
@@ -30,7 +30,7 @@ const SchedulePage = ({ data, setData }) => {
     return myVisits.filter(v => {
       const matchClient = v.cliente.toLowerCase().includes(filterClient.toLowerCase());
       const matchDate = filterDate === '' || v.fecha === filterDate;
-      const clientDetails = data.clientes.find(c => c.nombre === v.cliente);
+      const clientDetails = (data.clientes || []).find(c => c.nombre === v.cliente);
       const matchCity = filterCity === '' || (clientDetails?.ciudad.toLowerCase().includes(filterCity.toLowerCase()));
       return matchClient && matchDate && matchCity;
     });

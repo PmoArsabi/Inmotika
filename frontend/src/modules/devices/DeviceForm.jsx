@@ -16,7 +16,6 @@ import { Label, TextSmall } from '../../components/ui/Typography';
 import Card from '../../components/ui/Card';
 import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
 import CategoriaForm from './CategoriaForm';
-import { INITIAL_DATA } from '../../utils/mockData';
 import { useActivoInactivo } from '../../hooks/useCatalog';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -58,11 +57,9 @@ const DeviceForm = ({
 
   const loadCategorias = useCallback(() => {
     setLoadingCats(true);
-    setTimeout(() => {
-      const catsMock = INITIAL_DATA.categorias || [];
-      setCategorias(catsMock.map(c => ({ value: c.id, label: c.nombre, raw: c })));
-      setLoadingCats(false);
-    }, 200);
+    // TODO: Connect to Supabase to fetch categories
+    setCategorias([]);
+    setLoadingCats(false);
   }, []);
 
   useEffect(() => { loadCategorias(); }, [loadCategorias]);
@@ -70,20 +67,8 @@ const DeviceForm = ({
   useEffect(() => {
     if (!draft.categoriaId) { setCategoryPasos([]); return; }
     
-    // Extrayendo plantilla de pasos mockeados buscando un dispositivo de esa categoría
-    const targetCat = categorias.find(c => c.value === draft.categoriaId);
-    if (!targetCat) return;
-
-    // Buscar si hay algun dispositivo asociado a esta categoría (por nombre o id)
-    const mockDevWithSteps = INITIAL_DATA.dispositivos.find(d => 
-      d.categoria === targetCat.label || d.categoriaId === draft.categoriaId
-    );
-
-    if (mockDevWithSteps && mockDevWithSteps.pasos) {
-      setCategoryPasos(mockDevWithSteps.pasos);
-    } else {
-      setCategoryPasos([]); // Simular que no tiene protocolo mockeado
-    }
+    // When connecting to Supabase, this should fetch the steps for the category
+    setCategoryPasos([]);
   }, [draft.categoriaId, categorias]);
 
   // ─── Frecuencia → fecha automática ────────────────────────────────────────

@@ -20,9 +20,9 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
   const [newDeviceSerial, setNewDeviceSerial] = useState('');
 
   const detailedInfo = useMemo(() => {
-    const client = data.clientes.find(c => c.nombre === activeVisit.cliente);
-    const allDevices = activeVisit.dispositivos?.map(code =>
-      data.dispositivos.find(d => d.codigoUnico === code || d.serial === code)
+    const client = (data.clientes || []).find(c => c.nombre === activeVisit.cliente);
+    const allDevices = (activeVisit.dispositivos || [])?.map(code =>
+      (data.dispositivos || []).find(d => d.codigoUnico === code || d.serial === code)
     ).filter(Boolean) || [];
     const filteredDevices = selectedDeviceId ? allDevices.filter(dev => dev.codigoUnico === selectedDeviceId) : allDevices;
     return { client, devices: filteredDevices, totalDevices: allDevices.length, allAssigned: allDevices };
@@ -30,7 +30,7 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
 
   const handleAddNewDevice = () => {
     if (!newDeviceSerial) return;
-    const globalDevice = data.dispositivos.find(d => d.serial === newDeviceSerial);
+    const globalDevice = (data.dispositivos || []).find(d => d.serial === newDeviceSerial);
     if (globalDevice) {
       if (activeVisit.dispositivos.includes(globalDevice.codigoUnico)) return;
       const updatedVisits = data.visitas.map(v =>

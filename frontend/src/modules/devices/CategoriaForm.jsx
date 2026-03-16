@@ -7,7 +7,6 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
 import { H2, Label, TextSmall } from '../../components/ui/Typography';
-import { INITIAL_DATA } from '../../utils/mockData';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const emptyActividad = (orden) => ({
@@ -167,38 +166,9 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
     setLoadingPasos(true);
     
     // Simulate network delay
-    setTimeout(() => {
-      // Find the template in mock data (from a device with this category)
-      const targetCatName = categoria.nombre;
-      const mockDevWithSteps = INITIAL_DATA.dispositivos.find(d => 
-        d.categoria === targetCatName || d.categoriaId === categoria.id
-      );
-
-      if (mockDevWithSteps && mockDevWithSteps.pasos) {
-        const loadedPasos = mockDevWithSteps.pasos.map((p, pIdx) => ({
-          id: p.id || `p-${pIdx}`,
-          tempId: null,
-          descripcion: p.descripcion,
-          esObligatorio: p.esObligatorio ?? true,
-          orden: p.orden || pIdx + 1,
-          isNew: false,
-          deleted: false,
-           actividades: (p.actividades || []).map((a, aIdx) => ({
-            id: a.id || `a-${pIdx}-${aIdx}`,
-            tempId: null,
-            descripcion: a.descripcion,
-            esObligatorio: a.esObligatorio ?? true,
-            orden: a.orden || aIdx + 1,
-            isNew: false,
-            deleted: false,
-          })),
-        }));
-        setPasos(loadedPasos);
-      } else {
-        setPasos([]);
-      }
-      setLoadingPasos(false);
-    }, 300);
+    // TODO: Fetch steps from Supabase category_protocol table
+    setPasos([]);
+    setLoadingPasos(false);
   }, [categoria?.id, categoria?.nombre]);
 
   useEffect(() => {

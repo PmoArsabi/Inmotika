@@ -11,13 +11,13 @@ import StatusBadge from '../components/ui/StatusBadge';
 
 const ClientInventoryPage = ({ data }) => {
   const currentClientName = "Residencial Horizonte";
-  const myData = data.clientes.find(c => c.nombre === currentClientName) || {};
+  const myData = (data.clientes || []).find(c => c.nombre === currentClientName) || {};
   const myDevices = myData.dispositivos || [];
 
   const [invFilters, setInvFilters] = useState({ sucursal: '', tipo: '', fecha: '', estado: '' });
 
   const enrichedDevices = myDevices.map((code, index) => {
-    const globalDevice = data.dispositivos.find(d => d.codigoUnico === code) || {};
+    const globalDevice = (data.dispositivos || []).find(d => d.codigoUnico === code) || {};
     return {
       code,
       tipo: globalDevice.tipo || (code.includes('CAM') ? 'Cámara IP' : code.includes('SENSOR') ? 'Sensor PIR' : 'Panel Control'),

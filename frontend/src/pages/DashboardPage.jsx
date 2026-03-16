@@ -13,10 +13,10 @@ import { H3, Subtitle, TextSmall, Metric, Label, H2 } from '../components/ui/Typ
 
 const DashboardPage = ({ data, user }) => {
   const [filters, setFilters] = useState({ fecha: '', estado: '', cliente: '', ciudad: '', tecnico: '' });
-  const ciudades = [...new Set(data.clientes.map(c => c.ciudad))];
+  const ciudades = [...new Set((data.clientes || []).map(c => c.ciudad))];
 
   const stats = [
-    { label: "Visitas Mes", value: data.visitas.length, sub: "+12% vs anterior", icon: ClipboardList, color: "text-blue-500" },
+    { label: "Visitas Mes", value: (data.visitas || []).length, sub: "+12% vs anterior", icon: ClipboardList, color: "text-blue-500" },
     { label: "Efectividad %", value: "94.2", sub: "Meta: 90%", icon: CheckCircle2, color: "text-green-500" },
     { label: "Líder Operativo", value: "Carlos P.", sub: "Rendimiento óptimo", icon: Users, color: "text-primary" },
   ];
@@ -49,9 +49,9 @@ const DashboardPage = ({ data, user }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Input label="Fecha de Corte" type="date" icon={Calendar} value={filters.fecha} onChange={e => setFilters({...filters, fecha: e.target.value})} />
           <Select label="Estado Operativo" icon={Activity} options={[{value: '', label: 'Todos'}, {value: 'Pendiente', label: 'Pendiente'}, {value: 'En Ejecución', label: 'En Ejecución'}, {value: 'Finalizada', label: 'Finalizada'}, {value: 'Cancelada', label: 'Cancelada'}]} value={filters.estado} onChange={e => setFilters({...filters, estado: e.target.value})} />
-          <Select label="Cliente Corporativo" icon={Building2} options={[{value: '', label: 'Todos'}, ...data.clientes.map(c => ({value: c.nombre, label: c.nombre}))]} value={filters.cliente} onChange={e => setFilters({...filters, cliente: e.target.value})} />
+          <Select label="Cliente Corporativo" icon={Building2} options={[{value: '', label: 'Todos'}, ...(data.clientes || []).map(c => ({value: c.nombre, label: c.nombre}))]} value={filters.cliente} onChange={e => setFilters({...filters, cliente: e.target.value})} />
           <Select label="Ciudad / Zona" icon={MapPin} options={[{value: '', label: 'Todas'}, ...ciudades.map(c => ({value: c, label: c}))]} value={filters.ciudad} onChange={e => setFilters({...filters, ciudad: e.target.value})} />
-          <Select label="Líder Técnico" icon={UserCircle2} options={[{value: '', label: 'Todos'}, ...data.tecnicos.map(t => ({value: t.nombre, label: t.nombre}))]} value={filters.tecnico} onChange={e => setFilters({...filters, tecnico: e.target.value})} />
+          <Select label="Líder Técnico" icon={UserCircle2} options={[{value: '', label: 'Todos'}, ...(data.tecnicos || []).map(t => ({value: t.nombre, label: t.nombre}))]} value={filters.tecnico} onChange={e => setFilters({...filters, tecnico: e.target.value})} />
         </div>
       </Card>
       
@@ -74,7 +74,7 @@ const DashboardPage = ({ data, user }) => {
                   </div>
                   <TextSmall className={`text-[10px] uppercase ${stat.sub.includes('+') ? 'text-green-500' : 'text-gray-400'}`}>{stat.sub}</TextSmall>
                 </div>
-                <div className="p-4 bg-gray-50 rounded-[2rem] shadow-inner"><stat.icon className={stat.color} size={32} /></div>
+                <div className="p-4 bg-gray-50 rounded-4xl shadow-inner"><stat.icon className={stat.color} size={32} /></div>
               </div>
             </Card>
           ))}
@@ -94,7 +94,7 @@ const DashboardPage = ({ data, user }) => {
         <div className="h-64 flex items-end gap-2 sm:gap-6 overflow-hidden pb-4">
           {[60, 85, 40, 100, 75, 90, 50, 70, 80, 65, 88, 72].map((h, i) => (
             <div key={i} className="flex-1 min-w-[20px] flex flex-col items-center gap-4 group">
-              <div className={`w-full rounded-t-[1.5rem] transition-all duration-700 group-hover:bg-primary group-hover:shadow-2xl shadow-red-500/30 ${i === 3 ? 'bg-primary' : 'bg-[#F5F5F5]'}`} style={{ height: `${h}%` }}></div>
+              <div className={`w-full rounded-t-3xl transition-all duration-700 group-hover:bg-primary group-hover:shadow-2xl shadow-red-500/30 ${i === 3 ? 'bg-primary' : 'bg-[#F5F5F5]'}`} style={{ height: `${h}%` }}></div>
               <TextSmall className="text-gray-400 uppercase">MES {i+1}</TextSmall>
             </div>
           ))}

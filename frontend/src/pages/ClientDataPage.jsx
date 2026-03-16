@@ -8,7 +8,7 @@ import { Subtitle, TextSmall, Label } from '../components/ui/Typography';
 
 const ClientDataPage = ({ data }) => {
   const currentClientName = "Residencial Horizonte";
-  const myData = data.clientes.find(c => c.nombre === currentClientName) || {};
+  const myData = (data.clientes || []).find(c => c.nombre === currentClientName) || {};
 
   const sucursales = [
     { nombre: "Sede Principal (Norte)", ciudad: "Bogotá", direccion: "Calle 10 #5-20", contacto: "Javier Martinez", telefono: "3009988776" },

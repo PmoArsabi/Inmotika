@@ -81,7 +81,7 @@ const ConfigurationPage = ({ initialSubTab = 'clientes', isSingleTabView = false
       config.setViewLevel(level);
 
       if (type === 'cliente') {
-        config.setSelectedClient(entityId ? data.clientes.find(c => String(c.id) === String(entityId)) : null);
+        config.setSelectedClient(entityId ? (data.clientes || []).find(c => String(c.id) === String(entityId)) : null);
       }
       
       setClientModalParams({ 

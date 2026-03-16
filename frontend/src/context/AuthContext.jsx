@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase';
-import { INITIAL_DATA } from '../utils/mockData';
 
 const AuthContext = createContext({});
 
@@ -111,37 +110,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signIn = async (email, password) => {
-    const enforceMock = false;
-    
-    if (enforceMock) {
-      // Find user in mock data
-      const mockUser = INITIAL_DATA.usuarios.find(u => u.email === email);
-      
-      if (mockUser) {
-        setUser({
-          id: mockUser.id,
-          email: mockUser.email,
-          role: mockUser.rol,
-          status: mockUser.estado || 'ACTIVO',
-          nombres: mockUser.nombres,
-          apellidos: mockUser.apellidos,
-          roleName: mockUser.rolNombre,
-        });
-      } else {
-        // Fallback admin si mete cualquier otro correo
-        setUser({
-          id: 'mock-user',
-          email: email,
-          role: 'ADMIN',
-          status: 'ACTIVO',
-          nombres: email.split('@')[0] || 'Usuario',
-          apellidos: '',
-          roleName: 'Administrador',
-        });
-      }
-      return { user: { email }, session: null };
-    }
-    
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
