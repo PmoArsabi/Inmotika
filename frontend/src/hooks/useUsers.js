@@ -12,6 +12,8 @@ export const useUsers = () => {
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [successInfo, setSuccessInfo] = useState(null);
   const [resendingIds, setResendingIds] = useState(new Set());
+  const [activeDirectors, setActiveDirectors] = useState([]);
+  const [loadingActiveDirectors, setLoadingActiveDirectors] = useState(false);
 
   const notify = useNotify();
   const confirm = useConfirm();
@@ -28,6 +30,39 @@ export const useUsers = () => {
     setLoadingRoles(false);
   }, []);
 
+  const fetchActiveDirectors = useCallback(async () => {
+    console.log('[useUsers] fetchActiveDirectors: Iniciando consulta...');
+    try {
+      const { data, error } = await supabase
+        .from('director')
+        .select(`
+          id,
+          usuario:perfil_usuario!director_usuario_id_fkey (nombres, apellidos)
+        `)
+        .eq('activo', true);
+
+      console.log('[useUsers] fetchActiveDirectors response:', { data, error });
+
+      if (error) {
+        console.error('[useUsers] fetchActiveDirectors error:', error);
+        return;
+      }
+      
+      if (data) {
+        const mapped = data.map(d => ({
+          id: d.id,
+          nombreCompleto: d.usuario ? `${d.usuario.nombres || ''} ${d.usuario.apellidos || ''}`.trim() : 'Sin Nombre'
+        }));
+        console.log('[useUsers] fetchActiveDirectors mapped:', mapped);
+        setActiveDirectors(mapped);
+      } else {
+        console.log('[useUsers] fetchActiveDirectors: No se recibieron datos (data es null/undefined)');
+      }
+    } catch (err) {
+      console.error('[useUsers] fetchActiveDirectors system error:', err);
+    }
+  }, []);
+
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     const { data: usersData, error } = await supabase
@@ -40,14 +75,28 @@ export const useUsers = () => {
           id,
           documento_cedula_url, planilla_seg_social_url,
           tecnico_certificado (id, nombre, url, activo)
-        )
+        ),
+        coordinador!coordinador_usuario_id_fkey (
+          id, 
+          director_id, 
+          activo,
+          director!coordinador_director_id_fkey (usuario_id)
+        ),
+        director!director_usuario_id_fkey (id, activo)
       `)
       .order('nombres');
 
     if (usersData) {
       setUsuarios(usersData.map(u => {
         const techArr = Array.isArray(u.tecnico) ? u.tecnico : (u.tecnico ? [u.tecnico] : []);
-        const tec = techArr[0] || null;
+        const tec = techArr.find(t => t.activo) || techArr[0] || null;
+        
+        const coordArr = Array.isArray(u.coordinador) ? u.coordinador : (u.coordinador ? [u.coordinador] : []);
+        const coo = coordArr.find(c => c.activo) || coordArr[0] || null;
+
+        const dirArr = Array.isArray(u.director) ? u.director : (u.director ? [u.director] : []);
+        const dir = dirArr.find(d => d.activo) || dirArr[0] || null;
+
         const certs = tec?.tecnico_certificado ? tec.tecnico_certificado.filter(c => c.activo) : [];
 
         return {
@@ -58,6 +107,9 @@ export const useUsers = () => {
           estado: u.catalogo_estado_general?.codigo || '',
           estadoNombre: u.catalogo_estado_general?.nombre || '',
           tecnicoId: tec?.id || null,
+          coordinadorId: coo?.id || null,
+          directorId: dir?.id || null,          // ID interno del usuario como director
+          directorAsignadoId: coo?.director_id || null, // ID interno del director asignado (tabla director)
           certificados: certs,
           documentos: {
             cedula: tec?.documento_cedula_url || null,
@@ -65,17 +117,20 @@ export const useUsers = () => {
           },
         };
       }));
-    } else {
-      console.error('Error al cargar usuarios:', error);
-      notify('error', 'Error al cargar usuarios');
     }
     setLoadingUsers(false);
   }, [notify]);
 
   useEffect(() => {
+    console.log('[useUsers] useEffect Roles/Users triggered');
     fetchRoles();
     fetchUsers();
   }, [fetchRoles, fetchUsers]);
+
+  useEffect(() => {
+    console.log('[useUsers] useEffect Directors triggered');
+    fetchActiveDirectors();
+  }, [fetchActiveDirectors]);
 
   const handleResendInvitation = async (user) => {
     if (resendingIds.has(user.id)) return;
@@ -260,6 +315,70 @@ export const useUsers = () => {
             }
           }
         }
+
+        // --- COORDINADOR Logic ---
+        if (newUser.rol === ROLES.COORDINADOR) {
+          let coordId = editingUser.coordinadorId;
+          const { data: existingCoord } = await supabase.from('coordinador').select('id').eq('usuario_id', editingUser.id).maybeSingle();
+          coordId = existingCoord?.id;
+
+          const coordData = { 
+            usuario_id: editingUser.id, 
+            director_id: newUser.directorId || null, // Recibimos el ID directo de la tabla director
+            activo: true 
+          };
+
+          if (coordId) {
+            const { error: updErr } = await supabase.from('coordinador').update(coordData).eq('id', coordId);
+            if (updErr) throw updErr;
+          } else {
+            const { error: insErr } = await supabase.from('coordinador').insert(coordData);
+            if (insErr) throw insErr;
+          }
+        }
+
+        // --- DIRECTOR Logic ---
+        if (newUser.rol === ROLES.DIRECTOR) {
+          let dirId = editingUser.directorId;
+          const { data: existingDir } = await supabase.from('director').select('id').eq('usuario_id', editingUser.id).maybeSingle();
+          dirId = existingDir?.id;
+
+          if (dirId) {
+            await supabase.from('director').update({ activo: true }).eq('id', dirId);
+          } else {
+            await supabase.from('director').insert({ usuario_id: editingUser.id, activo: true });
+          }
+        }
+
+        // --- Optional ADMINISTRADOR Logic (if the user ran the SQL) ---
+        if (newUser.rol === ROLES.ADMIN) {
+          try {
+            const { data: existingAdmin } = await supabase.from('administrador').select('id').eq('usuario_id', editingUser.id).maybeSingle();
+            if (!existingAdmin) {
+              await supabase.from('administrador').insert({ usuario_id: editingUser.id, activo: true });
+            } else {
+              await supabase.from('administrador').update({ activo: true }).eq('id', existingAdmin.id);
+            }
+          } catch (e) {
+            // Table might not exist yet if they haven't run the SQL
+            console.warn('administrador table not found or error accessing it. Skip if not used.', e);
+          }
+        }
+
+        // --- Role Cleanup ---
+        // If the role changed, we might want to deactivate other roles. 
+        // For now, at least ensure we don't have multiple "active" identity records for the same user if they switch often.
+        const rolesToDeactivate = [ROLES.TECNICO, ROLES.COORDINADOR, ROLES.DIRECTOR, ROLES.ADMIN].filter(r => r !== newUser.rol);
+        for (const r of rolesToDeactivate) {
+          if (r === ROLES.TECNICO) await supabase.from('tecnico').update({ activo: false }).eq('usuario_id', editingUser.id);
+          if (r === ROLES.COORDINADOR) await supabase.from('coordinador').update({ activo: false }).eq('usuario_id', editingUser.id);
+          if (r === ROLES.DIRECTOR) await supabase.from('director').update({ activo: false }).eq('usuario_id', editingUser.id);
+          // Administrador table check again
+          if (r === ROLES.ADMIN) {
+            try { await supabase.from('administrador').update({ activo: false }).eq('usuario_id', editingUser.id); } catch(e) {}
+          }
+        }
+
         await fetchUsers();
         setSuccessInfo({ email: newUser.email, nombres: newUser.nombres, rol: null, isUpdate: true });
       }
@@ -282,6 +401,8 @@ export const useUsers = () => {
     handleResendInvitation,
     handleDelete,
     saveUser,
-    fetchUsers
+    fetchUsers,
+    activeDirectors,
+    loadingActiveDirectors
   };
 };

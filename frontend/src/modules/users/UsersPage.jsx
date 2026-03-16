@@ -44,7 +44,8 @@ const UsersPage = ({ data, setData }) => {
     resendingIds,
     handleResendInvitation,
     handleDelete,
-    saveUser
+    saveUser,
+    activeDirectors
   } = useUsers();
 
   // Filter Logic
@@ -93,7 +94,7 @@ const UsersPage = ({ data, setData }) => {
       rol: user.rol || '',
       activo: user.activo !== undefined ? user.activo : true,
       certificados: Array.isArray(user.certificados) ? user.certificados : [],
-      directorId: user.director_id || '',
+      directorId: user.directorAsignadoId || '',
     });
     setTecnicoDocumentos({
       cedula: user.documentos?.cedula || null,
@@ -114,7 +115,7 @@ const UsersPage = ({ data, setData }) => {
       rol: user.rol || '',
       activo: user.activo !== undefined ? user.activo : true,
       certificados: Array.isArray(user.certificados) ? user.certificados : [],
-      directorId: user.director_id || '',
+      directorId: user.assignedDirectorProfileId || '',
     });
     setTecnicoDocumentos({
       cedula: user.documentos?.cedula || null,
@@ -166,6 +167,7 @@ const UsersPage = ({ data, setData }) => {
         onCancel={onCancel}
         roleOptions={roleOptions}
         allUsers={usuarios}
+        activeDirectors={activeDirectors}
       />
     );
   }

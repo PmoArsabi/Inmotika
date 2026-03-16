@@ -6,6 +6,7 @@ import Select from '../../../components/ui/Select';
 import Switch from '../../../components/ui/Switch';
 import PhoneInput from '../../../components/ui/PhoneInput';
 import FileUploader from '../../../components/ui/FileUploader';
+import SearchableSelect from '../../../components/ui/SearchableSelect';
 import { Subtitle, TextSmall, H2, TextTiny, Label } from '../../../components/ui/Typography';
 import { ROLES } from '../../../utils/constants';
 import CertificadosList from './CertificadosList';
@@ -58,7 +59,8 @@ const UserForm = ({
   onSave, 
   onCancel,
   roleOptions,
-  allUsers = []
+  allUsers = [],
+  activeDirectors = []
 }) => {
   const isView = !!viewingUser;
 
@@ -206,18 +208,17 @@ const UserForm = ({
 
             {newUser.rol === ROLES.COORDINADOR && (
               <RoleSection icon={Shield} label="Datos del Coordinador" color="blue">
-                <Select
+                <SearchableSelect
                   label="Director Asignado"
                   icon={User}
-                  options={[
-                    { value: '', label: 'Seleccionar director...' },
-                    ...allUsers
-                      .filter(u => u.rol === ROLES.DIRECTOR)
-                      .map(u => ({ value: u.id, label: `${u.nombres || ''} ${u.apellidos || ''}`.trim() || u.email })),
-                  ]}
+                  options={activeDirectors.map(d => ({ 
+                    value: d.id, 
+                    label: d.nombreCompleto 
+                  }))}
                   value={newUser.directorId || ''}
-                  onChange={e => setNewUser({ ...newUser, directorId: e.target.value })}
+                  onChange={v => setNewUser({ ...newUser, directorId: v?.value || v || '' })}
                   viewMode={isView}
+                  placeholder="Buscar y seleccionar director..."
                 />
               </RoleSection>
             )}
