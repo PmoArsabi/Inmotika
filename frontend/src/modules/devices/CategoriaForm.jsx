@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
 import { H2, Label, TextSmall } from '../../components/ui/Typography';
+import { getProtocoloByCategory, saveCategoria } from '../../api/categoriaApi';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const emptyActividad = (orden) => ({
@@ -154,22 +155,29 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
 
   const [showPasoInput, setShowPasoInput] = useState(false);
   const [pasoText,      setPasoText]      = useState('');
-  const [pasoOblig,     setPasoOblig]     = useState(true);
 
   const [saving,  setSaving]  = useState(false);
   const [success, setSuccess] = useState('');
   const [error,   setError]   = useState('');
 
-  // ── Load pasos + actividades (Mock Mode) ──────────────────────────────────
+  // ── Load pasos + actividades (Supabase) ──────────────────────────────────
   useEffect(() => {
-    if (!categoria?.id) { setLoadingPasos(false); return; }
-    setLoadingPasos(true);
+    if (!categoria?.id || isCreating) { setLoadingPasos(false); return; }
     
-    // Simulate network delay
-    // TODO: Fetch steps from Supabase category_protocol table
-    setPasos([]);
-    setLoadingPasos(false);
-  }, [categoria?.id, categoria?.nombre]);
+    const fetchProt = async () => {
+      setLoadingPasos(true);
+      try {
+        const data = await getProtocoloByCategory(categoria.id);
+        setPasos(data || []);
+      } catch (err) {
+        console.error('Error loading protocol:', err);
+      } finally {
+        setLoadingPasos(false);
+      }
+    };
+    
+    fetchProt();
+  }, [categoria?.id, isCreating]);
 
   useEffect(() => {
     if (categoria) { setNombre(categoria.nombre || ''); setDesc(categoria.descripcion || ''); }
@@ -189,7 +197,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
       actividades: [],
     };
     setPasos(prev => [...prev, newPaso]);
-    setPasoText(''); setPasoOblig(true); setShowPasoInput(false);
+    setPasoText(''); setShowPasoInput(false);
   };
 
   const removePaso = (idx) => {
@@ -218,7 +226,6 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
   };
 
   const updatePasoDesc   = (idx, val)  => setPasos(prev => prev.map((p, i) => i === idx ? { ...p, descripcion: val } : p));
-  const togglePasoOblig  = (idx)       => setPasos(prev => prev.map((p, i) => i === idx ? { ...p, esObligatorio: !p.esObligatorio } : p));
   const updateActividades = (idx, acts) => setPasos(prev => prev.map((p, i) => i === idx ? { ...p, actividades: acts } : p));
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -226,20 +233,23 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
     if (!nombre.trim()) { setError('El nombre es requerido'); return; }
     setError(''); setSaving(true);
     try {
-      // Mock Save: Simulate save latency
-      await new Promise(r => setTimeout(r, 600));
-      
-      const savedCat = {
-         id: isCreating ? `cat-mock-${Date.now()}` : categoria.id,
-         nombre: nombre.trim(),
-         descripcion: desc.trim() || null
-      };
+      const result = await saveCategoria({
+        categoriaId: isCreating ? null : categoria?.id,
+        draft: {
+          nombre: nombre.trim().toUpperCase(),
+          descripcion: desc.trim() || null
+        },
+        steps: pasos
+      });
 
-      setSuccess(savedCat.nombre);
-      setTimeout(() => { setSuccess(''); onSave?.(savedCat); }, 1800);
+      setSuccess(nombre.trim().toUpperCase());
+      setTimeout(() => { 
+        setSuccess(''); 
+        onSave?.({ ...categoria, id: result.categoriaId, nombre: nombre.trim().toUpperCase() }); 
+      }, 1800);
     } catch (err) {
       console.error('Error guardando categoría:', err);
-      setError('Ocurrió un error al guardar. Intente nuevamente.');
+      setError('Ocurrió un error al guardar: ' + (err.message || 'Intente nuevamente.'));
     } finally {
       setSaving(false);
     }
@@ -362,10 +372,6 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
               }}
             />
             <div className="w-6 flex justify-center shrink-0">
-              <input type="checkbox" checked={pasoOblig} onChange={e => setPasoOblig(e.target.checked)}
-                className="w-3.5 h-3.5 accent-[#D32F2F] cursor-pointer" />
-            </div>
-            <div className="w-6 flex justify-center shrink-0">
               <button type="button" onClick={addPaso} disabled={!pasoText.trim()}
                 className="w-5 h-5 flex items-center justify-center rounded bg-[#D32F2F] text-white text-sm font-bold disabled:opacity-40 hover:bg-[#B71C1C] transition-colors">
                 +
@@ -437,16 +443,8 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
                       </span>
                     </div>
 
-                    {/* Fixed-width obligatorio column — matches actividad rows */}
-                    <div className="w-6 flex justify-center shrink-0">
-                      {isEditing ? (
-                        <input type="checkbox" checked={!!paso.esObligatorio}
-                          onChange={() => togglePasoOblig(realIdx)}
-                          className="w-3.5 h-3.5 accent-[#D32F2F] cursor-pointer" />
-                      ) : paso.esObligatorio ? (
-                        <span className="text-[#D32F2F] font-bold text-xs leading-none">*</span>
-                      ) : null}
-                    </div>
+                    {/* Empty space to align with actividad rows */}
+                    <div className="w-6 shrink-0" />
 
                     {/* Fixed-width trash column — matches actividad rows */}
                     <div className="w-6 flex justify-center shrink-0">

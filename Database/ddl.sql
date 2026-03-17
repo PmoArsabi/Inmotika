@@ -4,12 +4,12 @@
 drop extension if exists "pg_net";
 
 
-  create table "public"."actividad_protocolo" (
     "id" uuid not null default gen_random_uuid(),
     "paso_id" uuid not null,
     "descripcion" text not null,
     "orden" integer not null default 1,
     "es_obligatorio" boolean default true,
+    "activo" boolean default true,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
@@ -73,8 +73,7 @@ alter table "public"."catalogo_rol" enable row level security;
     "id" uuid not null default gen_random_uuid(),
     "nombre" character varying(255) not null,
     "descripcion" text,
-    "marca" character varying(100),
-    "modelo" character varying(100),
+    "activo" boolean default true,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
@@ -343,7 +342,7 @@ alter table "public"."intervencion" enable row level security;
     "categoria_id" uuid,
     "descripcion" text not null,
     "orden" integer not null,
-    "es_obligatorio" boolean default true,
+    "activo" boolean default true,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
