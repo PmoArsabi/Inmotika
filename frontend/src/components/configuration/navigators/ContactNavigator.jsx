@@ -1,32 +1,68 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Card from '../../ui/Card';
 import ContactForm from '../../../modules/contacts/ContactForm';
 import { useConfigurationContext } from '../../../context/ConfigurationContext';
 import { useMasterData } from '../../../context/MasterDataContext';
 import { emptyContactDraft, toContactDraft, applyContactUpsert } from '../../../utils/entityMappers';
 import { validateContact } from '../../../utils/validators';
-import { useNotify } from '../../../context/NotificationContext';
 import { supabase } from '../../../utils/supabase';
 import { saveContacto } from '../../../api/contactoApi';
 
 const ContactNavigator = ({ onClose }) => {
-  const { route, drafts, updateDraft, setStack } = useConfigurationContext();
+  const { route, drafts, updateDraft, setDrafts, setStack, setContactSuccessInfo } = useConfigurationContext();
   const { data, setData } = useMasterData();
-  const notify = useNotify();
   const [showErrors, setShowErrors] = useState(false);
   const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
+  const [savingStep, setSavingStep] = useState(''); // '', 'saving_db', 'inviting'
   const inviteInFlightRef = useRef(false);
 
   const entityKey = (type, id) => `${type}:${id}`;
   const key = entityKey('contact', route.contactId);
   
-  // Initialize draft if not exists
   const draft = drafts[key];
-  if (!draft) {
-    // If we're in view/edit mode and it's an existing contact, we should have a draft
-    // But for now, let's just use empty as fallback if somehow missing
-    // In a real scenario, the 'pushRoute' should ensure draft exists.
-  }
+
+  // Resincro borrador y cliente desde master data al abrir/editar un contacto
+  useEffect(() => {
+    if (!route.contactId) return;
+
+    let baseContact = null;
+
+    // Buscar primero en clientes → sucursales → contactos
+    (data?.clientes || []).forEach(c => {
+      (c.sucursales || []).forEach(s => {
+        (s.contactos || []).forEach(ct => {
+          if (!baseContact && String(ct.id) === String(route.contactId)) {
+            baseContact = ct;
+          }
+        });
+      });
+    });
+
+    // Si no se encontró, buscar en el arreglo global de contactos
+    if (!baseContact && Array.isArray(data?.contactos)) {
+      baseContact = data.contactos.find(ct => String(ct.id) === String(route.contactId)) || null;
+    }
+
+    if (!baseContact) return;
+
+    const seeded = toContactDraft(baseContact);
+    setDrafts(prev => ({ ...prev, [key]: seeded }));
+
+    const contactClientId =
+      baseContact.clientId ||
+      baseContact.cliente_id ||
+      seeded.clientId ||
+      null;
+
+    if (contactClientId) {
+      const normalized = String(contactClientId);
+      setStack(prev =>
+        prev.map((s, idx) =>
+          idx === prev.length - 1 ? { ...s, clientId: normalized } : s
+        )
+      );
+    }
+  }, [route.contactId, data, key, setDrafts, setStack]);
 
   const currentDraft = draft || emptyContactDraft();
   const errors = validateContact(currentDraft);
@@ -70,6 +106,8 @@ const ContactNavigator = ({ onClose }) => {
     if (hasErrors) return;
 
     setSaveState({ isSaving: true, savedAt: null });
+    setSavingStep('saving_db');
+
     try {
       const { contactId } = await saveContacto({
         contactId: route.contactId,
@@ -81,6 +119,8 @@ const ContactNavigator = ({ onClose }) => {
 
       if (currentDraft.darAcceso && isNewContact && currentDraft.email && !inviteInFlightRef.current) {
         inviteInFlightRef.current = true;
+        setSavingStep('inviting');
+        
         try {
           await supabase.functions.invoke('invite-user', {
             body: {
@@ -91,8 +131,8 @@ const ContactNavigator = ({ onClose }) => {
               redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
             },
           });
-        } finally {
-          inviteInFlightRef.current = false;
+        } catch (inviteErr) {
+          console.error('Error enviando invitación:', inviteErr);
         }
       }
 
@@ -102,14 +142,14 @@ const ContactNavigator = ({ onClose }) => {
       }));
 
       setSaveState({ isSaving: false, savedAt: Date.now() });
-      setStack(prev => prev.map((s, idx) =>
-        idx === prev.length - 1 ? { ...s, mode: 'view', contactId } : s
-      ));
-      notify('success', 'Contacto guardado con éxito');
+      setSavingStep('');
+      setContactSuccessInfo({ contactId, isNew: isNewContact });
+      inviteInFlightRef.current = false;
     } catch (err) {
       console.error('Error al guardar contacto:', err);
       setSaveState({ isSaving: false, savedAt: null });
-      notify('error', 'Error al guardar: ' + (err.message || err));
+      setSavingStep('');
+      inviteInFlightRef.current = false;
     }
   };
 
@@ -123,6 +163,7 @@ const ContactNavigator = ({ onClose }) => {
         isEditing={isEditing}
         onSave={handleSave}
         isSaving={saveState.isSaving}
+        savingStep={savingStep}
         isNew={isNewContact}
         clientOptions={(data.clientes || []).map(c => ({ value: String(c.id), label: c.nombre }))}
         selectedClientId={route.clientId || ''}

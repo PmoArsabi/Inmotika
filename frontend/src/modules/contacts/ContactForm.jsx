@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   User, IdCard, Mail, Calendar, Briefcase, Heart, MessageSquare,
-  Building2, GitBranch, Shield, Lock,
+  Building2, GitBranch, Shield, Lock, Link2, Eye,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -20,6 +20,7 @@ const ContactForm = ({
   isEditing = false,
   onSave,
   isSaving = false,
+  savingStep = '',
   isNew = false,
   // Selectors pasados desde ConfigurationNavigator
   clientOptions = [],
@@ -36,6 +37,8 @@ const ContactForm = ({
   const { options: cargoOptions, loading: loadingCargo } = useCatalog('CARGO_CONTACTO');
   const { activoId, inactivoId } = useActivoInactivo();
 
+  const [showBranchesSelector, setShowBranchesSelector] = useState(false);
+
   const buildOpts = (loading, opts, placeholder = 'Seleccionar...') =>
     loading
       ? [{ value: '', label: 'Cargando...' }]
@@ -51,9 +54,13 @@ const ContactForm = ({
           <Button
             onClick={onSave}
             disabled={isSaving}
-            className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+            className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0 min-w-[160px]"
           >
-            {isSaving ? 'Guardando...' : 'GUARDAR CONTACTO'}
+            {isSaving ? (
+              savingStep === 'inviting' ? 'Enviando invitación...' : 'Guardando...'
+            ) : (
+              'GUARDAR CONTACTO'
+            )}
           </Button>
         </div>
       )}
@@ -65,16 +72,23 @@ const ContactForm = ({
           <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Asignación</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <SearchableSelect
+          {/* Cliente: desplegable normal */}
+          <Select
             label="Cliente"
-            value={selectedClientId}
-            onChange={onClientChange}
-            options={clientOptions}
-            error={clientError}
-            placeholder="Seleccionar cliente..."
+            value={selectedClientId || ''}
+            onChange={(e) => {
+              if (!isEditing) return;
+              const value = e.target.value || '';
+              const opt = clientOptions.find(o => String(o.value) === String(value)) || null;
+              onClientChange(opt);
+            }}
+            options={[{ value: '', label: 'Seleccionar cliente...' }, ...clientOptions]}
             icon={Building2}
-            isDisabled={!isEditing}
+            viewMode={!isEditing}
+            error={clientError}
           />
+
+          {/* Sucursales: desplegable multi-select */}
           {hasClient && (
             <SearchableSelect
               label="Sucursales"
@@ -241,8 +255,8 @@ const ContactForm = ({
               checked={!!draft.darAcceso}
               onChange={checked => updateDraft({ darAcceso: checked })}
               viewMode={!isEditing}
-              checkedLabel="Activo"
-              uncheckedLabel="Inactivo"
+              checkedLabel="Sí"
+              uncheckedLabel="No"
             />
             {draft.darAcceso && (
               <div className="mt-4 flex items-center gap-3 p-3 bg-blue-50/30 border-l-2 border-blue-400 rounded-r-lg animate-in fade-in slide-in-from-top-1 duration-300">

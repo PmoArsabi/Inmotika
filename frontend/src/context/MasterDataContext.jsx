@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { toClientDraft, toBranchDraft } from '../utils/entityMappers';
+import { toClientDraft, toBranchDraft, toContactDraft } from '../utils/entityMappers';
 
 const MasterDataContext = createContext();
 
@@ -26,11 +26,30 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
         .select('*, cliente_documento(id, nombre, url, activo), sucursal(*, contrato(*))')
         .order('razon_social');
       if (fetchError) throw fetchError;
-      const clientes = (rows || []).map(row => ({
+
+      const clientesBase = (rows || []).map(row => ({
         ...toClientDraft(row),
         sucursales: (row.sucursal || []).map(s => toBranchDraft(s)),
       }));
-      setData(prev => ({ ...prev, clientes }));
+
+      const { data: contactRows, error: contactError } = await supabase
+        .from('contacto')
+        .select('*, contacto_sucursal(sucursal_id)');
+      if (contactError) throw contactError;
+
+      const contactos = (contactRows || []).map(row => toContactDraft(row));
+
+      const clientes = clientesBase.map(c => ({
+        ...c,
+        sucursales: (c.sucursales || []).map(s => {
+          const branchContacts = contactos.filter(ct =>
+            (ct.associatedBranchIds || []).includes(String(s.id))
+          );
+          return { ...s, contactos: branchContacts };
+        }),
+      }));
+
+      setData(prev => ({ ...prev, clientes, contactos }));
     } catch (err) {
       setError(err?.message ?? 'Error al cargar datos');
     } finally {

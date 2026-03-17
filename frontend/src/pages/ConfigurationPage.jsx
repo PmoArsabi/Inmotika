@@ -44,32 +44,57 @@ const ConfigurationPage = ({ initialSubTab = 'clientes', isSingleTabView = false
   const availableTabs = showSingleTab ? [initialSubTab] : ['clientes', 'contactos', 'tecnicos', 'dispositivos'];
 
   const contactsFlat = useMemo(() => {
-    const result = [];
+    const byId = new Map();
+
     // Contactos asociados a sedes
     (data?.clientes || []).forEach(c => {
       (c.sucursales || []).forEach(s => {
         (s.contactos || []).forEach(ct => {
-          result.push({
-            ...ct,
-            clientId: c.id,
-            branchId: s.id,
-            clienteNombre: c.nombre,
-            sucursalNombre: s.nombre,
-          });
+          const key = String(ct.id);
+          const existing = byId.get(key);
+          const sucursalNombre = s.nombre;
+
+          if (!existing) {
+            byId.set(key, {
+              ...ct,
+              clientId: c.id,
+              branchId: s.id,
+              clienteNombre: c.nombre,
+              sucursalNombre,
+            });
+          } else {
+            // acumular nombres de sucursal sin duplicar
+            const parts = new Set(
+              (existing.sucursalNombre || '')
+                .split(' / ')
+                .filter(Boolean)
+                .concat(sucursalNombre)
+            );
+            byId.set(key, {
+              ...existing,
+              branchId: s.id,
+              sucursalNombre: Array.from(parts).join(' / '),
+            });
+          }
         });
       });
     });
+
     // Contactos independientes
     (data?.contactos || []).forEach(ct => {
-      result.push({
-        ...ct,
-        clientId: null,
-        branchId: null,
-        clienteNombre: 'Sin Asignar',
-        sucursalNombre: '-',
-      });
+      const key = String(ct.id);
+      if (!byId.has(key)) {
+        byId.set(key, {
+          ...ct,
+          clientId: null,
+          branchId: null,
+          clienteNombre: 'Sin Asignar',
+          sucursalNombre: '-',
+        });
+      }
     });
-    return result;
+
+    return Array.from(byId.values());
   }, [data]);
 
   const configWithInPageNav = useMemo(() => {

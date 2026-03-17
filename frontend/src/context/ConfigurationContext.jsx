@@ -24,6 +24,7 @@ export const ConfigurationProvider = ({ children, initialParams = {} }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [branchSuccessInfo, setBranchSuccessInfo] = useState(null);
   const [savedClientId, setSavedClientId] = useState(null);
+  const [contactSuccessInfo, setContactSuccessInfo] = useState(null);
 
   // Drafts Management (LocalStorage + State)
   const [drafts, setDrafts] = useState(() => {
@@ -90,7 +91,9 @@ export const ConfigurationProvider = ({ children, initialParams = {} }) => {
     branchSuccessInfo,
     setBranchSuccessInfo,
     savedClientId,
-    setSavedClientId
+    setSavedClientId,
+    contactSuccessInfo,
+    setContactSuccessInfo,
   };
 
   return (

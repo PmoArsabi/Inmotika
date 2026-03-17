@@ -26,7 +26,7 @@ import GestionVisitasPage from './pages/visits/GestionVisitasPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
 function App() {
-  const { user, signOut, loading: authLoading, isRecoveryFlow, setIsRecoveryFlow } = useAuth();
+  const { user, signOut, loading: authLoading, isRecoveryFlow, setIsRecoveryFlow, clearRecoveryFlow } = useAuth();
   const { data, setData } = useMasterData();
   const [activeTab, setActiveTab]     = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -77,7 +77,7 @@ function App() {
 
   // Mostrar ResetPasswordPage si se detecta flujo de recuperación o invitación
   if (isRecoveryFlow) {
-    return <ResetPasswordPage onComplete={() => setIsRecoveryFlow(false)} />;
+    return <ResetPasswordPage onComplete={() => clearRecoveryFlow?.() || setIsRecoveryFlow(false)} />;
   }
 
   // Mostrar LoginPage si no hay usuario y no está cargando

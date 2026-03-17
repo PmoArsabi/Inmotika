@@ -49,7 +49,7 @@ const Sidebar = ({
           hasSubItems: true,
           subItems: [
             { id: 'configuration-clientes',     label: 'Clientes',    icon: Users   },
-            { id: 'configuration-contacto',     label: 'Contacto',    icon: Phone   },
+            { id: 'configuration-contacto',     label: 'Contactos',    icon: Phone   },
             { id: 'configuration-dispositivos', label: 'Dispositivos', icon: Cpu    },
             { id: 'configuration-categorias',   label: 'Categorías',  icon: Tag     },
             { id: 'configuration-usuarios',     label: 'Usuarios Ap', icon: UserCog },

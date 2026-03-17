@@ -12,8 +12,16 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Detectar flujo de recuperación ANTES que nada
     const hash = window.location.hash;
-    if (hash && (hash.includes('type=recovery') || hash.includes('type=invite') || hash.includes('type=signup'))) {
+    const isInviteOrRecovery = hash && (hash.includes('type=recovery') || hash.includes('type=invite') || hash.includes('type=signup'));
+    
+    if (isInviteOrRecovery) {
       setIsRecoveryFlow(true);
+      sessionStorage.setItem('inmotika_recovery_flow', 'true');
+    } else {
+      const persisted = sessionStorage.getItem('inmotika_recovery_flow');
+      if (persisted === 'true') {
+        setIsRecoveryFlow(true);
+      }
     }
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -183,7 +191,11 @@ export const AuthProvider = ({ children }) => {
     resetPassword,
     isRecoveryFlow,
     setIsRecoveryFlow,
-    refreshProfile: () => fetchProfile(session?.user?.id)
+    refreshProfile: () => fetchProfile(session?.user?.id),
+    clearRecoveryFlow: () => {
+      setIsRecoveryFlow(false);
+      sessionStorage.removeItem('inmotika_recovery_flow');
+    }
   };
 
   return (

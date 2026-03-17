@@ -1,6 +1,7 @@
 import React from 'react';
 import { Users } from 'lucide-react';
 import GenericListView from '../../components/shared/GenericListView';
+import { Subtitle, TextSmall } from '../../components/ui/Typography';
 
 const ContactsView = ({ config, data }) => {
   const { handleView, handleEdit, handleNew, removeItem } = config;

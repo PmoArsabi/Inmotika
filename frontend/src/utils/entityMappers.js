@@ -194,8 +194,18 @@ export const toBranchDraft = (branch) => {
 export const toContactDraft = (contact) => {
   if (!contact) return emptyContactDraft();
 
-  let telefonoMovil = contact.telefonoMovil || contact.celular || '';
+  let telefonoMovil = contact.telefonoMovil || contact.telefono_movil || contact.celular || '';
   let telefonoMovilPais = contact.telefonoMovilPais || contact.telefono_movil_pais_iso || 'CO';
+
+  const bridges = Array.isArray(contact.contacto_sucursal)
+    ? contact.contacto_sucursal
+    : Array.isArray(contact.branches)
+      ? contact.branches
+      : [];
+  const associatedBranchIds = bridges
+    .map(b => b.sucursal_id || b.sucursalId || b.branchId)
+    .filter(Boolean)
+    .map(id => String(id));
 
   if (telefonoMovil && typeof telefonoMovil === 'string') {
     const match = telefonoMovil.match(/^([A-Z]{2})\+?\d+\s*(.+)$/);
@@ -213,6 +223,19 @@ export const toContactDraft = (contact) => {
     id: contact.id || generateUUID(),
     nombres: contact.nombres || contact.nombre || '',
     apellidos: contact.apellidos || contact.apellido || '',
+    tipoDocumento: contact.tipo_documento || contact.tipoDocumento || '',
+    // Mapear correctamente campos de catálogo y estado desde snake_case
+    generoId: contact.genero_id || contact.generoId || '',
+    cargoId: contact.cargo_id || contact.cargoId || '',
+    descripcionCargo: contact.descripcion_cargo || contact.descripcionCargo || '',
+    estadoId: contact.estado_id || contact.estadoId || '',
+    fechaNacimiento: contact.fecha_nacimiento || contact.fechaNacimiento || '',
+    fechaMatrimonio: contact.fecha_matrimonio || contact.fechaMatrimonio || '',
+    // Si hay fecha de matrimonio en BD, inferir que es casado/a
+    esMarido: contact.esMarido ?? Boolean(contact.fecha_matrimonio || contact.fechaMatrimonio),
+    associatedBranchIds: contact.associatedBranchIds && contact.associatedBranchIds.length
+      ? contact.associatedBranchIds.map(id => String(id))
+      : associatedBranchIds,
     telefonoMovil,
     telefonoMovilPais,
   };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Users, Building2, MapPin, User, Monitor, 
+  Users, Building2, MapPin, User, Monitor, Phone,
   CheckCircle2, Plus, Search, Trash2 
 } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
@@ -33,6 +33,7 @@ const ConfigurationNavigator = ({ onClose }) => {
     showSuccessModal, setShowSuccessModal,
     branchSuccessInfo, setBranchSuccessInfo,
     savedClientId, setSavedClientId,
+    contactSuccessInfo, setContactSuccessInfo,
   } = useConfigurationContext();
 
   const { data, setData } = useMasterData();
@@ -66,9 +67,23 @@ const ConfigurationNavigator = ({ onClose }) => {
 
   const NavigatorBreadcrumbs = () => {
     const items = [];
+    const rootLabel =
+      route?.type === 'dispositivo'
+        ? 'Dispositivos'
+        : route?.type === 'contact'
+          ? 'Contactos'
+          : 'Clientes';
+
+    const rootIcon =
+      route?.type === 'dispositivo'
+        ? Monitor
+        : route?.type === 'contact'
+          ? Phone
+          : Users;
+
     items.push({
-      label: route?.type === 'dispositivo' ? 'Dispositivos' : 'Clientes',
-      icon: route?.type === 'dispositivo' ? Monitor : Users,
+      label: rootLabel,
+      icon: rootIcon,
       isActive: false,
       onClick: handleClose
     });
@@ -121,6 +136,18 @@ const ConfigurationNavigator = ({ onClose }) => {
         <Breadcrumbs items={items} />
       </div>
     );
+  };
+
+  // Handlers for Contact Success Modal
+  const handleContactStayView = () => {
+    setStack(prev => prev.map((s, idx) =>
+      idx === prev.length - 1 ? { ...s, mode: 'view' } : s
+    ));
+    setContactSuccessInfo(null);
+  };
+  const handleContactBackToList = () => {
+    setContactSuccessInfo(null);
+    handleClose();
   };
 
   // Handlers for Success Modals
@@ -212,6 +239,29 @@ const ConfigurationNavigator = ({ onClose }) => {
             <div className="flex flex-col gap-3">
               <Button onClick={handleBranchGoToStep3Contact} variant="success" className="w-full">Paso 3 Crear Contacto</Button>
               <Button onClick={handleBranchBackToBranches} variant="outline" className="w-full">Volver a Sucursales</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal - Contacto */}
+      {contactSuccessInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-3 text-green-600 mb-4">
+              <CheckCircle2 size={32} />
+              <H3 className="normal-case text-gray-900">
+                {contactSuccessInfo.isNew ? 'Contacto creado' : 'Contacto actualizado'}
+              </H3>
+            </div>
+            <TextSmall className="text-gray-600 mb-6 leading-relaxed">
+              {contactSuccessInfo.isNew
+                ? 'El contacto se ha creado correctamente. ¿Qué deseas hacer ahora?'
+                : 'Los cambios del contacto se guardaron correctamente. ¿Qué deseas hacer ahora?'}
+            </TextSmall>
+            <div className="flex flex-col gap-3">
+              <Button onClick={handleContactStayView} variant="success" className="w-full">Ver Contacto</Button>
+              <Button onClick={handleContactBackToList} variant="outline" className="w-full">Volver a Contactos</Button>
             </div>
           </div>
         </div>

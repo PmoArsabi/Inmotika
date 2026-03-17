@@ -163,6 +163,7 @@ alter table "public"."contacto" enable row level security;
     "id" uuid not null default gen_random_uuid(),
     "contacto_id" uuid,
     "sucursal_id" uuid,
+    "activo" boolean not null default true,
     "created_at" timestamp with time zone default now()
       );
 
@@ -2348,6 +2349,16 @@ with check (true);
   for all
   to public
 using (public.is_admin_or_coordinator());
+
+
+
+  create policy "Admins and management manage contacto_sucursal"
+  on "public"."contacto_sucursal"
+  as permissive
+  for all
+  to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
 
 
 
