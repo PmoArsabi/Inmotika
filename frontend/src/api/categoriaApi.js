@@ -10,8 +10,7 @@ export const getCategorias = async () => {
       *,
       numPasos:paso_protocolo(count)
     `)
-    .eq('activo', true)
-    .eq('paso_protocolo.activo', true)
+    .or('activo.eq.true,activo.is.null')
     .order('nombre');
 
   if (error) throw error;
@@ -34,7 +33,7 @@ export const getProtocoloByCategory = async (categoriaId) => {
       actividades:actividad_protocolo(*)
     `)
     .eq('categoria_id', categoriaId)
-    .eq('activo', true)
+    .or('activo.eq.true,activo.is.null')
     .order('orden');
 
   if (error) throw error;
@@ -62,6 +61,7 @@ export const saveCategoria = async ({ categoriaId, draft, steps }) => {
   const catData = {
     nombre: draft.nombre,
     descripcion: draft.descripcion,
+    activo: true,
     updated_at: new Date().toISOString()
   };
 

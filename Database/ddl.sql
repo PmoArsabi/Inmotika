@@ -246,7 +246,9 @@ alter table "public"."disponibilidad_tecnico" enable row level security;
     "notas_tecnicas" text,
     "descripcion" text,
     "identificacion_cliente" character varying,
-    "es_de_inmotika" boolean not null default false
+    "es_de_inmotika" boolean not null default false,
+    "marca" character varying(255),
+    "modelo" character varying(255)
       );
 
 

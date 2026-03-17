@@ -61,8 +61,6 @@ export const validateContact = (draft) => {
 
 export const validateDevice = (draft) => {
   const errors = {};
-  if (!draft.clientId) errors.clientId = 'Requerido';
-  if (!draft.branchId) errors.branchId = 'Requerido';
   if (!String(draft.serial || '').trim()) errors.serial = 'Requerido';
   return errors;
 };

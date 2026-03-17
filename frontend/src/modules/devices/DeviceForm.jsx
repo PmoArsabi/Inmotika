@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Building2, MapPin, Hash, Monitor, User, Activity,
   ClipboardList, CheckCircle2, ChevronUp, ChevronDown,
-  Trash2, ArrowRightLeft, Calendar, Plus, Loader2,
+  Trash2, ArrowRightLeft, Calendar, Plus, Loader2, QrCode,
   FileText, Tag, Wrench, Navigation2, IdCard, Layers,
 } from 'lucide-react';
+import { supabase } from '../../utils/supabase';
 import Button from '../../components/ui/Button';
 import IconButton from '../../components/ui/IconButton';
 import Input from '../../components/ui/Input';
@@ -55,11 +56,22 @@ const DeviceForm = ({
   const [loadingCats, setLoadingCats]     = useState(true);
   const [categoryPasos, setCategoryPasos] = useState([]);
 
-  const loadCategorias = useCallback(() => {
+  const loadCategorias = useCallback(async () => {
     setLoadingCats(true);
-    // TODO: Connect to Supabase to fetch categories
-    setCategorias([]);
-    setLoadingCats(false);
+    try {
+      const { data: cats, error } = await supabase
+        .from('categoria_dispositivo')
+        .select('id, nombre')
+        .or('activo.eq.true,activo.is.null')
+        .order('nombre');
+      
+      if (error) throw error;
+      setCategorias((cats || []).map(c => ({ value: c.id, label: c.nombre })));
+    } catch (err) {
+      console.error('Error loading categories:', err);
+    } finally {
+      setLoadingCats(false);
+    }
   }, []);
 
   useEffect(() => { loadCategorias(); }, [loadCategorias]);
@@ -67,9 +79,47 @@ const DeviceForm = ({
   useEffect(() => {
     if (!draft.categoriaId) { setCategoryPasos([]); return; }
     
-    // When connecting to Supabase, this should fetch the steps for the category
-    setCategoryPasos([]);
-  }, [draft.categoriaId, categorias]);
+    const loadProtocol = async () => {
+      try {
+        const { data: pasos, error } = await supabase
+          .from('paso_protocolo')
+          .select(`
+            *,
+            actividades:actividad_protocolo(*)
+          `)
+          .eq('categoria_id', draft.categoriaId)
+          .or('activo.eq.true,activo.is.null')
+          .order('orden');
+        
+        if (error) throw error;
+        
+        // Map activities to camelCase for UI consistency if needed
+        const mappedPasos = (pasos || []).map(p => ({
+          ...p,
+          actividades: (p.actividades || [])
+            .filter(a => a.activo !== false)
+            .sort((a, b) => a.orden - b.orden)
+            .map(a => ({
+              ...a,
+              esObligatorio: a.es_obligatorio
+            }))
+        }));
+        
+        setCategoryPasos(mappedPasos);
+      } catch (err) {
+        console.error('Error loading protocol:', err);
+      }
+    };
+
+    loadProtocol();
+  }, [draft.categoriaId]);
+
+  // Default state to ACTIVO for new devices
+  useEffect(() => {
+    if (!draft.estadoId && activoId) {
+      updateDraft({ estadoId: activoId });
+    }
+  }, [activoId, draft.estadoId, updateDraft]);
 
   // ─── Frecuencia → fecha automática ────────────────────────────────────────
   const handleFrecuenciaChange = (val) => {
@@ -153,8 +203,14 @@ const DeviceForm = ({
             {draft.serial && (
               <SummaryRow icon={Hash} label="Serie" value={draft.serial} />
             )}
+            {draft.idInmotika && (
+              <SummaryRow icon={Hash} label="ID Inmotika" value={draft.idInmotika} />
+            )}
+            {draft.codigoUnico && (
+              <SummaryRow icon={QrCode} label="Código Único" value={draft.codigoUnico} />
+            )}
             {draft.imac && (
-              <SummaryRow icon={Navigation2} label="IMAC" value={draft.imac} />
+              <SummaryRow icon={Navigation2} label="IMAC / MAC" value={draft.imac} />
             )}
             {activeClientName !== '—' && (
               <SummaryRow icon={Building2} label="Cliente" value={activeClientName} sub={activeBranchName !== '—' ? activeBranchName : undefined} />
@@ -284,7 +340,23 @@ const DeviceForm = ({
                     icon={Layers}
                   />
                   <Input
-                    label="IMAC"
+                    label="ID Inmotika"
+                    value={draft.idInmotika || ''}
+                    onChange={e => updateDraft({ idInmotika: e.target.value })}
+                    viewMode={!isEditing}
+                    icon={Hash}
+                    placeholder="ID interno Inmotika"
+                  />
+                  <Input
+                    label="Código Único"
+                    value={draft.codigoUnico || ''}
+                    onChange={e => updateDraft({ codigoUnico: e.target.value })}
+                    viewMode={!isEditing}
+                    icon={QrCode}
+                    placeholder="Código de barras o QR"
+                  />
+                  <Input
+                    label="IMAC / MAC"
                     value={draft.imac || ''}
                     onChange={e => updateDraft({ imac: e.target.value })}
                     viewMode={!isEditing}
@@ -314,7 +386,7 @@ const DeviceForm = ({
                     isDisabled={!isEditing}
                     icon={Building2}
                     error={showErrors ? errors.clientId : null}
-                    required
+                    placeholder="Opcional: Seleccionar cliente..."
                   />
                   <SearchableSelect
                     label="Sucursal"
@@ -322,10 +394,9 @@ const DeviceForm = ({
                     value={draft.branchId}
                     onChange={opt => updateDraft({ branchId: opt?.value || '' })}
                     isDisabled={!isEditing || !draft.clientId}
-                    placeholder={draft.clientId ? 'Seleccionar sucursal...' : 'Primero seleccione un cliente'}
+                    placeholder={draft.clientId ? 'Opcional: Seleccionar sucursal...' : 'Primero seleccione un cliente'}
                     icon={MapPin}
                     error={showErrors ? errors.branchId : null}
-                    required
                   />
                 </div>
               </section>

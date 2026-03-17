@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import DeviceForm from '../../../modules/devices/DeviceForm';
+import { emptyDeviceDraft, applyDeviceUpsert, toDeviceDraft } from '../../../utils/entityMappers';
+import { validateDevice } from '../../../utils/validators';
+import { saveDevice } from '../../../api/deviceApi';
+import { useNotify } from '../../../context/NotificationContext';
 import { useConfigurationContext } from '../../../context/ConfigurationContext';
 import { useMasterData } from '../../../context/MasterDataContext';
-import { emptyDeviceDraft, applyDeviceUpsert } from '../../../utils/entityMappers';
-import { validateDevice } from '../../../utils/validators';
-import { useNotify } from '../../../context/NotificationContext';
+import DeviceForm from '../../../modules/devices/DeviceForm';
 
 const DeviceNavigator = ({ onClose }) => {
   const { route, drafts, updateDraft, setStack } = useConfigurationContext();
@@ -27,20 +28,31 @@ const DeviceNavigator = ({ onClose }) => {
     
     setSaveState({ isSaving: true, savedAt: null });
     
-    // Simulate API call for now as in original
-    await new Promise(r => setTimeout(r, 400));
-    
-    setData(prev => applyDeviceUpsert(
-      prev, 
-      route.originClientId || route.clientId, 
-      route.originBranchId || route.branchId, 
-      route.deviceId, 
-      draft
-    ));
-    
-    setSaveState({ isSaving: false, savedAt: Date.now() });
-    setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view' } : s));
-    notify('success', 'Dispositivo guardado con éxito');
+    try {
+      const saved = await saveDevice(draft);
+      const mapped = toDeviceDraft(saved);
+      
+      setData(prev => applyDeviceUpsert(
+        prev, 
+        route.originClientId || route.clientId, 
+        route.originBranchId || route.branchId, 
+        mapped.id, 
+        mapped
+      ));
+      
+      setSaveState({ isSaving: false, savedAt: Date.now() });
+      setStack(prev => prev.map((s, idx) => {
+        if (idx === prev.length - 1) {
+          return { ...s, mode: 'view', deviceId: mapped.id };
+        }
+        return s;
+      }));
+      notify('success', 'Dispositivo guardado con éxito');
+    } catch (err) {
+      console.error('Error saving device:', err);
+      notify('error', 'Error al guardar el dispositivo');
+      setSaveState({ isSaving: false, savedAt: null });
+    }
   };
 
   return (

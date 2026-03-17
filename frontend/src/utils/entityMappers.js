@@ -97,6 +97,8 @@ export const emptyDeviceDraft = () => ({
   frecuenciaMantenimientoMeses: '',
   fechaProximoMantenimiento: '',
   notasTecnicas: '',
+  idInmotika: '',           // ID asignado por Inmotika
+  codigoUnico: '',          // Código único adicional
   pasoAPaso: [],            // [{descripcion, esObligatorio, orden}] — derivado de la categoría
 });
 
@@ -251,6 +253,8 @@ export const toDeviceDraft = (device, route = null) => ({
   identificacionCliente: device?.identificacionCliente || device?.identificacion_cliente || '',
   esDeInmotika: device?.esDeInmotika ?? device?.es_de_inmotika ?? false,
   frecuenciaMantenimientoMeses: device?.frecuenciaMantenimientoMeses ?? device?.frecuencia ?? '',
+  idInmotika: device?.idInmotika || device?.id_inmotika || '',
+  codigoUnico: device?.codigoUnico || device?.codigo_unico || '',
   pasoAPaso: Array.isArray(device?.pasoAPaso)
     ? device.pasoAPaso.map((p, i) =>
         typeof p === 'string'

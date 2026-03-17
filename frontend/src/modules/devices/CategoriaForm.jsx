@@ -190,7 +190,6 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
       id: null,
       tempId: `temp-paso-${Date.now()}`,
       descripcion: pasoText.trim(),
-      esObligatorio: pasoOblig,
       orden: pasos.filter(p => !p.deleted).length + 1,
       isNew: true,
       deleted: false,
