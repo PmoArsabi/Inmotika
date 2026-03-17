@@ -10,6 +10,7 @@ import { Subtitle, TextSmall, Label, H3 } from '../../components/ui/Typography';
 import SectionHeader from '../../components/ui/SectionHeader';
 import GenericListView from '../../components/shared/GenericListView';
 import BranchForm from '../../components/forms/BranchForm';
+import SecureImage from '../../components/ui/SecureImage';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -73,7 +74,6 @@ const ClientsView = ({ config, data }) => {
               <Tr><Td><Label>Razón Social</Label></Td><Td><Subtitle className="text-primary normal-case tracking-normal">{selectedClient.nombre}</Subtitle></Td></Tr>
               <Tr><Td><Label>NIT / RUT</Label></Td><Td><Subtitle className="normal-case tracking-normal">{selectedClient.nit}</Subtitle></Td></Tr>
               <Tr><Td><Label>Ubicación</Label></Td><Td><Subtitle className="normal-case tracking-normal">{selectedClient.ciudad} — {selectedClient.direccion}</Subtitle></Td></Tr>
-              <Tr><Td><Label>Contacto</Label></Td><Td><Subtitle className="normal-case tracking-normal">{selectedClient.telefono} — {selectedClient.email}</Subtitle></Td></Tr>
             </TBody>
           </Table>
         </Card>
@@ -193,10 +193,20 @@ const ClientsView = ({ config, data }) => {
     {
       header: 'Razón Social / Nombre',
       render: (item) => (
-        <div className="flex flex-col">
-          <Subtitle className="text-gray-900 normal-case tracking-normal">
-            {item.nombre || 'Sin nombre'}
-          </Subtitle>
+        <div className="flex flex-row items-center gap-3">
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200 shrink-0">
+            <SecureImage 
+              path={item.logoUrl} 
+              alt="Logo" 
+              className="w-full h-full object-cover" 
+              fallback={<Building2 size={16} className="text-gray-400" />}
+            />
+          </div>
+          <div className="flex flex-col">
+            <Subtitle className="text-gray-900 normal-case tracking-normal">
+              {item.nombre || 'Sin nombre'}
+            </Subtitle>
+          </div>
         </div>
       )
     },
@@ -220,10 +230,10 @@ const ClientsView = ({ config, data }) => {
       )
     },
     {
-      header: 'Tipo de Negocio',
+      header: 'Dirección Física',
       render: (item) => (
-        <TextSmall className="text-gray-700 font-bold uppercase">
-          {item.tipoNegocio || getTipoClienteLabel(item.tipoPersona) || 'No especificado'}
+        <TextSmall className="text-gray-700 font-medium">
+          {item.direccion || 'No registrada'}
         </TextSmall>
       )
     }
@@ -231,7 +241,6 @@ const ClientsView = ({ config, data }) => {
 
   const filterFunction = (client, q) => (
     client.nombre?.toLowerCase().includes(q) ||
-    client.email?.toLowerCase().includes(q) ||
     client.nit?.toLowerCase().includes(q) ||
     client.nit_numero?.toLowerCase().includes(q)
   );
@@ -247,7 +256,7 @@ const ClientsView = ({ config, data }) => {
       onEdit={(item) => handleEdit(item, 'cliente')}
       onDelete={(item) => config.removeItem(item.id, 'clientes')}
       newButtonLabel="Nuevo Cliente"
-      searchPlaceholder="Buscar: NIT / Email / Nombre"
+      searchPlaceholder="Buscar: NIT / Nombre"
       filterFunction={filterFunction}
       extraFilters={
         <Select

@@ -19,13 +19,18 @@ const FlagImg = ({ iso }) => (
 );
 
 const ViewCell = ({ label, children, icon: Icon }) => (
-  <div className="space-y-1">
-    <Label className="text-gray-400 ml-1 uppercase text-[10px] tracking-wider">{label}</Label>
-    <div className="flex items-center gap-2 h-10 px-3 bg-gray-50/50 rounded-md border border-gray-100">
-      {Icon && <Icon size={14} className="text-gray-400 shrink-0" />}
-      <TextSmall className="text-gray-900 font-semibold truncate">
-        {children || <span className="text-gray-300 italic font-normal">No especificado</span>}
-      </TextSmall>
+  <div className="flex flex-col gap-1.5 w-full">
+    <Label className="ml-1 text-gray-500">{label}</Label>
+    <div className="relative group">
+      <div className={`w-full h-10 ${Icon ? 'pl-9' : 'px-1'} text-sm font-semibold text-gray-900 flex items-center`}>
+        {Icon && (
+          <Icon
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          />
+        )}
+        {children || <span className="text-gray-400 italic font-normal">No especificado</span>}
+      </div>
     </div>
   </div>
 );

@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useRef } from 'react';
-import {
-  Building2, MapPin, Phone, Mail, Hash, Briefcase,
-  Camera, Plus, Edit2, Search, FileText, Calendar, Trash2, Link2, FileSignature,
-  Navigation, Eye,
+import { 
+  Building2, Camera, Hash, MapPin, FileSignature, FileText, Plus, Trash2, Globe, Map as MapIcon, Share2,
+  Phone, Mail, Briefcase, Edit2, Search, Calendar, Link2, Navigation, Eye
 } from 'lucide-react';
+import SecureImage from '../../components/ui/SecureImage';
 import { Country } from 'country-state-city';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -34,11 +34,12 @@ const ClientForm = ({
   onSave, isSaving = false, activeTab, onTabChange,
   branches = [], onNewBranch, onEditBranch, onViewBranch,
   newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
-  onAssociateContacts, onAssociateDevices,
+  onAssociateContacts, onAssociateDevices, onAssociateDirectors,
   totalSucursales = 0, totalContactos = 0, totalDispositivos = 0,
   editingBranchId = null, onCancelEdit = null,
   viewBranchMode = null,
 }) => {
+  if (!draft) return null;
   const { options: estadoOptions, loading: loadingEstados } = useEstados();
   const { options: tipoDocOptions, loading: loadingTipoDoc } = useCatalog('TIPO_DOCUMENTO');
   const { activoId, inactivoId } = useActivoInactivo();
@@ -102,11 +103,12 @@ const ClientForm = ({
                   isEditing ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
                   } bg-linear-to-br from-[#D32F2F] to-[#8B0000]`}
               >
-                {draft.logoUrl ? (
-                  <img src={draft.logoUrl.startsWith('http') ? draft.logoUrl : undefined} alt="Logo" className="w-full h-full object-cover" />
-                ) : (
-                  <Building2 size={32} className="text-white" />
-                )}
+                <SecureImage
+                  path={typeof draft.logoUrl === 'string' ? draft.logoUrl : (draft.logoUrl ? URL.createObjectURL(draft.logoUrl) : null)}
+                  alt="Logo"
+                  className="w-full h-full object-cover"
+                  fallback={<Building2 size={32} className="text-white" />}
+                />
               </div>
               {isEditing && (
                 <button
@@ -117,8 +119,10 @@ const ClientForm = ({
                   <Camera size={16} className="text-gray-700" />
                 </button>
               )}
-              <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+              <input ref={logoInputRef} type="file" accept="image/*,.svg" onChange={handleLogoChange} className="hidden" />
             </div>
+
+
             <div className="mt-4 text-center">
               <h3 className="text-lg font-bold text-gray-900">{draft.nombre || 'Nuevo Cliente'}</h3>
               <p className="text-sm text-gray-500 mt-1">
@@ -140,24 +144,6 @@ const ClientForm = ({
                     {draft.tipoDocumento && <span className="text-gray-400 mr-1">{draft.tipoDocumento}</span>}
                     {draft.nit}{isJuridica && draft.dv ? `-${draft.dv}` : ''}
                   </p>
-                </div>
-              </div>
-            )}
-            {draft.email && (
-              <div className="flex items-start gap-3">
-                <Mail size={18} className="text-gray-400 mt-0.5" />
-                <div>
-                  <TextSmall className="text-gray-500">Email</TextSmall>
-                  <p className="text-sm font-medium text-gray-900 mt-0.5">{draft.email}</p>
-                </div>
-              </div>
-            )}
-            {draft.celular && (
-              <div className="flex items-start gap-3">
-                <Phone size={18} className="text-gray-400 mt-0.5" />
-                <div>
-                  <TextSmall className="text-gray-500">Celular</TextSmall>
-                  <p className="text-sm font-medium text-gray-900 mt-0.5">{draft.celular}</p>
                 </div>
               </div>
             )}
@@ -264,7 +250,7 @@ const ClientForm = ({
                     uppercase
                     required
                   />
-                  <NitInput
+                   <NitInput
                     label="Número de Identificación"
                     nitValue={draft.nit}
                     dvValue={draft.dv}
@@ -275,64 +261,62 @@ const ClientForm = ({
                     viewMode={!isEditing}
                     required
                   />
-                  <Input
-                    label="Dirección Física"
-                    icon={MapPin}
-                    value={draft.direccion || ''}
-                    onChange={e => updateDraft({ direccion: e.target.value })}
-                    error={showErrors ? errors.direccion : null}
-                    viewMode={!isEditing}
-                    required
-                  />
-                  <Input
-                    label="Email"
-                    type="email"
-                    value={(draft.email || '').toLowerCase()}
-                    onChange={e => updateDraft({ email: e.target.value.toLowerCase() })}
-                    error={showErrors ? errors.email : null}
-                    viewMode={!isEditing}
-                    icon={Mail}
-                  />
-                  <PhoneInput
-                    label="Celular"
-                    countryValue={draft.celularPaisIso || 'CO'}
-                    phoneValue={draft.celular || ''}
-                    onCountryChange={v => updateDraft({ celularPaisIso: v })}
-                    onPhoneChange={v => updateDraft({ celular: v })}
-                    error={showErrors ? errors.celular : null}
-                    viewMode={!isEditing}
-                  />
-                  <Input
-                    label={isJuridica ? 'Fecha de Constitución' : 'Fecha de Nacimiento'}
-                    type="date"
-                    value={draft.fechaNacimiento || ''}
-                    onChange={e => updateDraft({ fechaNacimiento: e.target.value })}
-                    viewMode={!isEditing}
-                    icon={Calendar}
-                  />
-                  <Switch
-                    label="Estado"
-                    checked={!!activoId && draft.estadoId === activoId}
-                    onChange={checked => updateDraft({ estadoId: checked ? activoId : inactivoId })}
-                    viewMode={!isEditing}
-                    checkedLabel="Activo"
-                    uncheckedLabel="Inactivo"
-                  />
+                  <div className="flex items-end h-full mb-1">
+                    <Switch
+                      label="Estado"
+                      checked={!!activoId && draft.estadoId === activoId}
+                      onChange={checked => updateDraft({ estadoId: checked ? activoId : inactivoId })}
+                      viewMode={!isEditing}
+                      checkedLabel="Activo"
+                      uncheckedLabel="Inactivo"
+                    />
+                  </div>
                   <div className="md:col-span-2">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <LocationPickerRows
                         countryValue={draft.pais}
                         stateValue={draft.estado_depto}
-                        cityValue={draft.ciudad}
+                        cityValue={draft.city || draft.ciudad}
                         direccion={draft.direccion}
                         onLocationChange={l => updateDraft({ pais: l.country, estado_depto: l.state, ciudad: l.city })}
                         onDireccionChange={v => updateDraft({ direccion: v })}
                         direccionError={showErrors ? errors.direccion : null}
                         viewMode={!isEditing}
                         required
-                        showDireccion={false}
+                        showDireccion={true}
+                        twoColumns={true}
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Asociaciones Section */}
+                <div className="pt-6 border-t border-gray-100 space-y-4">
+                  <Subtitle className="text-gray-700">Asociaciones</Subtitle>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={onAssociateDirectors}
+                      disabled={!isEditing && (!draft.associatedDirectorIds || draft.associatedDirectorIds.length === 0)}
+                      className={`flex items-center justify-between p-4 rounded-lg transition-all text-left w-full group
+                        ${isEditing ? "bg-gray-50 border border-gray-200 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer" : 
+                          ((draft.associatedDirectorIds && draft.associatedDirectorIds.length > 0) ? "bg-white border-0 cursor-pointer" : "bg-gray-50 opacity-70 border border-gray-100 cursor-not-allowed")}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <TextSmall className={`font-semibold text-gray-900 transition-colors ${isEditing || (draft.associatedDirectorIds && draft.associatedDirectorIds.length > 0) ? "group-hover:text-[#D32F2F]" : ""}`}>Asociar Directores</TextSmall>
+                        <TextSmall className="text-gray-500 mt-0.5">
+                          {draft.associatedDirectorIds && draft.associatedDirectorIds.length > 0
+                            ? <span className="text-[#D32F2F] font-semibold">{draft.associatedDirectorIds.length} asociado{draft.associatedDirectorIds.length !== 1 ? 's' : ''}</span>
+                            : "Relaciona directores responsables a este cliente."
+                          }
+                        </TextSmall>
+                      </div>
+                      {(isEditing || (draft.associatedDirectorIds && draft.associatedDirectorIds.length > 0)) && (
+                        <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-[#D32F2F] transition-colors shadow-sm">
+                          {isEditing ? <><Link2 size={12} /> Asociar</> : <><Eye size={12} /> Ver</>}
+                        </div>
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -465,6 +449,7 @@ const ClientForm = ({
   );
 };
 
+
 // Sub-componente: tarjeta de sucursal en el listado
 // ─────────────────────────────────────────────────────────────────────────────
 const BranchCard = ({ branch, isEditing, editingBranchId, onEditBranch, onViewBranch }) => (
@@ -473,7 +458,8 @@ const BranchCard = ({ branch, isEditing, editingBranchId, onEditBranch, onViewBr
       if (isEditing && onEditBranch) onEditBranch(branch);
       else if (!isEditing && onViewBranch) onViewBranch(branch);
     }}
-    className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow cursor-pointer"
+    className={`rounded-lg p-4 bg-white transition-all
+      ${isEditing ? 'border border-gray-200 hover:shadow-md cursor-pointer' : 'border border-transparent hover:bg-gray-50 cursor-pointer text-gray-900 shadow-xs'}`}
   >
     <div className="flex items-start justify-between">
       <div className="flex-1 min-w-0">

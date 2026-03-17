@@ -21,10 +21,6 @@ export function buildClientePayload(draft, tipoPersonaId) {
     nit: (draft.nit || '').trim() || null,
     dv: (draft.dv || '').trim() || null,
     tipo_persona_id: tipoPersonaId,
-    celular: (draft.celular || '').trim() || null,
-    celular_pais_iso: draft.celularPaisIso || 'CO',
-    email: (draft.email || '').trim() || null,
-    fecha_nacimiento: (draft.fechaNacimiento || '').trim() || null,
     estado_id: (draft.estadoId || '').trim() || null,
     direccion: (draft.direccion || '').trim() || null,
     pais: (draft.pais || '').trim() || null,
@@ -104,7 +100,7 @@ export async function syncClientOtrosDocumentos(clientId, draft) {
       .from('cliente_documento')
       .update({ activo: false })
       .eq('cliente_id', clientId)
-      .not('id', 'in', `(${ids.map(id => `'${id}'`).join(',')})`);
+      .not('id', 'in', ids);
   } else {
     await supabase.from('cliente_documento').update({ activo: false }).eq('cliente_id', clientId);
   }
@@ -150,4 +146,67 @@ export async function saveCliente({ clientId, draft, tipoPersonaId }) {
   };
 
   return { clientId: resolvedId, savedData };
+}
+
+/**
+ * Obtiene los directores asignados a un cliente (solo activos).
+ */
+export async function getClientDirectors(clientId) {
+  const { data, error } = await supabase
+    .from('cliente_director')
+    .select('director_id, perfil_usuario(id, nombres, apellidos)')
+    .eq('cliente_id', clientId)
+    .eq('activo', true);
+  if (error) throw error;
+  return data.map(d => ({
+    id: d.director_id,
+    nombres: d.perfil_usuario?.nombres,
+    apellidos: d.perfil_usuario?.apellidos,
+  }));
+}
+
+/**
+ * Sincroniza los directores asignados (soft-delete con columna activo).
+ */
+export async function syncClientDirectors(clientId, directorIds) {
+  if (!clientId) throw new Error("ID de cliente requerido para sincronizar directores");
+
+  // 1. Obtener todas las asignaciones existentes (activos e inactivos)
+  const { data: existing, error: fetchError } = await supabase
+    .from('cliente_director')
+    .select('director_id, activo')
+    .eq('cliente_id', clientId);
+
+  if (fetchError) throw fetchError;
+
+  const incomingIds = new Set(directorIds);
+  const entriesToUpsert = [];
+
+  // 2. Determinar cuáles activar o dejar activos
+  directorIds.forEach(dId => {
+    entriesToUpsert.push({
+      cliente_id: clientId,
+      director_id: dId,
+      activo: true
+    });
+  });
+
+  // 3. Determinar cuáles desactivar (estaban activos y ya no vienen)
+  existing?.forEach(e => {
+    if (e.activo && !incomingIds.has(e.director_id)) {
+      entriesToUpsert.push({
+        cliente_id: clientId,
+        director_id: e.director_id,
+        activo: false
+      });
+    }
+  });
+
+  if (entriesToUpsert.length === 0) return;
+
+  const { error: upsertError } = await supabase
+    .from('cliente_director')
+    .upsert(entriesToUpsert, { onConflict: 'cliente_id, director_id' });
+
+  if (upsertError) throw upsertError;
 }

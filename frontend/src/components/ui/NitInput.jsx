@@ -86,7 +86,7 @@ const NitInput = ({
       )}
 
       {viewMode ? (
-        <div className="flex items-center gap-2 h-10 pl-1 text-sm font-semibold text-gray-900">
+        <div className="flex items-center gap-2 h-10 px-1 text-sm font-semibold text-gray-900">
           <Hash size={16} className="text-gray-400 shrink-0" />
           {nitValue
             ? (
@@ -105,7 +105,7 @@ const NitInput = ({
           <div className={`group flex items-stretch h-10 w-full rounded-md border overflow-hidden transition-all ${bgClass} ${borderColor} ${focusRingClass}`}>
 
             {/* Hash icon + main number input */}
-            <div className={`flex items-center pl-3 ${showDv ? 'flex-[7]' : 'flex-1'} min-w-0`}>
+            <div className={`flex items-center pl-3 ${showDv ? 'flex-7' : 'flex-1'} min-w-0`}>
               <Hash
                 size={15}
                 className={`shrink-0 mr-2 transition-colors pointer-events-none ${iconClass}`}
@@ -127,7 +127,7 @@ const NitInput = ({
             {showDv && (
               <>
                 <div className={`w-px self-stretch my-1.5 ${dividerClass} border-l`} />
-                <div className={`flex items-center px-3 flex-[3] min-w-0 gap-1.5`}>
+                <div className={`flex items-center px-3 flex-3 min-w-0 gap-1.5`}>
                   <span className={`text-[10px] font-bold uppercase tracking-wide shrink-0 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
                     DV
                   </span>

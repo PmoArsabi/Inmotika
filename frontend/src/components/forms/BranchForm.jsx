@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Building2, MapPin, Navigation, Link2, Eye,
-  Plus, Calendar
+  Plus, Calendar, FileText
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -143,8 +143,9 @@ export const BranchForm = (props) => {
               type="button"
               onClick={onClick}
               disabled={!isEditing && (!count || count === 0)}
-              className={`flex items-center justify-between p-4 rounded-lg border border-gray-200 transition-all text-left w-full group
-                ${isEditing || count > 0 ? "bg-gray-50 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer" : "bg-gray-50 opacity-70 cursor-not-allowed"}`}
+              className={`flex items-center justify-between p-4 rounded-lg transition-all text-left w-full group
+                ${isEditing ? "bg-gray-50 border border-gray-200 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer" : 
+                  (count > 0 ? "bg-white border-0 cursor-pointer" : "bg-gray-50 opacity-70 border border-gray-100 cursor-not-allowed")}`}
             >
               <div className="flex-1 min-w-0">
                 <TextSmall className={`font-semibold text-gray-900 transition-colors ${isEditing || count > 0 ? "group-hover:text-[#D32F2F]" : ""}`}>{label}</TextSmall>
@@ -170,9 +171,9 @@ export const BranchForm = (props) => {
         <DynamicDocumentList
           title="Contratos"
           addButtonLabel="Agregar Contrato"
-          items={(newBranchDraft.contratos || []).map(c => ({
+          items={(newBranchDraft?.contratos || []).map(c => ({
             ...c,
-            nombre: c.tema || '',
+            nombre: (c.tema || c.nombre || '') || 'Contrato sin título',
             url: c.documentoUrl || '',
             fechaInicio: c.fechaInicio || '',
             fechaFin: c.fechaFin || '',
@@ -212,13 +213,24 @@ export const BranchForm = (props) => {
                 />
               </div>
             </div>
-          ) : (item.fechaInicio || item.fechaFin) ? (
-            <div className="flex flex-wrap gap-3 text-sm text-gray-600">
-              {item.fechaInicio && (
-                <span><Calendar size={12} className="inline mr-1" />Inicio: {new Date(item.fechaInicio).toLocaleDateString('es-CO')}</span>
+          ) : (item.fechaInicio || item.fechaFin || item.url || (item.nombre && item.nombre !== 'Contrato sin título')) ? (
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-600 font-semibold">
+              {item.url && (
+                <span className="text-green-700 flex items-center gap-1.5 bg-green-50 px-2.5 py-1 rounded-md">
+                  <FileText size={14} /> Documento Adjunto
+                </span>
               )}
-              {item.fechaFin && (
-                <span><Calendar size={12} className="inline mr-1" />Fin: {new Date(item.fechaFin).toLocaleDateString('es-CO')}</span>
+              {item.fechaInicio && !isNaN(new Date(item.fechaInicio).getTime()) && (
+                <span className="flex items-center gap-1.5 px-1 py-1">
+                  <Calendar size={14} className="text-gray-400" />
+                  Inicio: <span className="text-gray-900">{new Date(item.fechaInicio).toLocaleDateString('es-CO')}</span>
+                </span>
+              )}
+              {item.fechaFin && !isNaN(new Date(item.fechaFin).getTime()) && (
+                <span className="flex items-center gap-1.5 px-1 py-1">
+                  <Calendar size={14} className="text-gray-400" />
+                  Fin: <span className="text-gray-900">{new Date(item.fechaFin).toLocaleDateString('es-CO')}</span>
+                </span>
               )}
             </div>
           ) : null}

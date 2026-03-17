@@ -20,7 +20,7 @@ const Select = ({ label, icon: Icon, options = [], value, onChange, error, requi
         />
       )}
       {viewMode ? (
-        <div className={`w-full h-10 ${Icon ? 'pl-9' : 'px-3'} text-sm font-semibold text-gray-900 flex items-center`}>
+        <div className={`w-full h-10 ${Icon ? 'pl-9' : 'px-1'} text-sm font-semibold text-gray-900 flex items-center`}>
           {options.find(o => o.value === value)?.label || value || <span className="text-gray-400 italic">No especificado</span>}
         </div>
       ) : (

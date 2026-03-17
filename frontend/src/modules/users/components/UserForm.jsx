@@ -315,7 +315,7 @@ const UserForm = ({
                   variant="primary"
                   onClick={() => setShowResendModal(true)}
                   disabled={isResending}
-                  className="w-full justify-center gap-2 !bg-amber-500 hover:!bg-amber-600 !text-white border-0 text-sm normal-case tracking-normal"
+                  className="w-full justify-center gap-2 bg-amber-500! hover:bg-amber-600! text-white! border-0 text-sm normal-case tracking-normal"
                 >
                   {isResending ? <RefreshCw size={16} className="animate-spin" /> : null}
                   Volver a enviar invitación
@@ -345,7 +345,7 @@ const UserForm = ({
             </Button>
             <Button
               variant="primary"
-              className="!bg-amber-500 hover:!bg-amber-600 !text-white border-0 text-sm normal-case"
+              className="bg-amber-500! hover:bg-amber-600! text-white! border-0 text-sm normal-case"
               onClick={async () => {
                 if (editingUser && onResendInvitation) {
                   await onResendInvitation(editingUser);

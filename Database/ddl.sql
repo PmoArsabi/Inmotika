@@ -89,15 +89,11 @@ alter table "public"."categoria_dispositivo" enable row level security;
     "nit" character varying(50),
     "dv" character varying(5),
     "tipo_persona_id" uuid not null,
-    "celular" character varying(50),
-    "email" character varying(255),
     "logo_url" text,
     "rut_url" text,
-    "fecha_nacimiento" date,
     "estado_id" uuid,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now(),
-    "celular_pais_iso" character(2) default 'CO'::bpchar,
     "cert_bancaria_url" text,
     "tipo_documento" character varying,
     "direccion" character varying,
@@ -108,6 +104,18 @@ alter table "public"."categoria_dispositivo" enable row level security;
 
 
 alter table "public"."cliente" enable row level security;
+
+
+  create table "public"."cliente_director" (
+    "id" uuid not null default gen_random_uuid(),
+    "cliente_id" uuid not null,
+    "director_id" uuid not null,
+    "created_at" timestamp with time zone default now(),
+    "activo" boolean default true
+  );
+
+
+alter table "public"."cliente_director" enable row level security;
 
 
   create table "public"."cliente_documento" (
@@ -963,6 +971,22 @@ BEGIN
     JOIN public.catalogo_rol r ON p.rol_id = r.id
     WHERE p.id = auth.uid() 
     AND r.codigo IN ('ADMIN', 'DIRECTOR', 'COORDINADOR')
+  );
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.is_assigned_director(check_cliente_id uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.cliente_director
+    WHERE cliente_id = check_cliente_id
+    AND director_id = auth.uid()
+    AND activo = true
   );
 END;
 $function$
@@ -2309,12 +2333,12 @@ with check (true);
 
 
 
-  create policy "Admin access"
-  on "public"."cliente"
-  as permissive
-  for all
-  to public
-using (public.is_admin_or_coordinator());
+   create policy "Access for admins and assigned directors"
+   on "public"."cliente"
+   as permissive
+   for all
+   to authenticated
+ using ((public.is_admin_or_coordinator() OR public.is_assigned_director(id)));
 
 
 
@@ -2385,12 +2409,12 @@ with check ((EXISTS ( SELECT 1
 
 
 
-  create policy "Admin access"
-  on "public"."sucursal"
-  as permissive
-  for all
-  to public
-using (public.is_admin_or_coordinator());
+   create policy "Access for admins and assigned directors"
+   on "public"."sucursal"
+   as permissive
+   for all
+   to authenticated
+ using ((public.is_admin_or_coordinator() OR public.is_assigned_director(cliente_id)));
 
 
 
@@ -2443,6 +2467,21 @@ using ((EXISTS ( SELECT 1
   to public
 using (public.is_admin_or_coordinator());
 
+
+   create policy "Admins can manage director assignments"
+   on "public"."cliente_director"
+   as permissive
+   for all
+   to authenticated
+ using (public.is_admin_or_coordinator())
+ with check (public.is_admin_or_coordinator());
+
+   create policy "Directors can view their own assignments"
+   on "public"."cliente_director"
+   as permissive
+   for select
+   to authenticated
+ using ((director_id = auth.uid()));
 
 CREATE TRIGGER on_user_role_change AFTER UPDATE OF rol_id ON public.perfil_usuario FOR EACH ROW EXECUTE FUNCTION public.sync_specialized_role_tables();
 

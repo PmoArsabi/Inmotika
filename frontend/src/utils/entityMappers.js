@@ -30,6 +30,8 @@ export const emptyClientDraft = () => ({
   pais: 'CO',
   estado_depto: '',
   ciudad: '',
+  otrosDocumentos: [],  // desde tabla cliente_documento: [{id, nombre, url}]
+  associatedDirectorIds: [],
 });
 
 export const emptyContractDraft = () => ({
@@ -148,17 +150,23 @@ export const toClientDraft = (client) => {
     estado_depto: client.estado_depto ?? '',
     ciudad: client.ciudad ?? '',
     otrosDocumentos,
+    associatedDirectorIds: Array.isArray(client.cliente_director) 
+      ? client.cliente_director.map(cd => cd.director_id)
+      : (Array.isArray(client.associatedDirectorIds) ? client.associatedDirectorIds : []),
   };
 };
 
 export const toBranchDraft = (branch) => {
   if (!branch) return emptyBranchDraft();
-  let rawContratos = branch.contratos
-    ? branch.contratos
-    : branch.contrato
-      ? [{ ...emptyContractDraft(), ...branch.contrato }]
-      : [];
-  rawContratos = rawContratos.filter(c => c.activo !== false);
+  let rawContratos = [];
+  if (Array.isArray(branch.contratos)) {
+    rawContratos = branch.contratos;
+  } else if (Array.isArray(branch.contrato)) {
+    rawContratos = branch.contrato;
+  } else if (branch.contrato) {
+    rawContratos = [branch.contrato];
+  }
+  rawContratos = rawContratos.filter(c => c && c.activo !== false);
   return {
     ...emptyBranchDraft(),
     id: branch.id || generateUUID(),
@@ -174,7 +182,7 @@ export const toBranchDraft = (branch) => {
     horarioAtencion: branch.horarios_atencion ?? branch.horarioAtencion ?? null,
     contratos: rawContratos.map(c => ({
       ...emptyContractDraft(),
-      id: c.id,
+      id: c.id && String(c.id).length > 5 ? c.id : generateUUID(),
       tema: c.tema ?? c.nombre ?? '',
       documentoUrl: c.documento_url ?? c.documentoUrl ?? '',
       fechaInicio: c.fecha_inicio ?? c.fechaInicio ?? '',

@@ -32,17 +32,16 @@ export const useUsers = () => {
   }, []);
 
   const fetchActiveDirectors = useCallback(async () => {
-    console.log('[useUsers] fetchActiveDirectors: Iniciando consulta...');
     try {
       const { data, error } = await supabase
         .from('director')
         .select(`
           id,
-          usuario:perfil_usuario!director_usuario_id_fkey (nombres, apellidos)
+          usuario_id,
+          usuario:perfil_usuario!director_usuario_id_fkey (nombres, apellidos, email)
         `)
         .eq('activo', true);
 
-      console.log('[useUsers] fetchActiveDirectors response:', { data, error });
 
       if (error) {
         console.error('[useUsers] fetchActiveDirectors error:', error);
@@ -52,12 +51,13 @@ export const useUsers = () => {
       if (data) {
         const mapped = data.map(d => ({
           id: d.id,
+          usuarioId: d.usuario_id,
+          nombres: d.usuario?.nombres || '',
+          apellidos: d.usuario?.apellidos || '',
+          email: d.usuario?.email || '',
           nombreCompleto: d.usuario ? `${d.usuario.nombres || ''} ${d.usuario.apellidos || ''}`.trim() : 'Sin Nombre'
         }));
-        console.log('[useUsers] fetchActiveDirectors mapped:', mapped);
         setActiveDirectors(mapped);
-      } else {
-        console.log('[useUsers] fetchActiveDirectors: No se recibieron datos (data es null/undefined)');
       }
     } catch (err) {
       console.error('[useUsers] fetchActiveDirectors system error:', err);
@@ -123,13 +123,11 @@ export const useUsers = () => {
   }, [notify]);
 
   useEffect(() => {
-    console.log('[useUsers] useEffect Roles/Users triggered');
     fetchRoles();
     fetchUsers();
   }, [fetchRoles, fetchUsers]);
 
   useEffect(() => {
-    console.log('[useUsers] useEffect Directors triggered');
     fetchActiveDirectors();
   }, [fetchActiveDirectors]);
 

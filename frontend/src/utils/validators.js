@@ -29,11 +29,6 @@ export const validateClient = (draft) => {
   if (!String(draft.nit || '').trim()) errors.nit = 'Requerido';
   if (!String(draft.direccion || '').trim()) errors.direccion = 'Requerido';
   if (!String(draft.ciudad || '').trim()) errors.ciudad = 'Requerido';
-  if (draft.email && !isEmailValid(draft.email)) errors.email = 'Email inválido';
-  if (draft.celular) {
-    const phoneErr = validatePhoneNumber(draft.celular, draft.celularPaisIso || 'CO');
-    if (phoneErr) errors.celular = phoneErr;
-  }
   return errors;
 };
 

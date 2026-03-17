@@ -36,7 +36,7 @@ const Input = ({
           />
         )}
         {viewMode ? (
-          <div className={`w-full h-10 ${Icon ? 'pl-9' : 'px-3'} text-sm font-semibold text-gray-900 flex items-center`}>
+          <div className={`w-full h-10 ${Icon ? 'pl-9' : 'px-1'} text-sm font-semibold text-gray-900 flex items-center`}>
             {props.value || props.defaultValue || <span className="text-gray-400 italic">No especificado</span>}
           </div>
         ) : (

@@ -80,3 +80,15 @@ export async function deleteFile(path, bucket = 'inmotika') {
     console.warn(`[storageUtils] Warn: Could not delete ${path}`, error);
   }
 }
+
+/**
+ * Returns the public URL for a given storage path.
+ */
+export function getStorageUrl(path, bucket = 'inmotika') {
+  if (!path) return '';
+  if (path.startsWith('http')) return path; // Already a full URL
+  if (path.startsWith('blob:')) return path; // Local preview URL
+  
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return data?.publicUrl || '';
+}

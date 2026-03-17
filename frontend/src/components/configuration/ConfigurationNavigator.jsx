@@ -45,6 +45,9 @@ const ConfigurationNavigator = ({ onClose }) => {
   const [associateDevicesModal, setAssociateDevicesModal] = useState(null);
   const [associateDevicesSearch, setAssociateDevicesSearch] = useState('');
   const [associateDevicesSelected, setAssociateDevicesSelected] = useState([]);
+  const [associateDirectorsModal, setAssociateDirectorsModal] = useState(null);
+  const [associateDirectorsSearch, setAssociateDirectorsSearch] = useState('');
+  const [associateDirectorsSelected, setAssociateDirectorsSelected] = useState([]);
   const [associateSuccess, setAssociateSuccess] = useState(false);
 
   useEffect(() => {
@@ -159,7 +162,13 @@ const ConfigurationNavigator = ({ onClose }) => {
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 -mt-4">
         <NavigatorBreadcrumbs />
         
-        {route?.type === 'cliente' && <ClientNavigator />}
+        {route?.type === 'cliente' && (
+          <ClientNavigator 
+            setAssociateDirectorsModal={setAssociateDirectorsModal}
+            setAssociateDirectorsSelected={setAssociateDirectorsSelected}
+            setAssociateDirectorsSearch={setAssociateDirectorsSearch}
+          />
+        )}
         
         {route?.type === 'contact' && <ContactNavigator onClose={onClose} />}
         {route?.type === 'dispositivo' && <DeviceNavigator onClose={onClose} />}
@@ -249,6 +258,93 @@ const ConfigurationNavigator = ({ onClose }) => {
                }} className="w-full">Guardar Asociación</Button>
                <Button onClick={() => setAssociateDevicesModal(null)} variant="ghost" className="w-full">Cancelar</Button>
              </div>
+          </Card>
+        </div>
+      )}
+      {associateDirectorsModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <Card className="max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-50 rounded-lg">
+                <Users size={20} className="text-[#D32F2F]" />
+              </div>
+              <H3 className="normal-case">Asociar Directores</H3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input 
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F] text-sm" 
+                  placeholder="Buscar director por nombre..." 
+                  value={associateDirectorsSearch}
+                  onChange={(e) => setAssociateDirectorsSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                {associateDirectorsModal.allDirectors
+                  .filter(d => 
+                    !associateDirectorsSearch || 
+                    (d.nombreCompleto || '').toLowerCase().includes(associateDirectorsSearch.toLowerCase())
+                  )
+                  .map(dir => {
+                    const isSelected = associateDirectorsSelected.includes(dir.usuarioId);
+                    return (
+                      <div 
+                        key={dir.usuarioId}
+                        onClick={() => {
+                          setAssociateDirectorsSelected(prev => 
+                            prev.includes(dir.usuarioId) ? prev.filter(id => id !== dir.usuarioId) : [...prev, dir.usuarioId]
+                          );
+                        }}
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
+                          isSelected ? 'border-[#D32F2F] bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                            isSelected ? 'bg-[#D32F2F] text-white' : 'bg-gray-200 text-gray-500'
+                          }`}>
+                            {(dir.nombres?.[0] || 'D').toUpperCase()}
+                          </div>
+                          <div>
+                            <TextSmall className="font-bold text-gray-900">{dir.nombres} {dir.apellidos}</TextSmall>
+                            <TextSmall className="text-gray-500 text-[10px] break-all font-medium">{dir.email}</TextSmall>
+                          </div>
+                        </div>
+                        {isSelected && <CheckCircle2 size={18} className="text-[#D32F2F]" />}
+                      </div>
+                    );
+                  })}
+                {associateDirectorsModal.allDirectors.length === 0 && (
+                  <div className="text-center py-8">
+                    <Users size={32} className="mx-auto text-gray-300 mb-2" />
+                    <TextSmall className="text-gray-400">No hay directores disponibles</TextSmall>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <Button 
+                  onClick={() => {
+                    updateDraft(associateDirectorsModal.key, { associatedDirectorIds: associateDirectorsSelected });
+                    setAssociateDirectorsModal(null);
+                  }} 
+                  variant="success" 
+                  className="w-full bg-[#1A1A1A] hover:bg-[#D32F2F]"
+                >
+                  Confirmar
+                </Button>
+                <Button 
+                  onClick={() => setAssociateDirectorsModal(null)} 
+                  variant="ghost" 
+                  className="w-full"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
           </Card>
         </div>
       )}

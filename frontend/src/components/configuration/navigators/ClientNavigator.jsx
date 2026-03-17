@@ -13,7 +13,9 @@ import {
 import { validateClient, validateBranch } from '../../../utils/validators';
 import { useCatalog } from '../../../hooks/useCatalog';
 import { saveSucursal } from '../../../api/sucursalApi';
-import { saveCliente } from '../../../api/clienteApi';
+import { saveCliente, getClientDirectors, syncClientDirectors, isNewClientId } from '../../../api/clienteApi';
+import { useUsers } from '../../../hooks/useUsers';
+import { useNotify } from '../../../context/NotificationContext';
 
 const ClientNavigator = ({ 
   setAssociateContactsModal,
@@ -22,6 +24,9 @@ const ClientNavigator = ({
   setAssociateContactsSearch,
   setAssociateDevicesSelected,
   setAssociateDevicesSearch,
+  setAssociateDirectorsModal,
+  setAssociateDirectorsSelected,
+  setAssociateDirectorsSearch,
 }) => {
   const { 
     route, drafts, setDrafts, updateDraft, setStack,
@@ -35,6 +40,8 @@ const ClientNavigator = ({
     savedClientId, setSavedClientId,
   } = useConfigurationContext();
   const { data, setData } = useMasterData();
+  const { activeDirectors, fetchActiveDirectors } = useUsers();
+  const notify = useNotify();
   const { options: tipoPersonaOptions } = useCatalog('TIPO_PERSONA');
   const tipoPersonaIdNatural = tipoPersonaOptions.find(o => o.codigo === 'NATURAL')?.value || '';
   const tipoPersonaIdJuridica = tipoPersonaOptions.find(o => o.codigo === 'JURIDICA')?.value || '';
@@ -87,6 +94,12 @@ const ClientNavigator = ({
         setDrafts(prev => ({ ...prev, [key]: toClientDraft(savedData) }));
       }
       setSavedClientId(realId);
+      
+      // Sync directors
+      if (draft.associatedDirectorIds) {
+        await syncClientDirectors(realId, draft.associatedDirectorIds);
+      }
+
       setSaveState({ isSaving: false, savedAt: Date.now() });
       setShowSuccessModal(true);
     } catch (err) {
@@ -113,16 +126,18 @@ const ClientNavigator = ({
 
   const handleEditBranch = (branch) => {
     const editBranchKey = entityKey('branch', `edit-${branch.id}`);
-    ensureDraft(editBranchKey, () => {
-      const branchDraft = toBranchDraft(branch);
-      return {
-        ...branchDraft,
-        associatedContactIds: (branch.contactos || []).map(c => String(c.id)),
-        associatedDeviceIds: (data?.dispositivos || []).filter(d => 
-          String(d.branchId) === String(branch.id)
-        ).map(d => String(d.id))
-      };
-    });
+    
+    // Al editar desde el listado, siempre refrescamos el draft con la data actual del MasterData
+    // para evitar que drafts viejos en localStorage bloqueen cambios de la base de datos.
+    const freshDraft = {
+      ...toBranchDraft(branch),
+      associatedContactIds: (branch.contactos || []).map(c => String(c.id)),
+      associatedDeviceIds: (data?.dispositivos || []).filter(d => 
+        String(d.branchId) === String(branch.id)
+      ).map(d => String(d.id))
+    };
+    setDrafts(prev => ({ ...prev, [editBranchKey]: freshDraft }));
+
     setEditingBranchId(branch.id);
     setViewBranchMode('edit');
     if (route.activeTab !== 'branches') {
@@ -133,13 +148,32 @@ const ClientNavigator = ({
   const handleViewBranch = (branch) => {
     const bId = branch.id;
     const key = entityKey('branch', `view-${bId}`);
-    ensureDraft(key, () => toBranchDraft(branch));
+    
+    // Para ver, siempre usamos la data más fresca
+    setDrafts(prev => ({ ...prev, [key]: toBranchDraft(branch) }));
+
     setEditingBranchId(bId);
     setViewBranchMode('view');
     if (route.activeTab !== 'branches') {
       setStack(p => p.map((r, i) => i === p.length - 1 ? {...r, activeTab: 'branches'} : r));
     }
   };
+
+
+  React.useEffect(() => {
+    const fetchDirectors = async () => {
+      if (!route.clientId || isNewClientId(route.clientId)) return;
+      try {
+        const assigned = await getClientDirectors(route.clientId);
+        const assignedIds = assigned.map(d => d.id);
+        const k = entityKey('cliente', route.clientId);
+        updateDraft(k, { associatedDirectorIds: assignedIds });
+      } catch (err) {
+        console.error('Error fetching client directors:', err);
+      }
+    };
+    fetchDirectors();
+  }, [route.clientId]);
 
   const hasBranches = currentBranches.length > 0;
   const newBranchKey = entityKey('branch', `new-${route.clientId}`);
@@ -236,6 +270,13 @@ const ClientNavigator = ({
     setAssociateDevicesModal({ branchKey: activeBranchKey, clientId: route.clientId });
   };
 
+  const handleOpenAssociateDirectors = () => {
+    const currentIds = draft.associatedDirectorIds || [];
+    setAssociateDirectorsSelected(currentIds);
+    setAssociateDirectorsSearch('');
+    setAssociateDirectorsModal({ key, allDirectors: activeDirectors });
+  };
+
   const totalSucursales = currentBranches.length;
   const totalContactos = (data?.contactos || []).filter(c => compareIds(c.clientId, route.clientId)).length;
   const totalDispositivos = (data?.dispositivos || []).filter(d => compareIds(d.clientId, route.clientId)).length;
@@ -270,6 +311,7 @@ const ClientNavigator = ({
       onCancelEdit={() => { setEditingBranchId(null); setViewBranchMode(null); }}
       onAssociateContacts={handleOpenAssociateContacts}
       onAssociateDevices={handleOpenAssociateDevices}
+      onAssociateDirectors={handleOpenAssociateDirectors}
       isDeviceAdmin={false}
       allDevices={data.dispositivos || []}
       totalSucursales={totalSucursales}
