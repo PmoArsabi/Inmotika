@@ -17,10 +17,10 @@ export const Table = ({ children }) => (
 export const THead = ({ children, variant = "light", className = "" }) => (
   (() => {
     const isDark = variant === 'dark';
-    const defaultVarClassName = isDark ? '[--table-head-text:white]' : '[--table-head-text:#6B7280]';
+    const defaultVarClassName = isDark ? '[--table-head-text:white]' : '[--table-head-text:#374151]';
     const defaultRowClassName = isDark
       ? `border-b border-white/10 bg-black ${defaultVarClassName}`
-      : `border-b border-gray-100 bg-gray-50/50 ${defaultVarClassName}`;
+      : `border-b border-gray-100 bg-white ${defaultVarClassName}`;
 
     const childArray = React.Children.toArray(children);
     const hasTrChild = childArray.some(
@@ -65,14 +65,16 @@ export const Tr = ({ children, onClick, className = "" }) => (
 );
 
 export const Th = ({ children, narrow = false, className = "" }) => (
-  <th className={`py-3 px-5 text-left ${narrow ? 'w-px whitespace-nowrap' : ''} ${className}`}>
-    <Subtitle className="text-(--table-head-text)">{children}</Subtitle>
+  <th className={`py-4 px-5 text-left ${narrow ? 'w-px whitespace-nowrap' : ''} ${className}`}>
+    <div className="text-[10px] font-bold tracking-wider text-(--table-head-text) uppercase">
+      {children}
+    </div>
   </th>
 );
 
-export const Td = ({ children, narrow = false, className = "" }) => (
-  <td className={`py-3 px-5 text-left ${narrow ? 'w-px whitespace-nowrap' : ''} ${className}`}>
-    <div className="text-[9px] font-bold text-gray-700">
+export const Td = ({ children, narrow = false, className = "", align = 'left' }) => (
+  <td className={`py-4 px-5 text-${align} ${narrow ? 'w-px whitespace-nowrap' : ''} ${className}`}>
+    <div className="text-[11px] font-medium text-gray-700 leading-relaxed">
       {children}
     </div>
   </td>

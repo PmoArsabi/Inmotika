@@ -510,7 +510,7 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
       {/* Table */}
       <Card className="p-0 overflow-hidden">
         <Table>
-          <THead variant="dark">
+          <THead variant="light">
             <tr>
               <Th>ID</Th>
               <Th>Tipo</Th>

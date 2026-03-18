@@ -142,7 +142,7 @@ const GenericListView = ({
       ) : (
         <Card className="p-0 overflow-hidden rounded-md border border-gray-200 shadow-sm">
           <Table>
-            <THead variant="dark">
+            <THead variant="light">
               <tr>
                 {columns.map((col, i) => (
                   <Th key={i} narrow={col.narrow} className={col.align === 'right' ? 'text-right' : ''}>
