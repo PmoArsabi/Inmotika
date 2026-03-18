@@ -81,8 +81,14 @@ const BranchNavigator = ({ setAssociateContactsModal, setAssociateDevicesModal }
         isEditing={isEditing}
         onSaveNewBranch={handleSave}
         isSaving={saveState.isSaving}
-        onAssociateContacts={() => setAssociateContactsModal({ branchKey: key })}
-        onAssociateDevices={() => setAssociateDevicesModal({ branchKey: key })}
+        onAssociateContacts={() => {
+          if (!drafts[key]) updateDraft(key, draft);
+          setAssociateContactsModal({ branchKey: key });
+        }}
+        onAssociateDevices={() => {
+          if (!drafts[key]) updateDraft(key, draft);
+          setAssociateDevicesModal({ branchKey: key });
+        }}
         estadoSelectOptions={[{value: 'est-1', label: 'ACTIVO'}, {value: 'est-2', label: 'INACTIVO'}]}
         activoId="est-1"
         inactivoId="est-2"

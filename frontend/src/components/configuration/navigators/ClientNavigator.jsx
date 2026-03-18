@@ -53,7 +53,7 @@ const ClientNavigator = ({
 
   const currentClient = (data?.clientes || []).find(c => compareIds(c.id, route?.clientId));
   const existingDraft = drafts[key];
-  const isDraftValid = existingDraft && compareIds(existingDraft.id, route.clientId);
+  const isDraftValid = !!existingDraft;
 
   const draft = isDraftValid
     ? existingDraft
@@ -69,7 +69,10 @@ const ClientNavigator = ({
   const handleSave = async () => {
     setShowErrors(true);
     setSaveError(null);
-    if (hasErrors) return;
+    if (hasErrors) {
+      notify('error', 'Por favor complete los campos obligatorios (' + Object.keys(errors).join(', ') + ')');
+      return;
+    }
     const tipoPersonaId = draft.tipoPersonaId || (draft.tipoDocumento === 'NIT' ? tipoPersonaIdJuridica : tipoPersonaIdNatural) || tipoPersonaIdNatural;
     if (!tipoPersonaId) {
       setSaveError('Cargando opciones de tipo de persona. Espere un momento e intente de nuevo.');
@@ -266,6 +269,10 @@ const ClientNavigator = ({
   };
 
   const handleOpenAssociateDirectors = () => {
+    // Si no hay draft en el contexto, lo inicializamos con los datos actuales
+    if (!existingDraft) {
+      updateDraft(key, draft);
+    }
     const currentIds = draft.associatedDirectorIds || [];
     setAssociateDirectorsSelected(currentIds);
     setAssociateDirectorsSearch('');

@@ -17,7 +17,7 @@ const TechnicalNavigator = () => {
   const entityKey = (type, id) => `${type}:${id}`;
   const key = entityKey('tecnico', route.clientId);
   const existingDraft = drafts[key];
-  const isDraftValid = existingDraft && String(existingDraft.id) === String(route.clientId);
+  const isDraftValid = !!existingDraft;
   
   const currentTech = (data?.tecnicos || []).find(t => String(t.id) === String(route.clientId));
 
