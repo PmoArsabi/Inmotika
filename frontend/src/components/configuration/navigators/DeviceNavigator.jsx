@@ -18,7 +18,14 @@ const DeviceNavigator = ({ onClose }) => {
   const key = entityKey('dispositivo', route.deviceId);
   
   const currentDevice = (data?.dispositivos || []).find(d => String(d.id) === String(route?.deviceId));
-  const draft = drafts[key] || (currentDevice ? toDeviceDraft(currentDevice) : emptyDeviceDraft());
+  
+  // Try to get from drafts, but if it's an empty object or doesn't have critical data for an existing item, use the MasterData
+  const existingDraft = drafts[key];
+  const isDraftEmpty = !existingDraft || Object.keys(existingDraft).length === 0;
+  
+  const draft = (!isDraftEmpty && (route.mode === 'edit' || existingDraft.serial))
+    ? existingDraft 
+    : (currentDevice ? toDeviceDraft(currentDevice) : emptyDeviceDraft());
   const errors = validateDevice(draft);
   const hasErrors = Object.keys(errors).length > 0;
   const isEditing = route.mode === 'edit';

@@ -247,17 +247,21 @@ export const toDeviceDraft = (device, route = null) => ({
   ...emptyDeviceDraft(),
   ...device,
   id: device?.id || generateUUID(),
-  clientId: device?.clientId || route?.clientId || '',
-  branchId: device?.branchId || route?.branchId || '',
+  clientId: device?.clientId || device?.cliente_id || route?.clientId || '',
+  branchId: device?.branchId || device?.sucursal_id || route?.branchId || '',
+  categoriaId: device?.categoriaId || device?.categoria_id || '',
+  estadoId: device?.estadoId || device?.estado_id || '',
   imac: device?.imac || device?.macAddress || device?.mac_address || '',
   identificacionCliente: '', // removido de BD pero se limpia del draft
   esDeInmotika: device?.esDeInmotika ?? device?.es_de_inmotika ?? false,
-  frecuenciaMantenimientoMeses: device?.frecuenciaMantenimientoMeses ?? device?.frecuencia ?? '',
-  idInmotika: device?.idInmotika || device?.id_id_inmotika || '',
+  frecuenciaMantenimientoMeses: device?.frecuenciaMantenimientoMeses ?? device?.frecuencia_mantenimiento_meses ?? device?.frecuencia ?? '',
+  fechaProximoMantenimiento: device?.fechaProximoMantenimiento ?? device?.fecha_proximo_mantenimiento ?? '',
+  idInmotika: device?.idInmotika || device?.id_inmotika || '',
   codigoUnico: device?.codigoUnico || device?.codigo_unico || '',
   proveedorId: device?.proveedorId || device?.proveedor_id || '',
   marcaId: device?.marcaId || device?.marca_id || '',
   estadoGestionId: device?.estadoGestionId || device?.estado_gestion_id || '',
+  notasTecnicas: device?.notasTecnicas || device?.notas_tecnicas || '',
   pasoAPaso: Array.isArray(device?.pasoAPaso)
     ? device.pasoAPaso.map((p, i) =>
         typeof p === 'string'
