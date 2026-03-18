@@ -46,6 +46,19 @@ const SectionHeader = ({ icon: Icon, label }) => (
   </div>
 );
 
+
+const CompactSummaryItem = ({ icon: Icon, label, value }) => (
+  <div className="flex flex-col gap-1">
+    <div className="flex items-center gap-1.5 text-gray-400">
+      <Icon size={11} className="shrink-0" />
+      <span className="text-[9px] font-bold uppercase tracking-wider">{label}</span>
+    </div>
+    <span className="text-[11px] font-semibold text-gray-700 truncate leading-none">
+      {value || '—'}
+    </span>
+  </div>
+);
+
 const SummaryRow = ({ icon: Icon, label, value, sub }) => (
   <div className="flex items-start gap-3">
     <Icon size={16} className="text-gray-400 mt-0.5 shrink-0" />
@@ -398,51 +411,50 @@ const DeviceForm = ({
       {/* ── Columna izquierda: Resumen ── */}
       <div className="lg:col-span-1">
         <Card className="p-6 space-y-6 h-full">
-          <div className="flex flex-col items-center">
-            <div className="w-20 h-20 bg-linear-to-br from-[#D32F2F] to-[#8B0000] rounded-full flex items-center justify-center shadow-lg">
-              <Monitor size={32} className="text-white" />
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-14 h-14 bg-linear-to-br from-[#D32F2F] to-[#8B0000] rounded-2xl flex items-center justify-center shadow-lg shrink-0 rotate-3">
+              <Monitor size={24} className="text-white -rotate-3" />
             </div>
-            <div className="mt-4 text-center">
-              <h3 className="text-lg font-bold text-gray-900">
-                {draft.serial || 'Nuevo Dispositivo'}
+            <div className="min-w-0">
+              <h3 className="text-base font-black text-gray-900 truncate tracking-tight">
+                {draft.serial || 'NUEVO EQUIPO'}
               </h3>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-[10px] font-bold text-[#D32F2F] uppercase tracking-widest opacity-80">
                 {categorias.find(c => c.value === draft.categoriaId)?.label || 'Sin categoría'}
               </p>
             </div>
           </div>
 
-          <div className="space-y-3 pt-4 border-t border-gray-200">
-            {draft.marca && (
-              <SummaryRow icon={Monitor} label="Marca / Modelo" value={`${draft.marca?.nombre || draft.marca}${draft.modelo ? ` — ${draft.modelo}` : ''}`} />
-            )}
-            {draft.serial && (
-              <SummaryRow icon={Hash} label="Serie" value={draft.serial} />
-            )}
-            {draft.idInmotika && (
-              <SummaryRow icon={Hash} label="ID Inmotika" value={draft.idInmotika} />
-            )}
-            {draft.codigoUnico && (
-              <SummaryRow icon={Barcode} label="Código Único" value={draft.codigoUnico} />
-            )}
-            {draft.imac && (
-              <SummaryRow icon={Navigation2} label="IMAC / MAC" value={draft.imac} />
-            )}
-            <SummaryRow 
-              icon={User} 
-              label="Dueño" 
-              value={draft.esDeInmotika ? 'Inmotika' : 'Cliente'} 
-            />
-            {draft.estadoGestionId && (
-              <SummaryRow 
+          <div className="pt-4 border-t border-gray-200">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+              {draft.marca && (
+                <div className="col-span-2 mb-1">
+                  <SummaryRow icon={Monitor} label="Marca / Modelo" value={`${draft.marca?.nombre || draft.marca}${draft.modelo ? ` — ${draft.modelo}` : ''}`} />
+                </div>
+              )}
+              
+              <CompactSummaryItem icon={Hash} label="Serie" value={draft.serial} />
+              <CompactSummaryItem icon={Hash} label="ID Inmotika" value={draft.idInmotika} />
+              <CompactSummaryItem icon={Barcode} label="Código" value={draft.codigoUnico} />
+              <CompactSummaryItem icon={Navigation2} label="MAC" value={draft.imac} />
+              
+              <CompactSummaryItem 
+                icon={User} 
+                label="Dueño" 
+                value={draft.esDeInmotika ? 'Inmotika' : 'Cliente'} 
+              />
+              <CompactSummaryItem 
                 icon={Activity} 
                 label="Estado Gestión" 
-                value={gestiones.find(g => g.value === draft.estadoGestionId)?.label || '—'} 
+                value={gestiones.find(g => g.value === draft.estadoGestionId)?.label} 
               />
-            )}
-            {activeClientName !== '—' && (
-              <SummaryRow icon={Building2} label="Cliente" value={activeClientName} sub={activeBranchName !== '—' ? activeBranchName : undefined} />
-            )}
+
+              {activeClientName !== '—' && (
+                <div className="col-span-2 pt-3 mt-1 border-t border-gray-100">
+                  <SummaryRow icon={Building2} label="Cliente / Ubicación" value={activeClientName} sub={activeBranchName !== '—' ? activeBranchName : undefined} />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="pt-4 border-t border-gray-200 flex justify-center">
@@ -644,6 +656,7 @@ const DeviceForm = ({
                     value={draft.clientId}
                     onChange={opt => updateDraft({ clientId: opt?.value || '', branchId: '' })}
                     isDisabled={!isEditing}
+                    viewMode={!isEditing}
                     icon={Building2}
                     error={showErrors ? errors.clientId : null}
                     placeholder="Buscar cliente..."
@@ -654,6 +667,7 @@ const DeviceForm = ({
                     value={draft.branchId}
                     onChange={opt => updateDraft({ branchId: opt?.value || '' })}
                     isDisabled={!isEditing || !draft.clientId}
+                    viewMode={!isEditing}
                     placeholder={draft.clientId ? 'Buscar sucursal...' : 'Primero seleccione un cliente'}
                     icon={MapPin}
                     error={showErrors ? errors.branchId : null}
@@ -721,9 +735,11 @@ const DeviceForm = ({
                       placeholder="Observaciones técnicas del equipo..."
                     />
                   ) : (
-                    <Card className="p-4 bg-gray-50/50">
-                      <TextSmall className="text-gray-600">{draft.notasTecnicas || 'Sin observaciones.'}</TextSmall>
-                    </Card>
+                    <div className="px-1 py-1">
+                      <TextSmall className="text-gray-700 leading-relaxed">
+                        {draft.notasTecnicas || <span className="text-gray-400 italic">Sin observaciones</span>}
+                      </TextSmall>
+                    </div>
                   )}
                 </div>
 

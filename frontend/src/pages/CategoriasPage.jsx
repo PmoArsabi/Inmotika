@@ -1,36 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Tag, ClipboardList } from 'lucide-react';
 import { TextSmall, Subtitle } from '../components/ui/Typography';
 import CategoriaForm from '../modules/devices/CategoriaForm';
 import GenericListView from '../components/shared/GenericListView';
-import { getCategorias, deleteCategoria } from '../api/categoriaApi';
+import { useMasterData } from '../context/MasterDataContext';
+import { deleteCategoria } from '../api/categoriaApi';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CategoriasPage
-// Shows a list of all device categories. Allows viewing, editing, and creating.
-// ─────────────────────────────────────────────────────────────────────────────
 const CategoriasPage = () => {
-  const [categorias, setCategorias]   = useState([]);
-  const [loading, setLoading]         = useState(true);
-  const [selected, setSelected]       = useState(null);   // { categoria, mode }
-  const [refreshKey, setRefreshKey]   = useState(0);
+  const { data, loading, refreshData } = useMasterData();
+  const [selected, setSelected] = useState(null); // { categoria, mode }
 
-  // ─── Load categories (Supabase) ──────────────────────────────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await getCategorias();
-      setCategorias(data);
-    } catch (err) {
-      console.error('Error loading categorias:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData, refreshKey]);
-
-  const refresh = () => setRefreshKey(k => k + 1);
+  const categorias = data?.categorias || [];
 
   // ─── Delete category ─────────────────────────────────────────────────────
   const handleDelete = async (cat) => {
@@ -38,7 +18,7 @@ const CategoriasPage = () => {
     
     try {
       await deleteCategoria(cat.id);
-      refresh();
+      refreshData();
     } catch (err) {
       console.error('Error deleting category:', err);
       alert('Error al eliminar la categoría');
@@ -47,7 +27,7 @@ const CategoriasPage = () => {
 
   // ─── After save ──────────────────────────────────────────────────────────
   const handleSaved = (savedCat) => {
-    refresh();
+    refreshData();
     setSelected(null);
   };
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
+import { useAuth } from './AuthContext';
 import { toClientDraft, toBranchDraft, toContactDraft, toDeviceDraft } from '../utils/entityMappers';
 
 const MasterDataContext = createContext();
@@ -23,7 +24,7 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
       setError(null);
       const { data: rows, error: fetchError } = await supabase
         .from('cliente')
-        .select('*, cliente_documento(id, nombre, url, activo), sucursal(*, contrato(*))')
+        .select('*, cliente_documento(id, nombre, url, activo), sucursal(*, contrato(*)), cliente_director(*)')
         .order('razon_social');
       if (fetchError) throw fetchError;
 
@@ -65,11 +66,24 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
 
       const dispositivos = (deviceRows || []).map(row => toDeviceDraft(row));
 
+      const { data: catRows, error: catError } = await supabase
+        .from('categoria_dispositivo')
+        .select('*, numPasos:paso_protocolo(count)')
+        .or('activo.eq.true,activo.is.null')
+        .order('nombre');
+      if (catError) throw catError;
+
+      const categorias = (catRows || []).map(cat => ({
+        ...cat,
+        numPasos: cat.numPasos?.[0]?.count || 0
+      }));
+
       setData(prev => ({ 
         ...prev, 
         clientes, 
         contactos, 
-        dispositivos
+        dispositivos,
+        categorias
       }));
     } catch (err) {
       setError(err?.message ?? 'Error al cargar datos');
@@ -78,9 +92,13 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
     }
   }, []);
 
+  const { user } = useAuth();
+
   useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+    if (user) {
+      refreshData();
+    }
+  }, [refreshData, user]);
 
   const value = useMemo(() => ({
     data,

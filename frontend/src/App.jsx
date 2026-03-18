@@ -30,9 +30,7 @@ function App() {
   const { data, setData } = useMasterData();
   const [activeTab, setActiveTab]     = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => localStorage.getItem('sidebar-collapsed') === 'true'
-  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Efecto para limpiar la URL y redirigir según el rol
   useEffect(() => {
@@ -70,9 +68,7 @@ function App() {
   };
 
   const handleToggleSidebar = () => {
-    const next = !sidebarCollapsed;
-    setSidebarCollapsed(next);
-    localStorage.setItem('sidebar-collapsed', String(next));
+    setSidebarCollapsed(!sidebarCollapsed);
   };
 
   // Mostrar ResetPasswordPage si se detecta flujo de recuperación o invitación

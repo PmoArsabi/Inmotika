@@ -52,7 +52,13 @@ const ClientNavigator = ({
   const compareIds = (id1, id2) => String(id1 || '').trim().toUpperCase() === String(id2 || '').trim().toUpperCase();
 
   const currentClient = (data?.clientes || []).find(c => compareIds(c.id, route?.clientId));
-  const draft = drafts[key] || (currentClient ? toClientDraft(currentClient) : emptyClientDraft());
+  const existingDraft = drafts[key];
+  const isDraftValid = existingDraft && compareIds(existingDraft.id, route.clientId);
+
+  const draft = isDraftValid
+    ? existingDraft
+    : (currentClient ? toClientDraft(currentClient) : emptyClientDraft());
+
   const currentBranches = currentClient?.sucursales || [];
   const errors = validateClient(draft);
   const hasErrors = Object.keys(errors).length > 0;
@@ -128,7 +134,7 @@ const ClientNavigator = ({
     const editBranchKey = entityKey('branch', `edit-${branch.id}`);
     
     // Al editar desde el listado, siempre refrescamos el draft con la data actual del MasterData
-    // para evitar que drafts viejos en localStorage bloqueen cambios de la base de datos.
+    // para asegurar que los cambios de la base de datos se vean reflejados inmediatamente.
     const freshDraft = {
       ...toBranchDraft(branch),
       associatedContactIds: (branch.contactos || []).map(c => String(c.id)),
@@ -160,20 +166,9 @@ const ClientNavigator = ({
   };
 
 
-  React.useEffect(() => {
-    const fetchDirectors = async () => {
-      if (!route.clientId || isNewClientId(route.clientId)) return;
-      try {
-        const assigned = await getClientDirectors(route.clientId);
-        const assignedIds = assigned.map(d => d.id);
-        const k = entityKey('cliente', route.clientId);
-        updateDraft(k, { associatedDirectorIds: assignedIds });
-      } catch (err) {
-        console.error('Error fetching client directors:', err);
-      }
-    };
-    fetchDirectors();
-  }, [route.clientId]);
+  // NOTA: Se ha eliminado el fetch asíncrono de directores local porque `associatedDirectorIds` 
+  // ya viene hidratado y mapeado desde `MasterDataContext`.
+
 
   const hasBranches = currentBranches.length > 0;
   const newBranchKey = entityKey('branch', `new-${route.clientId}`);

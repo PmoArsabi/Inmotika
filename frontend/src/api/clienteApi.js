@@ -100,7 +100,7 @@ export async function syncClientOtrosDocumentos(clientId, draft) {
       .from('cliente_documento')
       .update({ activo: false })
       .eq('cliente_id', clientId)
-      .not('id', 'in', ids);
+      .not('id', 'in', `(${ids.join(',')})`);
   } else {
     await supabase.from('cliente_documento').update({ activo: false }).eq('cliente_id', clientId);
   }
@@ -154,14 +154,14 @@ export async function saveCliente({ clientId, draft, tipoPersonaId }) {
 export async function getClientDirectors(clientId) {
   const { data, error } = await supabase
     .from('cliente_director')
-    .select('director_id, perfil_usuario(id, nombres, apellidos)')
+    .select('director_id, director(usuario_id, perfil_usuario(id, nombres, apellidos))')
     .eq('cliente_id', clientId)
     .eq('activo', true);
   if (error) throw error;
   return data.map(d => ({
     id: d.director_id,
-    nombres: d.perfil_usuario?.nombres,
-    apellidos: d.perfil_usuario?.apellidos,
+    nombres: d.director?.perfil_usuario?.nombres,
+    apellidos: d.director?.perfil_usuario?.apellidos,
   }));
 }
 

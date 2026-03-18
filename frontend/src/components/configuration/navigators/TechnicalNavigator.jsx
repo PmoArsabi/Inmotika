@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import TechnicianForm from '../../../modules/users/components/TechnicianForm';
 import { useConfigurationContext } from '../../../context/ConfigurationContext';
 import { useMasterData } from '../../../context/MasterDataContext';
-import { emptyTecnicoDraft, applyTecnicoUpsert } from '../../../utils/entityMappers';
+import { emptyTecnicoDraft, applyTecnicoUpsert, toTecnicoDraft } from '../../../utils/entityMappers';
 import { validateTecnico } from '../../../utils/validators';
 import { useNotify } from '../../../context/NotificationContext';
 import { saveTecnico } from '../../../api/tecnicoApi';
@@ -16,8 +16,14 @@ const TechnicalNavigator = () => {
 
   const entityKey = (type, id) => `${type}:${id}`;
   const key = entityKey('tecnico', route.clientId);
+  const existingDraft = drafts[key];
+  const isDraftValid = existingDraft && String(existingDraft.id) === String(route.clientId);
+  
+  const currentTech = (data?.tecnicos || []).find(t => String(t.id) === String(route.clientId));
 
-  const draft = drafts[key] || emptyTecnicoDraft();
+  const draft = isDraftValid
+    ? existingDraft 
+    : (currentTech ? toTecnicoDraft(currentTech, currentTech) : emptyTecnicoDraft());
   const errors = validateTecnico(draft);
   const hasErrors = Object.keys(errors).length > 0;
   const isEditing = route.mode === 'edit';

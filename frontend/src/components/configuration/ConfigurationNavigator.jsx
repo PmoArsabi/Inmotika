@@ -401,13 +401,13 @@ const ConfigurationNavigator = ({ onClose }) => {
                     (d.nombreCompleto || '').toLowerCase().includes(associateDirectorsSearch.toLowerCase())
                   )
                   .map(dir => {
-                    const isSelected = associateDirectorsSelected.includes(dir.usuarioId);
+                    const isSelected = associateDirectorsSelected.includes(dir.id);
                     return (
                       <div 
-                        key={dir.usuarioId}
+                        key={dir.id}
                         onClick={() => {
                           setAssociateDirectorsSelected(prev => 
-                            prev.includes(dir.usuarioId) ? prev.filter(id => id !== dir.usuarioId) : [...prev, dir.usuarioId]
+                            prev.includes(dir.id) ? prev.filter(id => id !== dir.id) : [...prev, dir.id]
                           );
                         }}
                         className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${

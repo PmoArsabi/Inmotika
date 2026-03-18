@@ -169,8 +169,17 @@ const SearchableSelect = ({
         )}
         <div className="relative group">
           {Icon && <Icon size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${dark ? 'text-gray-500' : 'text-gray-400'}`} />}
-          <div className={`w-full h-10 ${Icon ? 'pl-9' : 'px-3'} text-sm font-semibold text-gray-900 flex items-center`}>
-            {selected?.label ?? value ?? <span className="text-gray-400 italic">No especificado</span>}
+          <div className={`w-full min-h-10 py-1.5 ${Icon ? 'pl-9' : 'px-3'} text-sm font-semibold text-gray-900 flex items-center flex-wrap gap-2`}>
+            {isMulti 
+              ? (selected && selected.length > 0 
+                  ? selected.map((s, idx) => (
+                      <span key={idx} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100/50 uppercase tracking-tight">
+                        {s.label}
+                      </span>
+                    ))
+                  : <span className="text-gray-400 italic">No especificado</span>)
+              : (selected?.label ?? value ?? <span className="text-gray-400 italic">No especificado</span>)
+            }
           </div>
         </div>
       </div>

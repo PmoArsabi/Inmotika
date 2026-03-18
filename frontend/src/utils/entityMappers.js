@@ -153,7 +153,7 @@ export const toClientDraft = (client) => {
     ciudad: client.ciudad ?? '',
     otrosDocumentos,
     associatedDirectorIds: Array.isArray(client.cliente_director) 
-      ? client.cliente_director.map(cd => cd.director_id)
+      ? client.cliente_director.filter(cd => cd.activo !== false).map(cd => cd.director_id)
       : (Array.isArray(client.associatedDirectorIds) ? client.associatedDirectorIds : []),
   };
 };
@@ -274,21 +274,21 @@ export const toDeviceDraft = (device, route = null) => ({
 export const toTecnicoDraft = (tecnico, perfil) => ({
   ...emptyTecnicoDraft(),
   id: tecnico?.id || generateUUID(),
-  nombres: perfil?.nombres || '',
-  apellidos: perfil?.apellidos || '',
+  nombres: perfil?.nombres || perfil?.nombre || '',
+  apellidos: perfil?.apellidos || perfil?.apellido || '',
   email: perfil?.email || '',
-  telefono: perfil?.telefono || '',
-  telefonoPaisIso: perfil?.telefono_pais_iso || 'CO',
-  avatarUrl: perfil?.avatar_url || '',
-  tipoDocumento: perfil?.tipo_documento || tecnico?.tipo_documento || '',
+  telefono: perfil?.telefono || tecnico?.telefono || '',
+  telefonoPaisIso: perfil?.telefono_pais_iso || perfil?.telefonoPaisIso || 'CO',
+  avatarUrl: perfil?.avatar_url || perfil?.avatarUrl || '',
+  tipoDocumento: perfil?.tipo_documento || tecnico?.tipo_documento || perfil?.tipoDocumento || '',
   identificacion: perfil?.identificacion || tecnico?.identificacion || '',
-  documentoCedulaUrl: tecnico?.documento_cedula_url || '',
-  planillaSegSocialUrl: tecnico?.planilla_seg_social_url || '',
+  documentoCedulaUrl: tecnico?.documento_cedula_url || tecnico?.documentoCedulaUrl || '',
+  planillaSegSocialUrl: tecnico?.planilla_seg_social_url || tecnico?.planillaSegSocialUrl || '',
   certificados: Array.isArray(tecnico?.tecnico_certificado) 
     ? tecnico.tecnico_certificado.filter(c => c.activo) 
     : (Array.isArray(tecnico?.certificados) ? tecnico.certificados : []),
-  estadoId: tecnico?.estado_id || perfil?.estado_id || '',
-  usuarioId: perfil?.id || tecnico?.usuario_id || '',
+  estadoId: tecnico?.estado_id || tecnico?.estadoId || perfil?.estado_id || '',
+  usuarioId: perfil?.id || tecnico?.usuario_id || tecnico?.usuarioId || '',
 });
 
 // ─── IMMUTABLE STATE UPDATERS ─────────────────────────────────────────────────

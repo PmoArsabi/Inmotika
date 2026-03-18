@@ -27,19 +27,7 @@ export const ConfigurationProvider = ({ children, initialParams = {} }) => {
   const [contactSuccessInfo, setContactSuccessInfo] = useState(null);
   const [deviceSuccessInfo, setDeviceSuccessInfo] = useState(null);
 
-  // Drafts Management (LocalStorage + State)
-  const [drafts, setDrafts] = useState(() => {
-    try {
-      const saved = localStorage.getItem('config-drafts');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem('config-drafts', JSON.stringify(drafts));
-  }, [drafts]);
+  const [drafts, setDrafts] = useState({});
 
   const updateDraft = useCallback((key, patch) => {
     setDrafts(prev => ({

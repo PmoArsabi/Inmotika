@@ -21,9 +21,9 @@ const DeviceNavigator = ({ onClose }) => {
   
   // Try to get from drafts, but if it's an empty object or doesn't have critical data for an existing item, use the MasterData
   const existingDraft = drafts[key];
-  const isDraftEmpty = !existingDraft || Object.keys(existingDraft).length === 0;
+  const isDraftValid = existingDraft && String(existingDraft.id) === String(route.deviceId);
   
-  const draft = (!isDraftEmpty && (route.mode === 'edit' || existingDraft.serial))
+  const draft = isDraftValid
     ? existingDraft 
     : (currentDevice ? toDeviceDraft(currentDevice) : emptyDeviceDraft());
   const errors = validateDevice(draft);

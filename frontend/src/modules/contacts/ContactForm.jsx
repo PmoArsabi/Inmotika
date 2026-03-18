@@ -100,6 +100,7 @@ const ContactForm = ({
               placeholder="Buscar sucursales..."
               icon={GitBranch}
               isDisabled={!isEditing}
+              viewMode={!isEditing}
             />
           )}
         </div>
