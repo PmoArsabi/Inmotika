@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { toClientDraft, toBranchDraft, toContactDraft } from '../utils/entityMappers';
+import { toClientDraft, toBranchDraft, toContactDraft, toDeviceDraft } from '../utils/entityMappers';
 
 const MasterDataContext = createContext();
 
@@ -49,7 +49,28 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
         }),
       }));
 
-      setData(prev => ({ ...prev, clientes, contactos }));
+      const { data: deviceRows, error: deviceError } = await supabase
+        .from('dispositivo')
+        .select(`
+          *,
+          categoria:categoria_id(nombre),
+          cliente:cliente_id(razon_social),
+          sucursal:sucursal_id(nombre),
+          proveedor:proveedor_id(nombre),
+          marca:marca_id(nombre),
+          estado_gestion:estado_gestion_id(nombre)
+        `)
+        .order('created_at', { ascending: false });
+      if (deviceError) throw deviceError;
+
+      const dispositivos = (deviceRows || []).map(row => toDeviceDraft(row));
+
+      setData(prev => ({ 
+        ...prev, 
+        clientes, 
+        contactos, 
+        dispositivos
+      }));
     } catch (err) {
       setError(err?.message ?? 'Error al cargar datos');
     } finally {

@@ -229,7 +229,7 @@ const UserForm = ({
                   value={newUser.directorId || ''}
                   onChange={v => setNewUser({ ...newUser, directorId: v?.value || v || '' })}
                   viewMode={isView}
-                  placeholder="Buscar y seleccionar director..."
+                  placeholder="Buscar director..."
                 />
               </RoleSection>
             )}

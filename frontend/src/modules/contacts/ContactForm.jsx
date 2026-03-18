@@ -97,7 +97,7 @@ const ContactForm = ({
               options={availableBranchOptions}
               isMulti
               error={branchError}
-              placeholder="Seleccionar sucursales..."
+              placeholder="Buscar sucursales..."
               icon={GitBranch}
               isDisabled={!isEditing}
             />

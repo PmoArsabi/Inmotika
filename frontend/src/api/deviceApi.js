@@ -9,7 +9,7 @@ export const getDevices = async () => {
     .select(`
       *,
       categoria:categoria_id(nombre),
-      cliente:cliente_id(nombre),
+      cliente:cliente_id(razon_social),
       sucursal:sucursal_id(nombre),
       proveedor:proveedor_id(nombre),
       marca:marca_id(nombre),
@@ -70,12 +70,10 @@ export const saveDevice = async (deviceDraft) => {
     sucursal_id: branchId || null,
     categoria_id: categoriaId || null,
     estado_id: estadoId || null,
-    descripcion,
     serial,
     linea,
     modelo,
     mac_address: imac,
-    identificacion_cliente: identificacionCliente,
     es_de_inmotika: !!esDeInmotika,
     frecuencia_mantenimiento_meses: frecuenciaMantenimientoMeses || null,
     fecha_proximo_mantenimiento: fechaProximoMantenimiento || null,
@@ -94,7 +92,15 @@ export const saveDevice = async (deviceDraft) => {
     const { data: inserted, error } = await supabase
       .from('dispositivo')
       .insert([deviceData])
-      .select()
+      .select(`
+        *,
+        categoria:categoria_id(nombre),
+        cliente:cliente_id(razon_social),
+        sucursal:sucursal_id(nombre),
+        proveedor:proveedor_id(nombre),
+        marca:marca_id(nombre),
+        estado_gestion:estado_gestion_id(nombre)
+      `)
       .single();
     if (error) throw error;
     return inserted;
@@ -103,7 +109,15 @@ export const saveDevice = async (deviceDraft) => {
       .from('dispositivo')
       .update(deviceData)
       .eq('id', id)
-      .select()
+      .select(`
+        *,
+        categoria:categoria_id(nombre),
+        cliente:cliente_id(razon_social),
+        sucursal:sucursal_id(nombre),
+        proveedor:proveedor_id(nombre),
+        marca:marca_id(nombre),
+        estado_gestion:estado_gestion_id(nombre)
+      `)
       .single();
     if (error) throw error;
     return updated;

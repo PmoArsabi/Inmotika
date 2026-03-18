@@ -11,6 +11,7 @@ const CONTROL_HEIGHT = 40;        // px — same as h-10
 const SearchableSelect = ({
   label,
   icon: Icon,
+  action,              // New: Element (like a Plus button) to render next to the label
   options = [],
   value,
   onChange,
@@ -26,7 +27,10 @@ const SearchableSelect = ({
   isMulti = false,     // Permite selección múltiple
   ...props
 }) => {
+  // ... (customStyles implementation remains the same)
+  // [KEEP styles as is, focusing on the return layout]
 
+  // ... (customStyles code from original)
   const customStyles = {
     control: (base, state) => ({
       ...base,
@@ -156,10 +160,12 @@ const SearchableSelect = ({
     return (
       <div className={`flex flex-col gap-1.5 w-full ${className}`}>
         {label && (
-          <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
-            {label}
-            {required && <span className="text-red-500 ml-0.5">*</span>}
-          </Label>
+          <div className="flex items-center justify-between h-[15px]">
+            <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
+              {label}
+              {required && <span className="text-red-500 ml-0.5">*</span>}
+            </Label>
+          </div>
         )}
         <div className="relative group">
           {Icon && <Icon size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${dark ? 'text-gray-500' : 'text-gray-400'}`} />}
@@ -174,10 +180,17 @@ const SearchableSelect = ({
   return (
     <div className={`flex flex-col gap-1.5 w-full ${className}`}>
       {label && (
-        <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
-          {label}
-          {required && <span className="text-red-500 ml-0.5">*</span>}
-        </Label>
+        <div className="flex items-center justify-between h-[15px]">
+          <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
+            {label}
+            {required && <span className="text-red-500 ml-0.5">*</span>}
+          </Label>
+          {action && (
+            <div className="shrink-0">
+              {action}
+            </div>
+          )}
+        </div>
       )}
       <div className="relative group">
         {Icon && (

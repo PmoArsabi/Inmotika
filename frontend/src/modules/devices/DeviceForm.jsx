@@ -18,6 +18,7 @@ import Card from '../../components/ui/Card';
 import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
 import CategoriaForm from './CategoriaForm';
 import { useActivoInactivo } from '../../hooks/useCatalog';
+import { useConfigurationContext } from '../../context/ConfigurationContext';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const FORM_TABS = [
@@ -35,11 +36,171 @@ const calcProximaFecha = (meses) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Sub-componentes de presentación
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SectionHeader = ({ icon: Icon, label }) => (
+  <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+    <Icon size={15} className="text-gray-500" />
+    <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">{label}</span>
+  </div>
+);
+
+const SummaryRow = ({ icon: Icon, label, value, sub }) => (
+  <div className="flex items-start gap-3">
+    <Icon size={16} className="text-gray-400 mt-0.5 shrink-0" />
+    <div className="min-w-0">
+      <TextSmall className="text-gray-500">{label}</TextSmall>
+      <p className="text-sm font-medium text-gray-900 mt-0.5 truncate">{value}</p>
+      {sub && <p className="text-xs text-gray-500">{sub}</p>}
+    </div>
+  </div>
+);
+
+const HistoryTable = ({ title, icon: Icon, headers, rows, emptyText }) => (
+  <div className="space-y-3">
+    <div className="flex items-center gap-2">
+      <Icon size={15} className="text-gray-400" />
+      <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">{title}</span>
+    </div>
+    <Card className="p-0 border border-gray-200 overflow-hidden shadow-sm">
+      <Table>
+        <THead variant="dark">
+          <tr>{headers.map(h => <Th key={h}>{h}</Th>)}</tr>
+        </THead>
+        <TBody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={headers.length} className="py-10 text-center">
+                <Icon size={28} className="mx-auto mb-2 text-gray-200" />
+                <p className="text-xs italic text-gray-400">{emptyText}</p>
+              </td>
+            </tr>
+          ) : (
+            rows.map((row, i) => (
+              <Tr key={i}>{row.map((cell, j) => <Td key={j}><TextSmall>{cell}</TextSmall></Td>)}</Tr>
+            ))
+          )}
+        </TBody>
+      </Table>
+    </Card>
+  </div>
+);
+
+const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdateStep, onMoveStep, onRemoveStep }) => (
+  <div className="pt-2 space-y-3">
+    <div className="flex items-center gap-2">
+      <ClipboardList size={15} className="text-gray-500" />
+      <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+        Protocolo de Mantenimiento
+        {categoriaId && <span className="ml-2 text-[#D32F2F] font-normal normal-case text-[10px]">(según categoría)</span>}
+      </span>
+    </div>
+
+    {categoriaId && categoryPasos.length > 0 ? (
+      <div className="space-y-2">
+        {categoryPasos.map((paso, idx) => (
+          <div key={paso.id || idx} className="flex flex-col gap-2 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-full bg-linear-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center text-white font-bold text-xs shrink-0">
+                {idx + 1}
+              </div>
+              <div className="flex-1">
+                <TextSmall className="font-semibold text-gray-800">{paso.descripcion}</TextSmall>
+                {paso.esObligatorio && (
+                  <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide block mt-0.5">Obligatorio</span>
+                )}
+              </div>
+            </div>
+            
+            {/* Actividades del paso (si existen) de Categorias */}
+            {paso.actividades && paso.actividades.length > 0 && (
+              <div className="pl-10 space-y-1.5 mt-1 border-l-2 border-gray-100 ml-3">
+                {paso.actividades.map((act, actIdx) => (
+                  <div key={actIdx} className="flex items-start gap-2">
+                    <CheckCircle2 size={13} className="text-gray-400 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <TextSmall className="text-gray-600">{act.descripcion}</TextSmall>
+                      {act.esObligatorio && <span className="ml-2 text-[9px] font-bold text-orange-500 uppercase tracking-wide">Oblig.</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    ) : categoriaId ? (
+      <div className="p-6 border border-dashed border-gray-200 rounded-lg text-center">
+        <TextSmall className="text-gray-400 italic">Esta categoría no tiene protocolo definido</TextSmall>
+      </div>
+    ) : pasos.length === 0 ? (
+      <div className="p-6 border border-dashed border-gray-200 rounded-lg text-center">
+        <TextSmall className="text-gray-400 italic">Seleccione una categoría para ver el protocolo</TextSmall>
+      </div>
+    ) : (
+      <div className="space-y-2">
+        {pasos.map((step, idx) => (
+          <div key={idx} className="flex flex-col gap-2 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-0.5 shrink-0">
+                {isEditing && <button onClick={() => onMoveStep(idx, 'up')} disabled={idx === 0} className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-30"><ChevronUp size={13} /></button>}
+                <span className="font-bold text-gray-400 text-[10px] text-center">{idx + 1}</span>
+                {isEditing && <button onClick={() => onMoveStep(idx, 'down')} disabled={idx === pasos.length - 1} className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-30"><ChevronDown size={13} /></button>}
+              </div>
+              <div className="flex-1 space-y-1">
+                {isEditing ? (
+                  <input
+                    className="w-full bg-transparent text-sm text-gray-700 outline-none font-medium"
+                    value={step.descripcion}
+                    onChange={e => onUpdateStep(idx, { descripcion: e.target.value })}
+                    placeholder="Descripción del paso..."
+                  />
+                ) : (
+                  <TextSmall className="font-medium text-gray-700">{step.descripcion}</TextSmall>
+                )}
+                {isEditing && (
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={!!step.esObligatorio} onChange={e => onUpdateStep(idx, { esObligatorio: e.target.checked })} className="w-3 h-3 accent-[#D32F2F]" />
+                    <span className="text-[10px] font-semibold text-gray-500">Obligatorio</span>
+                  </label>
+                )}
+                {!isEditing && step.esObligatorio && (
+                  <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide">Obligatorio</span>
+                )}
+              </div>
+              {isEditing && (
+                <IconButton icon={Trash2} onClick={() => onRemoveStep(idx)} className="text-gray-300 hover:text-red-500 shrink-0" size={13} />
+              )}
+            </div>
+            
+            {/* Actividades del paso (si existen) */}
+            {step.actividades && step.actividades.length > 0 && (
+              <div className="pl-10 space-y-1.5 mt-1 border-l-2 border-gray-100 ml-3">
+                {step.actividades.map((act, actIdx) => (
+                  <div key={actIdx} className="flex items-start gap-2">
+                    <CheckCircle2 size={13} className="text-gray-400 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <TextSmall className="text-gray-600">{act.descripcion}</TextSmall>
+                      {act.esObligatorio && <span className="ml-2 text-[9px] font-bold text-orange-500 uppercase tracking-wide">Oblig.</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 const DeviceForm = ({
   draft, updateDraft, errors = {}, showErrors = false, isEditing = false,
-  onSave, isSaving = false, clients = [], devices = [],
+  onSave, isSaving = false, clients = [],
 }) => {
   const [activeTab, setActiveTab] = useState('details');
   const { activoId, inactivoId } = useActivoInactivo();
@@ -220,152 +381,17 @@ const DeviceForm = ({
   const removeStep = (idx) =>
     updateDraft({ pasoAPaso: pasos.filter((_, i) => i !== idx).map((p, i) => ({ ...p, orden: i + 1 })) });
 
-  // ─── Crear Proveedor / Marca inline ─────────────────────────────────────
-  const [showNewProv, setShowNewProv] = useState(false);
-  const [newProvName, setNewProvName] = useState('');
-  const [savingProv, setSavingProv]   = useState(false);
+  // ─── Navegación ──────────────────────────────────────────────────────────
+  const { pushRoute, route } = useConfigurationContext();
+  const currentKey = `dispositivo:${route.deviceId}`;
 
-  const [showNewMarca, setShowNewMarca] = useState(false);
-  const [newMarcaName, setNewMarcaName] = useState('');
-  const [savingMarca, setSavingMarca]   = useState(false);
 
-  const handleCreateProv = async () => {
-    if (!newProvName.trim()) return;
-    setSavingProv(true);
-    try {
-      const { data: row, error } = await supabase
-        .from('proveedor')
-        .insert({ nombre: newProvName.trim() })
-        .select('id, nombre')
-        .single();
-      if (error) throw error;
-      await loadProveedores();
-      updateDraft({ proveedorId: row.id, marcaId: '' });
-      setNewProvName('');
-      setShowNewProv(false);
-    } catch (err) {
-      console.error('Error creating proveedor:', err);
-    } finally {
-      setSavingProv(false);
-    }
-  };
-
-  const handleCreateMarca = async () => {
-    if (!newMarcaName.trim() || !draft.proveedorId) return;
-    setSavingMarca(true);
-    try {
-      const { data: row, error } = await supabase
-        .from('marca')
-        .insert({ nombre: newMarcaName.trim(), proveedor_id: draft.proveedorId })
-        .select('id, nombre')
-        .single();
-      if (error) throw error;
-      await loadMarcas(draft.proveedorId);
-      updateDraft({ marcaId: row.id });
-      setNewMarcaName('');
-      setShowNewMarca(false);
-    } catch (err) {
-      console.error('Error creating marca:', err);
-    } finally {
-      setSavingMarca(false);
-    }
-  };
-
-  // ─── Nueva Categoría (delegado a CategoriaForm) ──────────────────────────
-  const [showNewCat, setShowNewCat] = useState(false);
-
-  if (showNewCat) {
-    return (
-      <CategoriaForm
-        mode="create"
-        onSave={async (saved) => {
-          await loadCategorias();
-          updateDraft({ categoriaId: saved.id });
-          setShowNewCat(false);
-        }}
-        onCancel={() => setShowNewCat(false)}
-      />
-    );
-  }
 
   // ─── Vista principal ──────────────────────────────────────────────────────
   const isActivo = !!activoId && draft.estadoId === activoId;
-  const [provError, setProvError]   = useState('');
-  const [marcaError, setMarcaError] = useState('');
 
   return (
     <>
-    {/* ── Popup: Nuevo Proveedor ── */}
-    {showNewProv && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-        <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-300">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="p-2 bg-red-50 rounded-lg"><FileText size={18} className="text-[#D32F2F]" /></div>
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Nuevo Proveedor</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Agrega un proveedor al catálogo</p>
-            </div>
-          </div>
-          <Input
-            label="Nombre del proveedor"
-            value={newProvName}
-            onChange={e => { setNewProvName(e.target.value); setProvError(''); }}
-            placeholder="Ej: Samsung, LG, Cisco..."
-            uppercase
-            autoFocus
-            error={provError}
-          />
-          <div className="flex gap-3 mt-5">
-            <button type="button" onClick={() => { setShowNewProv(false); setNewProvName(''); setProvError(''); }}
-              className="flex-1 h-10 rounded-md border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
-              Cancelar
-            </button>
-            <button type="button" onClick={handleCreateProv} disabled={!newProvName.trim() || savingProv}
-              className="flex-1 h-10 rounded-md bg-[#D32F2F] text-white text-xs font-bold hover:bg-[#B71C1C] disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
-              {savingProv ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              {savingProv ? 'Creando...' : 'Crear Proveedor'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* ── Popup: Nueva Marca ── */}
-    {showNewMarca && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-        <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-300">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="p-2 bg-red-50 rounded-lg"><Tag size={18} className="text-[#D32F2F]" /></div>
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Nueva Marca</h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Asociada a: <span className="font-semibold">{proveedores.find(p => p.value === draft.proveedorId)?.label || '—'}</span>
-              </p>
-            </div>
-          </div>
-          <Input
-            label="Nombre de la marca"
-            value={newMarcaName}
-            onChange={e => { setNewMarcaName(e.target.value); setMarcaError(''); }}
-            placeholder="Ej: Galaxy, Optimus, Catalyst..."
-            uppercase
-            autoFocus
-            error={marcaError}
-          />
-          <div className="flex gap-3 mt-5">
-            <button type="button" onClick={() => { setShowNewMarca(false); setNewMarcaName(''); setMarcaError(''); }}
-              className="flex-1 h-10 rounded-md border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
-              Cancelar
-            </button>
-            <button type="button" onClick={handleCreateMarca} disabled={!newMarcaName.trim() || savingMarca}
-              className="flex-1 h-10 rounded-md bg-[#D32F2F] text-white text-xs font-bold hover:bg-[#B71C1C] disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
-              {savingMarca ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              {savingMarca ? 'Creando...' : 'Crear Marca'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
 
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
 
@@ -388,7 +414,7 @@ const DeviceForm = ({
 
           <div className="space-y-3 pt-4 border-t border-gray-200">
             {draft.marca && (
-              <SummaryRow icon={Monitor} label="Marca / Modelo" value={`${draft.marca}${draft.modelo ? ` — ${draft.modelo}` : ''}`} />
+              <SummaryRow icon={Monitor} label="Marca / Modelo" value={`${draft.marca?.nombre || draft.marca}${draft.modelo ? ` — ${draft.modelo}` : ''}`} />
             )}
             {draft.serial && (
               <SummaryRow icon={Hash} label="Serie" value={draft.serial} />
@@ -458,86 +484,79 @@ const DeviceForm = ({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Categoría con botón crear */}
-                  <div className="flex flex-col gap-1.5 w-full">
-                    <div className="flex items-center justify-between h-[15px]">
-                      <Label className="ml-1">Categoría</Label>
-                      {isEditing && (
-                        <button type="button" onClick={() => setShowNewCat(true)}
-                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-[#D32F2F] transition-colors" title="Crear nueva categoría">
-                          <Plus size={12} />
-                        </button>
-                      )}
-                    </div>
-                    {loadingCats ? (
-                      <div className="h-10 flex items-center px-3 border border-gray-200 rounded-md text-sm text-gray-400">
-                        <Loader2 size={14} className="animate-spin mr-2" /> Cargando...
-                      </div>
-                    ) : (
-                      <SearchableSelect
-                        options={categorias}
-                        value={draft.categoriaId || ''}
-                        onChange={opt => updateDraft({ categoriaId: opt?.value || '' })}
-                        isDisabled={!isEditing}
-                        placeholder="Seleccionar categoría..."
-                        viewMode={!isEditing}
-                      />
+                  {/* Categoría */}
+                  <SearchableSelect
+                    label="Categoría"
+                    icon={Layers}
+                    options={categorias}
+                    value={draft.categoriaId || ''}
+                    isLoading={loadingCats}
+                    onChange={opt => updateDraft({ categoriaId: opt?.value || '' })}
+                    isDisabled={!isEditing}
+                    placeholder="Buscar categoría..."
+                    viewMode={!isEditing}
+                    action={isEditing && (
+                      <button type="button" onClick={() => pushRoute({ 
+                        type: 'categoria', 
+                        mode: 'create', 
+                        originKey: currentKey, 
+                        originField: 'categoriaId' 
+                      })}
+                        className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-[#D32F2F] transition-colors" title="Crear nueva categoría">
+                        <Plus size={12} />
+                      </button>
                     )}
-                  </div>
+                  />
 
-                  {/* Proveedor con botón crear → abre popup modal */}
-                  <div className="flex flex-col gap-1.5 w-full">
-                    <div className="flex items-center justify-between h-[15px]">
-                      <Label className="ml-1">Proveedor</Label>
-                      {isEditing && (
-                        <button type="button" onClick={() => setShowNewProv(true)}
-                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-[#D32F2F] transition-colors" title="Crear nuevo proveedor">
-                          <Plus size={12} />
-                        </button>
-                      )}
-                    </div>
-                    {loadingProvs ? (
-                      <div className="h-10 flex items-center px-3 border border-gray-200 rounded-md text-sm text-gray-400">
-                        <Loader2 size={14} className="animate-spin mr-2" /> Cargando...
-                      </div>
-                    ) : (
-                      <SearchableSelect
-                        options={proveedores}
-                        value={draft.proveedorId || ''}
-                        onChange={opt => updateDraft({ proveedorId: opt?.value || '', marcaId: '' })}
-                        isDisabled={!isEditing}
-                        placeholder="Seleccionar proveedor..."
-                        viewMode={!isEditing}
-                      />
+                  {/* Proveedor */}
+                  <SearchableSelect
+                    label="Proveedor"
+                    icon={Building2}
+                    options={proveedores}
+                    value={draft.proveedorId || ''}
+                    isLoading={loadingProvs}
+                    onChange={opt => updateDraft({ proveedorId: opt?.value || '', marcaId: '' })}
+                    isDisabled={!isEditing}
+                    placeholder="Buscar proveedor..."
+                    viewMode={!isEditing}
+                    action={isEditing && (
+                      <button type="button" onClick={() => pushRoute({ 
+                        type: 'proveedor', 
+                        mode: 'create', 
+                        originKey: currentKey, 
+                        originField: 'proveedorId' 
+                      })}
+                        className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-[#D32F2F] transition-colors" title="Crear nuevo proveedor">
+                        <Plus size={12} />
+                      </button>
                     )}
-                  </div>
+                  />
 
-                  {/* Marca con botón crear → abre popup modal */}
-                  <div className="flex flex-col gap-1.5 w-full">
-                    <div className="flex items-center justify-between h-[15px]">
-                      <Label className="ml-1">Marca</Label>
-                      {isEditing && draft.proveedorId && (
-                        <button type="button" onClick={() => setShowNewMarca(true)}
-                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-[#D32F2F] transition-colors" title="Crear nueva marca">
-                          <Plus size={12} />
-                        </button>
-                      )}
-                    </div>
-                    {loadingMarcas ? (
-                      <div className="h-10 flex items-center px-3 border border-gray-200 rounded-md text-sm text-gray-400">
-                        <Loader2 size={14} className="animate-spin mr-2" /> Cargando...
-                      </div>
-                    ) : (
-                      <SearchableSelect
-                        options={marcas}
-                        value={draft.marcaId || ''}
-                        onChange={opt => updateDraft({ marcaId: opt?.value || '' })}
-                        isDisabled={!isEditing || !draft.proveedorId}
-                        placeholder={draft.proveedorId ? "Seleccionar marca..." : "Primero seleccione proveedor"}
-                        viewMode={!isEditing}
-                      />
+                  {/* Marca */}
+                  <SearchableSelect
+                    label="Marca"
+                    icon={Tag}
+                    options={marcas}
+                    value={draft.marcaId || ''}
+                    isLoading={loadingMarcas}
+                    onChange={opt => updateDraft({ marcaId: opt?.value || '' })}
+                    isDisabled={!isEditing || !draft.proveedorId}
+                    placeholder={draft.proveedorId ? "Buscar marca..." : "Primero seleccione proveedor"}
+                    viewMode={!isEditing}
+                    action={isEditing && draft.proveedorId && (
+                      <button type="button" onClick={() => pushRoute({ 
+                        type: 'marca', 
+                        mode: 'create', 
+                        originKey: currentKey, 
+                        originField: 'marcaId',
+                        proveedorId: draft.proveedorId
+                      })}
+                        className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-[#D32F2F] transition-colors" title="Crear nueva marca">
+                        <Plus size={12} />
+                      </button>
                     )}
-                  </div>
+                  />
+
                   <Input
                     label="Número de Serie"
                     value={draft.serial || ''}
@@ -553,6 +572,7 @@ const DeviceForm = ({
                     onChange={e => updateDraft({ linea: e.target.value })}
                     viewMode={!isEditing}
                     placeholder="Ej: Industrial / Residencial"
+                    icon={Activity}
                   />
                   <Input
                     label="Modelo"
@@ -626,7 +646,7 @@ const DeviceForm = ({
                     isDisabled={!isEditing}
                     icon={Building2}
                     error={showErrors ? errors.clientId : null}
-                    placeholder="Opcional: Seleccionar cliente..."
+                    placeholder="Buscar cliente..."
                   />
                   <SearchableSelect
                     label="Sucursal"
@@ -634,7 +654,7 @@ const DeviceForm = ({
                     value={draft.branchId}
                     onChange={opt => updateDraft({ branchId: opt?.value || '' })}
                     isDisabled={!isEditing || !draft.clientId}
-                    placeholder={draft.clientId ? 'Opcional: Seleccionar sucursal...' : 'Primero seleccione un cliente'}
+                    placeholder={draft.clientId ? 'Buscar sucursal...' : 'Primero seleccione un cliente'}
                     icon={MapPin}
                     error={showErrors ? errors.branchId : null}
                   />
@@ -754,164 +774,5 @@ const DeviceForm = ({
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-componentes de presentación
-// ─────────────────────────────────────────────────────────────────────────────
-
-const SectionHeader = ({ icon: Icon, label }) => (
-  <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
-    <Icon size={15} className="text-gray-500" />
-    <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">{label}</span>
-  </div>
-);
-
-const SummaryRow = ({ icon: Icon, label, value, sub }) => (
-  <div className="flex items-start gap-3">
-    <Icon size={16} className="text-gray-400 mt-0.5 shrink-0" />
-    <div className="min-w-0">
-      <TextSmall className="text-gray-500">{label}</TextSmall>
-      <p className="text-sm font-medium text-gray-900 mt-0.5 truncate">{value}</p>
-      {sub && <p className="text-xs text-gray-500">{sub}</p>}
-    </div>
-  </div>
-);
-
-const HistoryTable = ({ title, icon: Icon, headers, rows, emptyText }) => (
-  <div className="space-y-3">
-    <div className="flex items-center gap-2">
-      <Icon size={15} className="text-gray-400" />
-      <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">{title}</span>
-    </div>
-    <Card className="p-0 border border-gray-200 overflow-hidden shadow-sm">
-      <Table>
-        <THead variant="dark">
-          <tr>{headers.map(h => <Th key={h}>{h}</Th>)}</tr>
-        </THead>
-        <TBody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={headers.length} className="py-10 text-center">
-                <Icon size={28} className="mx-auto mb-2 text-gray-200" />
-                <p className="text-xs italic text-gray-400">{emptyText}</p>
-              </td>
-            </tr>
-          ) : (
-            rows.map((row, i) => (
-              <Tr key={i}>{row.map((cell, j) => <Td key={j}><TextSmall>{cell}</TextSmall></Td>)}</Tr>
-            ))
-          )}
-        </TBody>
-      </Table>
-    </Card>
-  </div>
-);
-
-const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdateStep, onMoveStep, onRemoveStep }) => (
-  <div className="pt-2 space-y-3">
-    <div className="flex items-center gap-2">
-      <ClipboardList size={15} className="text-gray-500" />
-      <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
-        Protocolo de Mantenimiento
-        {categoriaId && <span className="ml-2 text-[#D32F2F] font-normal normal-case text-[10px]">(según categoría)</span>}
-      </span>
-    </div>
-
-    {categoriaId && categoryPasos.length > 0 ? (
-      <div className="space-y-2">
-        {categoryPasos.map((paso, idx) => (
-          <div key={paso.id || idx} className="flex flex-col gap-2 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="w-7 h-7 rounded-full bg-linear-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center text-white font-bold text-xs shrink-0">
-                {idx + 1}
-              </div>
-              <div className="flex-1">
-                <TextSmall className="font-semibold text-gray-800">{paso.descripcion}</TextSmall>
-                {paso.esObligatorio && (
-                  <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide block mt-0.5">Obligatorio</span>
-                )}
-              </div>
-            </div>
-            
-            {/* Actividades del paso (si existen) de Categorias */}
-            {paso.actividades && paso.actividades.length > 0 && (
-              <div className="pl-10 space-y-1.5 mt-1 border-l-2 border-gray-100 ml-3">
-                {paso.actividades.map((act, actIdx) => (
-                  <div key={actIdx} className="flex items-start gap-2">
-                    <CheckCircle2 size={13} className="text-gray-400 mt-0.5 shrink-0" />
-                    <div className="flex-1">
-                      <TextSmall className="text-gray-600">{act.descripcion}</TextSmall>
-                      {act.esObligatorio && <span className="ml-2 text-[9px] font-bold text-orange-500 uppercase tracking-wide">Oblig.</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    ) : categoriaId ? (
-      <div className="p-6 border border-dashed border-gray-200 rounded-lg text-center">
-        <TextSmall className="text-gray-400 italic">Esta categoría no tiene protocolo definido</TextSmall>
-      </div>
-    ) : pasos.length === 0 ? (
-      <div className="p-6 border border-dashed border-gray-200 rounded-lg text-center">
-        <TextSmall className="text-gray-400 italic">Seleccione una categoría para ver el protocolo</TextSmall>
-      </div>
-    ) : (
-      <div className="space-y-2">
-        {pasos.map((step, idx) => (
-          <div key={idx} className="flex flex-col gap-2 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col gap-0.5 shrink-0">
-                {isEditing && <button onClick={() => onMoveStep(idx, 'up')} disabled={idx === 0} className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-30"><ChevronUp size={13} /></button>}
-                <span className="font-bold text-gray-400 text-[10px] text-center">{idx + 1}</span>
-                {isEditing && <button onClick={() => onMoveStep(idx, 'down')} disabled={idx === pasos.length - 1} className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-30"><ChevronDown size={13} /></button>}
-              </div>
-              <div className="flex-1 space-y-1">
-                {isEditing ? (
-                  <input
-                    className="w-full bg-transparent text-sm text-gray-700 outline-none font-medium"
-                    value={step.descripcion}
-                    onChange={e => onUpdateStep(idx, { descripcion: e.target.value })}
-                    placeholder="Descripción del paso..."
-                  />
-                ) : (
-                  <TextSmall className="font-medium text-gray-700">{step.descripcion}</TextSmall>
-                )}
-                {isEditing && (
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={!!step.esObligatorio} onChange={e => onUpdateStep(idx, { esObligatorio: e.target.checked })} className="w-3 h-3 accent-[#D32F2F]" />
-                    <span className="text-[10px] font-semibold text-gray-500">Obligatorio</span>
-                  </label>
-                )}
-                {!isEditing && step.esObligatorio && (
-                  <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide">Obligatorio</span>
-                )}
-              </div>
-              {isEditing && (
-                <IconButton icon={Trash2} onClick={() => onRemoveStep(idx)} className="text-gray-300 hover:text-red-500 shrink-0" size={13} />
-              )}
-            </div>
-            
-            {/* Actividades del paso (si existen) */}
-            {step.actividades && step.actividades.length > 0 && (
-              <div className="pl-10 space-y-1.5 mt-1 border-l-2 border-gray-100 ml-3">
-                {step.actividades.map((act, actIdx) => (
-                  <div key={actIdx} className="flex items-start gap-2">
-                    <CheckCircle2 size={13} className="text-gray-400 mt-0.5 shrink-0" />
-                    <div className="flex-1">
-                      <TextSmall className="text-gray-600">{act.descripcion}</TextSmall>
-                      {act.esObligatorio && <span className="ml-2 text-[9px] font-bold text-orange-500 uppercase tracking-wide">Oblig.</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-);
 
 export default DeviceForm;

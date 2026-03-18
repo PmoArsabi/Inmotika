@@ -8,16 +8,17 @@ import { useMasterData } from '../../../context/MasterDataContext';
 import DeviceForm from '../../../modules/devices/DeviceForm';
 
 const DeviceNavigator = ({ onClose }) => {
-  const { route, drafts, updateDraft, setStack } = useConfigurationContext();
+  const { route, drafts, updateDraft, setStack, setDeviceSuccessInfo } = useConfigurationContext();
   const { data, setData } = useMasterData();
   const notify = useNotify();
   const [showErrors, setShowErrors] = useState(false);
-  const [saveState, setSaveState] = useState({ isSaving: true, savedAt: null });
+  const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
 
   const entityKey = (type, id) => `${type}:${id}`;
   const key = entityKey('dispositivo', route.deviceId);
   
-  const draft = drafts[key] || emptyDeviceDraft();
+  const currentDevice = (data?.dispositivos || []).find(d => String(d.id) === String(route?.deviceId));
+  const draft = drafts[key] || (currentDevice ? toDeviceDraft(currentDevice) : emptyDeviceDraft());
   const errors = validateDevice(draft);
   const hasErrors = Object.keys(errors).length > 0;
   const isEditing = route.mode === 'edit';
@@ -41,13 +42,7 @@ const DeviceNavigator = ({ onClose }) => {
       ));
       
       setSaveState({ isSaving: false, savedAt: Date.now() });
-      setStack(prev => prev.map((s, idx) => {
-        if (idx === prev.length - 1) {
-          return { ...s, mode: 'view', deviceId: mapped.id };
-        }
-        return s;
-      }));
-      notify('success', 'Dispositivo guardado con éxito');
+      setDeviceSuccessInfo({ isNew: isEditing && !currentDevice, deviceId: mapped.id });
     } catch (err) {
       console.error('Error saving device:', err);
       notify('error', 'Error al guardar el dispositivo');

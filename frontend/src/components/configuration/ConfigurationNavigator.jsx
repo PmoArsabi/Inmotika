@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, Building2, MapPin, User, Monitor, Phone,
-  CheckCircle2, Plus, Search, Trash2 
+  CheckCircle2, Plus, Search, Trash2, Layers, Tag
 } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
 import Card from '../ui/Card';
@@ -21,6 +21,7 @@ import ContactNavigator from './navigators/ContactNavigator';
 import DeviceNavigator from './navigators/DeviceNavigator';
 import BranchNavigator from './navigators/BranchNavigator';
 import TechnicalNavigator from './navigators/TechnicalNavigator';
+import CatalogNavigator from './navigators/CatalogNavigator';
 
 const ConfigurationNavigator = ({ onClose }) => {
   const { 
@@ -34,6 +35,7 @@ const ConfigurationNavigator = ({ onClose }) => {
     branchSuccessInfo, setBranchSuccessInfo,
     savedClientId, setSavedClientId,
     contactSuccessInfo, setContactSuccessInfo,
+    deviceSuccessInfo, setDeviceSuccessInfo,
   } = useConfigurationContext();
 
   const { data, setData } = useMasterData();
@@ -128,6 +130,27 @@ const ConfigurationNavigator = ({ onClose }) => {
           isActive: isLast && r.activeTab === 'details',
           onClick: () => setStack(p => p.slice(0, idx + 1).map((s, i) => i === idx ? { ...s, activeTab: 'details' } : s))
         });
+      } else if (r.type === 'categoria') {
+        items.push({ 
+          label: isNew ? 'Nueva Categoría' : 'Categoría', 
+          icon: Layers, 
+          isActive: isLast,
+          onClick: () => {}
+        });
+      } else if (r.type === 'marca') {
+        items.push({ 
+          label: isNew ? 'Nueva Marca' : 'Marca', 
+          icon: Tag, 
+          isActive: isLast,
+          onClick: () => {}
+        });
+      } else if (r.type === 'proveedor') {
+        items.push({ 
+          label: isNew ? 'Nuevo Proveedor' : 'Proveedor', 
+          icon: Building2, 
+          isActive: isLast,
+          onClick: () => {}
+        });
       }
     });
 
@@ -147,6 +170,18 @@ const ConfigurationNavigator = ({ onClose }) => {
   };
   const handleContactBackToList = () => {
     setContactSuccessInfo(null);
+    handleClose();
+  };
+
+  // Handlers for Device Success Modal
+  const handleDeviceStayView = () => {
+    setStack(prev => prev.map((s, idx) =>
+      idx === prev.length - 1 ? { ...s, mode: 'view' } : s
+    ));
+    setDeviceSuccessInfo(null);
+  };
+  const handleDeviceBackToList = () => {
+    setDeviceSuccessInfo(null);
     handleClose();
   };
 
@@ -206,6 +241,10 @@ const ConfigurationNavigator = ({ onClose }) => {
             setAssociateDevicesModal={setAssociateDevicesModal}
           />
         )}
+
+        {(route?.type === 'categoria' || route?.type === 'marca' || route?.type === 'proveedor') && (
+          <CatalogNavigator onClose={onClose} />
+        )}
       </div>
 
       {/* Success Modal - Cliente */}
@@ -262,6 +301,29 @@ const ConfigurationNavigator = ({ onClose }) => {
             <div className="flex flex-col gap-3">
               <Button onClick={handleContactStayView} variant="success" className="w-full">Ver Contacto</Button>
               <Button onClick={handleContactBackToList} variant="outline" className="w-full">Volver a Contactos</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal - Dispositivo */}
+      {deviceSuccessInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-3 text-green-600 mb-4">
+              <CheckCircle2 size={32} />
+              <H3 className="normal-case text-gray-900">
+                {deviceSuccessInfo.isNew ? 'Dispositivo creado' : 'Dispositivo actualizado'}
+              </H3>
+            </div>
+            <TextSmall className="text-gray-600 mb-6 leading-relaxed">
+              {deviceSuccessInfo.isNew
+                ? 'El dispositivo se ha creado correctamente. ¿Qué deseas hacer ahora?'
+                : 'Los cambios del dispositivo se guardaron correctamente. ¿Qué deseas hacer ahora?'}
+            </TextSmall>
+            <div className="flex flex-col gap-3">
+              <Button onClick={handleDeviceStayView} variant="success" className="w-full">Ver Dispositivo</Button>
+              <Button onClick={handleDeviceBackToList} variant="outline" className="w-full">Volver a Dispositivos</Button>
             </div>
           </div>
         </div>
