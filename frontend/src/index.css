@@ -5,3 +5,13 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+body {
+  margin: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.94)), url('/Circuto fondo.png');
+  background-size: 600px;
+  background-position: top left;
+  background-repeat: repeat;
+  background-attachment: fixed;
+  min-height: 100vh;
+}

@@ -171,7 +171,7 @@ function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-transparent">
       {/* Desktop sidebar wrapper — Fixed height sticky to ensure perfect toggle centering */}
       <div className="hidden lg:flex group/sidebarwrap shrink-0 h-screen sticky top-0 overflow-visible">
         <Sidebar
