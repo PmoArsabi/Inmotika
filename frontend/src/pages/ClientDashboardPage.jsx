@@ -36,7 +36,7 @@ const ClientDashboardPage = () => {
                <CardHeader icon={FileText} title="Historial de Visitas" className="mb-4 border-none pb-0" />
             </div>
             <Table>
-              <THead variant="dark">
+              <THead variant="light">
                 <tr>
                   <Th>Tipo</Th>
                   <Th>Fecha</Th>

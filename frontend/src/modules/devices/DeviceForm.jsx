@@ -78,7 +78,7 @@ const HistoryTable = ({ title, icon: Icon, headers, rows, emptyText }) => (
     </div>
     <Card className="p-0 border border-gray-200 overflow-hidden shadow-sm">
       <Table>
-        <THead variant="dark">
+        <THead variant="light">
           <tr>{headers.map(h => <Th key={h}>{h}</Th>)}</tr>
         </THead>
         <TBody>

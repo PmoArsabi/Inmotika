@@ -52,7 +52,7 @@ const ClientDataPage = ({ data }) => {
         
         <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
           <Table>
-            <THead variant="dark">
+            <THead variant="light">
               <tr>
                 <Th>Nombre / Sede</Th>
                 <Th>Ubicación y Contacto</Th>

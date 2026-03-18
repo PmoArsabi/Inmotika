@@ -31,7 +31,7 @@ const UserTable = ({
 
   return (
     <Table>
-      <THead variant="dark">
+      <THead variant="light">
         <tr>
           <Th>Usuario</Th>
           <Th>Email</Th>

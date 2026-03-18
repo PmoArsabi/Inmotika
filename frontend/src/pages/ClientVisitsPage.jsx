@@ -14,7 +14,7 @@ const ClientVisitsPage = ({ data }) => {
       
       <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
         <Table>
-          <THead variant="dark">
+          <THead variant="light">
             <tr>
               <Th>ID</Th>
               <Th>Fecha</Th>

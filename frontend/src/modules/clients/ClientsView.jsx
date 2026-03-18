@@ -67,7 +67,7 @@ const ClientsView = ({ config, data }) => {
         />
         <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
           <Table>
-            <THead variant="dark">
+            <THead variant="light">
               <tr><Th>Campo</Th><Th>Información Registrada</Th></tr>
             </THead>
             <TBody>
@@ -100,7 +100,7 @@ const ClientsView = ({ config, data }) => {
         />
         <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
           <Table>
-            <THead variant="dark">
+            <THead variant="light">
               <tr><Th>Nombre / Razón</Th><Th>Detalles Técnicos</Th><Th narrow>Acción</Th></tr>
             </THead>
             <TBody>
