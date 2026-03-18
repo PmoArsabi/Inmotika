@@ -65,7 +65,7 @@ const DevicesView = ({ config, data: masterData }) => {
       header: 'Marca / Línea',
       render: (dev) => (
         <TextSmall className="text-gray-700 font-bold uppercase">
-          {dev.marca || '—'} {dev.linea ? `— ${dev.linea}` : ''}
+          {dev.marca?.nombre || dev.marca || '—'} {dev.linea ? `— ${dev.linea}` : ''}
         </TextSmall>
       )
     },
@@ -81,7 +81,7 @@ const DevicesView = ({ config, data: masterData }) => {
       header: 'Proveedor',
       render: (dev) => (
         <TextSmall className="text-gray-600">
-          {dev.proveedor || '—'}
+          {dev.proveedor?.nombre || dev.proveedor || '—'}
         </TextSmall>
       )
     }

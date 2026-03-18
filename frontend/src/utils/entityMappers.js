@@ -86,14 +86,14 @@ export const emptyDeviceDraft = () => ({
   descripcion: '',          // descripción libre del equipo
   serial: '',
   categoriaId: '',          // UUID → categoria_dispositivo
-  proveedor: '',            // código: DORLET, MORFO, OTRO
-  marca: '',
+  proveedorId: '',          // UUID → proveedor
+  marcaId: '',              // UUID → marca
   linea: '',
   modelo: '',
   imac: '',                 // dirección MAC / IMAC
-  identificacionCliente: '', // identificador asignado por el cliente
   esDeInmotika: false,      // true = el equipo pertenece a Inmotika, false = es del cliente
-  estadoId: '',             // UUID → catalogo_estado_general
+  estadoId: '',             // UUID → catalogo_estado_general (Activo/Inactivo)
+  estadoGestionId: '',      // UUID → catalogo_estado_dispositivo (Activo, Recuperar, Recomprado)
   frecuenciaMantenimientoMeses: '',
   fechaProximoMantenimiento: '',
   notasTecnicas: '',
@@ -250,11 +250,14 @@ export const toDeviceDraft = (device, route = null) => ({
   clientId: device?.clientId || route?.clientId || '',
   branchId: device?.branchId || route?.branchId || '',
   imac: device?.imac || device?.macAddress || device?.mac_address || '',
-  identificacionCliente: device?.identificacionCliente || device?.identificacion_cliente || '',
+  identificacionCliente: '', // removido de BD pero se limpia del draft
   esDeInmotika: device?.esDeInmotika ?? device?.es_de_inmotika ?? false,
   frecuenciaMantenimientoMeses: device?.frecuenciaMantenimientoMeses ?? device?.frecuencia ?? '',
-  idInmotika: device?.idInmotika || device?.id_inmotika || '',
+  idInmotika: device?.idInmotika || device?.id_id_inmotika || '',
   codigoUnico: device?.codigoUnico || device?.codigo_unico || '',
+  proveedorId: device?.proveedorId || device?.proveedor_id || '',
+  marcaId: device?.marcaId || device?.marca_id || '',
+  estadoGestionId: device?.estadoGestionId || device?.estado_gestion_id || '',
   pasoAPaso: Array.isArray(device?.pasoAPaso)
     ? device.pasoAPaso.map((p, i) =>
         typeof p === 'string'

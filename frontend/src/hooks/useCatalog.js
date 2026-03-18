@@ -65,7 +65,6 @@ export const useEstados = () => {
     supabase
       .from('catalogo_estado_general')
       .select('id, codigo, nombre')
-      .eq('activo', true)
       .order('nombre')
       .then(({ data }) => {
         if (!active) return;

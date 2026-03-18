@@ -3,7 +3,7 @@ import {
   Building2, MapPin, Hash, Monitor, User, Activity,
   ClipboardList, CheckCircle2, ChevronUp, ChevronDown,
   Trash2, ArrowRightLeft, Calendar, Plus, Loader2, QrCode,
-  FileText, Tag, Wrench, Navigation2, IdCard, Layers,
+  FileText, Tag, Wrench, Navigation2, IdCard, Layers, Barcode,
 } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
 import Button from '../../components/ui/Button';
@@ -26,13 +26,6 @@ const FORM_TABS = [
   { key: 'visitas',   label: 'Historial de Visitas'     },
 ];
 
-const PROVEEDOR_OPTIONS = [
-  { value: '',       label: 'Seleccionar proveedor...' },
-  { value: 'DORLET', label: 'Dorlet'  },
-  { value: 'MORFO',  label: 'Morfo'   },
-  { value: 'OTRO',   label: 'Otro'    },
-];
-
 
 const calcProximaFecha = (meses) => {
   if (!meses || isNaN(Number(meses))) return '';
@@ -51,9 +44,15 @@ const DeviceForm = ({
   const [activeTab, setActiveTab] = useState('details');
   const { activoId, inactivoId } = useActivoInactivo();
 
-  // ─── Categorías ───────────────────────────────────────────────────────────
+  // ─── Categorías, Proveedores y Marcas ────────────────────────────────────
   const [categorias, setCategorias]       = useState([]);
   const [loadingCats, setLoadingCats]     = useState(true);
+  const [proveedores, setProveedores]     = useState([]);
+  const [loadingProvs, setLoadingProvs]   = useState(true);
+  const [marcas, setMarcas]               = useState([]);
+  const [loadingMarcas, setLoadingMarcas] = useState(false);
+  const [gestiones, setGestiones]         = useState([]);
+  const [loadingGestiones, setLoadingGest] = useState(true);
   const [categoryPasos, setCategoryPasos] = useState([]);
 
   const loadCategorias = useCallback(async () => {
@@ -74,7 +73,74 @@ const DeviceForm = ({
     }
   }, []);
 
-  useEffect(() => { loadCategorias(); }, [loadCategorias]);
+  const loadProveedores = useCallback(async () => {
+    setLoadingProvs(true);
+    try {
+      const { data: provs, error } = await supabase
+        .from('proveedor')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      
+      if (error) throw error;
+      setProveedores((provs || []).map(p => ({ value: p.id, label: p.nombre })));
+    } catch (err) {
+      console.error('Error loading providers:', err);
+    } finally {
+      setLoadingProvs(false);
+    }
+  }, []);
+
+  const loadMarcas = useCallback(async (proveedorId) => {
+    if (!proveedorId) { setMarcas([]); return; }
+    setLoadingMarcas(true);
+    try {
+      const { data: mks, error } = await supabase
+        .from('marca')
+        .select('id, nombre')
+        .eq('proveedor_id', proveedorId)
+        .eq('activo', true)
+        .order('nombre');
+      
+      if (error) throw error;
+      setMarcas((mks || []).map(m => ({ value: m.id, label: m.nombre })));
+    } catch (err) {
+      console.error('Error loading brands:', err);
+    } finally {
+      setLoadingMarcas(false);
+    }
+  }, []);
+
+  const loadGestiones = useCallback(async () => {
+    setLoadingGest(true);
+    try {
+      const { data, error } = await supabase
+        .from('catalogo_estado_dispositivo')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      if (error) throw error;
+      setGestiones((data || []).map(g => ({ value: g.id, label: g.nombre })));
+    } catch (err) {
+      console.error('Error loading gestiones:', err);
+    } finally {
+      setLoadingGest(false);
+    }
+  }, []);
+
+  useEffect(() => { 
+    loadCategorias();
+    loadProveedores();
+    loadGestiones();
+  }, [loadCategorias, loadProveedores, loadGestiones]);
+
+  useEffect(() => {
+    if (draft.proveedorId) {
+      loadMarcas(draft.proveedorId);
+    } else {
+      setMarcas([]);
+    }
+  }, [draft.proveedorId, loadMarcas]);
 
   useEffect(() => {
     if (!draft.categoriaId) { setCategoryPasos([]); return; }
@@ -114,12 +180,13 @@ const DeviceForm = ({
     loadProtocol();
   }, [draft.categoriaId]);
 
-  // Default state to ACTIVO for new devices
+  // Default state to ACTIVO for new devices (only once when activoId loads)
   useEffect(() => {
     if (!draft.estadoId && activoId) {
       updateDraft({ estadoId: activoId });
     }
-  }, [activoId, draft.estadoId, updateDraft]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activoId]);
 
   // ─── Frecuencia → fecha automática ────────────────────────────────────────
   const handleFrecuenciaChange = (val) => {
@@ -153,6 +220,57 @@ const DeviceForm = ({
   const removeStep = (idx) =>
     updateDraft({ pasoAPaso: pasos.filter((_, i) => i !== idx).map((p, i) => ({ ...p, orden: i + 1 })) });
 
+  // ─── Crear Proveedor / Marca inline ─────────────────────────────────────
+  const [showNewProv, setShowNewProv] = useState(false);
+  const [newProvName, setNewProvName] = useState('');
+  const [savingProv, setSavingProv]   = useState(false);
+
+  const [showNewMarca, setShowNewMarca] = useState(false);
+  const [newMarcaName, setNewMarcaName] = useState('');
+  const [savingMarca, setSavingMarca]   = useState(false);
+
+  const handleCreateProv = async () => {
+    if (!newProvName.trim()) return;
+    setSavingProv(true);
+    try {
+      const { data: row, error } = await supabase
+        .from('proveedor')
+        .insert({ nombre: newProvName.trim() })
+        .select('id, nombre')
+        .single();
+      if (error) throw error;
+      await loadProveedores();
+      updateDraft({ proveedorId: row.id, marcaId: '' });
+      setNewProvName('');
+      setShowNewProv(false);
+    } catch (err) {
+      console.error('Error creating proveedor:', err);
+    } finally {
+      setSavingProv(false);
+    }
+  };
+
+  const handleCreateMarca = async () => {
+    if (!newMarcaName.trim() || !draft.proveedorId) return;
+    setSavingMarca(true);
+    try {
+      const { data: row, error } = await supabase
+        .from('marca')
+        .insert({ nombre: newMarcaName.trim(), proveedor_id: draft.proveedorId })
+        .select('id, nombre')
+        .single();
+      if (error) throw error;
+      await loadMarcas(draft.proveedorId);
+      updateDraft({ marcaId: row.id });
+      setNewMarcaName('');
+      setShowNewMarca(false);
+    } catch (err) {
+      console.error('Error creating marca:', err);
+    } finally {
+      setSavingMarca(false);
+    }
+  };
+
   // ─── Nueva Categoría (delegado a CategoriaForm) ──────────────────────────
   const [showNewCat, setShowNewCat] = useState(false);
 
@@ -172,8 +290,83 @@ const DeviceForm = ({
 
   // ─── Vista principal ──────────────────────────────────────────────────────
   const isActivo = !!activoId && draft.estadoId === activoId;
+  const [provError, setProvError]   = useState('');
+  const [marcaError, setMarcaError] = useState('');
 
   return (
+    <>
+    {/* ── Popup: Nuevo Proveedor ── */}
+    {showNewProv && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-300">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="p-2 bg-red-50 rounded-lg"><FileText size={18} className="text-[#D32F2F]" /></div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Nuevo Proveedor</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Agrega un proveedor al catálogo</p>
+            </div>
+          </div>
+          <Input
+            label="Nombre del proveedor"
+            value={newProvName}
+            onChange={e => { setNewProvName(e.target.value); setProvError(''); }}
+            placeholder="Ej: Samsung, LG, Cisco..."
+            uppercase
+            autoFocus
+            error={provError}
+          />
+          <div className="flex gap-3 mt-5">
+            <button type="button" onClick={() => { setShowNewProv(false); setNewProvName(''); setProvError(''); }}
+              className="flex-1 h-10 rounded-md border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
+              Cancelar
+            </button>
+            <button type="button" onClick={handleCreateProv} disabled={!newProvName.trim() || savingProv}
+              className="flex-1 h-10 rounded-md bg-[#D32F2F] text-white text-xs font-bold hover:bg-[#B71C1C] disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
+              {savingProv ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              {savingProv ? 'Creando...' : 'Crear Proveedor'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Popup: Nueva Marca ── */}
+    {showNewMarca && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-300">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="p-2 bg-red-50 rounded-lg"><Tag size={18} className="text-[#D32F2F]" /></div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Nueva Marca</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Asociada a: <span className="font-semibold">{proveedores.find(p => p.value === draft.proveedorId)?.label || '—'}</span>
+              </p>
+            </div>
+          </div>
+          <Input
+            label="Nombre de la marca"
+            value={newMarcaName}
+            onChange={e => { setNewMarcaName(e.target.value); setMarcaError(''); }}
+            placeholder="Ej: Galaxy, Optimus, Catalyst..."
+            uppercase
+            autoFocus
+            error={marcaError}
+          />
+          <div className="flex gap-3 mt-5">
+            <button type="button" onClick={() => { setShowNewMarca(false); setNewMarcaName(''); setMarcaError(''); }}
+              className="flex-1 h-10 rounded-md border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
+              Cancelar
+            </button>
+            <button type="button" onClick={handleCreateMarca} disabled={!newMarcaName.trim() || savingMarca}
+              className="flex-1 h-10 rounded-md bg-[#D32F2F] text-white text-xs font-bold hover:bg-[#B71C1C] disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
+              {savingMarca ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              {savingMarca ? 'Creando...' : 'Crear Marca'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
 
       {/* ── Columna izquierda: Resumen ── */}
@@ -190,9 +383,6 @@ const DeviceForm = ({
               <p className="text-sm text-gray-500 mt-1">
                 {categorias.find(c => c.value === draft.categoriaId)?.label || 'Sin categoría'}
               </p>
-              {draft.descripcion && (
-                <p className="text-xs text-gray-400 mt-1 italic line-clamp-2">{draft.descripcion}</p>
-              )}
             </div>
           </div>
 
@@ -207,10 +397,22 @@ const DeviceForm = ({
               <SummaryRow icon={Hash} label="ID Inmotika" value={draft.idInmotika} />
             )}
             {draft.codigoUnico && (
-              <SummaryRow icon={QrCode} label="Código Único" value={draft.codigoUnico} />
+              <SummaryRow icon={Barcode} label="Código Único" value={draft.codigoUnico} />
             )}
             {draft.imac && (
               <SummaryRow icon={Navigation2} label="IMAC / MAC" value={draft.imac} />
+            )}
+            <SummaryRow 
+              icon={User} 
+              label="Dueño" 
+              value={draft.esDeInmotika ? 'Inmotika' : 'Cliente'} 
+            />
+            {draft.estadoGestionId && (
+              <SummaryRow 
+                icon={Activity} 
+                label="Estado Gestión" 
+                value={gestiones.find(g => g.value === draft.estadoGestionId)?.label || '—'} 
+              />
             )}
             {activeClientName !== '—' && (
               <SummaryRow icon={Building2} label="Cliente" value={activeClientName} sub={activeBranchName !== '—' ? activeBranchName : undefined} />
@@ -255,24 +457,6 @@ const DeviceForm = ({
                   )}
                 </div>
 
-                {/* Descripción (fila completa) */}
-                <div className="flex flex-col gap-1.5">
-                  <Label className="ml-1">Descripción del Equipo</Label>
-                  {isEditing ? (
-                    <textarea
-                      className="w-full p-3 border border-gray-300 rounded-md text-sm font-semibold min-h-[40px] resize-y focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
-                      rows={1}
-                      value={draft.descripcion || ''}
-                      onChange={e => updateDraft({ descripcion: e.target.value })}
-                      placeholder="Describe el equipo brevemente..."
-                    />
-                  ) : (
-                    <p className="text-sm font-semibold text-gray-800 min-h-[40px]">
-                      {draft.descripcion || <span className="text-gray-400 italic">Sin descripción</span>}
-                    </p>
-                  )}
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Categoría con botón crear */}
                   <div className="flex flex-col gap-1.5 w-full">
@@ -301,21 +485,59 @@ const DeviceForm = ({
                     )}
                   </div>
 
-                  <Select
-                    label="Proveedor"
-                    value={draft.proveedor || ''}
-                    onChange={e => updateDraft({ proveedor: e.target.value })}
-                    options={PROVEEDOR_OPTIONS}
-                    viewMode={!isEditing}
-                    icon={FileText}
-                  />
-                  <Input
-                    label="Marca"
-                    value={draft.marca || ''}
-                    onChange={e => updateDraft({ marca: e.target.value })}
-                    viewMode={!isEditing}
-                    icon={Tag}
-                  />
+                  {/* Proveedor con botón crear → abre popup modal */}
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <div className="flex items-center justify-between h-[15px]">
+                      <Label className="ml-1">Proveedor</Label>
+                      {isEditing && (
+                        <button type="button" onClick={() => setShowNewProv(true)}
+                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-[#D32F2F] transition-colors" title="Crear nuevo proveedor">
+                          <Plus size={12} />
+                        </button>
+                      )}
+                    </div>
+                    {loadingProvs ? (
+                      <div className="h-10 flex items-center px-3 border border-gray-200 rounded-md text-sm text-gray-400">
+                        <Loader2 size={14} className="animate-spin mr-2" /> Cargando...
+                      </div>
+                    ) : (
+                      <SearchableSelect
+                        options={proveedores}
+                        value={draft.proveedorId || ''}
+                        onChange={opt => updateDraft({ proveedorId: opt?.value || '', marcaId: '' })}
+                        isDisabled={!isEditing}
+                        placeholder="Seleccionar proveedor..."
+                        viewMode={!isEditing}
+                      />
+                    )}
+                  </div>
+
+                  {/* Marca con botón crear → abre popup modal */}
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <div className="flex items-center justify-between h-[15px]">
+                      <Label className="ml-1">Marca</Label>
+                      {isEditing && draft.proveedorId && (
+                        <button type="button" onClick={() => setShowNewMarca(true)}
+                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-[#D32F2F] transition-colors" title="Crear nueva marca">
+                          <Plus size={12} />
+                        </button>
+                      )}
+                    </div>
+                    {loadingMarcas ? (
+                      <div className="h-10 flex items-center px-3 border border-gray-200 rounded-md text-sm text-gray-400">
+                        <Loader2 size={14} className="animate-spin mr-2" /> Cargando...
+                      </div>
+                    ) : (
+                      <SearchableSelect
+                        options={marcas}
+                        value={draft.marcaId || ''}
+                        onChange={opt => updateDraft({ marcaId: opt?.value || '' })}
+                        isDisabled={!isEditing || !draft.proveedorId}
+                        placeholder={draft.proveedorId ? "Seleccionar marca..." : "Primero seleccione proveedor"}
+                        viewMode={!isEditing}
+                      />
+                    )}
+                  </div>
                   <Input
                     label="Número de Serie"
                     value={draft.serial || ''}
@@ -352,8 +574,8 @@ const DeviceForm = ({
                     value={draft.codigoUnico || ''}
                     onChange={e => updateDraft({ codigoUnico: e.target.value })}
                     viewMode={!isEditing}
-                    icon={QrCode}
-                    placeholder="Código de barras o QR"
+                    icon={Barcode}
+                    placeholder="Identificador único adicional"
                   />
                   <Input
                     label="IMAC / MAC"
@@ -361,15 +583,33 @@ const DeviceForm = ({
                     onChange={e => updateDraft({ imac: e.target.value })}
                     viewMode={!isEditing}
                     icon={Navigation2}
-                    placeholder="00:1A:2B:3C:4D:5E"
+                    placeholder="Dirección física del equipo"
                   />
-                  <Input
-                    label="Identificación del Cliente"
-                    value={draft.identificacionCliente || ''}
-                    onChange={e => updateDraft({ identificacionCliente: e.target.value })}
+                </div>
+              </section>
+
+              {/* ─── Gestión de Propiedad ─── */}
+              <section className="space-y-4">
+                <SectionHeader icon={User} label="Gestión de Propiedad" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Switch
+                    label="¿Quién es el dueño?"
+                    checked={draft.esDeInmotika}
+                    onChange={val => updateDraft({ esDeInmotika: val })}
                     viewMode={!isEditing}
-                    icon={IdCard}
-                    placeholder="Código interno del cliente"
+                    checkedLabel="Inmotika"
+                    uncheckedLabel="Cliente"
+                  />
+                  <SearchableSelect
+                    label="Estado de Propiedad"
+                    options={gestiones}
+                    value={draft.estadoGestionId || ''}
+                    isLoading={loadingGestiones}
+                    onChange={opt => updateDraft({ estadoGestionId: opt?.value || '' })}
+                    isDisabled={!isEditing}
+                    placeholder="Seleccionar estado..."
+                    viewMode={!isEditing}
+                    icon={Activity}
                   />
                 </div>
               </section>
@@ -403,16 +643,8 @@ const DeviceForm = ({
 
               {/* Sección 3 — Propiedad y Estado */}
               <section className="space-y-4">
-                <SectionHeader icon={User} label="Propiedad y Estado" />
+                <SectionHeader icon={User} label="Estado del Equipo" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Switch
-                    label="Dispositivo de Inmotika"
-                    checked={!!draft.esDeInmotika}
-                    onChange={checked => updateDraft({ esDeInmotika: checked })}
-                    viewMode={!isEditing}
-                    checkedLabel="Sí"
-                    uncheckedLabel="No"
-                  />
                   <Switch
                     label="Estado"
                     checked={!!activoId && draft.estadoId === activoId}
@@ -518,6 +750,7 @@ const DeviceForm = ({
         </Card>
       </div>
     </div>
+    </>
   );
 };
 

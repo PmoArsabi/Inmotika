@@ -16,7 +16,7 @@ const Switch = ({
   return (
     <div className={`flex flex-col gap-1.5 w-full ${className}`}>
       {label && <Label className="ml-1">{label}</Label>}
-      <div className="flex items-center gap-2 h-[38px]">
+      <div className="flex items-center gap-2 h-[38px] pl-1">
         {viewMode ? (
           <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${checked ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
             {statusLabel}

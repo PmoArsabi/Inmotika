@@ -10,7 +10,10 @@ export const getDevices = async () => {
       *,
       categoria:categoria_id(nombre),
       cliente:cliente_id(nombre),
-      sucursal:sucursal_id(nombre)
+      sucursal:sucursal_id(nombre),
+      proveedor:proveedor_id(nombre),
+      marca:marca_id(nombre),
+      estado_gestion:estado_gestion_id(nombre)
     `)
     .order('created_at', { ascending: false });
 
@@ -47,8 +50,6 @@ export const saveDevice = async (deviceDraft) => {
     estadoId,
     descripcion,
     serial,
-    proveedor,
-    marca,
     linea,
     modelo,
     imac,
@@ -58,7 +59,10 @@ export const saveDevice = async (deviceDraft) => {
     fechaProximoMantenimiento,
     notasTecnicas,
     idInmotika,
-    codigoUnico
+    codigoUnico,
+    proveedorId,
+    marcaId,
+    estadoGestionId
   } = deviceDraft;
 
   const deviceData = {
@@ -68,8 +72,6 @@ export const saveDevice = async (deviceDraft) => {
     estado_id: estadoId || null,
     descripcion,
     serial,
-    proveedor,
-    marca,
     linea,
     modelo,
     mac_address: imac,
@@ -79,7 +81,10 @@ export const saveDevice = async (deviceDraft) => {
     fecha_proximo_mantenimiento: fechaProximoMantenimiento || null,
     notas_tecnicas: notasTecnicas,
     id_inmotika: idInmotika,
-    codigo_unico: codigoUnico
+    codigo_unico: codigoUnico,
+    proveedor_id: proveedorId || null,
+    marca_id: marcaId || null,
+    estado_gestion_id: estadoGestionId || null
   };
 
   // Check if it's a new device (UUID starting with 'new-' or similar frontend-generated ID)

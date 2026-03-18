@@ -57,6 +57,15 @@ alter table "public"."catalogo" enable row level security;
 
 alter table "public"."catalogo_estado_general" enable row level security;
 
+  create table "public"."catalogo_estado_dispositivo" (
+    "id" uuid not null default gen_random_uuid(),
+    "nombre" character varying(100) not null,
+    "descripcion" text,
+    "activo" boolean default true
+  );
+
+  alter table "public"."catalogo_estado_dispositivo" enable row level security;
+
 
   create table "public"."catalogo_rol" (
     "id" uuid not null default gen_random_uuid(),
@@ -225,17 +234,36 @@ alter table "public"."director" enable row level security;
 
 alter table "public"."disponibilidad_tecnico" enable row level security;
 
+  create table "public"."proveedor" (
+    "id" uuid not null default gen_random_uuid(),
+    "nombre" character varying(255) not null,
+    "activo" boolean not null default true,
+    "created_at" timestamp with time zone default now(),
+    "updated_at" timestamp with time zone default now()
+  );
+
+  alter table "public"."proveedor" enable row level security;
+
+  create table "public"."marca" (
+    "id" uuid not null default gen_random_uuid(),
+    "nombre" character varying(255) not null,
+    "proveedor_id" uuid,
+    "activo" boolean not null default true,
+    "created_at" timestamp with time zone default now(),
+    "updated_at" timestamp with time zone default now()
+  );
+
+  alter table "public"."marca" enable row level security;
+
 
   create table "public"."dispositivo" (
     "id" uuid not null default gen_random_uuid(),
     "sucursal_id" uuid,
     "categoria_id" uuid,
     "cliente_id" uuid,
-    "propiedad_de" character varying(50),
     "id_inmotika" character varying(100),
     "codigo_unico" character varying(100),
     "serial" character varying(100),
-    "proveedor" character varying(255),
     "frecuencia_mantenimiento_meses" integer,
     "fecha_proximo_mantenimiento" date,
     "estado_id" uuid,
@@ -244,11 +272,11 @@ alter table "public"."disponibilidad_tecnico" enable row level security;
     "linea" character varying,
     "mac_address" character varying,
     "notas_tecnicas" text,
-    "descripcion" text,
-    "identificacion_cliente" character varying,
     "es_de_inmotika" boolean not null default false,
-    "marca" character varying(255),
-    "modelo" character varying(255)
+    "modelo" character varying(255),
+    "proveedor_id" uuid,
+    "marca_id" uuid,
+    "estado_gestion_id" uuid
       );
 
 
@@ -728,6 +756,22 @@ alter table "public"."dispositivo" add constraint "dispositivo_id_inmotika_key" 
 alter table "public"."dispositivo" add constraint "dispositivo_sucursal_id_fkey" FOREIGN KEY (sucursal_id) REFERENCES public.sucursal(id) ON DELETE SET NULL not valid;
 
 alter table "public"."dispositivo" validate constraint "dispositivo_sucursal_id_fkey";
+
+alter table "public"."dispositivo" add constraint "dispositivo_estado_gestion_fkey" FOREIGN KEY (estado_gestion_id) REFERENCES public.catalogo_estado_dispositivo(id) not valid;
+
+alter table "public"."dispositivo" validate constraint "dispositivo_estado_gestion_fkey";
+
+alter table "public"."dispositivo" add constraint "dispositivo_proveedor_id_fkey" FOREIGN KEY (proveedor_id) REFERENCES public.proveedor(id) not valid;
+
+alter table "public"."dispositivo" validate constraint "dispositivo_proveedor_id_fkey";
+
+alter table "public"."dispositivo" add constraint "dispositivo_marca_id_fkey" FOREIGN KEY (marca_id) REFERENCES public.marca(id) not valid;
+
+alter table "public"."dispositivo" validate constraint "dispositivo_marca_id_fkey";
+
+alter table "public"."marca" add constraint "marca_proveedor_id_fkey" FOREIGN KEY (proveedor_id) REFERENCES public.proveedor(id) ON DELETE CASCADE not valid;
+
+alter table "public"."marca" validate constraint "marca_proveedor_id_fkey";
 
 alter table "public"."ejecucion_actividad" add constraint "ejecucion_actividad_actividad_id_fkey" FOREIGN KEY (actividad_id) REFERENCES public.actividad_protocolo(id) ON DELETE CASCADE not valid;
 
@@ -2254,6 +2298,54 @@ grant truncate on table "public"."visita_tecnico" to "service_role";
 
 grant update on table "public"."visita_tecnico" to "service_role";
 
+grant delete on table "public"."proveedor" to "anon";
+grant insert on table "public"."proveedor" to "anon";
+grant references on table "public"."proveedor" to "anon";
+grant select on table "public"."proveedor" to "anon";
+grant trigger on table "public"."proveedor" to "anon";
+grant truncate on table "public"."proveedor" to "anon";
+grant update on table "public"."proveedor" to "anon";
+
+grant delete on table "public"."proveedor" to "authenticated";
+grant insert on table "public"."proveedor" to "authenticated";
+grant references on table "public"."proveedor" to "authenticated";
+grant select on table "public"."proveedor" to "authenticated";
+grant trigger on table "public"."proveedor" to "authenticated";
+grant truncate on table "public"."proveedor" to "authenticated";
+grant update on table "public"."proveedor" to "authenticated";
+
+grant delete on table "public"."proveedor" to "service_role";
+grant insert on table "public"."proveedor" to "service_role";
+grant references on table "public"."proveedor" to "service_role";
+grant select on table "public"."proveedor" to "service_role";
+grant trigger on table "public"."proveedor" to "service_role";
+grant truncate on table "public"."proveedor" to "service_role";
+grant update on table "public"."proveedor" to "service_role";
+
+grant delete on table "public"."marca" to "anon";
+grant insert on table "public"."marca" to "anon";
+grant references on table "public"."marca" to "anon";
+grant select on table "public"."marca" to "anon";
+grant trigger on table "public"."marca" to "anon";
+grant truncate on table "public"."marca" to "anon";
+grant update on table "public"."marca" to "anon";
+
+grant delete on table "public"."marca" to "authenticated";
+grant insert on table "public"."marca" to "authenticated";
+grant references on table "public"."marca" to "authenticated";
+grant select on table "public"."marca" to "authenticated";
+grant trigger on table "public"."marca" to "authenticated";
+grant truncate on table "public"."marca" to "authenticated";
+grant update on table "public"."marca" to "authenticated";
+
+grant delete on table "public"."marca" to "service_role";
+grant insert on table "public"."marca" to "service_role";
+grant references on table "public"."marca" to "service_role";
+grant select on table "public"."marca" to "service_role";
+grant trigger on table "public"."marca" to "service_role";
+grant truncate on table "public"."marca" to "service_role";
+grant update on table "public"."marca" to "service_role";
+
 
   create policy "allow_all_authenticated"
   on "public"."actividad_protocolo"
@@ -2325,6 +2417,34 @@ using (true);
 
 
 
+  create policy "allow_read_authenticated"
+  on "public"."proveedor"
+  as permissive
+  for select
+  to authenticated
+using (((activo = true) OR public.is_admin_or_coordinator()));
+
+  create policy "allow_manage_admin"
+  on "public"."proveedor"
+  as permissive
+  for all
+  to authenticated
+using (public.is_admin_or_coordinator());
+
+  create policy "allow_read_authenticated"
+  on "public"."marca"
+  as permissive
+  for select
+  to authenticated
+using (((activo = true) OR public.is_admin_or_coordinator()));
+
+  create policy "allow_manage_admin"
+  on "public"."marca"
+  as permissive
+  for all
+  to authenticated
+using (public.is_admin_or_coordinator());
+
   create policy "allow_all_authenticated"
   on "public"."categoria_dispositivo"
   as permissive
@@ -2360,6 +2480,38 @@ using (public.is_admin_or_coordinator());
   to authenticated
 using (public.is_admin_or_coordinator())
 with check (public.is_admin_or_coordinator());
+
+
+
+  create policy "allow_manage_admin"
+  on "public"."dispositivo"
+  as permissive
+  for all
+  to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+  create policy "allow_read_authenticated"
+  on "public"."dispositivo"
+  as permissive
+  for select
+  to authenticated
+using (true);
+
+  create policy "allow_manage_admin"
+  on "public"."catalogo_estado_dispositivo"
+  as permissive
+  for all
+  to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+  create policy "allow_read_authenticated"
+  on "public"."catalogo_estado_dispositivo"
+  as permissive
+  for select
+  to authenticated
+using (true);
 
 
 
@@ -2498,6 +2650,17 @@ using (public.is_admin_or_coordinator());
 CREATE TRIGGER on_user_role_change AFTER UPDATE OF rol_id ON public.perfil_usuario FOR EACH ROW EXECUTE FUNCTION public.sync_specialized_role_tables();
 
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_updated_at_proveedor BEFORE UPDATE ON public.proveedor FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at_marca BEFORE UPDATE ON public.marca FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 
   create policy "Acceso completo usuarios autenticados 69tnde_0"
