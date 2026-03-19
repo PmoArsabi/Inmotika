@@ -130,7 +130,7 @@ function App() {
       }
 
       if (visitsSubTab === 'programacion') {
-        if (isAdminGroup) return <ProgramacionVisitaPage data={data} setData={setData} />;
+        if (isAdminGroup) return <ProgramacionVisitaPage />;
         return <AccessDenied />;
       }
 

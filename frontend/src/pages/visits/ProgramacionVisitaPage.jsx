@@ -1,69 +1,30 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ArrowLeft, Search, X, Edit, Eye, CalendarCheck,
-  Calendar, Building2, User, AlertCircle, Users, Save, Cpu, Plus,
+  Calendar, Building2, User, AlertCircle, Users, Save, Trash2, CheckCircle2,
 } from 'lucide-react';
+import { H2, H3, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ModuleHeader from '../../components/ui/ModuleHeader';
 import Select from '../../components/ui/Select';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
-import { H2, Subtitle, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
+import InfoRow from '../../components/ui/InfoRow';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import { TechnicianChipList } from '../../components/ui/TechnicianChip';
-import Modal from '../../components/ui/Modal';
-import VisitProgressPanel from '../../components/visits/VisitProgressPanel';
-import { ROLES } from '../../utils/constants';
+import { supabase } from '../../utils/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { useCatalog } from '../../hooks/useCatalog';
+import { useSolicitudesVisita } from '../../hooks/useSolicitudesVisita';
+import { useVisitas } from '../../hooks/useVisitas';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const TIPO_VISITA_OPTIONS = [
-  { value: '',           label: 'Seleccionar tipo...' },
-  { value: 'PREVENTIVO', label: 'Mantenimiento Preventivo' },
-  { value: 'CORRECTIVO', label: 'Mantenimiento Correctivo' },
-];
-
-const ESTADO_OPTIONS = [
-  { value: '',            label: 'Seleccionar estado...' },
-  { value: 'SOLICITUD',   label: 'Solicitud'    },
-  { value: 'PROGRAMADO',  label: 'Programado'   },
-  { value: 'REPROGRAMADO',label: 'Reprogramado' },
-  { value: 'CANCELADO',   label: 'Cancelado'    },
-];
-
-const emptyVisitaDraft = (solicitud = null) => ({
-  solicitudId:     solicitud?.id        || null,
-  clienteId:       solicitud?.clienteId || '',
-  clienteNombre:   solicitud?.clienteNombre || '',
-  sucursalId:      solicitud?.sucursalId || '',
-  sucursalNombre:  solicitud?.sucursalNombre || '',
-  tipoVisita:      solicitud?.tipoVisita || '',
-  dispositivoIds:  solicitud?.dispositivoIds || [],
-  dispositivosNombres: solicitud?.dispositivosNombres || [],
-  tecnicoIds:      [],
-  tecnicosNombres: [],
-  fechaProgramada: '',
-  fechaInicio:     '',
-  fechaFin:        '',
-  observaciones:   solicitud?.observacion || '',
-  estado:          'PROGRAMADO',
-  dispositivos:    [],
-  ejecucionPasos:  {},
-});
-
-// ─── Info row helper ──────────────────────────────────────────────────────────
-const InfoRow = ({ icon: Icon, label, value, children }) => (
-  <div className="flex items-start gap-2">
-    <Icon size={14} className="text-gray-400 mt-0.5 shrink-0" />
-    <div className="min-w-0">
-      <TextTiny className="text-gray-400">{label}</TextTiny>
-      {children || <TextSmall className="text-gray-900 font-semibold truncate">{value || '—'}</TextSmall>}
-    </div>
-  </div>
-);
-
-// ─── Section header ───────────────────────────────────────────────────────────
-const SectionHeader = ({ icon: Icon, title }) => (
+// ─── Local card-section label header (distinct from the page-level SectionHeader) ──
+/**
+ * Encabezado de sección dentro de un Card — icono + label pequeño en uppercase.
+ * @param {{ icon: React.ElementType, title: string }} props
+ */
+const CardSection = ({ icon: Icon, title }) => (
   <div className="flex items-center gap-2 mb-3">
     <div className="p-1.5 bg-gray-100 rounded-lg">
       <Icon size={14} className="text-gray-600" />
@@ -72,220 +33,281 @@ const SectionHeader = ({ icon: Icon, title }) => (
   </div>
 );
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-const ProgramacionVisitaPage = ({ data, setData }) => {
-  const [editingVisita, setEditingVisita]     = useState(null);   // visita being scheduled/edited
-  const [viewingVisita, setViewingVisita]     = useState(null);   // visita read-only
-  const [solicitudOrigen, setSolicitudOrigen] = useState(null);   // linked solicitud for context
-  const [draft,           setDraft]           = useState(emptyVisitaDraft());
-  const [searchTerm,      setSearchTerm]      = useState('');
-  const [filterEstado,    setFilterEstado]    = useState('Todos');
-  const [showHelpModal,     setShowHelpModal]   = useState(false);
-  const [modalTitle,        setModalTitle]      = useState('');
-  const [modalMessage,      setModalMessage]    = useState('');
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+/**
+ * Construye el draft vacío para programar una visita desde una solicitud.
+ * @param {import('../../hooks/useSolicitudesVisita').SolicitudVisita|null} solicitud
+ * @returns {Object}
+ */
+const emptyDraft = (solicitud = null) => ({
+  solicitudId:    solicitud?.id            || null,
+  clienteId:      solicitud?.clienteId     || '',
+  sucursalId:     solicitud?.sucursalId    || '',
+  tipoVisitaId:   solicitud?.tipoVisitaId  || '',
+  tecnicoIds:     [],
+  fechaProgramada: '',
+  observaciones:  '',
+});
 
-  const solicitudes = data?.solicitudesVisita || [];
-  const visitas     = data?.visitas           || [];
-  const usuarios    = data?.usuarios          || [];
+/**
+ * Formatea un ISO string a formato legible en español.
+ * @param {string|null} iso
+ * @returns {string}
+ */
+const fmtDateTime = (iso) =>
+  iso ? new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 
-  // Tecnicos from usuarios list
-  const tecnicosOptions = useMemo(() =>
-    usuarios
-      .filter(u => u.rol === ROLES.TECNICO || u.rol === 'tecnico')
-      .map(u => ({ value: u.id, label: `${u.nombres || ''} ${u.apellidos || ''}`.trim() || u.email })),
-    [usuarios],
-  );
+// ─── Main Page ────────────────────────────────────────────────────────────────
+/**
+ * Página de programación de visitas para coordinadores.
+ * Muestra solicitudes PENDIENTE sin visita asignada + todas las visitas activas.
+ * Permite programar (crear visita desde solicitud) o editar visitas no iniciadas.
+ */
+const ProgramacionVisitaPage = () => {
+  const { user } = useAuth();
 
-  const dispositivoOptions = useMemo(() =>
-    (data?.dispositivos || []).map(d => ({ value: String(d.id), label: d.nombre || `Dispositivo ${d.id}` })),
-    [data],
-  );
+  // ── Remote data ────────────────────────────────────────────────────────────
+  const { solicitudes, loading: loadingSol, fetchSolicitudes } = useSolicitudesVisita();
+  const { visitas, loading: loadingVis, saving, createVisita, updateVisita, cancelVisita } = useVisitas();
 
-  // ── Build combined list: pending solicitudes + existing visitas ──────────
+  // Ambas tablas (visita y solicitud_visita) referencian catalogo con tipo ESTADO_VISITA
+  const { options: estadoOptions } = useCatalog('ESTADO_VISITA');
+
+  /** @type {[Array<{value:string,label:string}>, Function]} */
+  const [tecnicosOptions, setTecnicosOptions] = useState([]);
+
+  // Cargar técnicos activos una sola vez al montar
+  useEffect(() => {
+    // value = tecnico.id (PK de tabla tecnico, FK requerida por visita_tecnico)
+    supabase
+      .from('tecnico')
+      .select('id,perfil_usuario:usuario_id(nombres,apellidos,email)')
+      .eq('activo', true)
+      .then(({ data: tecnicos }) => {
+        setTecnicosOptions(
+          (tecnicos || [])
+            .map(t => {
+              const p = t.perfil_usuario;
+              if (!p) return null;
+              const label = `${p.nombres || ''} ${p.apellidos || ''}`.trim() || p.email || t.id;
+              return { value: t.id, label };
+            })
+            .filter(Boolean)
+        );
+      });
+  }, []);
+
+  // ── UI state ───────────────────────────────────────────────────────────────
+  /** @type {['list'|'form'|'view', Function]} */
+  const [view, setView]                 = useState('list');
+  const [editingVisitaId, setEditingVisitaId] = useState(null); // null = creating
+  const [solicitudOrigen, setSolicitudOrigen] = useState(null);
+  const [draft, setDraft]               = useState(emptyDraft());
+  const [searchTerm, setSearchTerm]     = useState('');
+  const [filterEstado, setFilterEstado] = useState('TODOS');
+  const [viewingItem, setViewingItem]   = useState(null);
+
+  const updateDraft = useCallback(patch => setDraft(prev => ({ ...prev, ...patch })), []);
+
+  // Modal de éxito post-acción
+  const [successModal, setSuccessModal] = useState({ open: false, visitaId: null, isEdit: false });
+  // Modal de confirmación de cancelar visita
+  const [cancelModal, setCancelModal]   = useState({ open: false, item: null });
+
+  // ── Combined list: PENDIENTE solicitudes without visita + all visitas ────────
   const combinedList = useMemo(() => {
-    const visitaIds = new Set(visitas.map(v => v.solicitudId).filter(Boolean));
-    const pendingSolicitudes = solicitudes
-      .filter(s => !visitaIds.has(s.id) && s.estado !== 'CANCELADO')
+    const visitaSolicitudIds = new Set(visitas.map(v => v.solicitudId).filter(Boolean));
+
+    // Solicitudes PENDIENTE que aún no tienen visita programada
+    const pendientes = solicitudes
+      .filter(s => s.estadoCodigo === 'PENDIENTE' && !visitaSolicitudIds.has(s.id))
       .map(s => ({ ...s, _type: 'solicitud' }));
-    const allVisitas = visitas.map(v => ({ ...v, _type: 'visita' }));
-    return [...pendingSolicitudes, ...allVisitas];
+
+    const todasVisitas = visitas.map(v => ({ ...v, _type: 'visita' }));
+
+    return [...pendientes, ...todasVisitas];
   }, [solicitudes, visitas]);
 
   const filtered = useMemo(() => {
     let list = combinedList;
+
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       list = list.filter(item =>
         item.clienteNombre?.toLowerCase().includes(q) ||
-        item.sucursalNombre?.toLowerCase().includes(q),
+        item.sucursalNombre?.toLowerCase().includes(q)
       );
     }
-    if (filterEstado !== 'Todos') list = list.filter(item => item.estado === filterEstado);
+
+    if (filterEstado !== 'TODOS') {
+      list = list.filter(item => {
+        // Para solicitudes usamos estadoCodigo, para visitas también
+        const codigo = item.estadoCodigo || '';
+        return codigo === filterEstado;
+      });
+    }
+
     return list;
   }, [combinedList, searchTerm, filterEstado]);
 
+  const loading = loadingSol || loadingVis;
+
   // ── Handlers ─────────────────────────────────────────────────────────────
-  const handleNewVisita = () => {
+  /**
+   * Abre el formulario para programar una visita desde una solicitud PENDIENTE,
+   * o para editar una visita existente aún no iniciada.
+   * @param {Object} item - Elemento de combinedList (_type: 'solicitud' | 'visita')
+   */
+  const handleSchedule = useCallback(item => {
+    if (item._type === 'solicitud') {
+      setSolicitudOrigen(item);
+      setDraft(emptyDraft(item));
+      setEditingVisitaId(null);
+    } else {
+      // visita existente editable
+      const sol = solicitudes.find(s => s.id === item.solicitudId) || null;
+      setSolicitudOrigen(sol);
+      setDraft({
+        solicitudId:     item.solicitudId,
+        clienteId:       item.clienteId,
+        sucursalId:      item.sucursalId,
+        tipoVisitaId:    item.tipoVisitaId,
+        tecnicoIds:      item.tecnicoIds || [],
+        fechaProgramada: item.fechaProgramada
+          ? new Date(item.fechaProgramada).toISOString().slice(0, 16)
+          : '',
+        observaciones: item.observaciones || '',
+      });
+      setEditingVisitaId(item.id);
+    }
+    setView('form');
+  }, [solicitudes]);
+
+  const handleView = useCallback(item => {
+    const sol = item._type === 'solicitud'
+      ? item
+      : solicitudes.find(s => s.id === item.solicitudId) || null;
+    setSolicitudOrigen(sol);
+    setViewingItem(item);
+    setView('view');
+  }, [solicitudes]);
+
+  const handleCancel = useCallback(() => {
+    setView('list');
+    setEditingVisitaId(null);
     setSolicitudOrigen(null);
-    setDraft(emptyVisitaDraft());
-    setEditingVisita(null);
-    setViewingVisita(null);
-    // Para mostrar el formulario de "Nueva Visita" manual
-    setEditingVisita('new');
-  };
+    setDraft(emptyDraft());
+    setViewingItem(null);
+  }, []);
 
-  const handleSchedule = (item) => {
-    const solicitud = item._type === 'solicitud' ? item : solicitudes.find(s => s.id === item.solicitudId);
-    setSolicitudOrigen(solicitud || null);
-    setDraft(item._type === 'visita'
-      ? {
-          ...item,
-          dispositivoIds:      item.dispositivoIds      ?? (item.dispositivos?.map(d => String(d.id)) ?? []),
-          dispositivosNombres: item.dispositivosNombres ?? (item.dispositivos?.map(d => d.nombre)     ?? []),
-          tecnicoIds:          item.tecnicoIds          ?? [],
-        }
-      : emptyVisitaDraft(item),
-    );
-    setEditingVisita(item._type === 'visita' ? item : null);
-    setViewingVisita(null);
-  };
-
-  const handleView = (item) => {
-    const solicitud = item._type === 'solicitud' ? item : solicitudes.find(s => s.id === item.solicitudId);
-    setSolicitudOrigen(solicitud || null);
-    setViewingVisita(item);
-    setEditingVisita(null);
-  };
-
-  const handleCancel = () => {
-    setEditingVisita(null);
-    setViewingVisita(null);
-    setSolicitudOrigen(null);
-    setDraft(emptyVisitaDraft());
-  };
-
-  const updateDraft = (patch) => setDraft(prev => ({ ...prev, ...patch }));
-
-  const handleSave = () => {
-    if (!draft.tipoVisita || !draft.fechaInicio || !draft.estado) {
-      setModalTitle('Campos Incompletos');
-      setModalMessage('Por favor completa los campos obligatorios: Tipo de Visita, Fecha de Inicio y Estado.');
-      setShowHelpModal(true);
+  const handleSave = useCallback(async () => {
+    if (!draft.fechaProgramada) {
+      // Light inline validation — no modal
       return;
     }
-    const tecnicosNombres = (draft.tecnicoIds || []).map(id => {
-      const u = usuarios.find(u => u.id === id);
-      return u ? `${u.nombres || ''} ${u.apellidos || ''}`.trim() : id;
-    });
 
-    if (editingVisita && editingVisita !== 'new') {
-      // Update existing visita
-      setData(prev => ({
-        ...prev,
-        visitas: (prev.visitas || []).map(v =>
-          v.id === editingVisita.id ? { ...v, ...draft, tecnicosNombres } : v,
-        ),
-      }));
-      // Update solicitud estado if linked
-      if (draft.solicitudId) {
-        setData(prev => ({
-          ...prev,
-          solicitudesVisita: (prev.solicitudesVisita || []).map(s =>
-            s.id === draft.solicitudId ? { ...s, estado: draft.estado } : s,
-          ),
-        }));
+    const payload = {
+      solicitudId:     draft.solicitudId,
+      clienteId:       draft.clienteId,
+      sucursalId:      draft.sucursalId,
+      tipoVisitaId:    draft.tipoVisitaId,
+      fechaProgramada: draft.fechaProgramada,
+      observaciones:   draft.observaciones,
+      tecnicoIds:      draft.tecnicoIds,
+      coordinadorId:   user?.id,
+    };
+
+    let savedId = null;
+    if (editingVisitaId) {
+      const ok = await updateVisita(editingVisitaId, {
+        fechaProgramada: draft.fechaProgramada,
+        observaciones:   draft.observaciones,
+        tecnicoIds:      draft.tecnicoIds,
+      });
+      if (ok) {
+        setView('list');
+        setEditingVisitaId(null);
+        setSolicitudOrigen(null);
+        setDraft(emptyDraft());
+        setSuccessModal({ open: true, visitaId: editingVisitaId, isEdit: true });
       }
     } else {
-      // Create new visita from solicitud
-      const newId = `VIS-${String((data?.visitas || []).length + 1).padStart(3, '0')}`;
-      const nuevaVisita = {
-        id: newId,
-        ...draft,
-        fechaProgramada: draft.fechaInicio,  // fechaInicio doubles as the scheduled start time
-        tecnicosNombres,
-        dispositivos: [],
-        ejecucionPasos: {},
-      };
-      setData(prev => ({
-        ...prev,
-        visitas: [...(prev.visitas || []), nuevaVisita],
-        solicitudesVisita: (prev.solicitudesVisita || []).map(s =>
-          s.id === draft.solicitudId ? { ...s, estado: draft.estado, visitaId: newId } : s,
-        ),
-      }));
+      const id = await createVisita(payload, estadoOptions);
+      if (id) {
+        savedId = id;
+        await fetchSolicitudes();
+        setView('list');
+        setSolicitudOrigen(null);
+        setDraft(emptyDraft());
+        setSuccessModal({ open: true, visitaId: id, isEdit: false });
+      }
     }
-    handleCancel();
-  };
+    void savedId;
+  }, [
+    draft, editingVisitaId, user,
+    estadoOptions,
+    createVisita, updateVisita, fetchSolicitudes,
+  ]);
+
+  const handleConfirmCancel = useCallback(async () => {
+    const item = cancelModal.item;
+    if (!item) return;
+    const ok = await cancelVisita(item.id, estadoOptions);
+    if (ok) setCancelModal({ open: false, item: null });
+  }, [cancelModal.item, cancelVisita, estadoOptions]);
 
   // ══════════════════════════════════════════════════════════════════════════
-  // SCHEDULE / EDIT FORM
+  // FORM VIEW — Programar / Editar
   // ══════════════════════════════════════════════════════════════════════════
-  if (editingVisita !== null || (draft.solicitudId && !viewingVisita)) {
-    const isEditing = editingVisita && editingVisita !== 'new';
+  if (view === 'form') {
+    const isEditing = !!editingVisitaId;
+    const tecnicosSeleccionados = draft.tecnicoIds.map(id => ({
+      value: id,
+      label: tecnicosOptions.find(o => o.value === id)?.label || id,
+    }));
+
     return (
       <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
         <header className="flex items-center justify-between bg-white p-4 rounded-md border border-gray-100 shadow-sm flex-wrap gap-3">
           <div className="flex items-center gap-4">
-            <button onClick={handleCancel} className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm">
+            <button
+              onClick={handleCancel}
+              className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"
+            >
               <ArrowLeft size={16} />
             </button>
             <div>
               <H2>{isEditing ? 'Editar Programación' : 'Programar Visita'}</H2>
               <TextSmall className="text-gray-500">
-                {solicitudOrigen ? `Origen: solicitud ${solicitudOrigen.id}` : 'Visita sin solicitud origen'}
+                {solicitudOrigen
+                  ? `Origen: solicitud ${solicitudOrigen.id.slice(0, 8)}...`
+                  : 'Sin solicitud origen'}
               </TextSmall>
             </div>
           </div>
-          <Button onClick={handleSave} className="flex items-center gap-2">
-            <Save size={16} /> {isEditing ? 'Guardar Cambios' : 'Programar Visita'}
+          <Button
+            onClick={handleSave}
+            disabled={saving || !draft.fechaProgramada}
+            className="flex items-center gap-2"
+          >
+            <Save size={16} />
+            {saving
+              ? 'Guardando...'
+              : isEditing
+                ? 'Guardar Cambios'
+                : 'Programar Visita'}
           </Button>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main form */}
+          {/* ── Formulario principal ─────────────────────────────────── */}
           <div className="lg:col-span-2 space-y-5">
-            {/* Base data */}
+            {/* Técnicos */}
             <Card className="p-5 space-y-4">
-              <SectionHeader icon={AlertCircle} title="Datos de la Visita" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Select
-                  label="Tipo de Visita"
-                  icon={AlertCircle}
-                  options={TIPO_VISITA_OPTIONS}
-                  value={draft.tipoVisita}
-                  onChange={e => updateDraft({ tipoVisita: e.target.value })}
-                  required
-                />
-                <Select
-                  label="Estado"
-                  options={ESTADO_OPTIONS}
-                  value={draft.estado}
-                  onChange={e => updateDraft({ estado: e.target.value })}
-                  required
-                />
-              </div>
-
-              {/* Devices multi-select */}
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block">
-                  Dispositivos a Evaluar
-                </Label>
-                <SearchableSelect
-                  options={dispositivoOptions}
-                  value={(draft.dispositivoIds || []).map(id => ({ value: id, label: dispositivoOptions.find(o => o.value === id)?.label || id }))}
-                  onChange={opts => updateDraft({ dispositivoIds: opts.map(o => o.value), dispositivosNombres: opts.map(o => o.label) })}
-                  placeholder="Seleccionar dispositivos..."
-                  isMulti
-                />
-              </div>
-            </Card>
-
-            {/* Technicians assignment */}
-            <Card className="p-5 space-y-4">
-              <SectionHeader icon={Users} title="Asignación de Técnicos" />
+              <CardSection icon={Users} title="Asignación de Técnicos" />
               <SearchableSelect
                 options={tecnicosOptions}
-                value={(draft.tecnicoIds || []).map(id => ({ value: id, label: tecnicosOptions.find(o => o.value === id)?.label || id }))}
+                value={tecnicosSeleccionados}
                 onChange={opts => updateDraft({ tecnicoIds: opts.map(o => o.value) })}
                 placeholder="Asignar técnicos..."
                 isMulti
@@ -293,50 +315,48 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
               {draft.tecnicoIds.length === 0 && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200">
                   <AlertCircle size={14} className="text-yellow-600 shrink-0" />
-                  <TextTiny className="text-yellow-700">Se recomienda asignar al menos un técnico antes de programar.</TextTiny>
+                  <TextTiny className="text-yellow-700">
+                    Se recomienda asignar al menos un técnico antes de programar.
+                  </TextTiny>
                 </div>
               )}
             </Card>
 
-            {/* Dates */}
+            {/* Fecha programada */}
             <Card className="p-5 space-y-4">
-              <SectionHeader icon={Calendar} title="Fechas" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  { key: 'fechaInicio', label: 'Fecha y Hora de Inicio', required: true  },
-                  { key: 'fechaFin',    label: 'Fecha y Hora de Fin',    required: false },
-                ].map(({ key, label, required }) => (
-                  <div key={key}>
-                    <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
-                      {label} {required && <span className="text-red-500">*</span>}
-                    </Label>
-                    <input
-                      type="datetime-local"
-                      value={draft[key] || ''}
-                      onChange={e => updateDraft({ [key]: e.target.value })}
-                      className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm font-semibold bg-white focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
-                    />
-                  </div>
-                ))}
+              <CardSection icon={Calendar} title="Fecha Programada" />
+              <div>
+                <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+                  Fecha y Hora <span className="text-red-500">*</span>
+                </Label>
+                <input
+                  type="datetime-local"
+                  value={draft.fechaProgramada}
+                  onChange={e => updateDraft({ fechaProgramada: e.target.value })}
+                  className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm font-semibold bg-white focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
+                />
+                {!draft.fechaProgramada && (
+                  <TextTiny className="text-red-500 mt-1">Este campo es obligatorio.</TextTiny>
+                )}
               </div>
             </Card>
 
-            {/* Observation */}
+            {/* Observaciones */}
             <Card className="p-5 space-y-2">
               <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block">
-                Observación del Coordinador
+                Observaciones del Coordinador
               </Label>
               <textarea
                 value={draft.observaciones}
                 onChange={e => updateDraft({ observaciones: e.target.value })}
                 rows={3}
-                placeholder="Instrucciones adicionales para el técnico, acceso, contacto en sitio..."
+                placeholder="Instrucciones adicionales, acceso al sitio, contacto en sitio..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-semibold resize-y focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
               />
             </Card>
           </div>
 
-          {/* Side panel: solicitud origin */}
+          {/* ── Panel lateral: datos de solicitud origen ─────────────── */}
           <div className="space-y-4">
             {solicitudOrigen && (
               <Card className="p-5 bg-linear-to-br from-blue-50 to-indigo-50 border-blue-100 space-y-3">
@@ -345,36 +365,36 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
                   <Label className="text-sm font-bold text-blue-900">Solicitud Origen</Label>
                 </div>
                 <div className="space-y-2">
-                  <InfoRow icon={Building2} label="Cliente"   value={solicitudOrigen.clienteNombre}  />
-                  <InfoRow icon={Building2} label="Sucursal"  value={solicitudOrigen.sucursalNombre} />
-                  <InfoRow icon={Calendar}  label="Fecha sugerida" value={solicitudOrigen.fechaSugerida ? new Date(solicitudOrigen.fechaSugerida).toLocaleString('es-ES') : '—'} />
+                  <InfoRow icon={Building2} label="Cliente"        value={solicitudOrigen.clienteNombre}  />
+                  <InfoRow icon={Building2} label="Sucursal"       value={solicitudOrigen.sucursalNombre} />
+                  <InfoRow icon={AlertCircle} label="Tipo Visita"  value={solicitudOrigen.tipoVisitaLabel} />
+                  <InfoRow icon={Calendar}  label="Fecha sugerida"
+                    value={fmtDateTime(solicitudOrigen.fechaSugerida)} />
                 </div>
-                {solicitudOrigen.observacion && (
+                {solicitudOrigen.motivo && (
                   <div className="p-2 rounded bg-white/60 border border-blue-100">
-                    <TextTiny className="text-blue-700 italic">{solicitudOrigen.observacion}</TextTiny>
+                    <TextTiny className="text-blue-800 font-semibold mb-0.5">Motivo</TextTiny>
+                    <TextTiny className="text-blue-700 italic">{solicitudOrigen.motivo}</TextTiny>
                   </div>
                 )}
                 <div className="pt-1">
-                  <VisitStatusBadge status={solicitudOrigen.estado} />
+                  <VisitStatusBadge status={solicitudOrigen.estadoCodigo} />
                 </div>
               </Card>
             )}
 
+            {/* Resumen de programación */}
             <Card className="p-5 bg-linear-to-br from-gray-50 to-gray-100 space-y-3">
               <div className="flex items-center gap-2">
                 <CalendarCheck size={15} className="text-gray-600" />
-                <Label className="text-sm font-bold text-gray-900">Resumen de Programación</Label>
+                <Label className="text-sm font-bold text-gray-900">Resumen</Label>
               </div>
               <div className="space-y-2">
-                <InfoRow icon={AlertCircle} label="Tipo"    value={draft.tipoVisita || '—'} />
-                <InfoRow icon={Users}       label="Técnicos" value={`${draft.tecnicoIds.length} asignado${draft.tecnicoIds.length !== 1 ? 's' : ''}`} />
-                <InfoRow icon={Cpu}         label="Dispositivos" value={`${draft.dispositivoIds.length} seleccionado${draft.dispositivoIds.length !== 1 ? 's' : ''}`} />
+                <InfoRow icon={Users} label="Técnicos asignados"
+                  value={`${draft.tecnicoIds.length} asignado${draft.tecnicoIds.length !== 1 ? 's' : ''}`} />
+                <InfoRow icon={Calendar} label="Fecha programada"
+                  value={draft.fechaProgramada ? fmtDateTime(draft.fechaProgramada) : '—'} />
               </div>
-              {draft.estado && (
-                <div className="pt-1">
-                  <VisitStatusBadge status={draft.estado} />
-                </div>
-              )}
             </Card>
           </div>
         </div>
@@ -385,23 +405,32 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
   // ══════════════════════════════════════════════════════════════════════════
   // DETAIL / VIEW MODE
   // ══════════════════════════════════════════════════════════════════════════
-  if (viewingVisita) {
-    const item = viewingVisita;
+  if (view === 'view' && viewingItem) {
+    const item = viewingItem;
+    const canEdit = item._type === 'visita'
+      ? item.esEditable
+      : item.estadoCodigo === 'PENDIENTE';
+
     return (
       <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
         <header className="flex items-center justify-between bg-white p-4 rounded-md border border-gray-100 shadow-sm flex-wrap gap-3">
           <div className="flex items-center gap-4">
-            <button onClick={handleCancel} className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm">
+            <button
+              onClick={handleCancel}
+              className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"
+            >
               <ArrowLeft size={16} />
             </button>
             <div>
-              <H2>Detalle · {item.id}</H2>
-              <TextSmall className="text-gray-500">{item.clienteNombre} — {item.sucursalNombre}</TextSmall>
+              <H2>Detalle · {item.id.slice(0, 8)}...</H2>
+              <TextSmall className="text-gray-500">
+                {item.clienteNombre} — {item.sucursalNombre}
+              </TextSmall>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <VisitStatusBadge status={item.estado} />
-            {item._type === 'visita' && (
+            <VisitStatusBadge status={item._type === 'visita' ? item.estadoCodigo : item.estadoCodigo} />
+            {canEdit && (
               <Button onClick={() => handleSchedule(item)} className="flex items-center gap-2">
                 <Edit size={14} /> Editar
               </Button>
@@ -412,14 +441,23 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-5">
             <Card className="p-5 space-y-4">
-              <SectionHeader icon={CalendarCheck} title="Datos de la Visita" />
+              <CardSection icon={CalendarCheck} title="Datos de la Visita" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InfoRow icon={AlertCircle} label="Tipo"              value={item.tipoVisita}         />
-                <InfoRow icon={Building2}   label="Sucursal"          value={item.sucursalNombre}     />
-                <InfoRow icon={Calendar}    label="Fecha Programada"  value={item.fechaProgramada ? new Date(item.fechaProgramada).toLocaleString('es-ES') : '—'} />
-                <InfoRow icon={Calendar}    label="Fecha Inicio"      value={item.fechaInicio ? new Date(item.fechaInicio).toLocaleString('es-ES') : '—'} />
-                <InfoRow icon={Calendar}    label="Fecha Fin"         value={item.fechaFin ? new Date(item.fechaFin).toLocaleString('es-ES') : '—'} />
-                <InfoRow icon={User}        label="Técnicos"          value={item.tecnicosNombres?.join(', ') || '—'} />
+                <InfoRow icon={AlertCircle} label="Tipo"
+                  value={item.tipoVisitaLabel || item.tipoVisitaCodigo || '—'} />
+                <InfoRow icon={Building2}   label="Sucursal"       value={item.sucursalNombre} />
+                {item._type === 'visita' && (
+                  <>
+                    <InfoRow icon={Calendar} label="Fecha Programada" value={fmtDateTime(item.fechaProgramada)} />
+                    <InfoRow icon={Calendar} label="Fecha Inicio"     value={fmtDateTime(item.fechaInicio)} />
+                    <InfoRow icon={Calendar} label="Fecha Fin"        value={fmtDateTime(item.fechaFin)} />
+                    <InfoRow icon={User}     label="Técnicos"
+                      value={item.tecnicosNombres?.join(', ') || '—'} />
+                  </>
+                )}
+                {item._type === 'solicitud' && (
+                  <InfoRow icon={Calendar} label="Fecha Sugerida" value={fmtDateTime(item.fechaSugerida)} />
+                )}
               </div>
               {item.observaciones && (
                 <div className="p-3 rounded-lg bg-gray-50 border border-gray-100">
@@ -427,34 +465,29 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
                   <TextSmall className="text-gray-700">{item.observaciones}</TextSmall>
                 </div>
               )}
+              {item.motivo && (
+                <div className="p-3 rounded-lg bg-gray-50 border border-gray-100">
+                  <TextTiny className="text-gray-400 mb-1">Motivo</TextTiny>
+                  <TextSmall className="text-gray-700">{item.motivo}</TextSmall>
+                </div>
+              )}
             </Card>
-
-            {item._type === 'visita' && item.dispositivos?.length > 0 && (
-              <Card className="p-5 space-y-3">
-                <SectionHeader icon={Cpu} title="Avance por Dispositivo" />
-                <VisitProgressPanel
-                  dispositivos={item.dispositivos.map(d => ({
-                    ...d,
-                    pasos: d.pasos?.map(p => ({
-                      ...p,
-                      estado: item.ejecucionPasos?.[p.id]?.estado || 'PENDIENTE',
-                    })),
-                  }))}
-                />
-              </Card>
-            )}
           </div>
 
           <div className="space-y-4">
-            {solicitudOrigen && (
+            {solicitudOrigen && item._type === 'visita' && (
               <Card className="p-5 bg-linear-to-br from-blue-50 to-indigo-50 border-blue-100 space-y-3">
                 <div className="flex items-center gap-2">
                   <AlertCircle size={14} className="text-blue-600" />
                   <Label className="text-sm font-bold text-blue-900">Solicitud Origen</Label>
                 </div>
-                <InfoRow icon={Calendar} label="Solicitada el" value={solicitudOrigen.fechaSolicitud ? new Date(solicitudOrigen.fechaSolicitud).toLocaleDateString('es-ES') : '—'} />
-                <InfoRow icon={AlertCircle} label="Tipo Solicitado" value={solicitudOrigen.tipoVisita} />
-                <VisitStatusBadge status={solicitudOrigen.estado} />
+                <InfoRow icon={Calendar} label="Solicitada el"
+                  value={solicitudOrigen.fechaSolicitud
+                    ? new Date(solicitudOrigen.fechaSolicitud).toLocaleDateString('es-ES')
+                    : '—'} />
+                <InfoRow icon={AlertCircle} label="Tipo Solicitado"
+                  value={solicitudOrigen.tipoVisitaLabel} />
+                <VisitStatusBadge status={solicitudOrigen.estadoCodigo} />
               </Card>
             )}
           </div>
@@ -472,8 +505,6 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
         icon={CalendarCheck}
         title="Programación de Visitas"
         subtitle="Asigna técnicos y fechas a las solicitudes pendientes"
-        onNewClick={handleNewVisita}
-        newButtonLabel="Nueva Visita"
         filterContent={
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
             <div className="relative">
@@ -486,19 +517,22 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
                 className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
               />
               {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded">
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                >
                   <X size={13} className="text-gray-400" />
                 </button>
               )}
             </div>
             <Select
               options={[
-                { value: 'Todos',        label: 'Todos los estados' },
-                { value: 'SOLICITUD',    label: 'Solicitud'         },
-                { value: 'PROGRAMADO',   label: 'Programado'        },
-                { value: 'REPROGRAMADO', label: 'Reprogramado'      },
-                { value: 'EN_CURSO',     label: 'En curso'          },
-                { value: 'CANCELADO',    label: 'Cancelado'         },
+                { value: 'TODOS',       label: 'Todos los estados' },
+                { value: 'PENDIENTE',   label: 'Pendiente'         },
+                { value: 'PROGRAMADA',  label: 'Programada'        },
+                { value: 'EN_PROCESO',  label: 'En proceso'        },
+                { value: 'FINALIZADO',  label: 'Finalizado'        },
+                { value: 'CANCELADO',   label: 'Cancelado'         },
               ]}
               value={filterEstado}
               onChange={e => setFilterEstado(e.target.value)}
@@ -507,12 +541,10 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
         }
       />
 
-      {/* Table */}
       <Card className="p-0 overflow-hidden">
         <Table>
           <THead variant="light">
             <tr>
-              <Th>ID</Th>
               <Th>Tipo</Th>
               <Th>Cliente / Sucursal</Th>
               <Th>Fecha</Th>
@@ -522,85 +554,185 @@ const ProgramacionVisitaPage = ({ data, setData }) => {
             </tr>
           </THead>
           <TBody>
-            {filtered.length === 0 ? (
+            {loading ? (
               <Tr>
-                <td colSpan={7} className="text-center py-12 text-sm text-gray-400">
+                <td colSpan={6} className="text-center py-12 text-sm text-gray-400">
+                  Cargando...
+                </td>
+              </Tr>
+            ) : filtered.length === 0 ? (
+              <Tr>
+                <td colSpan={6} className="text-center py-12 text-sm text-gray-400">
                   No hay visitas o solicitudes pendientes con los filtros aplicados.
                 </td>
               </Tr>
             ) : (
-              filtered.map(item => (
-                <Tr key={item.id}>
-                  <Td>
-                    <TextSmall className="font-bold text-gray-700 whitespace-nowrap">{item.id}</TextSmall>
-                  </Td>
-                  <Td>
-                    {item.tipoVisita
-                      ? <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${
-                          item.tipoVisita === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+              filtered.map(item => {
+                const tipoCodigo = item.tipoVisitaCodigo || '';
+                const fechaDisplay = item._type === 'visita'
+                  ? item.fechaProgramada
+                  : item.fechaSugerida;
+                const estadoCodigo = item.estadoCodigo || '';
+                const canEdit = item._type === 'solicitud'
+                  ? estadoCodigo === 'PENDIENTE'
+                  : item.esEditable;
+
+                return (
+                  <Tr key={item.id}>
+                    <Td>
+                      {tipoCodigo ? (
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${
+                          tipoCodigo === 'PREVENTIVO'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-orange-100 text-orange-700'
                         }`}>
-                          {item.tipoVisita}
+                          {item.tipoVisitaLabel || tipoCodigo}
                         </span>
-                      : <TextSmall className="text-gray-400">—</TextSmall>
-                    }
-                  </Td>
-                  <Td>
-                    <TextSmall className="font-semibold">{item.clienteNombre}</TextSmall>
-                    <TextTiny className="text-gray-400">{item.sucursalNombre}</TextTiny>
-                  </Td>
-                  <Td>
-                    {item.fechaProgramada
-                      ? <div className="whitespace-nowrap">
-                          <TextSmall>{new Date(item.fechaProgramada).toLocaleDateString('es-ES')}</TextSmall>
-                          <TextTiny className="text-gray-400">{new Date(item.fechaProgramada).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</TextTiny>
+                      ) : (
+                        <TextSmall className="text-gray-400">—</TextSmall>
+                      )}
+                    </Td>
+                    <Td>
+                      <TextSmall className="font-semibold">{item.clienteNombre}</TextSmall>
+                      <TextTiny className="text-gray-400">{item.sucursalNombre}</TextTiny>
+                    </Td>
+                    <Td>
+                      {fechaDisplay ? (
+                        <div className="whitespace-nowrap">
+                          <TextSmall>
+                            {new Date(fechaDisplay).toLocaleDateString('es-ES')}
+                          </TextSmall>
+                          <TextTiny className="text-gray-400">
+                            {new Date(fechaDisplay).toLocaleTimeString('es-ES', {
+                              hour: '2-digit', minute: '2-digit',
+                            })}
+                          </TextTiny>
                         </div>
-                      : <TextSmall className="text-gray-400 italic whitespace-nowrap">Sin programar</TextSmall>
-                    }
-                  </Td>
-                  <Td>
-                    <TechnicianChipList names={item.tecnicosNombres || []} />
-                  </Td>
-                  <Td><VisitStatusBadge status={item.estado} /></Td>
-                  <Td align="right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => handleView(item)}
-                        className="p-2 hover:bg-blue-50 rounded-md transition-colors"
-                        title="Ver detalle"
-                      >
-                        <Eye size={15} className="text-blue-600" />
-                      </button>
-                      <button
-                        onClick={() => handleSchedule(item)}
-                        className="p-2 hover:bg-green-50 rounded-md transition-colors"
-                        title="Editar"
-                      >
-                        <Edit size={15} className="text-green-600" />
-                      </button>
-                    </div>
-                  </Td>
-                </Tr>
-              ))
+                      ) : (
+                        <TextSmall className="text-gray-400 italic whitespace-nowrap">
+                          Sin programar
+                        </TextSmall>
+                      )}
+                    </Td>
+                    <Td>
+                      {item._type === 'visita' ? (
+                        <TechnicianChipList names={item.tecnicosNombres || []} />
+                      ) : (
+                        <TextTiny className="text-gray-400 italic">—</TextTiny>
+                      )}
+                    </Td>
+                    <Td>
+                      <VisitStatusBadge status={estadoCodigo} />
+                    </Td>
+                    <Td align="right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleView(item)}
+                          className="p-2 hover:bg-blue-50 rounded-md transition-colors"
+                          title="Ver detalle"
+                        >
+                          <Eye size={15} className="text-blue-600" />
+                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => handleSchedule(item)}
+                            className="p-2 hover:bg-green-50 rounded-md transition-colors"
+                            title={item._type === 'solicitud' ? 'Programar' : 'Editar'}
+                          >
+                            <Edit size={15} className="text-green-600" />
+                          </button>
+                        )}
+                        {item._type === 'visita' && item.esEditable && (
+                          <button
+                            onClick={() => setCancelModal({ open: true, item })}
+                            className="p-2 hover:bg-red-50 rounded-md transition-colors"
+                            title="Cancelar visita"
+                          >
+                            <Trash2 size={15} className="text-red-500" />
+                          </button>
+                        )}
+                      </div>
+                    </Td>
+                  </Tr>
+                );
+              })
             )}
           </TBody>
         </Table>
       </Card>
 
-      <Modal
-        isOpen={showHelpModal}
-        onClose={() => setShowHelpModal(false)}
-        title={modalTitle}
-        maxWidth="max-w-md"
-      >
-        <div className="space-y-4">
-          <TextSmall className="text-gray-600 leading-relaxed text-base normal-case">
-            {modalMessage}
-          </TextSmall>
-          <div className="flex justify-end pt-2">
-            <Button onClick={() => setShowHelpModal(false)}>Aceptar</Button>
+      {/* ── Modal éxito post-acción ───────────────────────────────────────── */}
+      {successModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-3 text-green-600 mb-4">
+              <CheckCircle2 size={32} />
+              <H3 className="normal-case text-gray-900">
+                {successModal.isEdit ? 'Visita actualizada' : 'Visita programada'}
+              </H3>
+            </div>
+            <TextSmall className="text-gray-600 mb-6 leading-relaxed">
+              {successModal.isEdit
+                ? 'Los cambios en la programación fueron guardados correctamente. ¿Qué deseas hacer ahora?'
+                : 'La visita fue programada correctamente. ¿Qué deseas hacer ahora?'}
+            </TextSmall>
+            <div className="flex flex-col gap-3">
+              <Button
+                onClick={() => {
+                  const id = successModal.visitaId;
+                  setSuccessModal({ open: false, visitaId: null, isEdit: false });
+                  if (id) {
+                    const found = visitas.find(v => v.id === id);
+                    if (found) handleView({ ...found, _type: 'visita' });
+                  }
+                }}
+                variant="success"
+                className="w-full"
+              >
+                Ver visita programada
+              </Button>
+              <Button
+                onClick={() => setSuccessModal({ open: false, visitaId: null, isEdit: false })}
+                variant="outline"
+                className="w-full"
+              >
+                Volver a Programación de Visitas
+              </Button>
+            </div>
           </div>
         </div>
-      </Modal>
+      )}
+
+      {/* ── Modal confirmación cancelar ───────────────────────────────────── */}
+      {cancelModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-3 text-red-600 mb-4">
+              <Trash2 size={32} />
+              <H3 className="normal-case text-gray-900">Cancelar visita</H3>
+            </div>
+            <TextSmall className="text-gray-600 mb-6 leading-relaxed">
+              ¿Estás seguro de que deseas cancelar esta visita? Esta acción no se puede deshacer.
+            </TextSmall>
+            <div className="flex flex-col gap-3">
+              <Button
+                onClick={handleConfirmCancel}
+                disabled={saving}
+                className="w-full bg-red-600 hover:bg-red-700"
+              >
+                {saving ? 'Cancelando...' : 'Sí, cancelar visita'}
+              </Button>
+              <Button
+                onClick={() => setCancelModal({ open: false, item: null })}
+                variant="outline"
+                className="w-full"
+              >
+                Mantener visita
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
