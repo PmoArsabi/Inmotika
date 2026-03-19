@@ -118,7 +118,7 @@ function App() {
       const visitsSubTab = getVisitsSubTab(activeTab);
       
       if (visitsSubTab === 'solicitudes') {
-        if (isAdminGroup || userRole === 'CLIENTE') return <SolicitudVisitaPage data={data} setData={setData} />;
+        if (isAdminGroup || userRole === 'CLIENTE') return <SolicitudVisitaPage />;
         return <div className="p-8 text-red-500 font-bold">Acceso Denegado</div>;
       }
       

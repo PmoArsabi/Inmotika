@@ -405,15 +405,32 @@ alter table "public"."perfil_usuario" enable row level security;
     "id" uuid not null default gen_random_uuid(),
     "cliente_id" uuid,
     "sucursal_id" uuid,
-    "coordinador_id" uuid,
     "creado_por" uuid,
     "tipo_visita_id" uuid,
     "fecha_solicitud" timestamp with time zone default now(),
+    "fecha_sugerida" timestamp with time zone,
     "motivo" text not null,
+    "prioridad" character varying(20) default 'MEDIA',
     "estado_id" uuid,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
+
+
+alter table "public"."solicitud_visita" enable row level security;
+
+
+  -- Junction table: dispositivos solicitados en una solicitud de visita
+  create table "public"."solicitud_dispositivo" (
+    "id" uuid not null default gen_random_uuid(),
+    "solicitud_id" uuid not null,
+    "dispositivo_id" uuid not null,
+    "activo" boolean not null default true,
+    "created_at" timestamp with time zone default now()
+      );
+
+
+alter table "public"."solicitud_dispositivo" enable row level security;
 
 
 alter table "public"."solicitud_visita" enable row level security;
@@ -471,7 +488,7 @@ alter table "public"."tecnico_certificado" enable row level security;
   create table "public"."visita" (
     "id" uuid not null default gen_random_uuid(),
     "solicitud_id" uuid,
-    "coordinador_id" uuid,
+    "coordinador_usuario_id" uuid,
     "cliente_id" uuid,
     "sucursal_id" uuid,
     "tipo_visita_id" uuid,
@@ -573,6 +590,10 @@ CREATE UNIQUE INDEX perfil_usuario_pkey ON public.perfil_usuario USING btree (id
 
 CREATE UNIQUE INDEX solicitud_visita_pkey ON public.solicitud_visita USING btree (id);
 
+CREATE UNIQUE INDEX solicitud_dispositivo_pkey ON public.solicitud_dispositivo USING btree (id);
+
+CREATE UNIQUE INDEX solicitud_dispositivo_unique ON public.solicitud_dispositivo USING btree (solicitud_id, dispositivo_id);
+
 CREATE UNIQUE INDEX sucursal_pkey ON public.sucursal USING btree (id);
 
 CREATE UNIQUE INDEX tecnico_certificado_pkey ON public.tecnico_certificado USING btree (id);
@@ -632,6 +653,8 @@ alter table "public"."paso_protocolo" add constraint "paso_protocolo_pkey" PRIMA
 alter table "public"."perfil_usuario" add constraint "perfil_usuario_pkey" PRIMARY KEY using index "perfil_usuario_pkey";
 
 alter table "public"."solicitud_visita" add constraint "solicitud_visita_pkey" PRIMARY KEY using index "solicitud_visita_pkey";
+
+alter table "public"."solicitud_dispositivo" add constraint "solicitud_dispositivo_pkey" PRIMARY KEY using index "solicitud_dispositivo_pkey";
 
 alter table "public"."sucursal" add constraint "sucursal_pkey" PRIMARY KEY using index "sucursal_pkey";
 
@@ -853,10 +876,6 @@ alter table "public"."solicitud_visita" add constraint "solicitud_visita_cliente
 
 alter table "public"."solicitud_visita" validate constraint "solicitud_visita_cliente_id_fkey";
 
-alter table "public"."solicitud_visita" add constraint "solicitud_visita_coordinador_id_fkey" FOREIGN KEY (coordinador_id) REFERENCES public.coordinador(id) not valid;
-
-alter table "public"."solicitud_visita" validate constraint "solicitud_visita_coordinador_id_fkey";
-
 alter table "public"."solicitud_visita" add constraint "solicitud_visita_creado_por_fkey" FOREIGN KEY (creado_por) REFERENCES public.perfil_usuario(id) not valid;
 
 alter table "public"."solicitud_visita" validate constraint "solicitud_visita_creado_por_fkey";
@@ -872,6 +891,14 @@ alter table "public"."solicitud_visita" validate constraint "solicitud_visita_su
 alter table "public"."solicitud_visita" add constraint "solicitud_visita_tipo_visita_id_fkey" FOREIGN KEY (tipo_visita_id) REFERENCES public.catalogo(id) not valid;
 
 alter table "public"."solicitud_visita" validate constraint "solicitud_visita_tipo_visita_id_fkey";
+
+alter table "public"."solicitud_dispositivo" add constraint "solicitud_dispositivo_solicitud_id_fkey" FOREIGN KEY (solicitud_id) REFERENCES public.solicitud_visita(id) ON DELETE CASCADE not valid;
+
+alter table "public"."solicitud_dispositivo" validate constraint "solicitud_dispositivo_solicitud_id_fkey";
+
+alter table "public"."solicitud_dispositivo" add constraint "solicitud_dispositivo_dispositivo_id_fkey" FOREIGN KEY (dispositivo_id) REFERENCES public.dispositivo(id) not valid;
+
+alter table "public"."solicitud_dispositivo" validate constraint "solicitud_dispositivo_dispositivo_id_fkey";
 
 alter table "public"."sucursal" add constraint "sucursal_cliente_id_fkey" FOREIGN KEY (cliente_id) REFERENCES public.cliente(id) ON DELETE CASCADE not valid;
 
@@ -893,9 +920,9 @@ alter table "public"."visita" add constraint "visita_cliente_id_fkey" FOREIGN KE
 
 alter table "public"."visita" validate constraint "visita_cliente_id_fkey";
 
-alter table "public"."visita" add constraint "visita_coordinador_id_fkey" FOREIGN KEY (coordinador_id) REFERENCES public.coordinador(id) not valid;
+alter table "public"."visita" add constraint "visita_coordinador_usuario_id_fkey" FOREIGN KEY (coordinador_usuario_id) REFERENCES public.perfil_usuario(id) not valid;
 
-alter table "public"."visita" validate constraint "visita_coordinador_id_fkey";
+alter table "public"."visita" validate constraint "visita_coordinador_usuario_id_fkey";
 
 alter table "public"."visita" add constraint "visita_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo(id) not valid;
 
@@ -1075,6 +1102,40 @@ BEGIN
     AND director_id = auth.uid()
     AND activo = true
   );
+END;
+$function$
+;
+
+-- Verifica si el usuario autenticado es un técnico asignado a una visita específica
+CREATE OR REPLACE FUNCTION public.is_tecnico_asignado_visita(check_visita_id uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.visita_tecnico vt
+    JOIN public.tecnico t ON t.id = vt.tecnico_id
+    WHERE vt.visita_id = check_visita_id
+    AND t.usuario_id = auth.uid()
+  );
+END;
+$function$
+;
+
+-- Obtiene el tecnico_id del usuario autenticado (NULL si no es técnico)
+CREATE OR REPLACE FUNCTION public.get_current_tecnico_id()
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  result uuid;
+BEGIN
+  SELECT id INTO result FROM public.tecnico
+  WHERE usuario_id = auth.uid() AND activo = true
+  LIMIT 1;
+  RETURN result;
 END;
 $function$
 ;
@@ -2620,6 +2681,14 @@ with check ((EXISTS ( SELECT 1
   WHERE ((p.id = auth.uid()) AND ((r.codigo)::text = 'CLIENTE'::text)))));
 
 
+create policy "Clientes pueden ver sus solicitudes"
+on "public"."solicitud_visita"
+as permissive
+for select
+to authenticated
+using (creado_por = auth.uid());
+
+
 
    create policy "Access for admins and assigned directors"
    on "public"."sucursal"
@@ -2678,6 +2747,14 @@ using ((EXISTS ( SELECT 1
   for all
   to public
 using (public.is_admin_or_coordinator());
+
+  -- Técnicos asignados pueden ver sus visitas (solo SELECT)
+  create policy "Tecnicos can view assigned visits"
+  on "public"."visita"
+  as permissive
+  for select
+  to authenticated
+using (public.is_tecnico_asignado_visita(id));
 
 
    create policy "Admins can manage director assignments"
@@ -2744,6 +2821,316 @@ using ((bucket_id = 'inmotika'::text));
   for delete
   to authenticated
 using ((bucket_id = 'inmotika'::text));
+
+
+-- =============================================================================
+-- RLS POLICIES: Visit workflow tables (previously locked - RLS enabled, 0 policies)
+-- =============================================================================
+
+-- --- visita ---
+create policy "Admin manage visita"
+on "public"."visita"
+as permissive
+for all
+to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+create policy "Tecnicos can view assigned visitas"
+on "public"."visita"
+as permissive
+for select
+to authenticated
+using (
+  EXISTS (
+    SELECT 1 FROM public.visita_tecnico vt
+    WHERE vt.visita_id = visita.id
+    AND vt.tecnico_id = public.get_current_tecnico_id()
+  )
+);
+
+-- --- visita_tecnico ---
+create policy "Admin manage visita_tecnico"
+on "public"."visita_tecnico"
+as permissive
+for all
+to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+create policy "Tecnicos can view their assignments"
+on "public"."visita_tecnico"
+as permissive
+for select
+to authenticated
+using (tecnico_id = public.get_current_tecnico_id());
+
+
+-- --- intervencion ---
+create policy "Admin manage intervencion"
+on "public"."intervencion"
+as permissive
+for all
+to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+create policy "Tecnicos can view and update assigned interventions"
+on "public"."intervencion"
+as permissive
+for select
+to authenticated
+using (public.is_tecnico_asignado_visita(visita_id));
+
+create policy "Tecnicos can update assigned interventions"
+on "public"."intervencion"
+as permissive
+for update
+to authenticated
+using (public.is_tecnico_asignado_visita(visita_id))
+with check (public.is_tecnico_asignado_visita(visita_id));
+
+
+-- --- ejecucion_paso ---
+create policy "Admin manage ejecucion_paso"
+on "public"."ejecucion_paso"
+as permissive
+for all
+to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+create policy "Tecnicos can manage ejecucion_paso of assigned visits"
+on "public"."ejecucion_paso"
+as permissive
+for all
+to authenticated
+using (
+  EXISTS (
+    SELECT 1 FROM public.intervencion i
+    WHERE i.id = intervencion_id
+    AND public.is_tecnico_asignado_visita(i.visita_id)
+  )
+)
+with check (
+  EXISTS (
+    SELECT 1 FROM public.intervencion i
+    WHERE i.id = intervencion_id
+    AND public.is_tecnico_asignado_visita(i.visita_id)
+  )
+);
+
+
+-- --- ejecucion_actividad ---
+create policy "Admin manage ejecucion_actividad"
+on "public"."ejecucion_actividad"
+as permissive
+for all
+to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+create policy "Tecnicos can manage ejecucion_actividad of assigned visits"
+on "public"."ejecucion_actividad"
+as permissive
+for all
+to authenticated
+using (
+  EXISTS (
+    SELECT 1 FROM public.intervencion i
+    WHERE i.id = intervencion_id
+    AND public.is_tecnico_asignado_visita(i.visita_id)
+  )
+)
+with check (
+  EXISTS (
+    SELECT 1 FROM public.intervencion i
+    WHERE i.id = intervencion_id
+    AND public.is_tecnico_asignado_visita(i.visita_id)
+  )
+);
+
+
+-- --- evidencia_paso ---
+create policy "Admin manage evidencia_paso"
+on "public"."evidencia_paso"
+as permissive
+for all
+to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+create policy "Tecnicos can manage evidencia_paso of assigned visits"
+on "public"."evidencia_paso"
+as permissive
+for all
+to authenticated
+using (
+  EXISTS (
+    SELECT 1 FROM public.ejecucion_paso ep
+    JOIN public.intervencion i ON i.id = ep.intervencion_id
+    WHERE ep.id = ejecucion_paso_id
+    AND public.is_tecnico_asignado_visita(i.visita_id)
+  )
+)
+with check (
+  EXISTS (
+    SELECT 1 FROM public.ejecucion_paso ep
+    JOIN public.intervencion i ON i.id = ep.intervencion_id
+    WHERE ep.id = ejecucion_paso_id
+    AND public.is_tecnico_asignado_visita(i.visita_id)
+  )
+);
+
+
+-- --- evidencia_visita ---
+create policy "Admin manage evidencia_visita"
+on "public"."evidencia_visita"
+as permissive
+for all
+to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+create policy "Tecnicos can manage evidencia of assigned visits"
+on "public"."evidencia_visita"
+as permissive
+for all
+to authenticated
+using (public.is_tecnico_asignado_visita(visita_id))
+with check (public.is_tecnico_asignado_visita(visita_id));
+
+
+-- --- disponibilidad_tecnico ---
+create policy "Admin manage disponibilidad_tecnico"
+on "public"."disponibilidad_tecnico"
+as permissive
+for all
+to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+create policy "Tecnicos can manage own availability"
+on "public"."disponibilidad_tecnico"
+as permissive
+for all
+to authenticated
+using (
+  EXISTS (
+    SELECT 1 FROM public.tecnico t
+    WHERE t.id = tecnico_id AND t.usuario_id = auth.uid()
+  )
+)
+with check (
+  EXISTS (
+    SELECT 1 FROM public.tecnico t
+    WHERE t.id = tecnico_id AND t.usuario_id = auth.uid()
+  )
+);
+
+
+-- --- historial_traslado ---
+create policy "Admin manage historial_traslado"
+on "public"."historial_traslado"
+as permissive
+for all
+to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+create policy "Authenticated can view historial_traslado"
+on "public"."historial_traslado"
+as permissive
+for select
+to authenticated
+using (true);
+
+
+-- --- solicitud_dispositivo ---
+create policy "Admin manage solicitud_dispositivo"
+on "public"."solicitud_dispositivo"
+as permissive
+for all
+to authenticated
+using (public.is_admin_or_coordinator())
+with check (public.is_admin_or_coordinator());
+
+create policy "Clientes can insert solicitud_dispositivo"
+on "public"."solicitud_dispositivo"
+as permissive
+for insert
+to authenticated
+with check (
+  EXISTS (
+    SELECT 1 FROM public.solicitud_visita sv
+    WHERE sv.id = solicitud_id
+    AND sv.creado_por = auth.uid()
+  )
+);
+
+create policy "Clientes can view own solicitud_dispositivo"
+on "public"."solicitud_dispositivo"
+as permissive
+for select
+to authenticated
+using (
+  EXISTS (
+    SELECT 1 FROM public.solicitud_visita sv
+    WHERE sv.id = solicitud_id
+    AND sv.creado_por = auth.uid()
+  )
+);
+
+
+-- =============================================================================
+-- PERFORMANCE INDEXES: FK columns on visit workflow tables
+-- =============================================================================
+
+CREATE INDEX idx_solicitud_visita_cliente_id ON public.solicitud_visita USING btree (cliente_id);
+CREATE INDEX idx_solicitud_visita_sucursal_id ON public.solicitud_visita USING btree (sucursal_id);
+CREATE INDEX idx_solicitud_visita_estado_id ON public.solicitud_visita USING btree (estado_id);
+
+CREATE INDEX idx_solicitud_dispositivo_solicitud_id ON public.solicitud_dispositivo USING btree (solicitud_id);
+CREATE INDEX idx_solicitud_dispositivo_dispositivo_id ON public.solicitud_dispositivo USING btree (dispositivo_id);
+
+CREATE INDEX idx_visita_solicitud_id ON public.visita USING btree (solicitud_id);
+CREATE INDEX idx_visita_estado_id ON public.visita USING btree (estado_id);
+CREATE INDEX idx_visita_cliente_id ON public.visita USING btree (cliente_id);
+CREATE INDEX idx_visita_sucursal_id ON public.visita USING btree (sucursal_id);
+CREATE INDEX idx_visita_fecha_programada ON public.visita USING btree (fecha_programada);
+CREATE INDEX idx_visita_coordinador_usuario_id ON public.visita USING btree (coordinador_usuario_id);
+
+CREATE INDEX idx_visita_tecnico_visita_id ON public.visita_tecnico USING btree (visita_id);
+CREATE INDEX idx_visita_tecnico_tecnico_id ON public.visita_tecnico USING btree (tecnico_id);
+
+CREATE INDEX idx_intervencion_visita_id ON public.intervencion USING btree (visita_id);
+CREATE INDEX idx_intervencion_dispositivo_id ON public.intervencion USING btree (dispositivo_id);
+CREATE INDEX idx_intervencion_estado_id ON public.intervencion USING btree (estado_id);
+
+CREATE INDEX idx_ejecucion_paso_intervencion_id ON public.ejecucion_paso USING btree (intervencion_id);
+CREATE INDEX idx_ejecucion_paso_paso_protocolo_id ON public.ejecucion_paso USING btree (paso_protocolo_id);
+
+CREATE INDEX idx_evidencia_paso_ejecucion_paso_id ON public.evidencia_paso USING btree (ejecucion_paso_id);
+CREATE INDEX idx_evidencia_visita_visita_id ON public.evidencia_visita USING btree (visita_id);
+
+CREATE INDEX idx_disponibilidad_tecnico_tecnico_id ON public.disponibilidad_tecnico USING btree (tecnico_id);
+CREATE INDEX idx_disponibilidad_tecnico_fechas ON public.disponibilidad_tecnico USING btree (fecha_inicio, fecha_fin);
+
+CREATE INDEX idx_dispositivo_sucursal_id ON public.dispositivo USING btree (sucursal_id);
+CREATE INDEX idx_dispositivo_cliente_id ON public.dispositivo USING btree (cliente_id);
+CREATE INDEX idx_dispositivo_categoria_id ON public.dispositivo USING btree (categoria_id);
+
+
+-- =============================================================================
+-- TRIGGERS: auto-update updated_at on visit workflow tables
+-- =============================================================================
+
+CREATE TRIGGER set_updated_at_solicitud_visita BEFORE UPDATE ON public.solicitud_visita FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at_visita BEFORE UPDATE ON public.visita FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at_intervencion BEFORE UPDATE ON public.intervencion FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at_ejecucion_paso BEFORE UPDATE ON public.ejecucion_paso FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at_dispositivo BEFORE UPDATE ON public.dispositivo FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at_perfil_usuario BEFORE UPDATE ON public.perfil_usuario FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 
 
