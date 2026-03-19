@@ -28,16 +28,13 @@ const ClientNavigator = ({
   setAssociateDirectorsSelected,
   setAssociateDirectorsSearch,
 }) => {
-  const { 
+  const {
     route, drafts, setDrafts, updateDraft, setStack,
-    editingBranchId, setEditingBranchId, 
-    viewBranchMode, setViewBranchMode,
-    creatingNewBranch, setCreatingNewBranch,
-    showErrors, setShowErrors,
-    saveState, setSaveState,
-    showSuccessModal, setShowSuccessModal,
-    branchSuccessInfo, setBranchSuccessInfo,
-    savedClientId, setSavedClientId,
+    editingBranchId, viewBranchMode, creatingNewBranch,
+    showErrors, saveState, showSuccessModal, branchSuccessInfo, savedClientId,
+    startEditingBranch, stopEditingBranch, startCreatingBranch, stopCreatingBranch,
+    showValidationErrors, startSaving, finishSaving, failSaving,
+    openClientSuccess, openBranchSuccess,
   } = useConfigurationContext();
   const { data, setData } = useMasterData();
   const { activeDirectors, fetchActiveDirectors } = useUsers();
@@ -67,7 +64,7 @@ const ClientNavigator = ({
   const saveBranchInFlightRef = useRef(false);
 
   const handleSave = async () => {
-    setShowErrors(true);
+    showValidationErrors();
     setSaveError(null);
     if (hasErrors) {
       notify('error', 'Por favor complete los campos obligatorios (' + Object.keys(errors).join(', ') + ')');
@@ -78,7 +75,7 @@ const ClientNavigator = ({
       setSaveError('Cargando opciones de tipo de persona. Espere un momento e intente de nuevo.');
       return;
     }
-    setSaveState({ isSaving: true, savedAt: null });
+    startSaving();
 
     try {
       const { clientId: realId, savedData } = await saveCliente({
@@ -102,18 +99,16 @@ const ClientNavigator = ({
         setData(prev => applyClientUpdate(prev, realId, savedData));
         setDrafts(prev => ({ ...prev, [key]: toClientDraft(savedData) }));
       }
-      setSavedClientId(realId);
-      
       // Sync directors
       if (draft.associatedDirectorIds) {
         await syncClientDirectors(realId, draft.associatedDirectorIds);
       }
 
-      setSaveState({ isSaving: false, savedAt: Date.now() });
-      setShowSuccessModal(true);
+      finishSaving();
+      openClientSuccess(realId);
     } catch (err) {
       setSaveError(err?.message ?? 'Error al guardar el cliente');
-      setSaveState({ isSaving: false, savedAt: null });
+      failSaving();
     }
   };
 
@@ -124,10 +119,10 @@ const ClientNavigator = ({
   };
 
   const handleNewBranch = () => {
-    setEditingBranchId(null);
+    stopEditingBranch();
     const newBranchKey = entityKey('branch', `new-${route.clientId}`);
     ensureDraft(newBranchKey, () => emptyBranchDraft());
-    setCreatingNewBranch(true);
+    startCreatingBranch();
     if (route.activeTab !== 'branches') {
       setStack(p => p.map((r, i) => i === p.length - 1 ? {...r, activeTab: 'branches'} : r));
     }
@@ -135,20 +130,19 @@ const ClientNavigator = ({
 
   const handleEditBranch = (branch) => {
     const editBranchKey = entityKey('branch', `edit-${branch.id}`);
-    
+
     // Al editar desde el listado, siempre refrescamos el draft con la data actual del MasterData
     // para asegurar que los cambios de la base de datos se vean reflejados inmediatamente.
     const freshDraft = {
       ...toBranchDraft(branch),
       associatedContactIds: (branch.contactos || []).map(c => String(c.id)),
-      associatedDeviceIds: (data?.dispositivos || []).filter(d => 
+      associatedDeviceIds: (data?.dispositivos || []).filter(d =>
         String(d.branchId) === String(branch.id)
       ).map(d => String(d.id))
     };
     setDrafts(prev => ({ ...prev, [editBranchKey]: freshDraft }));
 
-    setEditingBranchId(branch.id);
-    setViewBranchMode('edit');
+    startEditingBranch(branch.id, 'edit');
     if (route.activeTab !== 'branches') {
       setStack(p => p.map((r, i) => i === p.length - 1 ? {...r, activeTab: 'branches'} : r));
     }
@@ -156,13 +150,12 @@ const ClientNavigator = ({
 
   const handleViewBranch = (branch) => {
     const bId = branch.id;
-    const key = entityKey('branch', `view-${bId}`);
-    
-    // Para ver, siempre usamos la data más fresca
-    setDrafts(prev => ({ ...prev, [key]: toBranchDraft(branch) }));
+    const viewKey = entityKey('branch', `view-${bId}`);
 
-    setEditingBranchId(bId);
-    setViewBranchMode('view');
+    // Para ver, siempre usamos la data más fresca
+    setDrafts(prev => ({ ...prev, [viewKey]: toBranchDraft(branch) }));
+
+    startEditingBranch(bId, 'view');
     if (route.activeTab !== 'branches') {
       setStack(p => p.map((r, i) => i === p.length - 1 ? {...r, activeTab: 'branches'} : r));
     }
@@ -216,10 +209,10 @@ const ClientNavigator = ({
   const handleSaveNewBranch = async () => {
     if (!activeBranchDraft) return;
     if (saveBranchInFlightRef.current) return;
-    setShowErrors(true);
+    showValidationErrors();
     if (Object.keys(activeBranchErrors).length > 0) return;
     saveBranchInFlightRef.current = true;
-    setSaveState({ isSaving: true, savedAt: null });
+    startSaving();
 
     try {
       const { sucursalId, contratos } = await saveSucursal({
@@ -236,16 +229,16 @@ const ClientNavigator = ({
         return updated;
       });
       if (editingBranchId) {
-        setEditingBranchId(null);
+        stopEditingBranch();
       } else {
-        setBranchSuccessInfo({ clientId: route.clientId, branchId: sucursalId });
-        setCreatingNewBranch(false);
+        openBranchSuccess({ clientId: route.clientId, branchId: sucursalId });
+        stopCreatingBranch();
       }
-      setSaveState({ isSaving: false, savedAt: Date.now() });
+      finishSaving();
       setSaveError(null);
     } catch (err) {
       console.error('Error guardando sucursal:', err);
-      setSaveState({ isSaving: false, savedAt: null });
+      failSaving();
       setSaveError(err?.message ?? 'Error al guardar la sucursal');
     } finally {
       saveBranchInFlightRef.current = false;
@@ -310,7 +303,7 @@ const ClientNavigator = ({
       onSaveNewBranch={handleSaveNewBranch}
       editingBranchId={editingBranchId}
       viewBranchMode={viewBranchMode}
-      onCancelEdit={() => { setEditingBranchId(null); setViewBranchMode(null); }}
+      onCancelEdit={stopEditingBranch}
       onAssociateContacts={handleOpenAssociateContacts}
       onAssociateDevices={handleOpenAssociateDevices}
       onAssociateDirectors={handleOpenAssociateDirectors}

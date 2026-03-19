@@ -17,25 +17,25 @@ export const H3 = ({ children, className = "" }) => (
 );
 
 export const Subtitle = ({ children, className = "" }) => (
-  <p className={`text-[9px] font-bold text-gray-400 uppercase tracking-widest ${className}`}>
+  <p className={`text-xs font-bold text-gray-400 uppercase tracking-widest ${className}`}>
     {children}
   </p>
 );
 
 export const Label = ({ children, className = "" }) => (
-  <span className={`text-[10px] font-bold text-gray-500 uppercase ${className}`}>
+  <span className={`text-xs font-bold text-gray-500 uppercase ${className}`}>
     {children}
   </span>
 );
 
 export const TextSmall = ({ children, className = "" }) => (
-  <p className={`text-[9px] font-bold ${className}`}>
+  <p className={`text-xs font-bold ${className}`}>
     {children}
   </p>
 );
 
 export const TextTiny = ({ children, className = "" }) => (
-  <p className={`text-[8px] font-bold uppercase ${className}`}>
+  <p className={`text-xs font-bold uppercase ${className}`}>
     {children}
   </p>
 );

@@ -12,6 +12,8 @@ import Select from '../../components/ui/Select';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import Modal from '../../components/ui/Modal';
+import InfoRow from '../../components/ui/InfoRow';
+import SectionHeader from '../../components/ui/SectionHeader';
 import VisitProgressPanel from '../../components/visits/VisitProgressPanel';
 import { useSolicitudesVisita } from '../../hooks/useSolicitudesVisita';
 import { useCatalog } from '../../hooks/useCatalog';
@@ -44,25 +46,6 @@ const solicitudToDraft = (sol) => ({
     : '',
   motivo: sol.motivo,
 });
-
-const InfoRow = ({ icon: Icon, label, value }) => (
-  <div className="flex items-start gap-2">
-    <Icon size={15} className="text-gray-400 mt-0.5 shrink-0" />
-    <div>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">{label}</p>
-      <p className="text-sm font-semibold text-gray-900">{value || '—'}</p>
-    </div>
-  </div>
-);
-
-const SectionHeader = ({ icon: Icon, title }) => (
-  <div className="flex items-center gap-2 mb-3">
-    <div className="p-1.5 bg-gray-100 rounded-lg">
-      <Icon size={14} className="text-gray-600" />
-    </div>
-    <Label className="text-sm font-bold text-gray-700 uppercase tracking-wide">{title}</Label>
-  </div>
-);
 
 // ─── Form compartido (crear / editar) ─────────────────────────────────────────
 const SolicitudForm = ({

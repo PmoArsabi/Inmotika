@@ -26,11 +26,9 @@ export const AuthProvider = ({ children }) => {
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const enforceMock = false;
-    if (!supabaseUrl || !supabaseAnonKey || (enforceMock && import.meta.env.DEV)) {
-      // Simular que no hay sesión activa real pero ya cargó el store
+    if (!supabaseUrl || !supabaseAnonKey) {
       setLoading(false);
-      return () => {}; // return empty cleanup function
+      return () => {};
     }
     
     // Failsafe: Si en 8 segundos no ha respondido, forzamos el cierre del loading
@@ -158,11 +156,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updatePassword = async (newPassword) => {
-    const enforceMock = false;
-    if (enforceMock) {
-      return new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
     const { error } = await supabase.auth.updateUser({
       password: newPassword
     });
@@ -170,11 +163,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const resetPassword = async (email) => {
-    const enforceMock = false;
-    if (enforceMock) {
-      return new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}`,
     });

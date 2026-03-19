@@ -9,7 +9,7 @@ import { supabase } from '../../../utils/supabase';
 import { saveContacto } from '../../../api/contactoApi';
 
 const ContactNavigator = ({ onClose }) => {
-  const { route, drafts, updateDraft, setDrafts, setStack, setContactSuccessInfo } = useConfigurationContext();
+  const { route, drafts, updateDraft, setDrafts, setStack, openContactSuccess } = useConfigurationContext();
   const { data, setData } = useMasterData();
   const [showErrors, setShowErrors] = useState(false);
   const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
@@ -176,7 +176,7 @@ const ContactNavigator = ({ onClose }) => {
 
       setSaveState({ isSaving: false, savedAt: Date.now() });
       setSavingStep('');
-      setContactSuccessInfo({ contactId, isNew: isNewContact });
+      openContactSuccess({ contactId, isNew: isNewContact });
       inviteInFlightRef.current = false;
     } catch (err) {
       console.error('Error al guardar contacto:', err);

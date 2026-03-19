@@ -8,7 +8,7 @@ import { useMasterData } from '../../../context/MasterDataContext';
 import DeviceForm from '../../../modules/devices/DeviceForm';
 
 const DeviceNavigator = ({ onClose }) => {
-  const { route, drafts, updateDraft, setStack, setDeviceSuccessInfo } = useConfigurationContext();
+  const { route, drafts, updateDraft, setStack, openDeviceSuccess } = useConfigurationContext();
   const { data, setData } = useMasterData();
   const notify = useNotify();
   const [showErrors, setShowErrors] = useState(false);
@@ -49,7 +49,7 @@ const DeviceNavigator = ({ onClose }) => {
       ));
       
       setSaveState({ isSaving: false, savedAt: Date.now() });
-      setDeviceSuccessInfo({ isNew: isEditing && !currentDevice, deviceId: mapped.id });
+      openDeviceSuccess({ isNew: isEditing && !currentDevice, deviceId: mapped.id });
     } catch (err) {
       console.error('Error saving device:', err);
       notify('error', 'Error al guardar el dispositivo');

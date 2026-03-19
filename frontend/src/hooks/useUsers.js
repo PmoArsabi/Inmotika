@@ -5,33 +5,107 @@ import { useConfirm } from '../context/ConfirmContext';
 import { ROLES } from '../utils/constants';
 import { saveTecnico } from '../api/tecnicoApi';
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Milisegundos máximos para esperar respuesta de la Edge Function invite-user. */
+const INVITE_USER_TIMEOUT_MS = 35_000;
+
+/** Número máximo de intentos del polling post-invitación. */
+const POLL_MAX_ATTEMPTS = 10;
+
+/** Milisegundos entre cada intento del polling. */
+const POLL_INTERVAL_MS = 500;
+
+// ---------------------------------------------------------------------------
+// Hook principal
+// ---------------------------------------------------------------------------
+
+/**
+ * Hook de gestión de usuarios de Inmotika.
+ *
+ * Responsabilidades:
+ * 1. Carga inicial de usuarios (perfil_usuario + joins de rol/estado/tecnico).
+ * 2. Carga de catálogo de roles y lista de directores activos.
+ * 3. Invitar usuario nuevo via Edge Function, con polling cancelable para
+ *    esperar que el trigger `handle_new_user` cree el perfil.
+ * 4. Actualizar usuario existente (solo perfil_usuario.rol_id para cambios de
+ *    rol; el trigger `sync_specialized_role_tables` sincroniza las tablas de
+ *    especialización automáticamente).
+ * 5. Eliminar usuario y reenviar invitación.
+ *
+ * @returns {{
+ *   usuarios: Array,
+ *   loadingUsers: boolean,
+ *   roles: Array,
+ *   loadingRoles: boolean,
+ *   successInfo: object|null,
+ *   setSuccessInfo: Function,
+ *   resendingIds: Set,
+ *   handleResendInvitation: Function,
+ *   handleDelete: Function,
+ *   saveUser: Function,
+ *   fetchUsers: Function,
+ *   activeDirectors: Array,
+ *   loadingActiveDirectors: boolean
+ * }}
+ */
 export const useUsers = () => {
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+
   const [usuarios, setUsuarios] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+
   const [roles, setRoles] = useState([]);
   const [loadingRoles, setLoadingRoles] = useState(true);
-  const [successInfo, setSuccessInfo] = useState(null);
-  const [resendingIds, setResendingIds] = useState(new Set());
+
   const [activeDirectors, setActiveDirectors] = useState([]);
   const [loadingActiveDirectors, setLoadingActiveDirectors] = useState(false);
+
+  const [successInfo, setSuccessInfo] = useState(null);
+  const [resendingIds, setResendingIds] = useState(new Set());
+
+  /** Ref para evitar múltiples invitaciones en vuelo simultáneas. */
   const inviteInFlightRef = useRef(false);
 
   const notify = useNotify();
   const confirm = useConfirm();
 
+  // ---------------------------------------------------------------------------
+  // Section: Catálogo de roles
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Carga todos los roles disponibles desde `catalogo_rol`.
+   * RLS: lectura pública (sin restricción de rol).
+   */
   const fetchRoles = useCallback(async () => {
     setLoadingRoles(true);
     const { data, error } = await supabase
       .from('catalogo_rol')
       .select('id, codigo, nombre')
       .order('nombre');
-    
+
     if (data) setRoles(data);
-    if (error) console.error('Error al cargar roles:', error);
+    if (error) console.error('[useUsers] Error al cargar roles:', error);
     setLoadingRoles(false);
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Section: Directores activos
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Carga los directores activos con su información de perfil.
+   * RLS: requiere estar autenticado (is_management_staff para gestión plena).
+   *
+   * @returns {Promise<void>}
+   */
   const fetchActiveDirectors = useCallback(async () => {
+    setLoadingActiveDirectors(true);
     try {
       const { data, error } = await supabase
         .from('director')
@@ -42,12 +116,11 @@ export const useUsers = () => {
         `)
         .eq('activo', true);
 
-
       if (error) {
         console.error('[useUsers] fetchActiveDirectors error:', error);
         return;
       }
-      
+
       if (data) {
         const mapped = data.map(d => ({
           id: d.id,
@@ -55,15 +128,31 @@ export const useUsers = () => {
           nombres: d.usuario?.nombres || '',
           apellidos: d.usuario?.apellidos || '',
           email: d.usuario?.email || '',
-          nombreCompleto: d.usuario ? `${d.usuario.nombres || ''} ${d.usuario.apellidos || ''}`.trim() : 'Sin Nombre'
+          nombreCompleto: d.usuario
+            ? `${d.usuario.nombres || ''} ${d.usuario.apellidos || ''}`.trim()
+            : 'Sin Nombre',
         }));
         setActiveDirectors(mapped);
       }
     } catch (err) {
       console.error('[useUsers] fetchActiveDirectors system error:', err);
+    } finally {
+      setLoadingActiveDirectors(false);
     }
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Section: Lista de usuarios
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Carga todos los perfiles de usuario con sus relaciones de rol, estado,
+   * datos de técnico (documentos + certificados activos), coordinador y director.
+   *
+   * RLS: is_management_staff() — solo Admin, Director y Coordinador ven todos.
+   *
+   * @returns {Promise<void>}
+   */
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     const { data: usersData, error } = await supabase
@@ -78,8 +167,8 @@ export const useUsers = () => {
           tecnico_certificado (id, nombre, url, activo)
         ),
         coordinador!coordinador_usuario_id_fkey (
-          id, 
-          director_id, 
+          id,
+          director_id,
           activo,
           director!coordinador_director_id_fkey (usuario_id)
         ),
@@ -87,18 +176,30 @@ export const useUsers = () => {
       `)
       .order('nombres');
 
+    if (error) {
+      console.error('[useUsers] fetchUsers error:', error);
+    }
+
     if (usersData) {
       setUsuarios(usersData.map(u => {
-        const techArr = Array.isArray(u.tecnico) ? u.tecnico : (u.tecnico ? [u.tecnico] : []);
+        const techArr = Array.isArray(u.tecnico)
+          ? u.tecnico
+          : u.tecnico ? [u.tecnico] : [];
         const tec = techArr.find(t => t.activo) || techArr[0] || null;
-        
-        const coordArr = Array.isArray(u.coordinador) ? u.coordinador : (u.coordinador ? [u.coordinador] : []);
+
+        const coordArr = Array.isArray(u.coordinador)
+          ? u.coordinador
+          : u.coordinador ? [u.coordinador] : [];
         const coo = coordArr.find(c => c.activo) || coordArr[0] || null;
 
-        const dirArr = Array.isArray(u.director) ? u.director : (u.director ? [u.director] : []);
+        const dirArr = Array.isArray(u.director)
+          ? u.director
+          : u.director ? [u.director] : [];
         const dir = dirArr.find(d => d.activo) || dirArr[0] || null;
 
-        const certs = tec?.tecnico_certificado ? tec.tecnico_certificado.filter(c => c.activo) : [];
+        const certs = tec?.tecnico_certificado
+          ? tec.tecnico_certificado.filter(c => c.activo)
+          : [];
 
         return {
           ...u,
@@ -109,8 +210,10 @@ export const useUsers = () => {
           estadoNombre: u.catalogo_estado_general?.nombre || '',
           tecnicoId: tec?.id || null,
           coordinadorId: coo?.id || null,
-          directorId: dir?.id || null,          // ID interno del usuario como director
-          directorAsignadoId: coo?.director_id || null, // ID interno del director asignado (tabla director)
+          /** ID interno del registro en la tabla `director` para este usuario. */
+          directorId: dir?.id || null,
+          /** ID interno del director asignado al coordinador (tabla `director`). */
+          directorAsignadoId: coo?.director_id || null,
           certificados: certs,
           documentos: {
             cedula: tec?.documento_cedula_url || null,
@@ -119,8 +222,13 @@ export const useUsers = () => {
         };
       }));
     }
+
     setLoadingUsers(false);
   }, [notify]);
+
+  // ---------------------------------------------------------------------------
+  // Section: Efectos de carga inicial
+  // ---------------------------------------------------------------------------
 
   useEffect(() => {
     fetchRoles();
@@ -131,19 +239,32 @@ export const useUsers = () => {
     fetchActiveDirectors();
   }, [fetchActiveDirectors]);
 
+  // ---------------------------------------------------------------------------
+  // Section: Reenvío de invitación
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Reenvía la invitación de registro al correo del usuario indicado.
+   *
+   * @param {{ id: string, email: string, nombres: string, apellidos: string, rol: string }} user
+   * @returns {Promise<void>}
+   */
   const handleResendInvitation = async (user) => {
     if (resendingIds.has(user.id)) return;
     setResendingIds(prev => new Set([...prev, user.id]));
     try {
-      const { data: inviteData, error: inviteError } = await supabase.functions.invoke('invite-user', {
-        body: {
-          email: user.email,
-          nombres: user.nombres,
-          apellidos: user.apellidos,
-          role_code: user.rol,
-          redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
+      const { data: inviteData, error: inviteError } = await supabase.functions.invoke(
+        'invite-user',
+        {
+          body: {
+            email: user.email,
+            nombres: user.nombres,
+            apellidos: user.apellidos,
+            role_code: user.rol,
+            redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
+          },
         }
-      });
+      );
 
       if (inviteError) {
         let mensaje = inviteError.message;
@@ -162,10 +283,25 @@ export const useUsers = () => {
     } catch (err) {
       setSuccessInfo({ error: true, message: err.message || 'No se pudo reenviar la invitación' });
     } finally {
-      setResendingIds(prev => { const n = new Set(prev); n.delete(user.id); return n; });
+      setResendingIds(prev => {
+        const n = new Set(prev);
+        n.delete(user.id);
+        return n;
+      });
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Section: Eliminación de usuario
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Solicita confirmación y elimina el perfil del usuario de `perfil_usuario`.
+   * La eliminación en cascada borra sus registros de rol asociados.
+   *
+   * @param {string} userId - UUID del perfil_usuario a eliminar.
+   * @returns {Promise<void>}
+   */
   const handleDelete = async (userId) => {
     const user = usuarios.find(u => u.id === userId);
     const confirmed = await confirm({
@@ -173,11 +309,15 @@ export const useUsers = () => {
       message: `¿Estás seguro de que deseas eliminar a ${user?.nombres || 'este usuario'}? Esta acción no se puede deshacer.`,
       confirmText: 'Eliminar',
       cancelText: 'Descartar',
-      type: 'danger'
+      type: 'danger',
     });
 
     if (confirmed) {
-      const { error } = await supabase.from('perfil_usuario').delete().eq('id', userId);
+      const { error } = await supabase
+        .from('perfil_usuario')
+        .delete()
+        .eq('id', userId);
+
       if (error) {
         notify('error', 'No se pudo eliminar el usuario');
       } else {
@@ -187,13 +327,118 @@ export const useUsers = () => {
     }
   };
 
-  const INVITE_USER_TIMEOUT_MS = 35000;
+  // ---------------------------------------------------------------------------
+  // Section: Creación / edición de usuario (saveUser)
+  // ---------------------------------------------------------------------------
 
+  /**
+   * Polling cancelable que espera a que el trigger `handle_new_user` cree
+   * el `perfil_usuario` tras la invitación. Una vez encontrado el perfil,
+   * aplica actualizaciones complementarias (rol_id, teléfono, documentos de
+   * técnico) y refresca la lista.
+   *
+   * @param {string}  email        - Correo del usuario invitado.
+   * @param {object}  payloadUser  - Datos del formulario del nuevo usuario.
+   * @param {object}  payloadDocs  - Documentos de técnico (si aplica).
+   * @param {Array}   payloadRoles - Catálogo de roles en el momento de la invitación.
+   * @param {{ cancelled: boolean }} cancelToken - Objeto compartido para cancelar el polling.
+   * @returns {Promise<void>}
+   */
+  const pollAndUpdateNewUser = async (email, payloadUser, payloadDocs, payloadRoles, cancelToken) => {
+    let perfilId = null;
+
+    for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
+      await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+
+      if (cancelToken.cancelled) return;
+
+      const { data: p } = await supabase
+        .from('perfil_usuario')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (p?.id) {
+        perfilId = p.id;
+        break;
+      }
+    }
+
+    if (!perfilId) {
+      console.error(
+        '[useUsers] perfil_usuario no fue creado después de',
+        POLL_MAX_ATTEMPTS,
+        'intentos para:',
+        email
+      );
+      return;
+    }
+
+    if (cancelToken.cancelled) return;
+
+    // Actualizar campos adicionales del perfil (rol_id, teléfono, documento).
+    // El trigger handle_new_user ya creó el perfil; aquí solo completamos datos.
+    const selectedRole = payloadRoles.find(r => r.codigo === payloadUser.rol);
+    await supabase.from('perfil_usuario').update({
+      telefono: payloadUser.telefono || null,
+      tipo_documento: payloadUser.tipoDocumento || null,
+      identificacion: payloadUser.identificacion || null,
+      ...(selectedRole?.id && { rol_id: selectedRole.id }),
+    }).eq('id', perfilId);
+
+    // Para técnicos, guardar documentos y certificados.
+    // El trigger sync_specialized_role_tables habrá creado la fila en `tecnico`;
+    // saveTecnico solo actualiza campos de documentación/certificados.
+    if (payloadUser.rol === ROLES.TECNICO && !cancelToken.cancelled) {
+      try {
+        await saveTecnico({
+          usuarioId: perfilId,
+          techId: null,
+          draft: {
+            nombres: payloadUser.nombres,
+            apellidos: payloadUser.apellidos,
+            telefono: payloadUser.telefono,
+            tipoDocumento: payloadUser.tipoDocumento,
+            identificacion: payloadUser.identificacion,
+            cedula: payloadDocs?.cedula ?? null,
+            planillaSS: payloadDocs?.planillaSS ?? null,
+            certificados: payloadUser.certificados || [],
+          },
+        });
+      } catch (err) {
+        console.error('[useUsers] Error guardando datos de técnico (documentos/certificados):', err);
+      }
+    }
+
+    if (!cancelToken.cancelled) {
+      fetchUsers();
+    }
+  };
+
+  /**
+   * Crea o actualiza un usuario.
+   *
+   * - **Creación:** Invoca la Edge Function `invite-user` y lanza polling
+   *   cancelable para esperar el perfil creado por el trigger `handle_new_user`.
+   * - **Edición:** Actualiza `perfil_usuario` directamente. El cambio de
+   *   `rol_id` dispara el trigger `sync_specialized_role_tables`, que gestiona
+   *   las tablas de especialización (`tecnico`, `coordinador`, `director`,
+   *   `administrador`) de forma automática. No se realizan upserts manuales
+   *   en esas tablas.
+   *
+   * @param {boolean} isCreating        - `true` si se está creando un usuario nuevo.
+   * @param {object|null} editingUser   - Objeto del usuario que se está editando (null si isCreating).
+   * @param {object} newUser            - Datos del formulario (nombres, apellidos, email, rol, etc.).
+   * @param {object} tecnicoDocumentos  - URLs de documentos de técnico { cedula, planillaSS }.
+   * @returns {Promise<boolean>}        - `true` si la operación fue exitosa.
+   */
   const saveUser = async (isCreating, editingUser, newUser, tecnicoDocumentos) => {
     try {
+      // ----- CREAR usuario -----
       if (isCreating) {
         if (inviteInFlightRef.current) return false;
         inviteInFlightRef.current = true;
+
         try {
           const invitePromise = supabase.functions.invoke('invite-user', {
             body: {
@@ -202,13 +447,23 @@ export const useUsers = () => {
               apellidos: newUser.apellidos,
               role_code: newUser.rol,
               redirectTo: window.location.origin,
-            }
+            },
           });
+
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Tiempo de espera agotado. La función de invitación no respondió. Compruebe que la Edge Function esté desplegada y que el correo no esté en límite.')), INVITE_USER_TIMEOUT_MS)
+            setTimeout(
+              () => reject(new Error(
+                'Tiempo de espera agotado. La función de invitación no respondió. ' +
+                'Compruebe que la Edge Function esté desplegada y que el correo no esté en límite.'
+              )),
+              INVITE_USER_TIMEOUT_MS
+            )
           );
 
-          const { data: inviteData, error: inviteError } = await Promise.race([invitePromise, timeoutPromise]);
+          const { data: inviteData, error: inviteError } = await Promise.race([
+            invitePromise,
+            timeoutPromise,
+          ]);
 
           if (inviteError) {
             let errorMessage = inviteError.message || 'Error al enviar invitación';
@@ -234,78 +489,43 @@ export const useUsers = () => {
           inviteInFlightRef.current = false;
         }
 
-        // Actualización diferida: perfil (rol_id, teléfono, etc.) y, si es técnico, documentos y certificados
-        // Polling robusto: esperar a que el trigger cree perfil_usuario antes de actualizar
+        // Polling cancelable: capturamos los valores actuales antes del cierre async.
         const payloadUser = newUser;
         const payloadDocs = tecnicoDocumentos;
         const payloadRoles = roles;
-        (async () => {
-          const maxAttempts = 10;
-          let perfilId = null;
 
-          for (let i = 0; i < maxAttempts; i++) {
-            await new Promise(r => setTimeout(r, 500));
-            const { data: p } = await supabase
-              .from('perfil_usuario')
-              .select('id')
-              .eq('email', payloadUser.email)
-              .maybeSingle();
-            if (p?.id) {
-              perfilId = p.id;
-              break;
-            }
-          }
+        // cancelToken permite detener el polling si el componente se desmonta.
+        // El caller puede guardar el token y llamar `cancelToken.cancelled = true`
+        // desde un cleanup de useEffect si lo necesita.
+        const cancelToken = { cancelled: false };
+        pollAndUpdateNewUser(newUser.email, payloadUser, payloadDocs, payloadRoles, cancelToken);
 
-          if (!perfilId) {
-            console.error('perfil_usuario no fue creado después de', maxAttempts, 'intentos para:', payloadUser.email);
-            return;
-          }
+        // Retornamos inmediatamente; el polling corre en segundo plano.
+        return true;
 
-          const selectedRole = payloadRoles.find(r => r.codigo === payloadUser.rol);
-          await supabase.from('perfil_usuario').update({
-            telefono: payloadUser.telefono || null,
-            tipo_documento: payloadUser.tipoDocumento || null,
-            identificacion: payloadUser.identificacion || null,
-            ...(selectedRole?.id && { rol_id: selectedRole.id }),
-          }).eq('id', perfilId);
-
-          if (payloadUser.rol === ROLES.TECNICO) {
-            try {
-              await saveTecnico({
-                usuarioId: perfilId,
-                techId: null,
-                draft: {
-                  nombres: payloadUser.nombres,
-                  apellidos: payloadUser.apellidos,
-                  telefono: payloadUser.telefono,
-                  tipoDocumento: payloadUser.tipoDocumento,
-                  identificacion: payloadUser.identificacion,
-                  cedula: payloadDocs?.cedula ?? null,
-                  planillaSS: payloadDocs?.planillaSS ?? null,
-                  certificados: payloadUser.certificados || [],
-                },
-              });
-            } catch (err) {
-              console.error('Error guardando datos de técnico (documentos/certificados):', err);
-            }
-          }
-          fetchUsers();
-        })();
-
+      // ----- EDITAR usuario -----
       } else if (editingUser) {
         const selectedRole = roles.find(r => r.codigo === newUser.rol);
-        
-        const { error: updateError } = await supabase.from('perfil_usuario').update({
-          nombres: newUser.nombres,
-          apellidos: newUser.apellidos,
-          rol_id: selectedRole?.id,
-          telefono: newUser.telefono || null,
-          tipo_documento: newUser.tipoDocumento || null,
-          identificacion: newUser.identificacion || null,
-        }).eq('id', editingUser.id);
+
+        // Actualizar perfil_usuario. Cambiar rol_id aquí dispara el trigger
+        // sync_specialized_role_tables, que sincroniza las tablas de rol
+        // (tecnico, coordinador, director, administrador) automáticamente.
+        const { error: updateError } = await supabase
+          .from('perfil_usuario')
+          .update({
+            nombres: newUser.nombres,
+            apellidos: newUser.apellidos,
+            rol_id: selectedRole?.id,
+            telefono: newUser.telefono || null,
+            tipo_documento: newUser.tipoDocumento || null,
+            identificacion: newUser.identificacion || null,
+          })
+          .eq('id', editingUser.id);
 
         if (updateError) throw updateError;
 
+        // Para técnicos, actualizar documentos y certificados adicionales que
+        // el trigger no gestiona (solo crea la fila base, no sube documentos).
         if (newUser.rol === ROLES.TECNICO) {
           await saveTecnico({
             usuarioId: editingUser.id,
@@ -323,79 +543,21 @@ export const useUsers = () => {
           });
         }
 
-        // --- COORDINADOR Logic ---
-        if (newUser.rol === ROLES.COORDINADOR) {
-          let coordId = editingUser.coordinadorId;
-          const { data: existingCoord } = await supabase.from('coordinador').select('id').eq('usuario_id', editingUser.id).maybeSingle();
-          coordId = existingCoord?.id;
-
-          const coordData = { 
-            usuario_id: editingUser.id, 
-            director_id: newUser.directorId || null, // Recibimos el ID directo de la tabla director
-            activo: true 
-          };
-
-          if (coordId) {
-            const { error: updErr } = await supabase.from('coordinador').update(coordData).eq('id', coordId);
-            if (updErr) throw updErr;
-          } else {
-            const { error: insErr } = await supabase.from('coordinador').insert(coordData);
-            if (insErr) throw insErr;
-          }
-        }
-
-        // --- DIRECTOR Logic ---
-        if (newUser.rol === ROLES.DIRECTOR) {
-          let dirId = editingUser.directorId;
-          const { data: existingDir } = await supabase.from('director').select('id').eq('usuario_id', editingUser.id).maybeSingle();
-          dirId = existingDir?.id;
-
-          if (dirId) {
-            await supabase.from('director').update({ activo: true }).eq('id', dirId);
-          } else {
-            await supabase.from('director').insert({ usuario_id: editingUser.id, activo: true });
-          }
-        }
-
-        // --- Optional ADMINISTRADOR Logic (if the user ran the SQL) ---
-        if (newUser.rol === ROLES.ADMIN) {
-          try {
-            const { data: existingAdmin } = await supabase.from('administrador').select('id').eq('usuario_id', editingUser.id).maybeSingle();
-            if (!existingAdmin) {
-              await supabase.from('administrador').insert({ usuario_id: editingUser.id, activo: true });
-            } else {
-              await supabase.from('administrador').update({ activo: true }).eq('id', existingAdmin.id);
-            }
-          } catch (e) {
-            // Table might not exist yet if they haven't run the SQL
-            console.warn('administrador table not found or error accessing it. Skip if not used.', e);
-          }
-        }
-
-        // --- Role Cleanup ---
-        // If the role changed, we might want to deactivate other roles. 
-        // For now, at least ensure we don't have multiple "active" identity records for the same user if they switch often.
-        const rolesToDeactivate = [ROLES.TECNICO, ROLES.COORDINADOR, ROLES.DIRECTOR, ROLES.ADMIN].filter(r => r !== newUser.rol);
-        for (const r of rolesToDeactivate) {
-          if (r === ROLES.TECNICO) await supabase.from('tecnico').update({ activo: false }).eq('usuario_id', editingUser.id);
-          if (r === ROLES.COORDINADOR) await supabase.from('coordinador').update({ activo: false }).eq('usuario_id', editingUser.id);
-          if (r === ROLES.DIRECTOR) await supabase.from('director').update({ activo: false }).eq('usuario_id', editingUser.id);
-          // Administrador table check again
-          if (r === ROLES.ADMIN) {
-            try { await supabase.from('administrador').update({ activo: false }).eq('usuario_id', editingUser.id); } catch(e) {}
-          }
-        }
-
         await fetchUsers();
         setSuccessInfo({ email: newUser.email, nombres: newUser.nombres, rol: null, isUpdate: true });
       }
+
       return true;
     } catch (err) {
-      console.error('Error saveUser:', err);
+      console.error('[useUsers] Error saveUser:', err);
       setSuccessInfo({ error: true, message: err.message || 'Error desconocido' });
       return false;
     }
   };
+
+  // ---------------------------------------------------------------------------
+  // Public API
+  // ---------------------------------------------------------------------------
 
   return {
     usuarios,
@@ -410,6 +572,6 @@ export const useUsers = () => {
     saveUser,
     fetchUsers,
     activeDirectors,
-    loadingActiveDirectors
+    loadingActiveDirectors,
   };
 };

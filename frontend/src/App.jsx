@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { ROLES } from './utils/constants';
+import { ROLES, isManagementRole } from './utils/constants';
 import { useAuth } from './context/AuthContext';
 import { useMasterData } from './context/MasterDataContext';
 
@@ -25,6 +25,13 @@ import ProgramacionVisitaPage from './pages/visits/ProgramacionVisitaPage';
 import GestionVisitasPage from './pages/visits/GestionVisitasPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
+/** Shown whenever the current user's role lacks permission for a route. */
+const AccessDenied = () => (
+  <div className="p-8 text-center text-red-500 font-bold">
+    No tienes permisos para acceder a esta sección.
+  </div>
+);
+
 function App() {
   const { user, signOut, loading: authLoading, isRecoveryFlow, setIsRecoveryFlow, clearRecoveryFlow } = useAuth();
   const { data, setData } = useMasterData();
@@ -42,7 +49,7 @@ function App() {
     // (o sea, si estaba en dashboard que es el origen por default)
     if (user && activeTab === 'dashboard') {
       const uRole = user.role || 'TECNICO';
-      const isAdmGrp = uRole === 'ADMIN' || uRole === 'DIRECTOR' || uRole === 'COORDINADOR';
+      const isAdmGrp = isManagementRole(uRole);
 
       // Default tabs & protection from URL forcing
       if (uRole === 'CLIENTE') {
@@ -112,30 +119,30 @@ function App() {
     try {
       // Identificar el rol del usuario para restringir módulos
       const userRole = user?.role || 'TECNICO';
-      const isAdminGroup = userRole === 'ADMIN' || userRole === 'DIRECTOR' || userRole === 'COORDINADOR';
+      const isAdminGroup = isManagementRole(userRole);
 
       // 1. Handle visits sub-tabs
       const visitsSubTab = getVisitsSubTab(activeTab);
       
       if (visitsSubTab === 'solicitudes') {
         if (isAdminGroup || userRole === 'CLIENTE') return <SolicitudVisitaPage />;
-        return <div className="p-8 text-red-500 font-bold">Acceso Denegado</div>;
+        return <AccessDenied />;
       }
-      
+
       if (visitsSubTab === 'programacion') {
         if (isAdminGroup) return <ProgramacionVisitaPage data={data} setData={setData} />;
-        return <div className="p-8 text-red-500 font-bold">Acceso Denegado</div>;
+        return <AccessDenied />;
       }
-      
+
       if (visitsSubTab === 'gestion') {
         if (isAdminGroup || userRole === 'TECNICO') return <GestionVisitasPage data={data} setData={setData} />;
-        return <div className="p-8 text-red-500 font-bold">Acceso Denegado</div>;
+        return <AccessDenied />;
       }
 
       // Handle configuration sub-tabs (Sólo Admin Group)
       const configSubTab = getConfigurationSubTab(activeTab);
       if (configSubTab) {
-        if (!isAdminGroup) return <div className="p-8 text-red-500 font-bold">Acceso Denegado: Requiere permisos de Administración</div>;
+        if (!isAdminGroup) return <AccessDenied />;
         
         if (configSubTab === 'usuarios') return <UsersPage data={data} setData={setData} />;
         if (configSubTab === 'categorias') return <CategoriasPage />;
@@ -143,15 +150,15 @@ function App() {
       }
 
       switch (activeTab) {
-        case 'dashboard':        return isAdminGroup ? <DashboardPage data={data} /> : <div className="p-8">Acceso Denegado</div>;
+        case 'dashboard':        return isAdminGroup ? <DashboardPage data={data} /> : <AccessDenied />;
         case 'visits':           return <VisitsPage data={data} setData={setData} />;
-        case 'schedule':         return (isAdminGroup || userRole === 'TECNICO') ? <SchedulePage data={data} setData={setData} /> : <div className="p-8">Acceso Denegado</div>;
-        
+        case 'schedule':         return (isAdminGroup || userRole === 'TECNICO') ? <SchedulePage data={data} setData={setData} /> : <AccessDenied />;
+
         // Vistas específicas de cliente
-        case 'client-dashboard': return userRole === 'CLIENTE' ? <ClientDashboardPage data={data} /> : <div className="p-8">Acceso Denegado</div>;
-        case 'client-data':      return userRole === 'CLIENTE' ? <ClientDataPage data={data} /> : <div className="p-8">Acceso Denegado</div>;
-        case 'client-inventory': return userRole === 'CLIENTE' ? <ClientInventoryPage data={data} /> : <div className="p-8">Acceso Denegado</div>;
-        case 'client-visits':    return userRole === 'CLIENTE' ? <ClientVisitsPage data={data} /> : <div className="p-8">Acceso Denegado</div>;
+        case 'client-dashboard': return userRole === 'CLIENTE' ? <ClientDashboardPage data={data} /> : <AccessDenied />;
+        case 'client-data':      return userRole === 'CLIENTE' ? <ClientDataPage data={data} /> : <AccessDenied />;
+        case 'client-inventory': return userRole === 'CLIENTE' ? <ClientInventoryPage data={data} /> : <AccessDenied />;
+        case 'client-visits':    return userRole === 'CLIENTE' ? <ClientVisitsPage data={data} /> : <AccessDenied />;
         
         default:                 
           // Default fallbacks by role

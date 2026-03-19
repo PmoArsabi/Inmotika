@@ -24,18 +24,12 @@ import TechnicalNavigator from './navigators/TechnicalNavigator';
 import CatalogNavigator from './navigators/CatalogNavigator';
 
 const ConfigurationNavigator = ({ onClose }) => {
-  const { 
-    route, stack, setStack, drafts, setDrafts, updateDraft, goBack,
-    editingBranchId, setEditingBranchId, 
-    viewBranchMode, setViewBranchMode,
-    creatingNewBranch, setCreatingNewBranch,
-    showErrors, setShowErrors,
-    saveState, setSaveState,
-    showSuccessModal, setShowSuccessModal,
-    branchSuccessInfo, setBranchSuccessInfo,
-    savedClientId, setSavedClientId,
-    contactSuccessInfo, setContactSuccessInfo,
-    deviceSuccessInfo, setDeviceSuccessInfo,
+  const {
+    route, stack, setStack, drafts, updateDraft, goBack,
+    showSuccessModal, branchSuccessInfo, savedClientId,
+    contactSuccessInfo, deviceSuccessInfo,
+    startEditingBranch, stopEditingBranch, startCreatingBranch, stopCreatingBranch,
+    closeClientSuccess, closeBranchSuccess, closeContactSuccess, closeDeviceSuccess,
   } = useConfigurationContext();
 
   const { data, setData } = useMasterData();
@@ -166,10 +160,10 @@ const ConfigurationNavigator = ({ onClose }) => {
     setStack(prev => prev.map((s, idx) =>
       idx === prev.length - 1 ? { ...s, mode: 'view' } : s
     ));
-    setContactSuccessInfo(null);
+    closeContactSuccess();
   };
   const handleContactBackToList = () => {
-    setContactSuccessInfo(null);
+    closeContactSuccess();
     handleClose();
   };
 
@@ -178,20 +172,20 @@ const ConfigurationNavigator = ({ onClose }) => {
     setStack(prev => prev.map((s, idx) =>
       idx === prev.length - 1 ? { ...s, mode: 'view' } : s
     ));
-    setDeviceSuccessInfo(null);
+    closeDeviceSuccess();
   };
   const handleDeviceBackToList = () => {
-    setDeviceSuccessInfo(null);
+    closeDeviceSuccess();
     handleClose();
   };
 
-  // Handlers for Success Modals
-  const handleGoToClients = () => { setShowSuccessModal(false); handleClose(); };
+  // Handlers for Client Success Modal
+  const handleGoToClients = () => { closeClientSuccess(); handleClose(); };
   const handleGoToStep2 = () => {
-    setShowSuccessModal(false);
+    closeClientSuccess();
     if (savedClientId) {
-      setCreatingNewBranch(true);
-      setEditingBranchId(null);
+      stopEditingBranch();
+      startCreatingBranch();
       setStack(prev => prev.map((s, idx) => {
         if (idx === prev.length - 1 && s.type === 'cliente' && String(s.clientId) === String(savedClientId)) {
           return { ...s, activeTab: 'branches', mode: 'edit' };
@@ -203,16 +197,16 @@ const ConfigurationNavigator = ({ onClose }) => {
 
   const handleBranchBackToBranches = () => {
     if (branchSuccessInfo) {
-      setCreatingNewBranch(false);
-      setEditingBranchId(null);
-      setBranchSuccessInfo(null);
+      stopCreatingBranch();
+      stopEditingBranch();
+      closeBranchSuccess();
     }
   };
 
   const handleBranchGoToStep3Contact = () => {
     if (!branchSuccessInfo) return;
     const { clientId, branchId } = branchSuccessInfo;
-    setBranchSuccessInfo(null);
+    closeBranchSuccess();
     const newId = `NEW-CON-${Date.now()}`;
     setStack(p => [...p, { type: 'contact', clientId, branchId, contactId: newId, mode: 'edit' }]);
   };

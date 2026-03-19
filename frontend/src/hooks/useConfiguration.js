@@ -7,8 +7,6 @@ export const useConfiguration = (data, setData, initialSubTab = 'clientes') => {
   const confirm = useConfirm();
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab);
 
-  // ... (rest of state)
-
   const removeItem = async (id, type) => {
     const confirmed = await confirm({
       title: '¿Eliminar registro?',

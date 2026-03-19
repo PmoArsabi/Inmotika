@@ -5,7 +5,7 @@ import {
   FileText, Wallet, BarChart, Bell, Phone, UserCog, Tag,
   CalendarCheck, PlayCircle, List
 } from 'lucide-react';
-import { ROLES } from '../../utils/constants';
+import { ROLES, isManagementRole } from '../../utils/constants';
 import { H3, TextSmall, Subtitle } from '../ui/Typography';
 
 /**
@@ -35,7 +35,7 @@ const Sidebar = ({
 
   const getMenuItems = () => {
     const userRole = user?.role;
-    if (userRole === ROLES.ADMIN || userRole === 'ADMIN' || userRole === ROLES.DIRECTOR || userRole === 'DIRECTOR' || userRole === ROLES.COORDINADOR || userRole === 'COORDINADOR') {
+    if (isManagementRole(userRole)) {
       return [
         { 
           id: 'dashboard', 
@@ -68,7 +68,7 @@ const Sidebar = ({
         },
       ];
     }
-    if (userRole === ROLES.TECNICO || userRole === 'TECNICO') {
+    if (userRole === ROLES.TECNICO) {
       return [
         { id: 'schedule', label: 'Mi Agenda', icon: Calendar },
         {
@@ -82,7 +82,7 @@ const Sidebar = ({
         }
       ];
     }
-    if (userRole === ROLES.CLIENTE || userRole === 'CLIENTE') {
+    if (userRole === ROLES.CLIENTE) {
       return [
         { id: 'client-dashboard', label: 'Dashboard',  icon: LayoutDashboard },
         { id: 'client-data',      label: 'Mis Datos',  icon: Building2 },
