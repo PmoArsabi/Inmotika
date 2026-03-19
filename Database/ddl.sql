@@ -934,6 +934,7 @@ DECLARE
     target_role_id  UUID;
     role_code_meta  TEXT;
     default_estado  UUID;
+    contacto_row    RECORD;
 BEGIN
     -- 1. Leer código de rol desde los metadatos de la invitación
     role_code_meta := COALESCE(NEW.raw_user_meta_data->>'role_code', 'ADMIN');
@@ -959,19 +960,43 @@ BEGIN
     WHERE activo = true
     LIMIT 1;
 
-    -- 4. Crear perfil_usuario
-    INSERT INTO public.perfil_usuario (id, rol_id, nombres, apellidos, email, estado_id)
+    -- 4. Si es CLIENTE, buscar contacto existente por email para copiar sus datos
+    IF role_code_meta = 'CLIENTE' THEN
+        SELECT * INTO contacto_row
+        FROM public.contacto
+        WHERE LOWER(email) = LOWER(NEW.email)
+          AND usuario_id IS NULL
+        LIMIT 1;
+    END IF;
+
+    -- 5. Crear perfil_usuario (con datos del contacto si existe)
+    INSERT INTO public.perfil_usuario (
+        id, rol_id, nombres, apellidos, email,
+        telefono, telefono_pais_iso, tipo_documento, identificacion,
+        estado_id
+    )
     VALUES (
         NEW.id,
         target_role_id,
         COALESCE(NEW.raw_user_meta_data->>'nombres', split_part(NEW.email, '@', 1)),
         COALESCE(NEW.raw_user_meta_data->>'apellidos', ''),
         NEW.email,
+        contacto_row.telefono_movil,
+        COALESCE(contacto_row.telefono_movil_pais_iso, 'CO'),
+        contacto_row.tipo_documento,
+        contacto_row.identificacion,
         default_estado
     )
     ON CONFLICT (id) DO NOTHING;
 
-    -- 5. Crear la fila en la tabla especializada según el rol
+    -- 6. Si es CLIENTE y se encontró contacto, vincular contacto.usuario_id
+    IF role_code_meta = 'CLIENTE' AND contacto_row.id IS NOT NULL THEN
+        UPDATE public.contacto
+        SET usuario_id = NEW.id, updated_at = now()
+        WHERE id = contacto_row.id;
+    END IF;
+
+    -- 7. Crear la fila en la tabla especializada según el rol
     CASE role_code_meta
         WHEN 'TECNICO' THEN
             INSERT INTO public.tecnico (usuario_id, activo) VALUES (NEW.id, true) ON CONFLICT DO NOTHING;
@@ -982,7 +1007,7 @@ BEGIN
         WHEN 'ADMIN' THEN
             INSERT INTO public.administrador (usuario_id, activo) VALUES (NEW.id, true) ON CONFLICT DO NOTHING;
         ELSE
-            NULL;
+            NULL; -- CLIENTE no tiene tabla especializada
     END CASE;
 
     RETURN NEW;
@@ -1001,6 +1026,22 @@ BEGIN
     JOIN catalogo_rol r ON p.rol_id = r.id
     WHERE p.id = auth.uid() 
     AND r.codigo IN ('ADMIN', 'DIRECTOR', 'COORDINADOR')
+  );
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.is_user_active()
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.perfil_usuario p
+    JOIN public.catalogo_estado_general e ON p.estado_id = e.id
+    WHERE p.id = auth.uid()
+    AND e.activo = true
   );
 END;
 $function$
@@ -2549,6 +2590,13 @@ with check (true);
   for all
   to public
 using (public.is_admin_or_coordinator());
+
+  create policy "Users can read own profile"
+  on "public"."perfil_usuario"
+  as permissive
+  for select
+  to authenticated
+using ((id = auth.uid() AND public.is_user_active()));
 
 
 

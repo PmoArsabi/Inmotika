@@ -68,6 +68,7 @@ const UserForm = ({
   isSaving = false
 }) => {
   const isView = !!viewingUser;
+  const isCliente = newUser.rol === ROLES.CLIENTE;
   const [showResendModal, setShowResendModal] = useState(false);
   const isResending = editingUser && resendingIds.has(editingUser.id);
 
@@ -168,19 +169,29 @@ const UserForm = ({
                 viewMode={isView}
                 inputMode="numeric"
               />
-              <Select
-                label="Rol"
-                icon={Shield}
-                options={roleOptions}
-                value={newUser.rol}
-                onChange={e => {
-                  const nuevoRol = e.target.value;
-                  setNewUser({ ...newUser, rol: nuevoRol, directorId: '' });
-                  if (nuevoRol !== ROLES.TECNICO) setTecnicoDocumentos({ cedula: null, planillaSS: null });
-                }}
-                viewMode={isView}
-                required
-              />
+              {isCliente ? (
+                <Input
+                  label="Rol"
+                  icon={Shield}
+                  value="Cliente"
+                  viewMode={true}
+                  required
+                />
+              ) : (
+                <Select
+                  label="Rol"
+                  icon={Shield}
+                  options={roleOptions}
+                  value={newUser.rol}
+                  onChange={e => {
+                    const nuevoRol = e.target.value;
+                    setNewUser({ ...newUser, rol: nuevoRol, directorId: '' });
+                    if (nuevoRol !== ROLES.TECNICO) setTecnicoDocumentos({ cedula: null, planillaSS: null });
+                  }}
+                  viewMode={isView}
+                  required
+                />
+              )}
               <Switch
                 label="Estado del Usuario"
                 checked={!!newUser.activo}

@@ -235,43 +235,62 @@ export const useUsers = () => {
         }
 
         // Actualización diferida: perfil (rol_id, teléfono, etc.) y, si es técnico, documentos y certificados
+        // Polling robusto: esperar a que el trigger cree perfil_usuario antes de actualizar
         const payloadUser = newUser;
         const payloadDocs = tecnicoDocumentos;
         const payloadRoles = roles;
-        setTimeout(async () => {
-          const { data: p } = await supabase.from('perfil_usuario').select('id').eq('email', payloadUser.email).maybeSingle();
-          if (p?.id) {
-            const selectedRole = payloadRoles.find(r => r.codigo === payloadUser.rol);
-            await supabase.from('perfil_usuario').update({
-              telefono: payloadUser.telefono || null,
-              tipo_documento: payloadUser.tipoDocumento || null,
-              identificacion: payloadUser.identificacion || null,
-              ...(selectedRole?.id && { rol_id: selectedRole.id }),
-            }).eq('id', p.id);
+        (async () => {
+          const maxAttempts = 10;
+          let perfilId = null;
 
-            if (payloadUser.rol === ROLES.TECNICO) {
-              try {
-                await saveTecnico({
-                  usuarioId: p.id,
-                  techId: null,
-                  draft: {
-                    nombres: payloadUser.nombres,
-                    apellidos: payloadUser.apellidos,
-                    telefono: payloadUser.telefono,
-                    tipoDocumento: payloadUser.tipoDocumento,
-                    identificacion: payloadUser.identificacion,
-                    cedula: payloadDocs?.cedula ?? null,
-                    planillaSS: payloadDocs?.planillaSS ?? null,
-                    certificados: payloadUser.certificados || [],
-                  },
-                });
-              } catch (err) {
-                console.error('Error guardando datos de técnico (documentos/certificados):', err);
-              }
+          for (let i = 0; i < maxAttempts; i++) {
+            await new Promise(r => setTimeout(r, 500));
+            const { data: p } = await supabase
+              .from('perfil_usuario')
+              .select('id')
+              .eq('email', payloadUser.email)
+              .maybeSingle();
+            if (p?.id) {
+              perfilId = p.id;
+              break;
             }
-            fetchUsers();
           }
-        }, 2000);
+
+          if (!perfilId) {
+            console.error('perfil_usuario no fue creado después de', maxAttempts, 'intentos para:', payloadUser.email);
+            return;
+          }
+
+          const selectedRole = payloadRoles.find(r => r.codigo === payloadUser.rol);
+          await supabase.from('perfil_usuario').update({
+            telefono: payloadUser.telefono || null,
+            tipo_documento: payloadUser.tipoDocumento || null,
+            identificacion: payloadUser.identificacion || null,
+            ...(selectedRole?.id && { rol_id: selectedRole.id }),
+          }).eq('id', perfilId);
+
+          if (payloadUser.rol === ROLES.TECNICO) {
+            try {
+              await saveTecnico({
+                usuarioId: perfilId,
+                techId: null,
+                draft: {
+                  nombres: payloadUser.nombres,
+                  apellidos: payloadUser.apellidos,
+                  telefono: payloadUser.telefono,
+                  tipoDocumento: payloadUser.tipoDocumento,
+                  identificacion: payloadUser.identificacion,
+                  cedula: payloadDocs?.cedula ?? null,
+                  planillaSS: payloadDocs?.planillaSS ?? null,
+                  certificados: payloadUser.certificados || [],
+                },
+              });
+            } catch (err) {
+              console.error('Error guardando datos de técnico (documentos/certificados):', err);
+            }
+          }
+          fetchUsers();
+        })();
 
       } else if (editingUser) {
         const selectedRole = roles.find(r => r.codigo === newUser.rol);

@@ -120,9 +120,9 @@ const ContactNavigator = ({ onClose }) => {
       if (currentDraft.darAcceso && isNewContact && currentDraft.email && !inviteInFlightRef.current) {
         inviteInFlightRef.current = true;
         setSavingStep('inviting');
-        
+
         try {
-          await supabase.functions.invoke('invite-user', {
+          const { data: inviteData, error: inviteError } = await supabase.functions.invoke('invite-user', {
             body: {
               email: currentDraft.email,
               nombres: currentDraft.nombres,
@@ -131,6 +131,39 @@ const ContactNavigator = ({ onClose }) => {
               redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
             },
           });
+
+          if (inviteError) {
+            console.error('Error enviando invitación:', inviteError);
+          } else {
+            // Fallback: si el trigger no vinculó contacto.usuario_id, hacerlo desde frontend
+            // Polling: esperar hasta 5s a que el perfil_usuario exista, luego vincular
+            const maxAttempts = 5;
+            for (let i = 0; i < maxAttempts; i++) {
+              await new Promise(r => setTimeout(r, 1000));
+              const { data: perfil } = await supabase
+                .from('perfil_usuario')
+                .select('id')
+                .eq('email', currentDraft.email.toLowerCase())
+                .maybeSingle();
+
+              if (perfil?.id) {
+                // Verificar si el contacto ya fue vinculado por el trigger
+                const { data: contactoCheck } = await supabase
+                  .from('contacto')
+                  .select('usuario_id')
+                  .eq('id', contactId)
+                  .maybeSingle();
+
+                if (!contactoCheck?.usuario_id) {
+                  await supabase
+                    .from('contacto')
+                    .update({ usuario_id: perfil.id })
+                    .eq('id', contactId);
+                }
+                break;
+              }
+            }
+          }
         } catch (inviteErr) {
           console.error('Error enviando invitación:', inviteErr);
         }
