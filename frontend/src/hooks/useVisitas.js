@@ -60,8 +60,9 @@ import { useNotify } from '../context/NotificationContext';
  * @param {Map<string,string>} tecnicoNameMap - tecnico_id (perfil_usuario.id) → nombre completo
  * @returns {Visita}
  */
-const mapRow = (row, tecnicoNameMap = new Map()) => {
+const mapRow = (row, tecnicoNameMap = new Map(), dispositivosBySolicitud = new Map()) => {
   const tecnicoIds = (row.visita_tecnico || []).map(vt => vt.tecnico_id).filter(Boolean);
+  const dispositivos = dispositivosBySolicitud.get(row.solicitud_id) || [];
   return {
     id: row.id,
     solicitudId: row.solicitud_id || null,
@@ -81,6 +82,7 @@ const mapRow = (row, tecnicoNameMap = new Map()) => {
     estadoLabel: row.estado?.nombre || '',
     tecnicoIds,
     tecnicosNombres: tecnicoIds.map(id => tecnicoNameMap.get(id) || id),
+    dispositivos,
     esEditable: !row.fecha_inicio,
   };
 };
@@ -166,7 +168,72 @@ export const useVisitas = () => {
         });
       }
 
-      setVisitas((rows || []).map(r => mapRow(r, tecnicoNameMap)));
+      // Paso 3: batch fetch de dispositivos por solicitud_id (con categoria_id)
+      const allSolicitudIds = [
+        ...new Set((rows || []).map(r => r.solicitud_id).filter(Boolean)),
+      ];
+
+      /** @type {Array<{solicitud_id:string, dispositivo:{id,id_inmotika,codigo_unico,modelo,serial,categoria_id}}>} */
+      let rawDispositivos = [];
+      if (allSolicitudIds.length > 0) {
+        const { data: sdRows } = await supabase
+          .from('solicitud_dispositivo')
+          .select('solicitud_id,activo,dispositivo:dispositivo_id(id,id_inmotika,codigo_unico,modelo,serial,categoria_id)')
+          .in('solicitud_id', allSolicitudIds)
+          .eq('activo', true);
+        rawDispositivos = (sdRows || []).filter(sd => sd.dispositivo);
+      }
+
+      // Paso 4: cargar pasos de protocolo + actividades para las categorías encontradas
+      const allCategoriaIds = [
+        ...new Set(rawDispositivos.map(sd => sd.dispositivo.categoria_id).filter(Boolean)),
+      ];
+
+      /** @type {Map<string, Array>} categoriaId → pasos ordenados con actividades */
+      let pasosByCatId = new Map();
+      if (allCategoriaIds.length > 0) {
+        const { data: pasos } = await supabase
+          .from('paso_protocolo')
+          .select(`
+            id, descripcion, orden, categoria_id,
+            actividades:actividad_protocolo(id, descripcion, orden, es_obligatorio, activo)
+          `)
+          .in('categoria_id', allCategoriaIds)
+          .eq('activo', true)
+          .order('orden', { ascending: true });
+
+        (pasos || []).forEach(paso => {
+          const list = pasosByCatId.get(paso.categoria_id) || [];
+          list.push({
+            ...paso,
+            actividades: (paso.actividades || [])
+              .filter(a => a.activo !== false)
+              .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+              .map(a => ({ id: a.id, descripcion: a.descripcion, esObligatorio: a.es_obligatorio })),
+          });
+          pasosByCatId.set(paso.categoria_id, list);
+        });
+      }
+
+      // Construir mapa solicitud_id → dispositivos con pasos inyectados
+      /** @type {Map<string, Array>} */
+      let dispositivosBySolicitud = new Map();
+      rawDispositivos.forEach(sd => {
+        const d = sd.dispositivo;
+        const label = d.id_inmotika || d.codigo_unico || d.modelo || d.serial || d.id;
+        const pasos = d.categoria_id ? (pasosByCatId.get(d.categoria_id) || []) : [];
+        const list = dispositivosBySolicitud.get(sd.solicitud_id) || [];
+        list.push({
+          id: d.id,
+          label,
+          idInmotika: d.id_inmotika || null,
+          categoriaId: d.categoria_id || null,
+          pasos,
+        });
+        dispositivosBySolicitud.set(sd.solicitud_id, list);
+      });
+
+      setVisitas((rows || []).map(r => mapRow(r, tecnicoNameMap, dispositivosBySolicitud)));
     } catch (err) {
       console.error('[useVisitas] fetch error:', err);
       notify('error', 'No se pudieron cargar las visitas programadas.');

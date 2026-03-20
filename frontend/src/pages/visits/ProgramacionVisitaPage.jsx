@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ArrowLeft, Search, X, Edit, Eye, CalendarCheck,
-  Calendar, Building2, User, AlertCircle, Users, Save, Trash2, CheckCircle2,
+  Calendar, Building2, User, AlertCircle, Users, Save, Trash2, CheckCircle2, Cpu,
 } from 'lucide-react';
 import { H2, H3, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import Card from '../../components/ui/Card';
@@ -15,6 +15,7 @@ import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import { TechnicianChipList } from '../../components/ui/TechnicianChip';
 import { supabase } from '../../utils/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useMasterData } from '../../context/MasterDataContext';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useSolicitudesVisita } from '../../hooks/useSolicitudesVisita';
 import { useVisitas } from '../../hooks/useVisitas';
@@ -40,13 +41,14 @@ const CardSection = ({ icon: Icon, title }) => (
  * @returns {Object}
  */
 const emptyDraft = (solicitud = null) => ({
-  solicitudId:    solicitud?.id            || null,
-  clienteId:      solicitud?.clienteId     || '',
-  sucursalId:     solicitud?.sucursalId    || '',
-  tipoVisitaId:   solicitud?.tipoVisitaId  || '',
-  tecnicoIds:     [],
+  solicitudId:     solicitud?.id            || null,
+  clienteId:       solicitud?.clienteId     || '',
+  sucursalId:      solicitud?.sucursalId    || '',
+  tipoVisitaId:    solicitud?.tipoVisitaId  || '',
+  tecnicoIds:      [],
+  dispositivoIds:  solicitud?.dispositivoIds || [],
   fechaProgramada: '',
-  observaciones:  '',
+  observaciones:   '',
 });
 
 /**
@@ -65,9 +67,10 @@ const fmtDateTime = (iso) =>
  */
 const ProgramacionVisitaPage = () => {
   const { user } = useAuth();
+  const { data: masterData } = useMasterData();
 
   // ── Remote data ────────────────────────────────────────────────────────────
-  const { solicitudes, loading: loadingSol, fetchSolicitudes } = useSolicitudesVisita();
+  const { solicitudes, loading: loadingSol, fetchSolicitudes, updateSolicitud } = useSolicitudesVisita();
   const { visitas, loading: loadingVis, saving, createVisita, updateVisita, cancelVisita } = useVisitas();
 
   // Ambas tablas (visita y solicitud_visita) referencian catalogo con tipo ESTADO_VISITA
@@ -173,8 +176,13 @@ const ProgramacionVisitaPage = () => {
         sucursalId:      item.sucursalId,
         tipoVisitaId:    item.tipoVisitaId,
         tecnicoIds:      item.tecnicoIds || [],
+        dispositivoIds:  sol?.dispositivoIds || item.dispositivos?.map(d => d.id) || [],
         fechaProgramada: item.fechaProgramada
-          ? new Date(item.fechaProgramada).toISOString().slice(0, 16)
+          ? (() => {
+              const d = new Date(item.fechaProgramada);
+              const offset = d.getTimezoneOffset() * 60000;
+              return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+            })()
           : '',
         observaciones: item.observaciones || '',
       });
@@ -224,6 +232,10 @@ const ProgramacionVisitaPage = () => {
         observaciones:   draft.observaciones,
         tecnicoIds:      draft.tecnicoIds,
       });
+      // Sync dispositivos on the solicitud origen if changed
+      if (ok && draft.solicitudId) {
+        await updateSolicitud(draft.solicitudId, { dispositivoIds: draft.dispositivoIds }, []);
+      }
       if (ok) {
         setView('list');
         setEditingVisitaId(null);
@@ -232,6 +244,10 @@ const ProgramacionVisitaPage = () => {
         setSuccessModal({ open: true, visitaId: editingVisitaId, isEdit: true });
       }
     } else {
+      // Sync devices on the solicitud before creating the visita
+      if (draft.solicitudId) {
+        await updateSolicitud(draft.solicitudId, { dispositivoIds: draft.dispositivoIds }, []);
+      }
       const id = await createVisita(payload, estadoOptions);
       if (id) {
         savedId = id;
@@ -246,7 +262,7 @@ const ProgramacionVisitaPage = () => {
   }, [
     draft, editingVisitaId, user,
     estadoOptions,
-    createVisita, updateVisita, fetchSolicitudes,
+    createVisita, updateVisita, updateSolicitud, fetchSolicitudes,
   ]);
 
   const handleConfirmCancel = useCallback(async () => {
@@ -265,6 +281,12 @@ const ProgramacionVisitaPage = () => {
       value: id,
       label: tecnicosOptions.find(o => o.value === id)?.label || id,
     }));
+
+    // Dispositivos disponibles: todos los de la sucursal de la solicitud (branchId de toDeviceDraft)
+    const allDispositivos = masterData?.dispositivos || [];
+    const dispositivosDisponibles = draft.sucursalId
+      ? allDispositivos.filter(d => d.branchId === draft.sucursalId)
+      : allDispositivos;
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
@@ -321,6 +343,53 @@ const ProgramacionVisitaPage = () => {
                 </div>
               )}
             </Card>
+
+            {/* Dispositivos */}
+            {solicitudOrigen && (
+              <Card className="p-5 space-y-3">
+                <CardSection icon={Cpu} title="Dispositivos a Revisar" />
+                {dispositivosDisponibles.length === 0 ? (
+                  <TextTiny className="text-gray-400 italic">
+                    No hay dispositivos registrados para esta sucursal.
+                  </TextTiny>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {dispositivosDisponibles.map(d => {
+                      const checked = draft.dispositivoIds.includes(d.id);
+                      return (
+                        <label
+                          key={d.id}
+                          className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              const next = checked
+                                ? draft.dispositivoIds.filter(x => x !== d.id)
+                                : [...draft.dispositivoIds, d.id];
+                              updateDraft({ dispositivoIds: next });
+                            }}
+                            className="accent-[#D32F2F] w-4 h-4 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <TextSmall className="font-semibold truncate">
+                              {d.idInmotika || d.id_inmotika || d.codigoUnico || d.codigo_unico || d.modelo || d.id}
+                            </TextSmall>
+                            {(d.modelo || d.serial) && (
+                              <TextTiny className="text-gray-400">{[d.modelo, d.serial].filter(Boolean).join(' · ')}</TextTiny>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                <TextTiny className="text-gray-400">
+                  {draft.dispositivoIds.length} dispositivo{draft.dispositivoIds.length !== 1 ? 's' : ''} seleccionado{draft.dispositivoIds.length !== 1 ? 's' : ''}
+                </TextTiny>
+              </Card>
+            )}
 
             {/* Fecha programada */}
             <Card className="p-5 space-y-4">

@@ -14,6 +14,7 @@ import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import { TechnicianChipList } from '../../components/ui/TechnicianChip';
 import Modal from '../../components/ui/Modal';
 import DeviceChecklistCard from '../../components/visits/DeviceChecklistCard';
+import { useVisitas } from '../../hooks/useVisitas';
 
 // ─── Info row helper ──────────────────────────────────────────────────────────
 const InfoRow = ({ icon: Icon, label, value }) => (
@@ -27,7 +28,8 @@ const InfoRow = ({ icon: Icon, label, value }) => (
 );
 
 // ─── Main page ────────────────────────────────────────────────────────────────
-const GestionVisitasPage = ({ data, setData }) => {
+const GestionVisitasPage = () => {
+  const { visitas: visitasHook, loading: loadingVisitas } = useVisitas();
   const [activeVisita,      setActiveVisita]      = useState(null);
   const [searchTerm,        setSearchTerm]        = useState('');
   const [filterEstado,      setFilterEstado]      = useState('Todos');
@@ -40,7 +42,7 @@ const GestionVisitasPage = ({ data, setData }) => {
   const [modalTitle,        setModalTitle]        = useState('');
   const [modalMessage,      setModalMessage]      = useState('');
 
-  const visitas = data?.visitas || [];
+  const visitas = visitasHook;
 
   // ── Filtered list ────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -75,14 +77,6 @@ const GestionVisitasPage = ({ data, setData }) => {
 
   // ── Iniciar visita (PROGRAMADO → EN_CURSO) ────────────────────────────────
   const handleIniciar = () => {
-    setData(prev => ({
-      ...prev,
-      visitas: (prev.visitas || []).map(v =>
-        v.id === activeVisita.id
-          ? { ...v, estadoCodigo: 'EN_PROCESO', fechaInicio: new Date().toISOString() }
-          : v,
-      ),
-    }));
     setActiveVisita(prev => ({ ...prev, estadoCodigo: 'EN_PROCESO', fechaInicio: new Date().toISOString() }));
   };
 
@@ -104,18 +98,6 @@ const GestionVisitasPage = ({ data, setData }) => {
 
   // ── Save avance for a device ──────────────────────────────────────────────
   const handleSaveAvance = () => {
-    setData(prev => ({
-      ...prev,
-      visitas: (prev.visitas || []).map(v =>
-        v.id === activeVisita.id
-          ? {
-              ...v,
-              ejecucionPasos:       { ...v.ejecucionPasos,       ...ejecucionPasos       },
-              ejecucionActividades: { ...v.ejecucionActividades, ...ejecucionActividades },
-            }
-          : v,
-      ),
-    }));
     setModalTitle('Avance Guardado');
     setModalMessage('Avance guardado y enviado al coordinador correctamente.');
     setShowHelpModal(true);
@@ -129,21 +111,7 @@ const GestionVisitasPage = ({ data, setData }) => {
       setShowHelpModal(true);
       return;
     }
-    setData(prev => ({
-      ...prev,
-      visitas: (prev.visitas || []).map(v =>
-        v.id === activeVisita.id
-          ? {
-              ...v,
-              estadoCodigo:         'FINALIZADO',
-              fechaFin:             new Date().toISOString(),
-              ejecucionPasos:       { ...v.ejecucionPasos,       ...ejecucionPasos       },
-              ejecucionActividades: { ...v.ejecucionActividades, ...ejecucionActividades },
-              observacionFinal,
-            }
-          : v,
-      ),
-    }));
+    setActiveVisita(prev => ({ ...prev, estadoCodigo: 'FINALIZADO', fechaFin: new Date().toISOString(), observacionFinal }));
     handleCloseVisita();
   };
 
@@ -206,7 +174,7 @@ const GestionVisitasPage = ({ data, setData }) => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <VisitStatusBadge status={activeVisita.estado} />
+            <VisitStatusBadge status={activeVisita.estadoCodigo} />
             {isProgramado && (
               <Button onClick={handleIniciar} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 border-0 text-white">
                 <Play size={14} /> Iniciar Visita
@@ -324,7 +292,7 @@ const GestionVisitasPage = ({ data, setData }) => {
               <div className="space-y-1.5 pt-1">
                 {deviceStats.map(d => (
                   <div key={d.id} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600 truncate flex-1 mr-2">{d.nombre}</span>
+                    <span className="text-gray-600 truncate flex-1 mr-2">{d.label || d.idInmotika || d.id}</span>
                     <span className={`font-semibold shrink-0 ${d.done ? 'text-green-600' : 'text-gray-400'}`}>
                       {d.doneActs}/{d.totalActs} act.
                     </span>
@@ -389,7 +357,6 @@ const GestionVisitasPage = ({ data, setData }) => {
         <Table>
           <THead variant="light">
             <tr>
-              <Th>ID</Th>
               <Th>Tipo</Th>
               <Th>Cliente / Sucursal</Th>
               <Th>Fecha</Th>
@@ -400,9 +367,15 @@ const GestionVisitasPage = ({ data, setData }) => {
             </tr>
           </THead>
           <TBody>
-            {filtered.length === 0 ? (
+            {loadingVisitas ? (
               <Tr>
-                <td colSpan={8} className="text-center py-12 text-sm text-gray-400">
+                <td colSpan={7} className="text-center py-12 text-sm text-gray-400">
+                  Cargando visitas...
+                </td>
+              </Tr>
+            ) : filtered.length === 0 ? (
+              <Tr>
+                <td colSpan={7} className="text-center py-12 text-sm text-gray-400">
                   No hay visitas asignadas con los filtros seleccionados.
                 </td>
               </Tr>
@@ -422,14 +395,11 @@ const GestionVisitasPage = ({ data, setData }) => {
                 return (
                   <Tr key={visita.id}>
                     <Td>
-                      <TextSmall className="font-bold text-gray-700 whitespace-nowrap">{visita.id}</TextSmall>
-                    </Td>
-                    <Td>
-                      {visita.tipoVisita
+                      {visita.tipoVisitaLabel || visita.tipoVisitaCodigo
                         ? <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${
-                            visita.tipoVisita === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+                            visita.tipoVisitaCodigo === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
                           }`}>
-                            {visita.tipoVisita}
+                            {visita.tipoVisitaLabel || visita.tipoVisitaCodigo}
                           </span>
                         : <TextSmall className="text-gray-400">—</TextSmall>
                       }

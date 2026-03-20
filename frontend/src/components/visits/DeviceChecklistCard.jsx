@@ -227,8 +227,10 @@ const DeviceChecklistCard = ({
               : <Circle       size={20} className="shrink-0 text-gray-300" />
           }
           <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900 truncate">{device.nombre}</p>
-            <p className="text-xs text-gray-500">{device.categoria} · Serie: {device.serial}</p>
+            <p className="text-sm font-bold text-gray-900 truncate">{device.label || device.nombre || device.id}</p>
+            <p className="text-xs text-gray-500">
+              {[device.categoria, device.serial ? `Serie: ${device.serial}` : null].filter(Boolean).join(' · ') || 'Dispositivo'}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0 ml-2">
