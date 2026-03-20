@@ -19,9 +19,7 @@ import Card from '../../components/ui/Card';
 import { TextSmall, Subtitle, Label, TextTiny } from '../../components/ui/Typography';
 import IconButton from '../../components/ui/IconButton';
 import DynamicDocumentList from '../../components/ui/DynamicDocumentList';
-import { supabase } from '../../utils/supabase';
 import { useEstados, useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
-import { emptyContractDraft } from '../../utils/entityMappers';
 import BranchForm from '../../components/forms/BranchForm';
 
 const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
@@ -39,27 +37,14 @@ const ClientForm = ({
   editingBranchId = null, onCancelEdit = null,
   viewBranchMode = null,
 }) => {
-  if (!draft) return null;
   const { options: estadoOptions, loading: loadingEstados } = useEstados();
   const { options: tipoDocOptions, loading: loadingTipoDoc } = useCatalog('TIPO_DOCUMENTO');
   const { activoId, inactivoId } = useActivoInactivo();
 
-  // Sigue usado por el Select de estado de contratos
-  const estadoSelectOptions = loadingEstados
-    ? [{ value: '', label: 'Cargando...' }]
-    : [{ value: '', label: 'Seleccionar estado...' }, ...estadoOptions];
-
-  const tipoDocSelectOptions = loadingTipoDoc
-    ? [{ value: '', label: 'Cargando...' }]
-    : [{ value: '', label: 'Seleccionar tipo...' }, ...tipoDocOptions.map(o => ({ value: o.codigo, label: o.label }))];
-
-  // Derivar si es persona jurídica según el tipo de documento seleccionado
-  const isJuridica = draft.tipoDocumento === 'NIT';
-
-  const getCountryName = (code) => ALL_COUNTRIES.find(c => c.value === code)?.label || code;
-
   const [branchSearchQuery, setBranchSearchQuery] = useState('');
   const logoInputRef = useRef(null);
+
+  const getCountryName = (code) => ALL_COUNTRIES.find(c => c.value === code)?.label || code;
 
   const filteredBranches = useMemo(() => {
     if (!branchSearchQuery.trim()) return branches;
@@ -70,6 +55,20 @@ const ClientForm = ({
       getCountryName(b.pais || '').toLowerCase().includes(q)
     );
   }, [branches, branchSearchQuery]);
+
+  // Early return después de todos los hooks
+  if (!draft) return null;
+
+  // Variables derivadas del draft (después del early return para evitar hooks condicionales)
+  const estadoSelectOptions = loadingEstados
+    ? [{ value: '', label: 'Cargando...' }]
+    : [{ value: '', label: 'Seleccionar estado...' }, ...estadoOptions];
+
+  const tipoDocSelectOptions = loadingTipoDoc
+    ? [{ value: '', label: 'Cargando...' }]
+    : [{ value: '', label: 'Seleccionar tipo...' }, ...tipoDocOptions.map(o => ({ value: o.codigo, label: o.label }))];
+
+  const isJuridica = draft.tipoDocumento === 'NIT';
 
   // Logo upload (deferred, real upload happens in ClientNavigator with uploadAndSyncFile)
   const handleLogoClick = () => {
@@ -276,7 +275,7 @@ const ClientForm = ({
                       <LocationPickerRows
                         countryValue={draft.pais}
                         stateValue={draft.estado_depto}
-                        cityValue={draft.city || draft.ciudad}
+                        cityValue={draft.ciudad}
                         direccion={draft.direccion}
                         onLocationChange={l => updateDraft({ pais: l.country, estado_depto: l.state, ciudad: l.city })}
                         onDireccionChange={v => updateDraft({ direccion: v })}

@@ -252,6 +252,7 @@ export const ConfigurationProvider = ({ children, initialParams = {} }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useConfigurationContext = () => {
   const context = useContext(ConfigurationContext);
   if (!context) {

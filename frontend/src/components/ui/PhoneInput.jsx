@@ -32,8 +32,10 @@ const PHONE_LENGTH = {
   'IN': 10, 'KR': 10, 'SG': 8,  'MY': 9,  'TH': 9,
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const getPhoneCode = (isoCode) => COUNTRY_PHONE_CODES[isoCode] || '+1';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const formatFullPhone = (countryCode, phoneNumber) => {
   if (!countryCode || !phoneNumber) return '';
   const code = getPhoneCode(countryCode);
@@ -41,6 +43,7 @@ export const formatFullPhone = (countryCode, phoneNumber) => {
 };
 
 /** Returns null if valid, error string if invalid. */
+// eslint-disable-next-line react-refresh/only-export-components
 export const validatePhoneNumber = (phoneNumber, countryIso) => {
   if (!phoneNumber) return null;
   const digits = String(phoneNumber).replace(/\D/g, '');

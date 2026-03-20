@@ -28,6 +28,7 @@ const COLOR_MAP = {
   green:  { bg: 'from-green-50 to-green-100/60',  icon: 'text-green-600',  ring: 'bg-green-50 to-green-100'  },
 };
 
+// eslint-disable-next-line no-unused-vars
 const RoleSection = ({ icon: Icon, label, color = 'blue', children }) => {
   const c = COLOR_MAP[color] || COLOR_MAP.blue;
   return (
@@ -83,7 +84,6 @@ const UserForm = ({
   onSave,
   onCancel,
   roleOptions,
-  allUsers = [],
   activeDirectors = [],
   clientes = [],
   onResendInvitation,

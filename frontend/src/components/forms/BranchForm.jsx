@@ -22,7 +22,7 @@ export const BranchForm = (props) => {
     newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
     isEditing, isSaving, editingBranchId, onCancelEdit,
     onAssociateContacts, onAssociateDevices, showErrors,
-    estadoSelectOptions, activoId, inactivoId, clientId, viewBranchMode
+    activoId, inactivoId
   } = props;
 
   if (!newBranchDraft) return null;

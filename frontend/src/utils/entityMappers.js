@@ -30,7 +30,6 @@ export const emptyClientDraft = () => ({
   pais: 'CO',
   estado_depto: '',
   ciudad: '',
-  otrosDocumentos: [],  // desde tabla cliente_documento: [{id, nombre, url}]
   associatedDirectorIds: [],
 });
 
@@ -76,6 +75,7 @@ export const emptyContactDraft = () => ({
   fechaNacimiento: '',
   fechaMatrimonio: '',    // fecha aniversario — solo visible si esMarido=true
   estadoId: '',           // UUID → catalogo_estado_general (oculto en creación)
+  darAcceso: false,       // true = invitar al sistema al guardar
   associatedBranchIds: [],
 });
 
@@ -235,6 +235,13 @@ export const toContactDraft = (contact) => {
     fechaMatrimonio: contact.fecha_matrimonio || contact.fechaMatrimonio || '',
     // Si hay fecha de matrimonio en BD, inferir que es casado/a
     esMarido: contact.esMarido ?? Boolean(contact.fecha_matrimonio || contact.fechaMatrimonio),
+    usuarioId: contact.usuario_id || contact.usuarioId || null,
+    // Estado del perfil_usuario (controla acceso al sistema via RLS is_user_active())
+    // true = puede loguearse, false = bloqueado, null = no tiene cuenta vinculada
+    perfilAccesoActivo: contact.perfil_usuario
+      ? (contact.perfil_usuario.catalogo_estado_general?.activo ?? true)
+      : (contact.perfilAccesoActivo ?? null),
+    darAcceso: contact.darAcceso ?? contact.dar_acceso ?? false,
     associatedBranchIds: contact.associatedBranchIds && contact.associatedBranchIds.length
       ? contact.associatedBranchIds.map(id => String(id))
       : associatedBranchIds,
@@ -311,14 +318,33 @@ export const applyTecnicoUpsert = (prevData, tecnicoId, tecnicoDraft) => {
 };
 
 export const applyBranchUpsert = (prevData, clientId, branchId, branchDraft) => {
+  // Reconstruir el array de objetos contacto a partir de los IDs del draft.
+  // data.contactos es la fuente de verdad de objetos; el draft solo guarda IDs.
+  const allContactos = prevData?.contactos || [];
+  const contactIds = new Set((branchDraft.associatedContactIds || []).map(String));
+  const updatedContactos = contactIds.size > 0
+    ? allContactos.filter(ct => contactIds.has(String(ct.id)))
+    : null; // null = no cambiar los contactos existentes si no hay IDs en el draft
+
   const updatedClients = (prevData?.clientes || []).map(c => {
     if (String(c.id) !== String(clientId)) return c;
     const current = c.sucursales || [];
     const exists = current.some(b => String(b.id) === String(branchId));
-    const mapped = { ...branchDraft, id: branchId };
+    // No propagamos associatedContactIds/associatedDeviceIds a la sucursal en data
+    // (esos campos son solo del draft del formulario)
+    const { associatedContactIds: _cIds, associatedDeviceIds: _dIds, ...draftFields } = branchDraft;
+    const mapped = { ...draftFields, id: branchId };
     const upserted = exists
-      ? current.map(b => String(b.id) === String(branchId) ? { ...b, ...mapped } : b)
-      : [...current, { ...mapped, contactos: [], dispositivos: [] }];
+      ? current.map(b => {
+          if (String(b.id) !== String(branchId)) return b;
+          return {
+            ...b,
+            ...mapped,
+            // Si el draft tenía IDs de contactos, actualizar el array de objetos
+            contactos: updatedContactos !== null ? updatedContactos : (b.contactos || []),
+          };
+        })
+      : [...current, { ...mapped, contactos: updatedContactos || [], dispositivos: [] }];
     return { ...c, sucursales: upserted };
   });
   return { ...prevData, clientes: updatedClients };

@@ -13,7 +13,7 @@ import {
 import { validateClient, validateBranch } from '../../../utils/validators';
 import { useCatalog } from '../../../hooks/useCatalog';
 import { saveSucursal } from '../../../api/sucursalApi';
-import { saveCliente, getClientDirectors, syncClientDirectors, isNewClientId } from '../../../api/clienteApi';
+import { saveCliente, syncClientDirectors } from '../../../api/clienteApi';
 import { useUsers } from '../../../hooks/useUsers';
 import { useNotify } from '../../../context/NotificationContext';
 
@@ -31,13 +31,13 @@ const ClientNavigator = ({
   const {
     route, drafts, setDrafts, updateDraft, setStack,
     editingBranchId, viewBranchMode, creatingNewBranch,
-    showErrors, saveState, showSuccessModal, branchSuccessInfo, savedClientId,
+    showErrors, saveState,
     startEditingBranch, stopEditingBranch, startCreatingBranch, stopCreatingBranch,
     showValidationErrors, startSaving, finishSaving, failSaving,
     openClientSuccess, openBranchSuccess,
   } = useConfigurationContext();
   const { data, setData } = useMasterData();
-  const { activeDirectors, fetchActiveDirectors } = useUsers();
+  const { activeDirectors } = useUsers();
   const notify = useNotify();
   const { options: tipoPersonaOptions } = useCatalog('TIPO_PERSONA');
   const tipoPersonaIdNatural = tipoPersonaOptions.find(o => o.codigo === 'NATURAL')?.value || '';
@@ -50,14 +50,14 @@ const ClientNavigator = ({
 
   const currentClient = (data?.clientes || []).find(c => compareIds(c.id, route?.clientId));
 
-  // Seed the draft into context as soon as we have fresh MasterData.
-  // Without this, the first onChange merges the patch over {} (empty),
-  // wiping every field that wasn't just edited.
+  // Seed the draft into context on mount so the first onChange always merges
+  // over a complete draft (with all defaults like pais: 'CO') rather than {}.
   useEffect(() => {
-    if (!route.clientId || !currentClient) return;
+    if (!route.clientId) return;
     if (drafts[key]) return; // already seeded — don't overwrite in-progress edits
-    setDrafts(prev => ({ ...prev, [key]: toClientDraft(currentClient) }));
-  }, [route.clientId, currentClient, key]); // eslint-disable-line react-hooks/exhaustive-deps
+    const base = currentClient ? toClientDraft(currentClient) : emptyClientDraft();
+    setDrafts(prev => ({ ...prev, [key]: base }));
+  }, [route.clientId, key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draft = drafts[key] ?? (currentClient ? toClientDraft(currentClient) : emptyClientDraft());
 
@@ -117,16 +117,15 @@ const ClientNavigator = ({
     }
   };
 
-  const ensureDraft = (k, factory) => {
-    if (!drafts[k]) {
-      setDrafts(prev => ({ ...prev, [k]: factory() }));
-    }
-  };
 
   const handleNewBranch = () => {
     stopEditingBranch();
     const newBranchKey = entityKey('branch', `new-${route.clientId}`);
-    ensureDraft(newBranchKey, () => emptyBranchDraft());
+    // Usar setDrafts directo (no ensureDraft) para garantizar que el draft completo
+    // (con pais: 'CO') esté en contexto ANTES del primer render del formulario.
+    // ensureDraft era no-atómico: si el usuario editaba antes del setState, el draft
+    // se creaba desde {} perdiendo los valores por defecto (pais, etc).
+    setDrafts(prev => prev[newBranchKey] ? prev : { ...prev, [newBranchKey]: emptyBranchDraft() });
     startCreatingBranch();
     if (route.activeTab !== 'branches') {
       setStack(p => p.map((r, i) => i === p.length - 1 ? {...r, activeTab: 'branches'} : r));
@@ -211,6 +210,14 @@ const ClientNavigator = ({
   const { draft: activeBranchDraft, key: activeBranchKey } = getDraftWithFallback();
   const activeBranchErrors = activeBranchDraft ? validateBranch(activeBranchDraft) : {};
 
+  // Seed branch draft into context when it's computed locally (fallback path).
+  // Without this, the first onChange call merges over {} losing pais: 'CO' etc.
+  useEffect(() => {
+    if (!activeBranchKey || !activeBranchDraft) return;
+    if (drafts[activeBranchKey]) return; // already seeded
+    setDrafts(prev => ({ ...prev, [activeBranchKey]: activeBranchDraft }));
+  }, [activeBranchKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSaveNewBranch = async () => {
     if (!activeBranchDraft) return;
     if (saveBranchInFlightRef.current) return;
@@ -227,7 +234,16 @@ const ClientNavigator = ({
       });
       const finalDraft = { ...activeBranchDraft, id: sucursalId, contratos };
 
-      setData(prev => applyBranchUpsert(prev, route.clientId, sucursalId, finalDraft));
+      setData(prev => {
+        const withBranch = applyBranchUpsert(prev, route.clientId, sucursalId, finalDraft);
+        // Actualizar branchId en dispositivos asociados para reflejo inmediato en UI
+        const deviceIds = new Set((finalDraft.associatedDeviceIds || []).map(String));
+        if (deviceIds.size === 0) return withBranch;
+        const updatedDispositivos = (withBranch.dispositivos || []).map(d =>
+          deviceIds.has(String(d.id)) ? { ...d, branchId: sucursalId, sucursal_id: sucursalId } : d
+        );
+        return { ...withBranch, dispositivos: updatedDispositivos };
+      });
       setDrafts(prev => {
         const updated = { ...prev };
         delete updated[activeBranchKey];
@@ -263,12 +279,12 @@ const ClientNavigator = ({
     const currentIds = activeBranchDraft.associatedDeviceIds || [];
     setAssociateDevicesSelected(currentIds);
     setAssociateDevicesSearch('');
-    setAssociateDevicesModal({ branchKey: activeBranchKey, clientId: route.clientId });
+    setAssociateDevicesModal({ branchKey: activeBranchKey, clientId: route.clientId, branchId: editingBranchId });
   };
 
   const handleOpenAssociateDirectors = () => {
     // Si no hay draft en el contexto, lo inicializamos con los datos actuales
-    if (!existingDraft) {
+    if (!drafts[key]) {
       updateDraft(key, draft);
     }
     const currentIds = draft.associatedDirectorIds || [];

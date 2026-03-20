@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
 
 const Toast = ({ type = 'info', message, onClose }) => {
   const [isExiting, setIsExiting] = useState(false);
+
+  const handleClose = useCallback(() => {
+    setIsExiting(true);
+    setTimeout(onClose, 300); // Dar tiempo a la animación de salida
+  }, [onClose]);
 
   useEffect(() => {
     // Failsafe para asegurar que se limpie si algo falla
@@ -10,12 +15,7 @@ const Toast = ({ type = 'info', message, onClose }) => {
       handleClose();
     }, 5500);
     return () => clearTimeout(timer);
-  }, []);
-
-  const handleClose = () => {
-    setIsExiting(true);
-    setTimeout(onClose, 300); // Dar tiempo a la animación de salida
-  };
+  }, [handleClose]);
 
   const getStyle = () => {
     switch (type) {

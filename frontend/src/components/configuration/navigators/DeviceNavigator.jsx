@@ -7,7 +7,7 @@ import { useConfigurationContext } from '../../../context/ConfigurationContext';
 import { useMasterData } from '../../../context/MasterDataContext';
 import DeviceForm from '../../../modules/devices/DeviceForm';
 
-const DeviceNavigator = ({ onClose }) => {
+const DeviceNavigator = () => {
   const { route, drafts, setDrafts, updateDraft, openDeviceSuccess } = useConfigurationContext();
   const { data, setData } = useMasterData();
   const notify = useNotify();

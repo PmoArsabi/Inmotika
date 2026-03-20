@@ -29,8 +29,8 @@ export function buildSucursalPayload(branchDraft, clienteId) {
     clasificacion: null,
     horarios_atencion: branchDraft.horarioAtencion || null,
     estado_id: (branchDraft.estadoId || '').trim() || null,
-    latitud: branchDraft.latitud ? Number(branchDraft.latitud) : null,
-    longitud: branchDraft.longitud ? Number(branchDraft.longitud) : null,
+    latitud: (() => { const v = parseFloat(branchDraft.latitud); return (!branchDraft.latitud || isNaN(v)) ? null : parseFloat(v.toFixed(6)); })(),
+    longitud: (() => { const v = parseFloat(branchDraft.longitud); return (!branchDraft.longitud || isNaN(v)) ? null : parseFloat(v.toFixed(6)); })(),
   };
 }
 
@@ -82,7 +82,38 @@ export async function syncSucursalContracts(sucursalId, clientId, branchDraft) {
 }
 
 /**
- * Persiste sucursal (insert o update) y sincroniza contratos.
+ * Sincroniza contactos asociados a la sucursal via tabla puente contacto_sucursal.
+ * Estrategia: para cada contactId en el draft, asegurar que exista la fila.
+ * No elimina filas de contactos no listados (el contacto puede pertenecer a varias sucursales).
+ * @param {string} sucursalId
+ * @param {string[]} contactIds - IDs de contactos a asociar
+ */
+export async function syncSucursalContactos(sucursalId, contactIds) {
+  if (!contactIds || contactIds.length === 0) return;
+  const rows = contactIds.map(cId => ({ contacto_id: cId, sucursal_id: sucursalId }));
+  const { error } = await supabase
+    .from('contacto_sucursal')
+    .upsert(rows, { onConflict: 'contacto_id,sucursal_id', ignoreDuplicates: true });
+  if (error) throw error;
+}
+
+/**
+ * Sincroniza dispositivos asociados a la sucursal: actualiza dispositivo.sucursal_id.
+ * Un dispositivo solo puede pertenecer a una sucursal a la vez.
+ * @param {string} sucursalId
+ * @param {string[]} deviceIds - IDs de dispositivos a asociar
+ */
+export async function syncSucursalDispositivos(sucursalId, deviceIds) {
+  if (!deviceIds || deviceIds.length === 0) return;
+  const { error } = await supabase
+    .from('dispositivo')
+    .update({ sucursal_id: sucursalId })
+    .in('id', deviceIds);
+  if (error) throw error;
+}
+
+/**
+ * Persiste sucursal (insert o update), sincroniza contratos y contactos asociados.
  * Un solo punto de verdad: crear y editar usan la misma función.
  *
  * @param {Object} params
@@ -114,5 +145,16 @@ export async function saveSucursal({ sucursalId, clienteId, draft }) {
   }
 
   const contratos = await syncSucursalContracts(resolvedId, clienteId, draft);
+
+  // Sincronizar contactos asociados desde el modal de asociar
+  if (Array.isArray(draft.associatedContactIds) && draft.associatedContactIds.length > 0) {
+    await syncSucursalContactos(resolvedId, draft.associatedContactIds);
+  }
+
+  // Sincronizar dispositivos asociados desde el modal de asociar
+  if (Array.isArray(draft.associatedDeviceIds) && draft.associatedDeviceIds.length > 0) {
+    await syncSucursalDispositivos(resolvedId, draft.associatedDeviceIds);
+  }
+
   return { sucursalId: resolvedId, contratos };
 }

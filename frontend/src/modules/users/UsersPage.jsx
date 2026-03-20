@@ -26,7 +26,7 @@ const emptyUser = () => ({
 
 const emptyDocs = () => ({ cedula: null, planillaSS: null });
 
-const UsersPage = ({ data, setData }) => {
+const UsersPage = ({ setData }) => {
   const { data: masterData } = useMasterData();
   // UI State
   const [isCreating, setIsCreating] = useState(false);

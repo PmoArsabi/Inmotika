@@ -49,7 +49,7 @@ export async function uploadAndSyncFile({
     if (dbTarget) {
       const { table, id, column } = dbTarget;
       console.log(`[storageUtils] Syncing DB: ${table}.${column} for ID ${id}...`);
-      const { data: updateData, error: dbError, count } = await supabase
+      const { data: updateData, error: dbError } = await supabase
         .from(table)
         .update({ [column]: finalPath })
         .eq('id', id)

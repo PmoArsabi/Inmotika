@@ -47,6 +47,22 @@ export function buildContactoPayload(draft, estadoId, clienteId) {
 }
 
 /**
+ * Actualiza el estado_id de perfil_usuario para activar o desactivar el acceso al sistema.
+ * Solo tiene efecto si el contacto tiene usuario_id vinculado.
+ *
+ * @param {string} usuarioId - UUID del perfil_usuario
+ * @param {string} estadoId  - UUID del catalogo_estado_general (activo o inactivo)
+ */
+export async function updatePerfilUsuarioEstado(usuarioId, estadoId) {
+  if (!usuarioId || !estadoId) return;
+  const { error } = await supabase
+    .from('perfil_usuario')
+    .update({ estado_id: estadoId })
+    .eq('id', usuarioId);
+  if (error) throw error;
+}
+
+/**
  * Persiste contacto (insert o update) y sincroniza contacto_sucursal.
  * No invoca invite-user; eso queda en el llamador si aplica.
  *

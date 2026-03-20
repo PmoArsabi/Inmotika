@@ -215,7 +215,7 @@ const SolicitudVisitaPage = () => {
     ...tipoVisitaOptions.map(o => ({ value: o.codigo, label: o.label })),
   ], [tipoVisitaOptions]);
 
-  const clientes = data?.clientes || [];
+  const clientes = useMemo(() => data?.clientes || [], [data?.clientes]);
 
   const clienteOptions = useMemo(
     () => clientes.map(c => ({ value: c.id, label: c.nombre || c.razonSocial || c.razon_social })),

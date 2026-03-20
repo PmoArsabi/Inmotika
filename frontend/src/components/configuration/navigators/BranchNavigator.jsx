@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Card from '../../ui/Card';
 import BranchForm from '../../forms/BranchForm';
 import { useConfigurationContext } from '../../../context/ConfigurationContext';
@@ -8,8 +8,11 @@ import { validateBranch } from '../../../utils/validators';
 import { useNotify } from '../../../context/NotificationContext';
 import { saveSucursal } from '../../../api/sucursalApi';
 
-const BranchNavigator = ({ setAssociateContactsModal, setAssociateDevicesModal }) => {
-  const { route, drafts, updateDraft, setStack } = useConfigurationContext();
+const BranchNavigator = ({
+  setAssociateContactsModal, setAssociateContactsSelected, setAssociateContactsSearch,
+  setAssociateDevicesModal, setAssociateDevicesSelected, setAssociateDevicesSearch,
+}) => {
+  const { route, drafts, setDrafts, updateDraft, setStack } = useConfigurationContext();
   const { data, setData } = useMasterData();
   const notify = useNotify();
   const [showErrors, setShowErrors] = useState(false);
@@ -30,13 +33,22 @@ const BranchNavigator = ({ setAssociateContactsModal, setAssociateDevicesModal }
       return {
         ...toBranchDraft(currentBranch),
         associatedContactIds: (currentBranch.contactos || []).map(c => String(c.id)),
-        associatedDeviceIds: (data?.dispositivos || []).filter(d => 
+        associatedDeviceIds: (data?.dispositivos || []).filter(d =>
           compareIds(d.branchId, currentBranch.id)
         ).map(d => String(d.id))
       };
     }
     return emptyBranchDraft();
   };
+
+  // Seed draft into context on mount so the first onChange merges over a
+  // complete draft (with pais: 'CO' etc.) rather than {}.
+  useEffect(() => {
+    if (!route.branchId) return;
+    if (drafts[key]) return;
+    const base = getDraft();
+    setDrafts(prev => ({ ...prev, [key]: base }));
+  }, [route.branchId, key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draft = getDraft();
   const errors = validateBranch(draft);
@@ -57,7 +69,15 @@ const BranchNavigator = ({ setAssociateContactsModal, setAssociateDevicesModal }
       });
       const finalDraft = { ...draft, id: sucursalId, contratos };
 
-      setData(prev => applyBranchUpsert(prev, route.clientId, sucursalId, finalDraft));
+      setData(prev => {
+        const withBranch = applyBranchUpsert(prev, route.clientId, sucursalId, finalDraft);
+        const deviceIds = new Set((finalDraft.associatedDeviceIds || []).map(String));
+        if (deviceIds.size === 0) return withBranch;
+        const updatedDispositivos = (withBranch.dispositivos || []).map(d =>
+          deviceIds.has(String(d.id)) ? { ...d, branchId: sucursalId, sucursal_id: sucursalId } : d
+        );
+        return { ...withBranch, dispositivos: updatedDispositivos };
+      });
 
       setSaveState({ isSaving: false, savedAt: Date.now() });
       setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view', branchId: sucursalId } : s));
@@ -83,11 +103,17 @@ const BranchNavigator = ({ setAssociateContactsModal, setAssociateDevicesModal }
         isSaving={saveState.isSaving}
         onAssociateContacts={() => {
           if (!drafts[key]) updateDraft(key, draft);
-          setAssociateContactsModal({ branchKey: key });
+          const currentIds = (drafts[key] || draft).associatedContactIds || [];
+          setAssociateContactsSelected(currentIds);
+          setAssociateContactsSearch('');
+          setAssociateContactsModal({ branchKey: key, clientId: route.clientId });
         }}
         onAssociateDevices={() => {
           if (!drafts[key]) updateDraft(key, draft);
-          setAssociateDevicesModal({ branchKey: key });
+          const currentIds = (drafts[key] || draft).associatedDeviceIds || [];
+          setAssociateDevicesSelected(currentIds);
+          setAssociateDevicesSearch('');
+          setAssociateDevicesModal({ branchKey: key, clientId: route.clientId, branchId: route.branchId });
         }}
         estadoSelectOptions={[{value: 'est-1', label: 'ACTIVO'}, {value: 'est-2', label: 'INACTIVO'}]}
         activoId="est-1"

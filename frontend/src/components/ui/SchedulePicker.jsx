@@ -28,7 +28,7 @@ const formatTime = (timeStr) => {
   }
 };
 
-const SchedulePicker = ({ label, value, onChange, viewMode = false, dark = false, className = '' }) => {
+const SchedulePicker = ({ label, value, onChange, viewMode = false, className = '' }) => {
   const schedule = value || DAYS.reduce((acc, day) => {
     acc[day.key] = { isOpen: false, start: DEFAULT_START, end: DEFAULT_END };
     return acc;

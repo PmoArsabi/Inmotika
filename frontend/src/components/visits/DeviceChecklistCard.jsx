@@ -63,7 +63,7 @@ const ActividadRow = ({ actividad, completada, onChange, viewMode }) => (
 );
 
 // ─── Single paso section (collapsible) ───────────────────────────────────────
-const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onActividadChange, viewMode, triedClose, setTriedClose, isLocked = false }) => {
+const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onActividadChange, viewMode, triedClose, isLocked = false }) => {
   const actividades  = paso.actividades || [];
   const totalActs    = actividades.length;
   const doneActs     = actividades.filter(a => ejecucionActividades[a.id]?.completada).length;

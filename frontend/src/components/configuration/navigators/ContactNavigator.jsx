@@ -6,15 +6,17 @@ import { useMasterData } from '../../../context/MasterDataContext';
 import { emptyContactDraft, toContactDraft, applyContactUpsert } from '../../../utils/entityMappers';
 import { validateContact } from '../../../utils/validators';
 import { supabase } from '../../../utils/supabase';
-import { saveContacto } from '../../../api/contactoApi';
+import { saveContacto, updatePerfilUsuarioEstado } from '../../../api/contactoApi';
+import { useActivoInactivo } from '../../../hooks/useCatalog';
 
-const ContactNavigator = ({ onClose }) => {
+const ContactNavigator = () => {
   const { route, drafts, updateDraft, setDrafts, setStack, openContactSuccess } = useConfigurationContext();
   const { data, setData } = useMasterData();
   const [showErrors, setShowErrors] = useState(false);
   const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
   const [savingStep, setSavingStep] = useState(''); // '', 'saving_db', 'inviting'
   const inviteInFlightRef = useRef(false);
+  const { activoId, inactivoId } = useActivoInactivo();
 
   const entityKey = (type, id) => `${type}:${id}`;
   const key = entityKey('contact', route.contactId);
@@ -45,13 +47,15 @@ const ContactNavigator = ({ onClose }) => {
 
     if (!baseContact) return;
 
-    const seeded = toContactDraft(baseContact);
-    setDrafts(prev => ({ ...prev, [key]: seeded }));
+    // Solo seedear si no existe un draft en progreso (evita borrar ediciones)
+    setDrafts(prev => {
+      if (prev[key]) return prev;
+      return { ...prev, [key]: toContactDraft(baseContact) };
+    });
 
     const contactClientId =
       baseContact.clientId ||
       baseContact.cliente_id ||
-      seeded.clientId ||
       null;
 
     if (contactClientId) {
@@ -97,9 +101,14 @@ const ContactNavigator = ({ onClose }) => {
     }
   };
 
-  const isNewContact = !data.clientes?.some(c =>
-    c.sucursales?.some(s => s.contactos?.some(co => String(co.id) === String(route.contactId)))
+  // Un contacto es nuevo si su ID (que empieza por NEW-) no existe en ninguna fuente de datos
+  const isNewContact = String(route.contactId || '').startsWith('NEW-') || !(
+    data.clientes?.some(c => c.sucursales?.some(s => s.contactos?.some(co => String(co.id) === String(route.contactId)))) ||
+    data.contactos?.some(co => String(co.id) === String(route.contactId))
   );
+
+  // El contacto ya tiene acceso si tiene usuario_id vinculado
+  const hasAccess = !!currentDraft.usuarioId;
 
   const handleSave = async () => {
     setShowErrors(true);
@@ -117,12 +126,13 @@ const ContactNavigator = ({ onClose }) => {
 
       const primaryBranchId = currentDraft.associatedBranchIds?.[0] || route.branchId || null;
 
-      if (currentDraft.darAcceso && isNewContact && currentDraft.email && !inviteInFlightRef.current) {
+      // Solo enviar invitación si: quiere dar acceso, NO tiene ya usuario_id, y hay email
+      if (currentDraft.darAcceso && !hasAccess && currentDraft.email && !inviteInFlightRef.current) {
         inviteInFlightRef.current = true;
         setSavingStep('inviting');
 
         try {
-          const { data: inviteData, error: inviteError } = await supabase.functions.invoke('invite-user', {
+          const { error: inviteError } = await supabase.functions.invoke('invite-user', {
             body: {
               email: currentDraft.email,
               nombres: currentDraft.nombres,
@@ -169,6 +179,19 @@ const ContactNavigator = ({ onClose }) => {
         }
       }
 
+      // Si el contacto ya tiene usuario vinculado y el admin cambió el acceso al sistema,
+      // actualizar perfil_usuario.estado_id para activar/desactivar el login via RLS
+      if (hasAccess && currentDraft.usuarioId && currentDraft.perfilAccesoActivo !== null) {
+        const nuevoPerfilEstadoId = currentDraft.perfilAccesoActivo ? activoId : inactivoId;
+        if (nuevoPerfilEstadoId) {
+          try {
+            await updatePerfilUsuarioEstado(currentDraft.usuarioId, nuevoPerfilEstadoId);
+          } catch (perfilErr) {
+            console.error('Error al actualizar estado de acceso del perfil:', perfilErr);
+          }
+        }
+      }
+
       setData(prev => applyContactUpsert(prev, route.clientId, primaryBranchId, contactId, {
         ...currentDraft,
         id: contactId,
@@ -198,6 +221,8 @@ const ContactNavigator = ({ onClose }) => {
         isSaving={saveState.isSaving}
         savingStep={savingStep}
         isNew={isNewContact}
+        hasAccess={hasAccess}
+        perfilAccesoActivo={currentDraft.perfilAccesoActivo}
         clientOptions={(data.clientes || []).map(c => ({ value: String(c.id), label: c.nombre }))}
         selectedClientId={route.clientId || ''}
         onClientChange={handleClientChange}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ROLES, isManagementRole } from './utils/constants';
 import { useAuth } from './context/AuthContext';
@@ -39,34 +39,36 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Efecto para limpiar la URL y redirigir según el rol
+  // Ref para saber si ya se aplicó el redirect de rol (solo una vez por sesión)
+  const didRedirectRef = useRef(false);
+
+  // Efecto para limpiar la URL
   useEffect(() => {
     if (window.location.pathname !== '/' && !isRecoveryFlow) {
       window.history.replaceState(null, '', '/');
     }
-    
-    // Sólo empujamos la pestaña por defecto si el usuario se acaba de firmar
-    // (o sea, si estaba en dashboard que es el origen por default)
-    if (user && activeTab === 'dashboard') {
-      const uRole = user.role || 'TECNICO';
-      const isAdmGrp = isManagementRole(uRole);
+  }, [isRecoveryFlow]);
 
-      // Default tabs & protection from URL forcing
-      if (uRole === 'CLIENTE') {
-        if (!activeTab.startsWith('client-') && activeTab !== 'visits-solicitudes') {
-          setActiveTab('client-dashboard');
-        }
-      } else if (uRole === 'TECNICO') {
-        if (activeTab !== 'schedule' && activeTab !== 'visits-gestion') {
-          setActiveTab('schedule');
-        }
-      } else if (isAdmGrp) {
-        if (!activeTab || activeTab.startsWith('client-')) {
-          setActiveTab('dashboard');
-        }
-      }
+  // Redirigir según el rol al iniciar sesión (solo una vez, usando ref para evitar setState en effect)
+  useEffect(() => {
+    if (!user || didRedirectRef.current) return;
+    if (activeTab !== 'dashboard') return;
+
+    didRedirectRef.current = true;
+    const uRole = user.role || 'TECNICO';
+    const isAdmGrp = isManagementRole(uRole);
+
+    // Usamos setTimeout(0) para diferir el setState fuera del cuerpo síncrono del effect
+    const tab = uRole === 'CLIENTE' ? 'client-dashboard'
+      : uRole === 'TECNICO' ? 'schedule'
+      : isAdmGrp ? 'dashboard'
+      : null;
+
+    if (tab) {
+      const id = setTimeout(() => setActiveTab(tab), 0);
+      return () => clearTimeout(id);
     }
-  }, [user]);
+  }, [user, activeTab]);
 
   const handleLogout = async () => {
     await signOut();

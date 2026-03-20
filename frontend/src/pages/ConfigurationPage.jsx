@@ -20,9 +20,8 @@ const ConfigurationPage = ({ initialSubTab = 'clientes', isSingleTabView = false
   const { data, setData } = useMasterData();
   const config = useConfiguration(data, setData, initialSubTab);
   const [clientModalParams, setClientModalParams] = useState(null);
-  const { 
-    activeSubTab, setActiveSubTab, showForm, handleCloseForm,
-    success, isViewMode, editingItem, editingType
+  const {
+    activeSubTab, setActiveSubTab,
   } = config;
 
   // Reset state when initialSubTab changes (e.g., when navigating from sidebar)

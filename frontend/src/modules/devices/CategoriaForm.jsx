@@ -181,7 +181,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
 
   useEffect(() => {
     if (categoria) { setNombre(categoria.nombre || ''); setDesc(categoria.descripcion || ''); }
-  }, [categoria?.id]);
+  }, [categoria?.id, categoria?.nombre, categoria?.descripcion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Paso management ───────────────────────────────────────────────────────
   const addPaso = () => {
@@ -297,6 +297,16 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
           <Button onClick={() => onModeChange('edit')} className="flex items-center gap-2 shrink-0">
             <Pencil size={13} /> Editar
           </Button>
+        )}
+        {isEditing && (
+          <div className="flex items-center gap-3 shrink-0">
+            {error && <TextSmall className="text-red-500">{error}</TextSmall>}
+            <Button onClick={handleSave} disabled={!nombre.trim() || saving}
+              className="flex items-center gap-2 bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0">
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              {saving ? 'Guardando...' : (isCreating ? 'Crear Categoría' : 'Guardar Cambios')}
+            </Button>
+          </div>
         )}
       </header>
 
@@ -471,20 +481,6 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
         )}
       </Card>
 
-      {/* Footer */}
-      {isEditing && (
-        <div className="flex items-center justify-end gap-3">
-          {error && <TextSmall className="text-red-500 mr-auto">{error}</TextSmall>}
-          <Button onClick={onCancel} className="bg-gray-100 text-gray-700 border border-gray-400 hover:bg-gray-200">
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={!nombre.trim() || saving}
-            className="flex items-center gap-2 bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0">
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-            {saving ? 'Guardando...' : (isCreating ? 'Crear Categoría' : 'Guardar Cambios')}
-          </Button>
-        </div>
-      )}
     </div>
   );
 };

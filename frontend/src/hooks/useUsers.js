@@ -4,7 +4,7 @@ import { useNotify } from '../context/NotificationContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { ROLES } from '../utils/constants';
 import { saveTecnico } from '../api/tecnicoApi';
-import { syncCoordinadorSucursales, getCoordinadorSucursales } from '../api/coordinadorSucursalApi';
+import { syncCoordinadorSucursales } from '../api/coordinadorSucursalApi';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -230,7 +230,7 @@ export const useUsers = () => {
     }
 
     setLoadingUsers(false);
-  }, [notify]);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Section: Efectos de carga inicial
@@ -280,7 +280,7 @@ export const useUsers = () => {
             if (body?.error) mensaje = body.error;
             else if (body?.message) mensaje = body.message;
           }
-        } catch (_) {}
+        } catch { /* ignorar error al parsear cuerpo de respuesta */ }
         throw new Error(mensaje);
       }
       if (inviteData?.error) throw new Error(inviteData.error);
@@ -499,7 +499,7 @@ export const useUsers = () => {
                 if (body?.error) errorMessage = body.error;
                 else if (body?.message) errorMessage = body.message;
               }
-            } catch (_) {}
+            } catch { /* ignorar error al parsear cuerpo de respuesta */ }
             setSuccessInfo({ error: true, message: errorMessage });
             return false;
           }

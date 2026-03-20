@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { Label } from './Typography';
 import { Hash } from 'lucide-react';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const calculateDV = (nit) => {
   if (!nit || isNaN(nit)) return null;
   const weights = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];

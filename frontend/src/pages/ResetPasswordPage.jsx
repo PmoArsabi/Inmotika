@@ -17,8 +17,6 @@ const ResetPasswordPage = ({ onComplete }) => {
         console.log('Mock Update Password:', newPassword);
         return new Promise(resolve => setTimeout(resolve, 1500));
       }
-    } catch (error) {
-      throw error;
     } finally {
       setLoading(false);
     }

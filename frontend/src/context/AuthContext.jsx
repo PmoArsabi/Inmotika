@@ -119,18 +119,12 @@ export const AuthProvider = ({ children }) => {
           nombres: profile.nombres || '',
           apellidos: profile.apellidos || '',
         });
-      } else {
-        // Perfil no encontrado (trigger pendiente o RLS): no asumir ADMIN
-        const emailPrefix = currentSession?.user?.email?.split('@')[0] || 'Usuario';
-        setUser({
-          id: userId,
-          email: currentSession?.user?.email,
-          role: 'CLIENTE',
-          status: 'ACTIVO',
-          nombres: emailPrefix,
-          apellidos: '',
-        });
+      } else if (!profileError) {
+        // Perfil null sin error = RLS bloqueó el acceso (usuario inactivo).
+        // Cerrar sesión para evitar que un usuario desactivado entre a la app.
+        await supabase.auth.signOut();
       }
+      // Si profileError existe, es un error técnico (no RLS), no hacer signOut.
     } catch (err) {
       console.error('Error al cargar perfil:', err);
     }
@@ -202,6 +196,7 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   return useContext(AuthContext);
 };

@@ -14,31 +14,25 @@ export const useCatalog = (tipo) => {
   const [loading, setLoading] = useState(!_cache[key]);
 
   useEffect(() => {
-    if (!tipo) return;
-    if (key in _cache) {
-      setOptions(_cache[key]);
-      setLoading(false);
-      return;
-    }
+    if (!tipo || key in _cache) return;
     let active = true;
-    setLoading(true);
-    supabase
+    const req = supabase
       .from('catalogo')
       .select('id, codigo, nombre, orden')
       .eq('tipo', tipo)
       .eq('activo', true)
-      .order('orden')
-      .then(({ data }) => {
-        if (!active) return;
-        const opts = (data || []).map(r => ({
-          value: r.id,
-          label: r.nombre,
-          codigo: r.codigo,
-        }));
-        _cache[key] = opts;
-        setOptions(opts);
-        setLoading(false);
-      });
+      .order('orden');
+    req.then(({ data }) => {
+      if (!active) return;
+      const opts = (data || []).map(r => ({
+        value: r.id,
+        label: r.nombre,
+        codigo: r.codigo,
+      }));
+      _cache[key] = opts;
+      setOptions(opts);
+      setLoading(false);
+    });
     return () => { active = false; };
   }, [key, tipo]);
 
@@ -55,13 +49,8 @@ export const useEstados = () => {
   const [loading, setLoading] = useState(!_cache[key]);
 
   useEffect(() => {
-    if (key in _cache) {
-      setOptions(_cache[key]);
-      setLoading(false);
-      return;
-    }
+    if (key in _cache) return;
     let active = true;
-    setLoading(true);
     supabase
       .from('catalogo_estado_general')
       .select('id, codigo, nombre')

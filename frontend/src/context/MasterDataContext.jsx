@@ -25,7 +25,7 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
   const loadContactos = useCallback(async () => {
     const { data: contactRows, error: contactError } = await supabase
       .from('contacto')
-      .select('*, contacto_sucursal(sucursal_id)');
+      .select('*, contacto_sucursal(sucursal_id), perfil_usuario(id, estado_id, catalogo_estado_general(codigo, activo))');
     if (contactError) throw contactError;
     return (contactRows || []).map(row => toContactDraft(row));
   }, []);
@@ -191,6 +191,7 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useMasterData = () => {
   const context = useContext(MasterDataContext);
   if (!context) {

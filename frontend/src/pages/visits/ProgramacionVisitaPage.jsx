@@ -25,6 +25,7 @@ import { useVisitas } from '../../hooks/useVisitas';
  * Encabezado de sección dentro de un Card — icono + label pequeño en uppercase.
  * @param {{ icon: React.ElementType, title: string }} props
  */
+// eslint-disable-next-line no-unused-vars
 const CardSection = ({ icon: Icon, title }) => (
   <div className="flex items-center gap-2 mb-3">
     <div className="p-1.5 bg-gray-100 rounded-lg">

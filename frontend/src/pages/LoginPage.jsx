@@ -16,11 +16,7 @@ const LoginPage = () => {
   };
 
   const handleResetPassword = async (email) => {
-    try {
-      await resetPassword(email);
-    } catch (error) {
-      throw error;
-    }
+    await resetPassword(email);
   };
 
   return (

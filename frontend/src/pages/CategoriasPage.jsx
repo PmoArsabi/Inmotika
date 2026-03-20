@@ -7,7 +7,7 @@ import { useMasterData } from '../context/MasterDataContext';
 import { deleteCategoria } from '../api/categoriaApi';
 
 const CategoriasPage = () => {
-  const { data, loading, refreshData } = useMasterData();
+  const { data, refreshData } = useMasterData();
   const [selected, setSelected] = useState(null); // { categoria, mode }
 
   const categorias = data?.categorias || [];
@@ -26,7 +26,7 @@ const CategoriasPage = () => {
   };
 
   // ─── After save ──────────────────────────────────────────────────────────
-  const handleSaved = (savedCat) => {
+  const handleSaved = () => {
     refreshData();
     setSelected(null);
   };

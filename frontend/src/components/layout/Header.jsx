@@ -24,8 +24,7 @@ const getInitial = (user) => {
   return name.charAt(0).toUpperCase();
 };
 
-const Header = ({ user, activeTab, onToggleMobileMenu }) => {
-  const section = SECTION_LABELS[activeTab];
+const Header = ({ user, onToggleMobileMenu }) => {
   const displayName = getDisplayName(user);
 
   return (

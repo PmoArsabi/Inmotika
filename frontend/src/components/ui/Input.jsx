@@ -12,7 +12,7 @@ const Input = ({
       const start = nativeInput.selectionStart;
       const end = nativeInput.selectionEnd;
       nativeInput.value = e.target.value.toUpperCase();
-      try { nativeInput.setSelectionRange(start, end); } catch (_) {}
+      try { nativeInput.setSelectionRange(start, end); } catch { /* ignore */ }
       e.target.value = nativeInput.value;
     }
     onChange?.(e);

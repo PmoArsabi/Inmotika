@@ -127,7 +127,7 @@ const LoginForm = ({ onSignIn, onResetPassword }) => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#D32F2F] transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#D32F2F] transition-colors cursor-pointer"
                     disabled={loading}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -140,7 +140,7 @@ const LoginForm = ({ onSignIn, onResetPassword }) => {
                 <button
                   type="button"
                   onClick={() => setIsForgotMode(true)}
-                  className="text-sm text-gray-600 hover:text-[#D32F2F] transition-colors underline"
+                  className="text-sm text-gray-600 hover:text-[#D32F2F] transition-colors underline cursor-pointer"
                   disabled={loading}
                 >
                   ¿Olvidaste tu contraseña?
@@ -163,7 +163,7 @@ const LoginForm = ({ onSignIn, onResetPassword }) => {
               <button
                 type="button"
                 onClick={() => setIsForgotMode(false)}
-                className="w-full text-sm text-gray-500 hover:text-gray-800 font-medium transition-colors"
+                className="w-full text-sm text-gray-500 hover:text-gray-800 font-medium transition-colors cursor-pointer"
                 disabled={loading}
               >
                 VOLVER AL LOGUEO

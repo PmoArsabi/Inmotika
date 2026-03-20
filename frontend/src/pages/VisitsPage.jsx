@@ -30,24 +30,26 @@ const VisitsPage = ({ data, setData }) => {
 
   // Todos los hooks deben ejecutarse antes de cualquier return condicional
   const filteredVisitas = useMemo(() => {
-    if (!data?.visitas) return [];
-    return filter === 'Todas' ? data.visitas : data.visitas.filter(v => v.estado === filter);
+    const visitas = data?.visitas;
+    if (!visitas) return [];
+    return filter === 'Todas' ? visitas : visitas.filter(v => v.estado === filter);
   }, [data?.visitas, filter]);
-  
+
   const selectedClientData = useMemo(() => {
     if (!data?.clientes) return null;
     return data.clientes.find(c => c.nombre === newVisit.cliente);
-  }, [newVisit.cliente, data?.clientes]);
+  }, [newVisit.cliente, data]);
   
   const selectedClientCity = selectedClientData?.ciudad || '';
   const selectedClientBranch = selectedClientData?.sucursal || selectedClientData?.sucursales?.[0]?.nombre || '';
 
   const stats = useMemo(() => {
-    if (!data?.visitas) return { total: 0, pendientes: 0, confirmadas: 0, completadas: 0 };
-    const total = data.visitas.length;
-    const pendientes = data.visitas.filter(v => v.estado === 'Pendiente').length;
-    const confirmadas = data.visitas.filter(v => v.estado === 'Asignada' || v.estado === 'Confirmada').length;
-    const completadas = data.visitas.filter(v => v.estado === 'Finalizada' || v.estado === 'Completada').length;
+    const visitas = data?.visitas;
+    if (!visitas) return { total: 0, pendientes: 0, confirmadas: 0, completadas: 0 };
+    const total = visitas.length;
+    const pendientes = visitas.filter(v => v.estado === 'Pendiente').length;
+    const confirmadas = visitas.filter(v => v.estado === 'Asignada' || v.estado === 'Confirmada').length;
+    const completadas = visitas.filter(v => v.estado === 'Finalizada' || v.estado === 'Completada').length;
     return { total, pendientes, confirmadas, completadas };
   }, [data?.visitas]);
 
@@ -62,17 +64,17 @@ const VisitsPage = ({ data, setData }) => {
 
   // Obtener dispositivos completos del cliente/sucursal seleccionado
   const getClientDevices = useMemo(() => {
-    if (!newVisit.cliente || !selectedClientData || !data?.dispositivos) return [];
-    
+    const dispositivos = data?.dispositivos;
+    if (!newVisit.cliente || !selectedClientData || !dispositivos) return [];
+
     // Obtener dispositivos de la sucursal seleccionada o de todas las sucursales
     let devices = [];
-    
+
     if (newVisit.sucursal && selectedClientData.sucursales) {
-      // Si hay sucursal seleccionada, obtener dispositivos de esa sucursal
       const selectedBranch = selectedClientData.sucursales.find(s => s.nombre === newVisit.sucursal);
       if (selectedBranch?.dispositivos) {
         devices = selectedBranch.dispositivos
-          .map(id => data.dispositivos.find(d => d.id === id))
+          .map(id => dispositivos.find(d => d.id === id))
           .filter(Boolean)
           .map(device => ({
             ...device,
@@ -81,16 +83,14 @@ const VisitsPage = ({ data, setData }) => {
           }));
       }
     } else if (selectedClientData.sucursales) {
-      // Si no hay sucursal seleccionada, obtener dispositivos de todas las sucursales
       const allDeviceIds = new Set();
       selectedClientData.sucursales.forEach(sucursal => {
         if (sucursal.dispositivos) {
           sucursal.dispositivos.forEach(id => allDeviceIds.add(id));
         }
       });
-      
       devices = Array.from(allDeviceIds)
-        .map(id => data.dispositivos.find(d => d.id === id))
+        .map(id => dispositivos.find(d => d.id === id))
         .filter(Boolean)
         .map(device => ({
           ...device,
@@ -98,37 +98,21 @@ const VisitsPage = ({ data, setData }) => {
           displayName: device.tipo || device.marca || `Dispositivo ${device.id}`
         }));
     }
-    
-    // Si aún no hay dispositivos, usar el array directo del cliente (si existe y son códigos)
+
     if (devices.length === 0 && selectedClientData.dispositivos) {
       devices = selectedClientData.dispositivos
         .map(code => {
-          const device = data.dispositivos.find(d => 
-            d.codigoUnico === code || 
-            d.idInmotika === code ||
-            d.serial === code
+          const device = dispositivos.find(d =>
+            d.codigoUnico === code || d.idInmotika === code || d.serial === code
           );
-          if (device) {
-            return {
-              ...device,
-              code: code,
-              displayName: device.tipo || device.marca || code
-            };
-          }
-          return {
-            code: code,
-            tipo: 'Dispositivo',
-            marca: '',
-            modelo: '',
-            codigoUnico: code,
-            displayName: code
-          };
+          if (device) return { ...device, code, displayName: device.tipo || device.marca || code };
+          return { code, tipo: 'Dispositivo', marca: '', modelo: '', codigoUnico: code, displayName: code };
         })
         .filter(Boolean);
     }
-    
+
     return devices;
-  }, [newVisit.cliente, newVisit.sucursal, selectedClientData, data?.dispositivos]);
+  }, [newVisit.cliente, newVisit.sucursal, selectedClientData, data]);
 
   const handleToggleDevice = (deviceCode) => {
     setNewVisit(prev => ({ 
@@ -1143,8 +1127,6 @@ const VisitsPage = ({ data, setData }) => {
         ) : (
           filteredVisitas.map(visit => {
             const deviceNames = getDeviceNames(visit);
-            const clientInfo = data.clientes?.find(c => c.nombre === visit.cliente);
-            const branchInfo = clientInfo?.sucursales?.find(s => s.nombre === visit.sucursal);
             
             return (
               <Card 

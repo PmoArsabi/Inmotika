@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Plus, Eye, Edit2, Trash2, Building2, Navigation2, MapPin, Globe, Users } from 'lucide-react';
 import { Country } from 'country-state-city';
 import Card from '../../components/ui/Card';
@@ -51,6 +51,15 @@ const ClientsView = ({ config, data }) => {
     setViewLevel, setSelectedBranch,
     setEditingItem, setEditingType, setIsViewMode, setSucursales, setShowForm
   } = config;
+
+  // Hooks deben estar antes de cualquier early return
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  const getCountryName = (countryCode) => {
+    if (!countryCode) return 'No especificado';
+    const country = ALL_COUNTRIES?.find(c => c.value === countryCode);
+    return country?.label || countryCode;
+  };
 
   // 1. Client Details View
   if (viewLevel === 'client-details' && selectedClient) {
@@ -176,18 +185,6 @@ const ClientsView = ({ config, data }) => {
   }
 
   // 4. Default — Clients List
-  const [filterStatus, setFilterStatus] = useState('all');
-
-  const getTipoClienteLabel = (tipo) => {
-    if (!tipo) return 'No especificado';
-    return tipo === 'juridica' ? 'Persona Jurídica' : tipo === 'natural' ? 'Persona Natural' : tipo;
-  };
-
-  const getCountryName = (countryCode) => {
-    if (!countryCode) return 'No especificado';
-    const country = ALL_COUNTRIES?.find(c => c.value === countryCode);
-    return country?.label || countryCode;
-  };
 
   const columns = [
     {

@@ -20,7 +20,6 @@ const Sidebar = ({
   setActiveTab,
   onLogout,
   className = '',
-  onToggleMobileMenu,
   collapsed = false,
   onToggleCollapsed,
 }) => {
@@ -118,7 +117,7 @@ const Sidebar = ({
         }
       }
     });
-  }, [activeTab]);
+  }, [activeTab, menuItems]);
 
   return (
     <aside

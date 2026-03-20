@@ -17,7 +17,6 @@ export async function syncCoordinadorSucursales(coordinadorId, sucursalIds) {
 
   if (fetchError) throw fetchError;
 
-  const existingMap = new Map((existing || []).map(e => [e.sucursal_id, e]));
   const newSet = new Set(sucursalIds);
 
   // 2. Upsert active entries for selected sucursales

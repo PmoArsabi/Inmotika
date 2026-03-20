@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Country, State, City } from 'country-state-city';
 import SearchableSelect from './SearchableSelect';
 import { Globe, Map, MapPin } from 'lucide-react';
@@ -47,27 +47,21 @@ const LocationPicker = ({
   hideCity = false,
   className = ''
 }) => {
-  const [states, setStates] = useState([]);
-  const [cities, setCities] = useState([]);
+  const states = useMemo(
+    () => countryValue ? State.getStatesOfCountry(countryValue).map(s => ({ value: s.isoCode, label: s.name })) : [],
+    [countryValue]
+  );
 
-  useEffect(() => {
-    if (countryValue) {
-      setStates(State.getStatesOfCountry(countryValue).map(s => ({ value: s.isoCode, label: s.name })));
-    } else {
-      setStates([]);
-      setCities([]);
-    }
-  }, [countryValue]);
+  const cities = useMemo(
+    () => countryValue && stateValue ? City.getCitiesOfState(countryValue, stateValue).map(c => ({ value: c.name, label: c.name })) : [],
+    [countryValue, stateValue]
+  );
 
-  useEffect(() => {
-    if (countryValue && stateValue) {
-      setCities(City.getCitiesOfState(countryValue, stateValue).map(c => ({ value: c.name, label: c.name })));
-    } else {
-      setCities([]);
-    }
-  }, [countryValue, stateValue]);
-
-  const handleCountryChange = (opt) => onLocationChange({ country: opt?.value ?? '', state: '', city: '' });
+  const handleCountryChange = (opt) => {
+    const newCountry = opt?.value ?? '';
+    if (newCountry === countryValue) return;
+    onLocationChange({ country: newCountry, state: '', city: '' });
+  };
   const handleStateChange  = (opt) => onLocationChange({ country: countryValue, state: opt?.value ?? '', city: '' });
   const handleCityChange   = (opt) => onLocationChange({ country: countryValue, state: stateValue, city: opt?.value ?? '' });
 

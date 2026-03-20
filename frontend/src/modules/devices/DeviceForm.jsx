@@ -39,6 +39,7 @@ const calcProximaFecha = (meses) => {
 // Sub-componentes de presentación
 // ─────────────────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line no-unused-vars
 const SectionHeader = ({ icon: Icon, label }) => (
   <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
     <Icon size={15} className="text-gray-500" />
@@ -47,6 +48,7 @@ const SectionHeader = ({ icon: Icon, label }) => (
 );
 
 
+// eslint-disable-next-line no-unused-vars
 const CompactSummaryItem = ({ icon: Icon, label, value }) => (
   <div className="flex flex-col gap-1">
     <div className="flex items-center gap-1.5 text-gray-400">
@@ -59,6 +61,7 @@ const CompactSummaryItem = ({ icon: Icon, label, value }) => (
   </div>
 );
 
+// eslint-disable-next-line no-unused-vars
 const SummaryRow = ({ icon: Icon, label, value, sub }) => (
   <div className="flex items-start gap-3">
     <Icon size={16} className="text-gray-400 mt-0.5 shrink-0" />
@@ -70,6 +73,7 @@ const SummaryRow = ({ icon: Icon, label, value, sub }) => (
   </div>
 );
 
+// eslint-disable-next-line no-unused-vars
 const HistoryTable = ({ title, icon: Icon, headers, rows, emptyText }) => (
   <div className="space-y-3">
     <div className="flex items-center gap-2">

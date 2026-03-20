@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   User, IdCard, Mail, Calendar, Briefcase, Heart, MessageSquare,
-  Building2, GitBranch, Shield, Lock, Link2, Eye,
+  Building2, GitBranch, Shield, CheckCircle2,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -10,7 +10,6 @@ import Switch from '../../components/ui/Switch';
 import PhoneInput from '../../components/ui/PhoneInput';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import { useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
-import { Label } from '../../components/ui/Typography';
 
 const ContactForm = ({
   draft,
@@ -22,6 +21,8 @@ const ContactForm = ({
   isSaving = false,
   savingStep = '',
   isNew = false,
+  hasAccess = false,
+  perfilAccesoActivo = null,
   // Selectors pasados desde ConfigurationNavigator
   clientOptions = [],
   selectedClientId = '',
@@ -37,7 +38,6 @@ const ContactForm = ({
   const { options: cargoOptions, loading: loadingCargo } = useCatalog('CARGO_CONTACTO');
   const { activoId, inactivoId } = useActivoInactivo();
 
-  const [showBranchesSelector, setShowBranchesSelector] = useState(false);
 
   const buildOpts = (loading, opts, placeholder = 'Seleccionar...') =>
     loading
@@ -251,21 +251,27 @@ const ContactForm = ({
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-4">
-            <Switch
-              label="¿Dar acceso al sistema?"
-              checked={!!draft.darAcceso}
-              onChange={checked => updateDraft({ darAcceso: checked })}
-              viewMode={!isEditing}
-              checkedLabel="Sí"
-              uncheckedLabel="No"
-            />
-            {draft.darAcceso && (
-              <div className="mt-4 flex items-center gap-3 p-3 bg-blue-50/30 border-l-2 border-blue-400 rounded-r-lg animate-in fade-in slide-in-from-top-1 duration-300">
-                <Mail size={14} className="text-blue-500 shrink-0" />
-                <p className="text-[12px] text-blue-900/80 leading-relaxed">
-                  Se enviará una invitación a <span className="font-bold text-blue-700 underline decoration-blue-200 underline-offset-4">{draft.email || 'la dirección registrada'}</span> al guardar.
-                </p>
+            {hasAccess ? (
+              <div className="flex items-center gap-3">
+                <CheckCircle2 size={14} className="text-green-600 shrink-0" />
+                <Switch
+                  label="Acceso al sistema"
+                  checked={perfilAccesoActivo === true || (perfilAccesoActivo === null && true)}
+                  onChange={checked => updateDraft({ perfilAccesoActivo: checked })}
+                  viewMode={!isEditing}
+                  checkedLabel="Activo"
+                  uncheckedLabel="Inactivo"
+                />
               </div>
+            ) : (
+              <Switch
+                label="Acceso al sistema"
+                checked={!!draft.darAcceso}
+                onChange={checked => updateDraft({ darAcceso: checked })}
+                viewMode={!isEditing}
+                checkedLabel="Sí"
+                uncheckedLabel="No"
+              />
             )}
           </div>
         </div>
