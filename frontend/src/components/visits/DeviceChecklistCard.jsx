@@ -1,75 +1,66 @@
 import { useState, useRef } from 'react';
 import {
   CheckCircle2, Circle, ChevronDown, ChevronRight,
-  Save, UploadCloud, Lock, Minus,
+  Save, Lock, Camera, X, Plus,
 } from 'lucide-react';
 
-// ─── Evidence photo uploader (per paso) ──────────────────────────────────────
-const EvidenciaUploader = ({ value, onChange }) => {
-  const inputRef = useRef(null);
-
-  const handleFile = (e) => {
-    const file = e.target.files?.[0];
-    if (file) onChange(URL.createObjectURL(file));
-    e.target.value = '';
-  };
-
+// ─── Single activity row ──────────────────────────────────────────────────────
+/**
+ * @param {object}  props
+ * @param {object}  props.actividad  - Actividad del protocolo
+ * @param {boolean} props.completada - Si la actividad está completada
+ * @param {function} props.onChange  - (boolean) => void
+ * @param {boolean} props.viewMode   - Modo solo lectura
+ * @param {boolean} props.isBlocked  - true si una actividad previa obligatoria no está completada
+ */
+const ActividadRow = ({ actividad, completada, onChange, viewMode, isBlocked }) => {
+  const disabled = viewMode || isBlocked;
   return (
-    <div className="space-y-1.5">
-      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-      <div
-        onClick={() => inputRef.current?.click()}
-        className={`h-12 border-2 border-dashed rounded-md flex items-center justify-center gap-2 cursor-pointer select-none transition-all ${
-          value
-            ? 'border-green-500 bg-green-50 text-green-700 hover:bg-green-100'
-            : 'border-gray-300 bg-gray-50 hover:border-[#D32F2F] hover:bg-gray-100 text-gray-500'
-        }`}
+    <div className={`flex items-start gap-2.5 py-1.5 px-2 rounded-md transition-all ${
+      completada ? 'bg-green-50' : isBlocked ? 'opacity-40' : 'hover:bg-gray-50'
+    }`}>
+      <button
+        type="button"
+        disabled={disabled || completada}
+        onClick={() => !disabled && !completada && onChange(true)}
+        className={`mt-0.5 shrink-0 transition-colors ${isBlocked ? 'cursor-not-allowed' : ''}`}
+        title={isBlocked ? 'Completa la actividad anterior primero' : undefined}
       >
-        {value ? <CheckCircle2 size={16} /> : <UploadCloud size={16} />}
-        <span className="text-xs font-bold uppercase tracking-normal">
-          {value ? 'Foto cargada · Reemplazar' : 'Subir / Tomar Foto de Evidencia'}
-        </span>
-      </div>
-      {value && (
-        <img src={value} alt="evidencia" className="h-20 w-full rounded-md border border-green-200 object-cover" />
-      )}
+        {completada
+          ? <CheckCircle2 size={16} className="text-green-500" />
+          : isBlocked
+            ? <Lock size={16} className="text-gray-300" />
+            : <Circle size={16} className="text-gray-300 hover:text-gray-400" />
+        }
+      </button>
+      <span className={`text-xs leading-relaxed ${completada ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+        {actividad.descripcion}
+        {actividad.esObligatorio && (
+          <span className="ml-1 text-[9px] font-bold text-red-400 uppercase">*</span>
+        )}
+      </span>
     </div>
   );
 };
 
-// ─── Single activity row ──────────────────────────────────────────────────────
-const ActividadRow = ({ actividad, completada, onChange, viewMode }) => (
-  <div className={`flex items-start gap-2.5 py-1.5 px-2 rounded-md transition-all ${
-    completada ? 'bg-green-50' : 'hover:bg-gray-50'
-  }`}>
-    <button
-      type="button"
-      disabled={viewMode}
-      onClick={() => !viewMode && onChange(!completada)}
-      className="mt-0.5 shrink-0 transition-colors"
-    >
-      {completada
-        ? <CheckCircle2 size={16} className="text-green-500" />
-        : <Circle      size={16} className="text-gray-300 hover:text-gray-400" />
-      }
-    </button>
-    <span className={`text-xs leading-relaxed ${completada ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-      {actividad.descripcion}
-      {actividad.esObligatorio && (
-        <span className="ml-1 text-[9px] font-bold text-red-400 uppercase">*</span>
-      )}
-    </span>
-  </div>
-);
-
 // ─── Single paso section (collapsible) ───────────────────────────────────────
-const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onActividadChange, viewMode, triedClose, isLocked = false }) => {
-  const actividades  = paso.actividades || [];
-  const totalActs    = actividades.length;
-  const doneActs     = actividades.filter(a => ejecucionActividades[a.id]?.completada).length;
-  const allActsDone  = totalActs > 0 && doneActs === totalActs;
-  const hasPhoto     = !!execPaso?.evidenciaUrl;
-  const pasoCerrado  = allActsDone && hasPhoto;
+/**
+ * @param {object}  props
+ * @param {object}  props.paso                 - Paso del protocolo
+ * @param {object}  props.execPaso             - Estado de ejecución del paso
+ * @param {object}  props.ejecucionActividades - Estado de todas las actividades
+ * @param {function} props.onPasoChange        - (pasoId, patch) => void
+ * @param {function} props.onActividadChange   - (actividadId, bool) => void
+ * @param {boolean} props.viewMode             - Modo solo lectura
+ * @param {boolean} props.isLocked             - Paso bloqueado por paso anterior incompleto
+ */
+const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onActividadChange, viewMode, isLocked = false }) => {
+  const actividades = paso.actividades || [];
+  const totalActs   = actividades.length;
+  const doneActs    = actividades.filter(a => ejecucionActividades[a.id]?.completada).length;
+  const obligatorias = actividades.filter(a => a.esObligatorio);
+  const allObligatoriasDone = obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
+  const pasoCerrado = allObligatoriasDone;
   const [open, setOpen] = useState(!isLocked);
 
   return (
@@ -89,9 +80,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
             ? <Lock size={16} className="shrink-0 text-gray-200" />
             : pasoCerrado
               ? <CheckCircle2 size={16} className="shrink-0 text-green-500" />
-              : allActsDone && !hasPhoto
-                ? <Minus size={16} className="shrink-0 text-yellow-500" />
-                : <Circle size={16} className="shrink-0 text-gray-300" />
+              : <Circle size={16} className="shrink-0 text-gray-300" />
           }
           <div className="min-w-0">
             <p className={`text-xs font-bold uppercase tracking-wide ${
@@ -117,46 +106,24 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
         />
       </div>
 
-      {/* Activities + evidence */}
+      {/* Activities */}
       {open && (
         <div className="px-3 py-2 space-y-1">
-          {actividades.map(act => (
-            <ActividadRow
-              key={act.id}
-              actividad={act}
-              completada={!!ejecucionActividades[act.id]?.completada}
-              onChange={val => onActividadChange(act.id, val)}
-              viewMode={viewMode || isLocked}
-            />
-          ))}
-
-          {/* Photo evidence section */}
-          {!(viewMode || isLocked) && (
-            <div className="pt-2 space-y-1">
-              <EvidenciaUploader
-                value={execPaso?.evidenciaUrl || null}
-                onChange={url => onPasoChange(paso.id, { evidenciaUrl: url })}
+          {actividades.map((act, actIdx) => {
+            const isActBlocked = !viewMode && !isLocked && actividades
+              .slice(0, actIdx)
+              .some(prev => prev.esObligatorio && !ejecucionActividades[prev.id]?.completada);
+            return (
+              <ActividadRow
+                key={act.id}
+                actividad={act}
+                completada={!!ejecucionActividades[act.id]?.completada}
+                onChange={val => onActividadChange(act.id, val)}
+                viewMode={viewMode || isLocked}
+                isBlocked={isActBlocked}
               />
-              {/* Inline warnings */}
-              {triedClose === 'acts' && !allActsDone && (
-                <p className="text-[10px] text-orange-500 font-semibold">
-                  Completa todas las actividades antes de cerrar el paso.
-                </p>
-              )}
-              {triedClose === 'photo' && allActsDone && !hasPhoto && (
-                <p className="text-[10px] text-orange-500 font-semibold">
-                  Debes subir la foto de evidencia antes de cerrar el paso.
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* View mode / locked mode: show photo if uploaded */}
-          {(viewMode || isLocked) && execPaso?.evidenciaUrl && (
-            <div className="pt-1">
-              <img src={execPaso.evidenciaUrl} alt="evidencia" className="h-20 w-full rounded-md border border-gray-200 object-cover" />
-            </div>
-          )}
+            );
+          })}
 
           {/* Observation textarea */}
           <textarea
@@ -175,10 +142,205 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
   );
 };
 
+// ─── Single evidence photo card ───────────────────────────────────────────────
+/**
+ * @param {object}      props
+ * @param {string}      props.label     - Etiqueta visible bajo la tarjeta
+ * @param {boolean}     props.isEtiqueta - Si es la foto de etiqueta (label en azul)
+ * @param {{ file: File, preview: string }|null} props.value - Foto actual o null
+ * @param {function}    props.onAdd     - () => void — abre el file input
+ * @param {function}    props.onRemove  - () => void — elimina la foto (null si no removible)
+ * @param {React.Ref}   props.inputRef  - Ref del input file oculto
+ * @param {function}    props.onFileChange - (File) => void
+ */
+const EvidenciaCard = ({ label, isEtiqueta, value, onAdd, onRemove, inputRef, onFileChange }) => {
+  const handleFile = (e) => {
+    const selected = e.target.files?.[0];
+    if (selected) onFileChange(selected);
+    e.target.value = '';
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      {value ? (
+        <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
+          <img src={value.preview} alt={label} className="object-cover w-full h-full" />
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="absolute top-1 right-1 bg-black/50 rounded-full p-0.5 text-white hover:bg-black/80 transition-colors"
+            >
+              <X size={10} />
+            </button>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-[#D32F2F] hover:bg-red-50 transition-all"
+        >
+          <Camera size={20} className="text-gray-400" />
+          <span className="text-[10px] text-gray-400">Agregar</span>
+        </button>
+      )}
+      <p className={`text-[10px] text-center mt-1 ${isEtiqueta ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
+        {label}
+      </p>
+    </div>
+  );
+};
+
+// ─── Add-more card ────────────────────────────────────────────────────────────
+const AgregarFotoCard = ({ onClick }) => (
+  <div className="flex flex-col items-center">
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-[#D32F2F] hover:bg-red-50 transition-all"
+    >
+      <Plus size={20} className="text-gray-400" />
+      <span className="text-[10px] text-gray-400">Agregar</span>
+    </button>
+    <p className="text-[10px] text-gray-400 text-center mt-1">Nueva foto</p>
+  </div>
+);
+
+// ─── Device-level evidencias section ─────────────────────────────────────────
+/**
+ * Sección de evidencias a nivel de dispositivo (aparece después de todos los pasos).
+ * Siempre disponible, independiente de si los pasos están completos.
+ *
+ * @param {object} props
+ * @param {{ etiqueta: { file: File, preview: string }|null, fotos: Array<{ file: File, preview: string }> }} props.evidencias
+ *   Estado actual de evidencias del dispositivo
+ * @param {function} props.onChange - (patch) => void — patch: { etiqueta?, fotos? }
+ */
+const EvidenciasSection = ({ evidencias, onChange }) => {
+  const etiquetaInputRef = useRef(null);
+  // Refs para cada foto adicional — mapa indexado por posición
+  const fotosInputRefs = useRef({});
+
+  const handleEtiquetaFile = (file) => {
+    const preview = URL.createObjectURL(file);
+    onChange({ etiqueta: { file, preview } });
+  };
+
+  const handleFotoFile = (idx, file) => {
+    const preview = URL.createObjectURL(file);
+    const newFotos = [...(evidencias.fotos || [])];
+    newFotos[idx] = { file, preview };
+    onChange({ fotos: newFotos });
+  };
+
+  const handleRemoveEtiqueta = () => {
+    onChange({ etiqueta: null });
+  };
+
+  const handleRemoveFoto = (idx) => {
+    const newFotos = (evidencias.fotos || []).filter((_, i) => i !== idx);
+    onChange({ fotos: newFotos });
+  };
+
+  const handleAddFoto = () => {
+    // Agrega una entrada null y dispara el input correspondiente
+    const newFotos = [...(evidencias.fotos || []), null];
+    onChange({ fotos: newFotos });
+    // El input se renderizará en el siguiente ciclo; click se dispara desde el card vacío
+  };
+
+  const fotos = evidencias.fotos || [];
+
+  return (
+    <div className="border border-gray-100 rounded-lg p-4 bg-gray-50/50">
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-3">
+        <Camera size={13} className="text-gray-400 shrink-0" />
+        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Evidencias</span>
+      </div>
+
+      {/* Photo grid */}
+      <div className="flex flex-wrap gap-3">
+        {/* Etiqueta card — always first, always present */}
+        <EvidenciaCard
+          label="Foto Etiqueta"
+          isEtiqueta
+          value={evidencias.etiqueta || null}
+          onAdd={() => etiquetaInputRef.current?.click()}
+          onRemove={evidencias.etiqueta ? handleRemoveEtiqueta : null}
+          inputRef={etiquetaInputRef}
+          onFileChange={handleEtiquetaFile}
+        />
+
+        {/* Dynamic extra photos */}
+        {fotos.map((foto, idx) => (
+          <div key={idx} className="flex flex-col items-center">
+            <input
+              ref={el => { fotosInputRefs.current[idx] = el; }}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const selected = e.target.files?.[0];
+                if (selected) handleFotoFile(idx, selected);
+                e.target.value = '';
+              }}
+            />
+            {foto ? (
+              <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
+                <img src={foto.preview} alt={`Foto ${idx + 1}`} className="object-cover w-full h-full" />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveFoto(idx)}
+                  className="absolute top-1 right-1 bg-black/50 rounded-full p-0.5 text-white hover:bg-black/80 transition-colors"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fotosInputRefs.current[idx]?.click()}
+                className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-[#D32F2F] hover:bg-red-50 transition-all"
+              >
+                <Camera size={20} className="text-gray-400" />
+                <span className="text-[10px] text-gray-400">Agregar</span>
+              </button>
+            )}
+            <p className="text-[10px] text-gray-500 text-center mt-1">Foto {idx + 1}</p>
+          </div>
+        ))}
+
+        {/* Add more */}
+        <AgregarFotoCard onClick={handleAddFoto} />
+      </div>
+    </div>
+  );
+};
+
 // ─── Device checklist card ────────────────────────────────────────────────────
+/**
+ * Tarjeta de checklist para un dispositivo dentro de una visita.
+ *
+ * @param {object}  props
+ * @param {object}  props.device                - Dispositivo con pasos y actividades
+ * @param {Array}   props.steps                 - Pasos del protocolo del dispositivo
+ * @param {object}  props.ejecucionPasos        - Estado de ejecución por paso
+ * @param {object}  props.ejecucionActividades  - Estado de ejecución por actividad
+ * @param {function} props.onPasoChange         - (pasoId, patch) => void
+ * @param {function} props.onActividadChange    - (actividadId, bool) => void
+ * @param {function} props.onSaveAvance         - (deviceId, evidencias) => void
+ * @param {boolean}  props.viewMode             - Modo solo lectura
+ * @param {boolean}  props.isLocked             - Dispositivo bloqueado
+ * @param {{ etiqueta: { file: File, preview: string }|null, fotos: Array<{ file: File, preview: string }> }} props.deviceEvidencias
+ *   Evidencias actuales del dispositivo (gestionadas por el padre)
+ * @param {function} props.onDeviceEvidenciasChange - (patch) => void
+ */
 const DeviceChecklistCard = ({
   device,
-  steps = [],          // paso[] — each paso has actividades[]
+  steps = [],
   ejecucionPasos = {},
   ejecucionActividades = {},
   onPasoChange,
@@ -186,25 +348,20 @@ const DeviceChecklistCard = ({
   onSaveAvance,
   viewMode = false,
   isLocked = false,
+  deviceEvidencias = { etiqueta: null, fotos: [] },
+  onDeviceEvidenciasChange,
 }) => {
   const [open, setOpen] = useState(!isLocked);
-  // triedClose: { [pasoId]: 'acts' | 'photo' }
-  const [triedClose, setTriedCloseMap] = useState({});
 
-  const setTriedClose = (pasoId, reason) =>
-    setTriedCloseMap(prev => ({ ...prev, [pasoId]: reason }));
-
-  // Compute overall device completion
+  // Compute overall device completion — only requires all mandatory activities done (no photo)
   const allActividades = steps.flatMap(p => p.actividades || []);
   const totalActs      = allActividades.length;
   const doneActs       = allActividades.filter(a => ejecucionActividades[a.id]?.completada).length;
   const pct            = totalActs > 0 ? Math.round((doneActs / totalActs) * 100) : 0;
 
-  // A device is fully done when every paso has all activities done + a photo
   const allDone = steps.length > 0 && steps.every(paso => {
-    const acts = paso.actividades || [];
-    const allActsDone = acts.length > 0 && acts.every(a => ejecucionActividades[a.id]?.completada);
-    return allActsDone && !!ejecucionPasos[paso.id]?.evidenciaUrl;
+    const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
+    return obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
   });
 
   return (
@@ -259,18 +416,17 @@ const DeviceChecklistCard = ({
         </div>
       )}
 
-      {/* Pasos */}
+      {/* Pasos + Evidencias + Save */}
       {open && (
         <div className="p-4 space-y-3">
           {steps.length === 0 && (
             <p className="text-xs text-gray-400 italic text-center py-2">Sin pasos de protocolo definidos</p>
           )}
           {steps.map((paso, pasoIdx) => {
-            // A paso is locked if any previous paso is not yet complete
+            // A paso is locked if any previous paso has mandatory activities not done
             const isPasoLocked = !viewMode && steps.slice(0, pasoIdx).some(prev => {
-              const acts = prev.actividades || [];
-              const allDone = acts.length > 0 && acts.every(a => ejecucionActividades[a.id]?.completada);
-              return !(allDone && !!ejecucionPasos[prev.id]?.evidenciaUrl);
+              const obligatorias = (prev.actividades || []).filter(a => a.esObligatorio);
+              return obligatorias.some(a => !ejecucionActividades[a.id]?.completada);
             });
             return (
               <PasoSection
@@ -281,19 +437,25 @@ const DeviceChecklistCard = ({
                 onPasoChange={onPasoChange}
                 onActividadChange={onActividadChange}
                 viewMode={viewMode}
-                triedClose={triedClose[paso.id] || null}
-                setTriedClose={setTriedClose}
                 isLocked={isPasoLocked}
               />
             );
           })}
+
+          {/* Device-level evidencias section — always available */}
+          {!viewMode && (
+            <EvidenciasSection
+              evidencias={deviceEvidencias}
+              onChange={onDeviceEvidenciasChange}
+            />
+          )}
 
           {/* Save + Enviar Avance */}
           {!viewMode && (
             <div className="pt-2 flex justify-end">
               <button
                 type="button"
-                onClick={() => onSaveAvance && onSaveAvance(device.id)}
+                onClick={() => onSaveAvance && onSaveAvance(device.id, deviceEvidencias)}
                 className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase rounded-md bg-[#1A1A1A] text-white hover:bg-black transition-all shadow-sm"
               >
                 <Save size={13} />

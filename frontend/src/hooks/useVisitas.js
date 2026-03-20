@@ -233,7 +233,90 @@ export const useVisitas = () => {
         dispositivosBySolicitud.set(sd.solicitud_id, list);
       });
 
-      setVisitas((rows || []).map(r => mapRow(r, tecnicoNameMap, dispositivosBySolicitud)));
+      // Paso 5: cargar estado de ejecución guardado para visitas en progreso o completadas
+      const visitaIds = (rows || []).map(r => r.id);
+      let ejecucionActividadMap = new Map(); // visitaId → { [actividadId]: { completada } }
+      let ejecucionPasoMap = new Map();      // visitaId → { [pasoProtocoloId]: { comentarios, fechaInicio, fechaFin } }
+      let evidenciasMap = new Map();         // visitaId → { etiqueta: {url}|null, fotos: [{url}] }
+
+      if (visitaIds.length > 0) {
+        // Cargar intervenciones para obtener IDs
+        const { data: intervenciones } = await supabase
+          .from('intervencion')
+          .select('id, visita_id, dispositivo_id')
+          .in('visita_id', visitaIds);
+
+        const intervencionIds = (intervenciones || []).map(i => i.id);
+        const intervencionByVisita = new Map(); // intervencion_id → visita_id
+        (intervenciones || []).forEach(i => intervencionByVisita.set(i.id, i.visita_id));
+
+        if (intervencionIds.length > 0) {
+          // Actividades completadas
+          const { data: actRows } = await supabase
+            .from('ejecucion_actividad')
+            .select('intervencion_id, actividad_id, completada')
+            .in('intervencion_id', intervencionIds);
+
+          (actRows || []).forEach(a => {
+            const vId = intervencionByVisita.get(a.intervencion_id);
+            if (!vId) return;
+            const map = ejecucionActividadMap.get(vId) || {};
+            map[a.actividad_id] = { completada: a.completada };
+            ejecucionActividadMap.set(vId, map);
+          });
+
+          // Pasos ejecutados
+          const { data: pasoRows } = await supabase
+            .from('ejecucion_paso')
+            .select('intervencion_id, paso_protocolo_id, comentarios, fecha_inicio, fecha_fin')
+            .in('intervencion_id', intervencionIds);
+
+          (pasoRows || []).forEach(p => {
+            const vId = intervencionByVisita.get(p.intervencion_id);
+            if (!vId) return;
+            const map = ejecucionPasoMap.get(vId) || {};
+            map[p.paso_protocolo_id] = {
+              comentarios: p.comentarios || '',
+              fechaInicio: p.fecha_inicio,
+              fechaFin: p.fecha_fin,
+            };
+            ejecucionPasoMap.set(vId, map);
+          });
+
+          // Evidencias subidas — indexadas por dispositivo_id dentro de cada visita
+          const intervencionDispositivoMap = new Map(); // intervencion_id → dispositivo_id
+          (intervenciones || []).forEach(i => intervencionDispositivoMap.set(i.id, i.dispositivo_id));
+
+          const { data: evRows } = await supabase
+            .from('evidencia_intervencion')
+            .select('intervencion_id, url, numero_foto, es_etiqueta')
+            .in('intervencion_id', intervencionIds)
+            .order('numero_foto', { ascending: true });
+
+          // evidenciasMap: visitaId → { [dispositivoId]: { etiqueta, fotos } }
+          (evRows || []).forEach(ev => {
+            const vId = intervencionByVisita.get(ev.intervencion_id);
+            const dId = intervencionDispositivoMap.get(ev.intervencion_id);
+            if (!vId || !dId) return;
+            const byDevice = evidenciasMap.get(vId) || {};
+            const current = byDevice[dId] || { etiqueta: null, fotos: [] };
+            if (ev.es_etiqueta) {
+              current.etiqueta = { url: ev.url, preview: ev.url, file: null };
+            } else {
+              current.fotos.push({ url: ev.url, preview: ev.url, file: null });
+            }
+            byDevice[dId] = current;
+            evidenciasMap.set(vId, byDevice);
+          });
+        }
+      }
+
+      setVisitas((rows || []).map(r => ({
+        ...mapRow(r, tecnicoNameMap, dispositivosBySolicitud),
+        ejecucionActividades: ejecucionActividadMap.get(r.id) || {},
+        ejecucionPasos: ejecucionPasoMap.get(r.id) || {},
+        deviceEvidencias: evidenciasMap.get(r.id) || {},
+      })));
     } catch (err) {
       console.error('[useVisitas] fetch error:', err);
       notify('error', 'No se pudieron cargar las visitas programadas.');

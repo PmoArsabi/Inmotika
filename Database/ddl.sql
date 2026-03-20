@@ -269,29 +269,10 @@ alter table "public"."ejecucion_actividad" enable row level security;
     "comentarios" text,
     "estado_id" uuid,
     "created_at" timestamp with time zone default now(),
-    "updated_at" timestamp with time zone default now(),
-    "evidencia_url" text
+    "updated_at" timestamp with time zone default now()
       );
 
 alter table "public"."ejecucion_paso" enable row level security;
-
-    "id" uuid not null default gen_random_uuid(),
-    "ejecucion_paso_id" uuid,
-    "url" text not null,
-    "tipo" character varying(50),
-    "descripcion" text,
-    "created_at" timestamp with time zone default now()
-      );
-
-  create table "public"."evidencia_visita" (
-    "id" uuid not null default gen_random_uuid(),
-    "visita_id" uuid,
-    "url" text not null,
-    "descripcion" text,
-    "created_at" timestamp with time zone default now()
-      );
-
-alter table "public"."evidencia_visita" enable row level security;
 
   create table "public"."historial_traslado" (
     "id" uuid not null default gen_random_uuid(),
@@ -505,8 +486,6 @@ CREATE UNIQUE INDEX ejecucion_actividad_unique ON public.ejecucion_actividad USI
 
 CREATE UNIQUE INDEX ejecucion_paso_pkey ON public.ejecucion_paso USING btree (id);
 
-CREATE UNIQUE INDEX evidencia_visita_pkey ON public.evidencia_visita USING btree (id);
-
 CREATE UNIQUE INDEX historial_traslado_pkey ON public.historial_traslado USING btree (id);
 
 CREATE INDEX idx_actividad_protocolo_paso_id ON public.actividad_protocolo USING btree (paso_id);
@@ -572,8 +551,6 @@ alter table "public"."dispositivo" add constraint "dispositivo_pkey" PRIMARY KEY
 alter table "public"."ejecucion_actividad" add constraint "ejecucion_actividad_pkey" PRIMARY KEY using index "ejecucion_actividad_pkey";
 
 alter table "public"."ejecucion_paso" add constraint "ejecucion_paso_pkey" PRIMARY KEY using index "ejecucion_paso_pkey";
-
-alter table "public"."evidencia_visita" add constraint "evidencia_visita_pkey" PRIMARY KEY using index "evidencia_visita_pkey";
 
 alter table "public"."historial_traslado" add constraint "historial_traslado_pkey" PRIMARY KEY using index "historial_traslado_pkey";
 
@@ -748,10 +725,6 @@ alter table "public"."ejecucion_paso" validate constraint "ejecucion_paso_interv
 alter table "public"."ejecucion_paso" add constraint "ejecucion_paso_paso_protocolo_id_fkey" FOREIGN KEY (paso_protocolo_id) REFERENCES public.paso_protocolo(id) not valid;
 
 alter table "public"."ejecucion_paso" validate constraint "ejecucion_paso_paso_protocolo_id_fkey";
-
-alter table "public"."evidencia_visita" add constraint "evidencia_visita_visita_id_fkey" FOREIGN KEY (visita_id) REFERENCES public.visita(id) ON DELETE CASCADE not valid;
-
-alter table "public"."evidencia_visita" validate constraint "evidencia_visita_visita_id_fkey";
 
 alter table "public"."historial_traslado" add constraint "historial_traslado_dispositivo_id_fkey" FOREIGN KEY (dispositivo_id) REFERENCES public.dispositivo(id) ON DELETE CASCADE not valid;
 
@@ -1823,48 +1796,6 @@ grant truncate on table "public"."ejecucion_paso" to "service_role";
 
 grant update on table "public"."ejecucion_paso" to "service_role";
 
-grant delete on table "public"."evidencia_visita" to "anon";
-
-grant insert on table "public"."evidencia_visita" to "anon";
-
-grant references on table "public"."evidencia_visita" to "anon";
-
-grant select on table "public"."evidencia_visita" to "anon";
-
-grant trigger on table "public"."evidencia_visita" to "anon";
-
-grant truncate on table "public"."evidencia_visita" to "anon";
-
-grant update on table "public"."evidencia_visita" to "anon";
-
-grant delete on table "public"."evidencia_visita" to "authenticated";
-
-grant insert on table "public"."evidencia_visita" to "authenticated";
-
-grant references on table "public"."evidencia_visita" to "authenticated";
-
-grant select on table "public"."evidencia_visita" to "authenticated";
-
-grant trigger on table "public"."evidencia_visita" to "authenticated";
-
-grant truncate on table "public"."evidencia_visita" to "authenticated";
-
-grant update on table "public"."evidencia_visita" to "authenticated";
-
-grant delete on table "public"."evidencia_visita" to "service_role";
-
-grant insert on table "public"."evidencia_visita" to "service_role";
-
-grant references on table "public"."evidencia_visita" to "service_role";
-
-grant select on table "public"."evidencia_visita" to "service_role";
-
-grant trigger on table "public"."evidencia_visita" to "service_role";
-
-grant truncate on table "public"."evidencia_visita" to "service_role";
-
-grant update on table "public"."evidencia_visita" to "service_role";
-
 grant delete on table "public"."historial_traslado" to "anon";
 
 grant insert on table "public"."historial_traslado" to "anon";
@@ -2801,23 +2732,6 @@ with check (
   )
 );
 
--- --- evidencia_visita ---
-create policy "Admin manage evidencia_visita"
-on "public"."evidencia_visita"
-as permissive
-for all
-to authenticated
-using (public.is_admin_or_coordinator())
-with check (public.is_admin_or_coordinator());
-
-create policy "Tecnicos can manage evidencia of assigned visits"
-on "public"."evidencia_visita"
-as permissive
-for all
-to authenticated
-using (public.is_tecnico_asignado_visita(visita_id))
-with check (public.is_tecnico_asignado_visita(visita_id));
-
 -- --- disponibilidad_tecnico ---
 create policy "Admin manage disponibilidad_tecnico"
 on "public"."disponibilidad_tecnico"
@@ -2923,8 +2837,6 @@ CREATE INDEX idx_intervencion_estado_id ON public.intervencion USING btree (esta
 
 CREATE INDEX idx_ejecucion_paso_intervencion_id ON public.ejecucion_paso USING btree (intervencion_id);
 CREATE INDEX idx_ejecucion_paso_paso_protocolo_id ON public.ejecucion_paso USING btree (paso_protocolo_id);
-
-CREATE INDEX idx_evidencia_visita_visita_id ON public.evidencia_visita USING btree (visita_id);
 
 CREATE INDEX idx_disponibilidad_tecnico_tecnico_id ON public.disponibilidad_tecnico USING btree (tecnico_id);
 CREATE INDEX idx_disponibilidad_tecnico_fechas ON public.disponibilidad_tecnico USING btree (fecha_inicio, fecha_fin);

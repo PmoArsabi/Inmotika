@@ -15,6 +15,7 @@ import { TechnicianChipList } from '../../components/ui/TechnicianChip';
 import Modal from '../../components/ui/Modal';
 import DeviceChecklistCard from '../../components/visits/DeviceChecklistCard';
 import { useVisitas } from '../../hooks/useVisitas';
+import { iniciarVisita, guardarAvanceDispositivo, finalizarVisita } from '../../api/visitaApi';
 
 // ─── Info row helper ──────────────────────────────────────────────────────────
 // eslint-disable-next-line no-unused-vars
@@ -30,25 +31,29 @@ const InfoRow = ({ icon: Icon, label, value }) => (
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 const GestionVisitasPage = () => {
-  const { visitas: visitasHook, loading: loadingVisitas } = useVisitas();
+  const { visitas: visitasHook, loading: loadingVisitas, fetchVisitas } = useVisitas();
   const [activeVisita,      setActiveVisita]      = useState(null);
   const [searchTerm,        setSearchTerm]        = useState('');
   const [filterEstado,      setFilterEstado]      = useState('Todos');
-  // Paso-level: { [pasoId]: { comentarios, evidenciaUrl } }
+  // Paso-level: { [pasoId]: { comentarios } }
   const [ejecucionPasos,    setEjecucionPasos]    = useState({});
   // Actividad-level: { [actividadId]: { completada: bool } }
   const [ejecucionActividades, setEjecucionActividades] = useState({});
+  // Device-level evidencias: { [deviceId]: { etiqueta: { file, preview }|null, fotos: [{ file, preview }] } }
+  const [deviceEvidencias, setDeviceEvidencias] = useState({});
   const [observacionFinal,  setObservacionFinal]  = useState('');
   const [showHelpModal,     setShowHelpModal]     = useState(false);
   const [modalTitle,        setModalTitle]        = useState('');
   const [modalMessage,      setModalMessage]      = useState('');
+  // isSaving: bloquea botones durante operaciones de escritura en Supabase
+  const [isSaving,          setIsSaving]          = useState(false);
 
   const visitas = visitasHook;
 
   // ── Filtered list ────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let list = visitas.filter(v =>
-      v.estadoCodigo === 'PROGRAMADA' || v.estadoCodigo === 'EN_PROCESO' || v.estadoCodigo === 'FINALIZADO',
+      v.estadoCodigo === 'PROGRAMADA' || v.estadoCodigo === 'EN_PROGRESO' || v.estadoCodigo === 'COMPLETADA',
     );
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
@@ -66,6 +71,7 @@ const GestionVisitasPage = () => {
     setActiveVisita(visita);
     setEjecucionPasos(visita.ejecucionPasos || {});
     setEjecucionActividades(visita.ejecucionActividades || {});
+    setDeviceEvidencias(visita.deviceEvidencias || {});
     setObservacionFinal('');
   };
 
@@ -73,12 +79,42 @@ const GestionVisitasPage = () => {
     setActiveVisita(null);
     setEjecucionPasos({});
     setEjecucionActividades({});
+    setDeviceEvidencias({});
     setObservacionFinal('');
   };
 
-  // ── Iniciar visita (PROGRAMADO → EN_CURSO) ────────────────────────────────
-  const handleIniciar = () => {
-    setActiveVisita(prev => ({ ...prev, estadoCodigo: 'EN_PROCESO', fechaInicio: new Date().toISOString() }));
+  // ── Update device-level evidencias ───────────────────────────────────────
+  const handleDeviceEvidenciasChange = (deviceId, patch) => {
+    setDeviceEvidencias(prev => ({
+      ...prev,
+      [deviceId]: { ...(prev[deviceId] || { etiqueta: null, fotos: [] }), ...patch },
+    }));
+  };
+
+  // ── Iniciar visita (PROGRAMADA → EN_PROCESO) ─────────────────────────────
+  /**
+   * Actualiza la visita en Supabase (fecha_inicio + estado EN_PROCESO) y
+   * refleja el cambio en el estado local de forma optimista.
+   */
+  const handleIniciar = async () => {
+    if (!activeVisita || isSaving) return;
+    setIsSaving(true);
+    // Optimistic update: refleja el cambio en UI antes de la confirmación
+    setActiveVisita(prev => ({ ...prev, estadoCodigo: 'EN_PROGRESO', fechaInicio: new Date().toISOString() }));
+    try {
+      await iniciarVisita(activeVisita.id);
+      // Refrescar lista de fondo sin bloquear UI
+      fetchVisitas();
+    } catch (err) {
+      console.error('[GestionVisitasPage] handleIniciar error:', err);
+      // Revertir optimistic update en caso de error
+      setActiveVisita(prev => ({ ...prev, estadoCodigo: 'PROGRAMADA', fechaInicio: null }));
+      setModalTitle('Error al iniciar');
+      setModalMessage(err.message || 'No se pudo iniciar la visita. Intenta de nuevo.');
+      setShowHelpModal(true);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // ── Update paso-level execution (comments, photo) ─────────────────────────
@@ -98,57 +134,106 @@ const GestionVisitasPage = () => {
   };
 
   // ── Save avance for a device ──────────────────────────────────────────────
-  const handleSaveAvance = () => {
-    setModalTitle('Avance Guardado');
-    setModalMessage('Avance guardado y enviado al coordinador correctamente.');
-    setShowHelpModal(true);
+  /**
+   * Persiste el avance de pasos, actividades y evidencias de un dispositivo en Supabase.
+   * Recibe dispositivoId y evidencias directamente desde DeviceChecklistCard via onSaveAvance.
+   *
+   * @param {string} dispositivoId - UUID del dispositivo que se está guardando
+   * @param {{ etiqueta: { file: File, preview: string }|null, fotos: Array<{ file: File, preview: string }> }} evidencias
+   *   Evidencias fotográficas capturadas a nivel de dispositivo
+   */
+  const handleSaveAvance = async (dispositivoId, evidencias) => {
+    if (!activeVisita || !dispositivoId || isSaving) return;
+    setIsSaving(true);
+    try {
+      // Resolve all protocol steps for this device to ensure every paso is persisted
+      const device = (activeVisita.dispositivos || []).find(d => d.id === dispositivoId);
+      const allPasos = device?.pasos || [];
+      await guardarAvanceDispositivo(
+        activeVisita.id,
+        dispositivoId,
+        allPasos,
+        ejecucionPasos,
+        ejecucionActividades,
+        evidencias || { etiqueta: null, fotos: [] },
+      );
+      // Reset evidencias del dispositivo tras guardado exitoso
+      setDeviceEvidencias(prev => ({
+        ...prev,
+        [dispositivoId]: { etiqueta: null, fotos: [] },
+      }));
+      setModalTitle('Avance Guardado');
+      setModalMessage('Avance guardado y enviado al coordinador correctamente.');
+      setShowHelpModal(true);
+    } catch (err) {
+      console.error('[GestionVisitasPage] handleSaveAvance error:', err);
+      setModalTitle('Error al guardar avance');
+      setModalMessage(err.message || 'No se pudo guardar el avance. Intenta de nuevo.');
+      setShowHelpModal(true);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // ── Finalizar visita ──────────────────────────────────────────────────────
-  const handleFinalizar = () => {
+  /**
+   * Persiste la finalización de la visita en Supabase: fecha_fin, observaciones
+   * y estado FINALIZADO. Cierra la vista de ejecución y refresca la lista.
+   */
+  const handleFinalizar = async () => {
     if (!observacionFinal.trim()) {
       setModalTitle('Observación Requerida');
       setModalMessage('Agrega una observación final antes de finalizar la visita.');
       setShowHelpModal(true);
       return;
     }
-    setActiveVisita(prev => ({ ...prev, estadoCodigo: 'FINALIZADO', fechaFin: new Date().toISOString(), observacionFinal }));
-    handleCloseVisita();
+    if (!activeVisita || isSaving) return;
+    setIsSaving(true);
+    try {
+      await finalizarVisita(activeVisita.id, observacionFinal);
+      // Refrescar lista antes de cerrar para que la tabla refleje FINALIZADO
+      await fetchVisitas();
+      handleCloseVisita();
+    } catch (err) {
+      console.error('[GestionVisitasPage] handleFinalizar error:', err);
+      setModalTitle('Error al finalizar');
+      setModalMessage(err.message || 'No se pudo finalizar la visita. Intenta de nuevo.');
+      setShowHelpModal(true);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // ── All done: every device has all its actividades checked + photo per paso ─
+  // ── All done: every device has all its actividades checked (no photo required) ─
   const allDevicesDone = useMemo(() => {
     if (!activeVisita?.dispositivos?.length) return false;
     return activeVisita.dispositivos.every(device =>
+      (device.pasos || []).length > 0 &&
       (device.pasos || []).every(paso => {
         const acts = paso.actividades || [];
-        const allActsDone = acts.length > 0 && acts.every(a => ejecucionActividades[a.id]?.completada);
-        const hasPhoto    = !!ejecucionPasos[paso.id]?.evidenciaUrl;
-        return allActsDone && hasPhoto;
+        return acts.length > 0 && acts.every(a => ejecucionActividades[a.id]?.completada);
       }),
     );
-  }, [activeVisita, ejecucionPasos, ejecucionActividades]);
+  }, [activeVisita, ejecucionActividades]);
 
   // ══════════════════════════════════════════════════════════════════════════
   // EXECUTION VIEW
   // ══════════════════════════════════════════════════════════════════════════
   if (activeVisita) {
-    const isEnCurso    = activeVisita.estadoCodigo === 'EN_PROCESO';
+    const isEnCurso    = activeVisita.estadoCodigo === 'EN_PROGRESO';
     const isProgramado = activeVisita.estadoCodigo === 'PROGRAMADA';
-    const isFinalizado = activeVisita.estadoCodigo === 'FINALIZADO';
+    const isFinalizado = activeVisita.estadoCodigo === 'COMPLETADA';
     const viewMode = isFinalizado;
 
-    // Per-device completion stats (based on actividades + photos)
+    // Per-device completion stats (based on actividades only — no photo required)
     const deviceStats = (activeVisita.dispositivos || []).map(d => {
       const allActs = (d.pasos || []).flatMap(p => p.actividades || []);
       const totalActs = allActs.length;
       const doneActs  = allActs.filter(a => ejecucionActividades[a.id]?.completada).length;
-      const done = (d.pasos || []).every(paso => {
+      const done = (d.pasos || []).length > 0 && (d.pasos || []).every(paso => {
         const acts = paso.actividades || [];
-        return acts.length > 0
-          && acts.every(a => ejecucionActividades[a.id]?.completada)
-          && !!ejecucionPasos[paso.id]?.evidenciaUrl;
-      }) && (d.pasos || []).length > 0;
+        return acts.length > 0 && acts.every(a => ejecucionActividades[a.id]?.completada);
+      });
       return { ...d, totalActs, doneActs, done };
     });
 
@@ -168,17 +253,21 @@ const GestionVisitasPage = () => {
               <ArrowLeft size={16} />
             </button>
             <div>
-              <H2>Ejecución · {activeVisita.id}</H2>
+              <H2>{activeVisita.clienteNombre} — {activeVisita.sucursalNombre}</H2>
               <TextSmall className="text-gray-500">
-                {activeVisita.clienteNombre} — {activeVisita.sucursalNombre}
+                {activeVisita.tipoVisitaLabel || 'Sin tipo'} · {activeVisita.fechaProgramada ? new Date(activeVisita.fechaProgramada).toLocaleDateString('es-ES') : ''}
               </TextSmall>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <VisitStatusBadge status={activeVisita.estadoCodigo} />
             {isProgramado && (
-              <Button onClick={handleIniciar} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 border-0 text-white">
-                <Play size={14} /> Iniciar Visita
+              <Button
+                onClick={handleIniciar}
+                disabled={isSaving}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 border-0 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <Play size={14} /> {isSaving ? 'Iniciando...' : 'Iniciar Visita'}
               </Button>
             )}
           </div>
@@ -213,6 +302,8 @@ const GestionVisitasPage = () => {
                       onSaveAvance={handleSaveAvance}
                       viewMode={viewMode || isProgramado}
                       isLocked={isLocked}
+                      deviceEvidencias={deviceEvidencias[device.id] || { etiqueta: null, fotos: [] }}
+                      onDeviceEvidenciasChange={(patch) => handleDeviceEvidenciasChange(device.id, patch)}
                     />
                   );
                 })
@@ -246,9 +337,10 @@ const GestionVisitasPage = () => {
                 <div className="flex justify-end">
                   <Button
                     onClick={handleFinalizar}
-                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 border-0 text-white"
+                    disabled={isSaving}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 border-0 text-white disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <Send size={14} /> Finalizar y Enviar Informe
+                    <Send size={14} /> {isSaving ? 'Finalizando...' : 'Finalizar y Enviar Informe'}
                   </Button>
                 </div>
               </Card>
@@ -261,7 +353,7 @@ const GestionVisitasPage = () => {
             <Card className="p-5 space-y-4">
               <Label className="text-sm font-bold text-gray-700 uppercase tracking-wide block">Resumen de la Visita</Label>
               <div className="space-y-3">
-                <InfoRow icon={AlertCircle} label="Tipo"              value={activeVisita.tipoVisita}      />
+                <InfoRow icon={AlertCircle} label="Tipo"              value={activeVisita.tipoVisitaLabel} />
                 <InfoRow icon={Building2}   label="Sucursal"          value={activeVisita.sucursalNombre}  />
                 <InfoRow icon={User}        label="Técnico(s)"        value={activeVisita.tecnicosNombres?.join(', ') || '—'} />
                 <InfoRow icon={Calendar}    label="Fecha Programada"  value={activeVisita.fechaProgramada ? new Date(activeVisita.fechaProgramada).toLocaleString('es-ES') : '—'} />
@@ -343,8 +435,8 @@ const GestionVisitasPage = () => {
               options={[
                 { value: 'Todos',      label: 'Todos los estados' },
                 { value: 'PROGRAMADA', label: 'Programada'        },
-                { value: 'EN_PROCESO', label: 'En curso'          },
-                { value: 'FINALIZADO', label: 'Finalizado'        },
+                { value: 'EN_PROGRESO', label: 'En curso'          },
+                { value: 'COMPLETADA',  label: 'Completada'        },
               ]}
               value={filterEstado}
               onChange={e => setFilterEstado(e.target.value)}
@@ -388,8 +480,7 @@ const GestionVisitasPage = () => {
                   (d.pasos || []).every(paso => {
                     const acts = paso.actividades || [];
                     return acts.length > 0
-                      && acts.every(a => visita.ejecucionActividades?.[a.id]?.completada)
-                      && !!visita.ejecucionPasos?.[paso.id]?.evidenciaUrl;
+                      && acts.every(a => visita.ejecucionActividades?.[a.id]?.completada);
                   })
                 ).length || 0;
 
@@ -443,9 +534,9 @@ const GestionVisitasPage = () => {
                         <button
                           onClick={() => handleOpenVisita(visita)}
                           className="p-2 hover:bg-blue-50 rounded-md transition-colors"
-                          title={visita.estadoCodigo === 'FINALIZADO' ? 'Ver informe' : 'Editar / Ejecutar'}
+                          title={visita.estadoCodigo === 'COMPLETADA' ? 'Ver informe' : 'Editar / Ejecutar'}
                         >
-                          {visita.estadoCodigo === 'FINALIZADO'
+                          {visita.estadoCodigo === 'COMPLETADA'
                             ? <Eye size={16} className="text-blue-600" />
                             : <Edit2 size={16} className="text-green-600" />
                           }
