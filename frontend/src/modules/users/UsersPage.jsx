@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useMasterData } from '../../context/MasterDataContext';
 import { Plus, UserPlus, Search, X } from 'lucide-react';
 import ModuleHeader from '../../components/ui/ModuleHeader';
 import Card from '../../components/ui/Card';
@@ -20,11 +21,13 @@ const emptyUser = () => ({
   activo: true,
   certificados: [],
   directorId: '',
+  sucursalesACargo: [],
 });
 
 const emptyDocs = () => ({ cedula: null, planillaSS: null });
 
 const UsersPage = ({ data, setData }) => {
+  const { data: masterData } = useMasterData();
   // UI State
   const [isCreating, setIsCreating] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -96,6 +99,7 @@ const UsersPage = ({ data, setData }) => {
       activo: user.activo !== undefined ? user.activo : true,
       certificados: Array.isArray(user.certificados) ? user.certificados : [],
       directorId: user.directorAsignadoId || '',
+      sucursalesACargo: Array.isArray(user.sucursalesACargo) ? user.sucursalesACargo : [],
     });
     setTecnicoDocumentos({
       cedula: user.documentos?.cedula || null,
@@ -117,6 +121,7 @@ const UsersPage = ({ data, setData }) => {
       activo: user.activo !== undefined ? user.activo : true,
       certificados: Array.isArray(user.certificados) ? user.certificados : [],
       directorId: user.assignedDirectorProfileId || '',
+      sucursalesACargo: Array.isArray(user.sucursalesACargo) ? user.sucursalesACargo : [],
     });
     setTecnicoDocumentos({
       cedula: user.documentos?.cedula || null,
@@ -182,6 +187,7 @@ const UsersPage = ({ data, setData }) => {
           roleOptions={roleOptions}
           allUsers={usuarios}
           activeDirectors={activeDirectors}
+          clientes={masterData?.clientes || []}
           onResendInvitation={handleResendInvitation}
           resendingIds={resendingIds}
           isSaving={savingUser}

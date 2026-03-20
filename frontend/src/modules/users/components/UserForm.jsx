@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { User, Mail, Shield, IdCard, Hash, FileText, AlertTriangle, Save, ArrowLeft, RefreshCw, Loader2 } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { User, Mail, Shield, IdCard, Hash, FileText, AlertTriangle, Save, ArrowLeft, RefreshCw, Loader2, Building2, MapPin, ChevronRight, Search } from 'lucide-react';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
@@ -43,6 +43,28 @@ const RoleSection = ({ icon: Icon, label, color = 'blue', children }) => {
   );
 };
 
+/**
+ * Checkbox con tri-state visual: checked | indeterminate | unchecked.
+ * El estado `indeterminate` se aplica via ref porque no es un atributo HTML.
+ * @param {{ estado: "checked"|"indeterminate"|"unchecked", onChange: Function }} props
+ */
+const TriStateCheckbox = ({ estado, onChange }) => {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    ref.current.indeterminate = estado === 'indeterminate';
+    ref.current.checked = estado === 'checked';
+  }, [estado]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      onChange={onChange}
+      className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500 focus:ring-offset-0 cursor-pointer shrink-0"
+    />
+  );
+};
+
 const roleLabels = {
   [ROLES.DIRECTOR]: 'Director',
   [ROLES.COORDINADOR]: 'Coordinador',
@@ -50,19 +72,20 @@ const roleLabels = {
   [ROLES.CLIENTE]: 'Cliente'
 };
 
-const UserForm = ({ 
-  newUser, 
-  setNewUser, 
-  tecnicoDocumentos, 
+const UserForm = ({
+  newUser,
+  setNewUser,
+  tecnicoDocumentos,
   setTecnicoDocumentos,
-  isCreating, 
-  editingUser, 
-  viewingUser, 
-  onSave, 
+  isCreating,
+  editingUser,
+  viewingUser,
+  onSave,
   onCancel,
   roleOptions,
   allUsers = [],
   activeDirectors = [],
+  clientes = [],
   onResendInvitation,
   resendingIds = new Set(),
   isSaving = false
@@ -70,7 +93,80 @@ const UserForm = ({
   const isView = !!viewingUser;
   const isCliente = newUser.rol === ROLES.CLIENTE;
   const [showResendModal, setShowResendModal] = useState(false);
+  const [expandedClientes, setExpandedClientes] = useState(/** @type {Set<string>} */(new Set()));
+  const [busquedaCliente, setBusquedaCliente] = useState('');
   const isResending = editingUser && resendingIds.has(editingUser.id);
+
+  /**
+   * Árbol de clientes con sus sucursales para el selector jerárquico.
+   * MasterDataContext mapea razon_social → nombre via toClientDraft.
+   */
+  const arbolClientes = useMemo(() =>
+    clientes.map(c => ({
+      id: c.id,
+      nombre: c.nombre || c.razon_social || '—',
+      sucursales: (c.sucursales || []).map(s => ({ id: s.id, nombre: s.nombre })),
+    })).filter(c => c.sucursales.length > 0),
+    [clientes]);
+
+  /** Clientes visibles según búsqueda */
+  const clientesFiltrados = useMemo(() => {
+    const q = busquedaCliente.toLowerCase().trim();
+    if (!q) return arbolClientes;
+    return arbolClientes.filter(c =>
+      c.nombre.toLowerCase().includes(q) ||
+      c.sucursales.some(s => s.nombre.toLowerCase().includes(q))
+    );
+  }, [arbolClientes, busquedaCliente]);
+
+  /**
+   * Tri-state derivado para el checkbox del cliente padre.
+   * @param {string} clienteId
+   * @param {string[]} branchIds
+   * @returns {"checked"|"indeterminate"|"unchecked"}
+   */
+  const getClienteState = (clienteId, branchIds) => {
+    const selected = newUser.sucursalesACargo || [];
+    const count = branchIds.filter(id => selected.includes(id)).length;
+    if (count === 0) return 'unchecked';
+    if (count === branchIds.length) return 'checked';
+    return 'indeterminate';
+  };
+
+  const toggleCliente = (clienteId, branchIds) => {
+    const state = getClienteState(clienteId, branchIds);
+    const current = newUser.sucursalesACargo || [];
+    const next = state === 'checked'
+      ? current.filter(id => !branchIds.includes(id))          // deselect all
+      : [...current.filter(id => !branchIds.includes(id)), ...branchIds]; // select all
+    setNewUser({ ...newUser, sucursalesACargo: next });
+  };
+
+  const toggleSucursal = (sucursalId) => {
+    const current = newUser.sucursalesACargo || [];
+    const next = current.includes(sucursalId)
+      ? current.filter(id => id !== sucursalId)
+      : [...current, sucursalId];
+    setNewUser({ ...newUser, sucursalesACargo: next });
+  };
+
+  const toggleExpanded = (clienteId) => {
+    setExpandedClientes(prev => {
+      const next = new Set(prev);
+      next.has(clienteId) ? next.delete(clienteId) : next.add(clienteId);
+      return next;
+    });
+  };
+
+  /** Chips de sucursales seleccionadas para el resumen (view mode + footer) */
+  const sucursalesSeleccionadas = useMemo(() => {
+    const selected = newUser.sucursalesACargo || [];
+    return arbolClientes.flatMap(c =>
+      c.sucursales
+        .filter(s => selected.includes(s.id))
+        .map(s => ({ id: s.id, nombre: s.nombre, clienteNombre: c.nombre }))
+    );
+  }, [newUser.sucursalesACargo, arbolClientes]);
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
@@ -229,20 +325,155 @@ const UserForm = ({
             )}
 
             {newUser.rol === ROLES.COORDINADOR && (
-              <RoleSection icon={Shield} label="Datos del Coordinador" color="blue">
-                <SearchableSelect
-                  label="Director Asignado"
-                  icon={User}
-                  options={activeDirectors.map(d => ({ 
-                    value: d.id, 
-                    label: d.nombreCompleto 
-                  }))}
-                  value={newUser.directorId || ''}
-                  onChange={v => setNewUser({ ...newUser, directorId: v?.value || v || '' })}
-                  viewMode={isView}
-                  placeholder="Buscar director..."
-                />
-              </RoleSection>
+              <>
+                <RoleSection icon={Shield} label="Datos del Coordinador" color="blue">
+                  <SearchableSelect
+                    label="Director Asignado"
+                    icon={User}
+                    options={activeDirectors.map(d => ({
+                      value: d.id,
+                      label: d.nombreCompleto
+                    }))}
+                    value={newUser.directorId || ''}
+                    onChange={v => setNewUser({ ...newUser, directorId: v?.value || v || '' })}
+                    viewMode={isView}
+                    placeholder="Buscar director..."
+                  />
+                </RoleSection>
+
+                <RoleSection icon={Building2} label="Sucursales a Cargo" color="green">
+                  {isView ? (
+                    /* ── View mode: chips agrupados por cliente ── */
+                    sucursalesSeleccionadas.length === 0 ? (
+                      <p className="text-sm text-gray-400 italic">Sin sucursales asignadas</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {arbolClientes
+                          .filter(c => c.sucursales.some(s => (newUser.sucursalesACargo || []).includes(s.id)))
+                          .map(c => (
+                            <div key={c.id}>
+                              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">{c.nombre}</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {c.sucursales
+                                  .filter(s => (newUser.sucursalesACargo || []).includes(s.id))
+                                  .map(s => (
+                                    <span key={s.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 border border-green-200 text-green-800 rounded-full text-xs font-medium">
+                                      <MapPin size={10} />
+                                      {s.nombre}
+                                    </span>
+                                  ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )
+                  ) : (
+                    /* ── Edit mode: árbol jerárquico con tri-state ── */
+                    <div className="space-y-2">
+                      {/* Buscador */}
+                      <div className="relative">
+                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Buscar cliente o sucursal..."
+                          value={busquedaCliente}
+                          onChange={e => setBusquedaCliente(e.target.value)}
+                          className="w-full h-8 pl-8 pr-3 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
+                        />
+                      </div>
+
+                      {/* Árbol */}
+                      {arbolClientes.length === 0 ? (
+                        <p className="text-sm text-gray-400 italic py-2">No hay clientes con sucursales disponibles.</p>
+                      ) : clientesFiltrados.length === 0 ? (
+                        <p className="text-sm text-gray-400 italic py-2">Sin resultados para "{busquedaCliente}".</p>
+                      ) : (
+                        <div className="rounded-lg border border-gray-200 overflow-hidden max-h-64 overflow-y-auto">
+                          {clientesFiltrados.map((c, idx) => {
+                            const branchIds = c.sucursales.map(s => s.id);
+                            const estado = getClienteState(c.id, branchIds);
+                            const isOpen = expandedClientes.has(c.id);
+                            const isLast = idx === clientesFiltrados.length - 1;
+                            return (
+                              <div key={c.id} className={!isLast ? 'border-b border-gray-100' : ''}>
+                                {/* Fila cliente (padre) */}
+                                <div className={`flex items-center gap-1 px-3 py-2.5 transition-colors ${estado !== 'unchecked' ? 'bg-green-50' : 'hover:bg-gray-50'}`}>
+                                  {/* Chevron expandir */}
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpanded(c.id)}
+                                    className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                                  >
+                                    <ChevronRight size={14} className={`transition-transform duration-150 ${isOpen ? 'rotate-90' : ''}`} />
+                                  </button>
+                                  {/* Checkbox tri-state */}
+                                  <TriStateCheckbox
+                                    estado={estado}
+                                    onChange={() => toggleCliente(c.id, branchIds)}
+                                  />
+                                  {/* Nombre cliente — clic expande */}
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpanded(c.id)}
+                                    className="flex-1 text-left text-sm font-semibold text-gray-800 truncate ml-1"
+                                  >
+                                    {c.nombre}
+                                  </button>
+                                  {/* Contador */}
+                                  <span className="shrink-0 text-xs text-gray-400">
+                                    {branchIds.filter(id => (newUser.sucursalesACargo || []).includes(id)).length}/{branchIds.length}
+                                  </span>
+                                </div>
+
+                                {/* Sucursales hijas */}
+                                {isOpen && (
+                                  <div className="bg-gray-50/60 border-t border-gray-100 divide-y divide-gray-100">
+                                    {c.sucursales.map(s => {
+                                      const checked = (newUser.sucursalesACargo || []).includes(s.id);
+                                      return (
+                                        <label
+                                          key={s.id}
+                                          className={`flex items-center gap-3 pl-9 pr-3 py-2 cursor-pointer select-none transition-colors ${checked ? 'bg-green-50' : 'hover:bg-white'}`}
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() => toggleSucursal(s.id)}
+                                            className="w-3.5 h-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500 focus:ring-offset-0 cursor-pointer"
+                                          />
+                                          <MapPin size={11} className="text-gray-300 shrink-0" />
+                                          <span className="text-sm text-gray-700 truncate">{s.nombre}</span>
+                                          {checked && <span className="ml-auto shrink-0 w-1.5 h-1.5 rounded-full bg-green-500" />}
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Footer: contador + limpiar */}
+                      {sucursalesSeleccionadas.length > 0 && (
+                        <div className="flex items-center justify-between pt-0.5">
+                          <p className="text-xs text-gray-500">
+                            <span className="font-semibold text-green-700">{sucursalesSeleccionadas.length}</span> sucursal{sucursalesSeleccionadas.length !== 1 ? 'es' : ''} asignada{sucursalesSeleccionadas.length !== 1 ? 's' : ''}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setNewUser({ ...newUser, sucursalesACargo: [] })}
+                            className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            Limpiar todo
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </RoleSection>
+              </>
             )}
 
             {newUser.rol === ROLES.TECNICO && (

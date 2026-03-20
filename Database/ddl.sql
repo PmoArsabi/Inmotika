@@ -3,7 +3,6 @@
 
 drop extension if exists "pg_net";
 
-
     "id" uuid not null default gen_random_uuid(),
     "paso_id" uuid not null,
     "descripcion" text not null,
@@ -14,9 +13,7 @@ drop extension if exists "pg_net";
     "updated_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."actividad_protocolo" enable row level security;
-
 
   create table "public"."administrador" (
     "id" uuid not null default gen_random_uuid(),
@@ -26,9 +23,7 @@ alter table "public"."actividad_protocolo" enable row level security;
     "activo" boolean not null default true
       );
 
-
 alter table "public"."administrador" enable row level security;
-
 
   create table "public"."catalogo" (
     "id" uuid not null default gen_random_uuid(),
@@ -42,9 +37,7 @@ alter table "public"."administrador" enable row level security;
     "created_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."catalogo" enable row level security;
-
 
   create table "public"."catalogo_estado_general" (
     "id" uuid not null default gen_random_uuid(),
@@ -53,7 +46,6 @@ alter table "public"."catalogo" enable row level security;
     "descripcion" text,
     "activo" boolean default true
       );
-
 
 alter table "public"."catalogo_estado_general" enable row level security;
 
@@ -66,7 +58,6 @@ alter table "public"."catalogo_estado_general" enable row level security;
 
   alter table "public"."catalogo_estado_dispositivo" enable row level security;
 
-
   create table "public"."catalogo_rol" (
     "id" uuid not null default gen_random_uuid(),
     "codigo" character varying(50) not null,
@@ -74,9 +65,7 @@ alter table "public"."catalogo_estado_general" enable row level security;
     "activo" boolean default true
       );
 
-
 alter table "public"."catalogo_rol" enable row level security;
-
 
   create table "public"."categoria_dispositivo" (
     "id" uuid not null default gen_random_uuid(),
@@ -87,9 +76,7 @@ alter table "public"."catalogo_rol" enable row level security;
     "updated_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."categoria_dispositivo" enable row level security;
-
 
   create table "public"."cliente" (
     "id" uuid not null default gen_random_uuid(),
@@ -110,9 +97,7 @@ alter table "public"."categoria_dispositivo" enable row level security;
     "ciudad" character varying
   );
 
-
 alter table "public"."cliente" enable row level security;
-
 
   create table "public"."cliente_director" (
     "id" uuid not null default gen_random_uuid(),
@@ -122,9 +107,7 @@ alter table "public"."cliente" enable row level security;
     "activo" boolean default true
   );
 
-
 alter table "public"."cliente_director" enable row level security;
-
 
   create table "public"."cliente_documento" (
     "id" uuid not null default gen_random_uuid(),
@@ -135,9 +118,7 @@ alter table "public"."cliente_director" enable row level security;
     "activo" boolean not null default true
   );
 
-
 alter table "public"."cliente_documento" enable row level security;
-
 
   create table "public"."contacto" (
     "id" uuid not null default gen_random_uuid(),
@@ -163,9 +144,7 @@ alter table "public"."cliente_documento" enable row level security;
     "usuario_id" uuid
       );
 
-
 alter table "public"."contacto" enable row level security;
-
 
   create table "public"."contacto_sucursal" (
     "id" uuid not null default gen_random_uuid(),
@@ -175,9 +154,7 @@ alter table "public"."contacto" enable row level security;
     "created_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."contacto_sucursal" enable row level security;
-
 
   create table "public"."contrato" (
     "id" uuid not null default gen_random_uuid(),
@@ -192,9 +169,7 @@ alter table "public"."contacto_sucursal" enable row level security;
     "updated_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."contrato" enable row level security;
-
 
   create table "public"."coordinador" (
     "id" uuid not null default gen_random_uuid(),
@@ -205,9 +180,7 @@ alter table "public"."contrato" enable row level security;
     "activo" boolean not null default true
       );
 
-
 alter table "public"."coordinador" enable row level security;
-
 
   create table "public"."director" (
     "id" uuid not null default gen_random_uuid(),
@@ -217,9 +190,7 @@ alter table "public"."coordinador" enable row level security;
     "activo" boolean not null default true
       );
 
-
 alter table "public"."director" enable row level security;
-
 
   create table "public"."disponibilidad_tecnico" (
     "id" uuid not null default gen_random_uuid(),
@@ -230,7 +201,6 @@ alter table "public"."director" enable row level security;
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
-
 
 alter table "public"."disponibilidad_tecnico" enable row level security;
 
@@ -255,7 +225,6 @@ alter table "public"."disponibilidad_tecnico" enable row level security;
 
   alter table "public"."marca" enable row level security;
 
-
   create table "public"."dispositivo" (
     "id" uuid not null default gen_random_uuid(),
     "sucursal_id" uuid,
@@ -279,9 +248,7 @@ alter table "public"."disponibilidad_tecnico" enable row level security;
     "estado_gestion_id" uuid
       );
 
-
 alter table "public"."dispositivo" enable row level security;
-
 
   create table "public"."ejecucion_actividad" (
     "id" uuid not null default gen_random_uuid(),
@@ -291,9 +258,7 @@ alter table "public"."dispositivo" enable row level security;
     "created_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."ejecucion_actividad" enable row level security;
-
 
   create table "public"."ejecucion_paso" (
     "id" uuid not null default gen_random_uuid(),
@@ -308,11 +273,8 @@ alter table "public"."ejecucion_actividad" enable row level security;
     "evidencia_url" text
       );
 
-
 alter table "public"."ejecucion_paso" enable row level security;
 
-
-  create table "public"."evidencia_paso" (
     "id" uuid not null default gen_random_uuid(),
     "ejecucion_paso_id" uuid,
     "url" text not null,
@@ -320,10 +282,6 @@ alter table "public"."ejecucion_paso" enable row level security;
     "descripcion" text,
     "created_at" timestamp with time zone default now()
       );
-
-
-alter table "public"."evidencia_paso" enable row level security;
-
 
   create table "public"."evidencia_visita" (
     "id" uuid not null default gen_random_uuid(),
@@ -333,9 +291,7 @@ alter table "public"."evidencia_paso" enable row level security;
     "created_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."evidencia_visita" enable row level security;
-
 
   create table "public"."historial_traslado" (
     "id" uuid not null default gen_random_uuid(),
@@ -348,9 +304,7 @@ alter table "public"."evidencia_visita" enable row level security;
     "created_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."historial_traslado" enable row level security;
-
 
   create table "public"."intervencion" (
     "id" uuid not null default gen_random_uuid(),
@@ -359,13 +313,12 @@ alter table "public"."historial_traslado" enable row level security;
     "hallazgos" text,
     "acciones_realizadas" text,
     "estado_id" uuid,
+    "codigo_etiqueta" character varying(9),
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."intervencion" enable row level security;
-
 
   create table "public"."paso_protocolo" (
     "id" uuid not null default gen_random_uuid(),
@@ -377,9 +330,7 @@ alter table "public"."intervencion" enable row level security;
     "updated_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."paso_protocolo" enable row level security;
-
 
   create table "public"."perfil_usuario" (
     "id" uuid not null,
@@ -397,9 +348,7 @@ alter table "public"."paso_protocolo" enable row level security;
     "email" text
       );
 
-
 alter table "public"."perfil_usuario" enable row level security;
-
 
   create table "public"."solicitud_visita" (
     "id" uuid not null default gen_random_uuid(),
@@ -416,9 +365,7 @@ alter table "public"."perfil_usuario" enable row level security;
     "updated_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."solicitud_visita" enable row level security;
-
 
   -- Junction table: dispositivos solicitados en una solicitud de visita
   create table "public"."solicitud_dispositivo" (
@@ -429,12 +376,9 @@ alter table "public"."solicitud_visita" enable row level security;
     "created_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."solicitud_dispositivo" enable row level security;
 
-
 alter table "public"."solicitud_visita" enable row level security;
-
 
   create table "public"."sucursal" (
     "id" uuid not null default gen_random_uuid(),
@@ -454,9 +398,7 @@ alter table "public"."solicitud_visita" enable row level security;
     "longitud" numeric(10,7)
       );
 
-
 alter table "public"."sucursal" enable row level security;
-
 
   create table "public"."tecnico" (
     "id" uuid not null default gen_random_uuid(),
@@ -468,9 +410,7 @@ alter table "public"."sucursal" enable row level security;
     "activo" boolean not null default true
       );
 
-
 alter table "public"."tecnico" enable row level security;
-
 
   create table "public"."tecnico_certificado" (
     "id" uuid not null default gen_random_uuid(),
@@ -481,9 +421,7 @@ alter table "public"."tecnico" enable row level security;
     "activo" boolean not null default true
       );
 
-
 alter table "public"."tecnico_certificado" enable row level security;
-
 
   create table "public"."visita" (
     "id" uuid not null default gen_random_uuid(),
@@ -501,9 +439,7 @@ alter table "public"."tecnico_certificado" enable row level security;
     "updated_at" timestamp with time zone default now()
       );
 
-
 alter table "public"."visita" enable row level security;
-
 
   create table "public"."visita_tecnico" (
     "id" uuid not null default gen_random_uuid(),
@@ -512,7 +448,6 @@ alter table "public"."visita" enable row level security;
     "es_lider" boolean default false,
     "created_at" timestamp with time zone default now()
       );
-
 
 alter table "public"."visita_tecnico" enable row level security;
 
@@ -569,8 +504,6 @@ CREATE UNIQUE INDEX ejecucion_actividad_pkey ON public.ejecucion_actividad USING
 CREATE UNIQUE INDEX ejecucion_actividad_unique ON public.ejecucion_actividad USING btree (intervencion_id, actividad_id);
 
 CREATE UNIQUE INDEX ejecucion_paso_pkey ON public.ejecucion_paso USING btree (id);
-
-CREATE UNIQUE INDEX evidencia_paso_pkey ON public.evidencia_paso USING btree (id);
 
 CREATE UNIQUE INDEX evidencia_visita_pkey ON public.evidencia_visita USING btree (id);
 
@@ -639,8 +572,6 @@ alter table "public"."dispositivo" add constraint "dispositivo_pkey" PRIMARY KEY
 alter table "public"."ejecucion_actividad" add constraint "ejecucion_actividad_pkey" PRIMARY KEY using index "ejecucion_actividad_pkey";
 
 alter table "public"."ejecucion_paso" add constraint "ejecucion_paso_pkey" PRIMARY KEY using index "ejecucion_paso_pkey";
-
-alter table "public"."evidencia_paso" add constraint "evidencia_paso_pkey" PRIMARY KEY using index "evidencia_paso_pkey";
 
 alter table "public"."evidencia_visita" add constraint "evidencia_visita_pkey" PRIMARY KEY using index "evidencia_visita_pkey";
 
@@ -817,10 +748,6 @@ alter table "public"."ejecucion_paso" validate constraint "ejecucion_paso_interv
 alter table "public"."ejecucion_paso" add constraint "ejecucion_paso_paso_protocolo_id_fkey" FOREIGN KEY (paso_protocolo_id) REFERENCES public.paso_protocolo(id) not valid;
 
 alter table "public"."ejecucion_paso" validate constraint "ejecucion_paso_paso_protocolo_id_fkey";
-
-alter table "public"."evidencia_paso" add constraint "evidencia_paso_ejecucion_paso_id_fkey" FOREIGN KEY (ejecucion_paso_id) REFERENCES public.ejecucion_paso(id) ON DELETE CASCADE not valid;
-
-alter table "public"."evidencia_paso" validate constraint "evidencia_paso_ejecucion_paso_id_fkey";
 
 alter table "public"."evidencia_visita" add constraint "evidencia_visita_visita_id_fkey" FOREIGN KEY (visita_id) REFERENCES public.visita(id) ON DELETE CASCADE not valid;
 
@@ -1896,48 +1823,6 @@ grant truncate on table "public"."ejecucion_paso" to "service_role";
 
 grant update on table "public"."ejecucion_paso" to "service_role";
 
-grant delete on table "public"."evidencia_paso" to "anon";
-
-grant insert on table "public"."evidencia_paso" to "anon";
-
-grant references on table "public"."evidencia_paso" to "anon";
-
-grant select on table "public"."evidencia_paso" to "anon";
-
-grant trigger on table "public"."evidencia_paso" to "anon";
-
-grant truncate on table "public"."evidencia_paso" to "anon";
-
-grant update on table "public"."evidencia_paso" to "anon";
-
-grant delete on table "public"."evidencia_paso" to "authenticated";
-
-grant insert on table "public"."evidencia_paso" to "authenticated";
-
-grant references on table "public"."evidencia_paso" to "authenticated";
-
-grant select on table "public"."evidencia_paso" to "authenticated";
-
-grant trigger on table "public"."evidencia_paso" to "authenticated";
-
-grant truncate on table "public"."evidencia_paso" to "authenticated";
-
-grant update on table "public"."evidencia_paso" to "authenticated";
-
-grant delete on table "public"."evidencia_paso" to "service_role";
-
-grant insert on table "public"."evidencia_paso" to "service_role";
-
-grant references on table "public"."evidencia_paso" to "service_role";
-
-grant select on table "public"."evidencia_paso" to "service_role";
-
-grant trigger on table "public"."evidencia_paso" to "service_role";
-
-grant truncate on table "public"."evidencia_paso" to "service_role";
-
-grant update on table "public"."evidencia_paso" to "service_role";
-
 grant delete on table "public"."evidencia_visita" to "anon";
 
 grant insert on table "public"."evidencia_visita" to "anon";
@@ -2448,7 +2333,6 @@ grant trigger on table "public"."marca" to "service_role";
 grant truncate on table "public"."marca" to "service_role";
 grant update on table "public"."marca" to "service_role";
 
-
   create policy "allow_all_authenticated"
   on "public"."actividad_protocolo"
   as permissive
@@ -2456,8 +2340,6 @@ grant update on table "public"."marca" to "service_role";
   to authenticated
 using (true)
 with check (true);
-
-
 
   create policy "Admins can manage administrators"
   on "public"."administrador"
@@ -2469,8 +2351,6 @@ using ((EXISTS ( SELECT 1
      JOIN public.catalogo_rol cr ON ((pu.rol_id = cr.id)))
   WHERE ((pu.id = auth.uid()) AND ((cr.codigo)::text = ANY ((ARRAY['ADMIN'::character varying, 'DIRECTOR'::character varying, 'COORDINADOR'::character varying])::text[]))))));
 
-
-
   create policy "Catalogo: escritura solo para admins"
   on "public"."catalogo"
   as permissive
@@ -2481,16 +2361,12 @@ using ((EXISTS ( SELECT 1
      JOIN public.catalogo_rol r ON ((p.rol_id = r.id)))
   WHERE ((p.id = auth.uid()) AND ((r.codigo)::text = 'ADMIN'::text)))));
 
-
-
   create policy "Catalogo: lectura pública para autenticados"
   on "public"."catalogo"
   as permissive
   for select
   to authenticated
 using ((activo = true));
-
-
 
   create policy "catalogo_read_authenticated"
   on "public"."catalogo"
@@ -2499,8 +2375,6 @@ using ((activo = true));
   to authenticated
 using (true);
 
-
-
   create policy "catalogo_estado_read_authenticated"
   on "public"."catalogo_estado_general"
   as permissive
@@ -2508,16 +2382,12 @@ using (true);
   to authenticated
 using (true);
 
-
-
   create policy "catalogo_rol_read_authenticated"
   on "public"."catalogo_rol"
   as permissive
   for select
   to authenticated
 using (true);
-
-
 
   create policy "allow_read_authenticated"
   on "public"."proveedor"
@@ -2555,8 +2425,6 @@ using (public.is_admin_or_coordinator());
 using (true)
 with check (true);
 
-
-
    create policy "Access for admins and assigned directors"
    on "public"."cliente"
    as permissive
@@ -2564,16 +2432,12 @@ with check (true);
    to authenticated
  using ((public.is_admin_or_coordinator() OR public.is_assigned_director(id)));
 
-
-
   create policy "Admin access"
   on "public"."contacto"
   as permissive
   for all
   to public
 using (public.is_admin_or_coordinator());
-
-
 
   create policy "Admins and management manage contacto_sucursal"
   on "public"."contacto_sucursal"
@@ -2583,8 +2447,6 @@ using (public.is_admin_or_coordinator());
 using (public.is_admin_or_coordinator())
 with check (public.is_admin_or_coordinator());
 
-
-
   create policy "allow_manage_admin"
   on "public"."dispositivo"
   as permissive
@@ -2614,8 +2476,6 @@ with check (public.is_admin_or_coordinator());
   for select
   to authenticated
 using (true);
-
-
 
   create policy "Management staff access"
   on "public"."coordinador"
@@ -2624,16 +2484,12 @@ using (true);
   to public
 using ((public.is_management_staff() OR (usuario_id = auth.uid())));
 
-
-
   create policy "Management staff access"
   on "public"."director"
   as permissive
   for all
   to public
 using ((public.is_management_staff() OR (usuario_id = auth.uid())));
-
-
 
   create policy "allow_all_authenticated"
   on "public"."paso_protocolo"
@@ -2642,8 +2498,6 @@ using ((public.is_management_staff() OR (usuario_id = auth.uid())));
   to authenticated
 using (true)
 with check (true);
-
-
 
   create policy "Admin access"
   on "public"."perfil_usuario"
@@ -2659,16 +2513,12 @@ using (public.is_admin_or_coordinator());
   to authenticated
 using ((id = auth.uid() AND public.is_user_active()));
 
-
-
   create policy "Admin access"
   on "public"."solicitud_visita"
   as permissive
   for all
   to public
 using (public.is_admin_or_coordinator());
-
-
 
   create policy "Clientes pueden crear sus solicitudes"
   on "public"."solicitud_visita"
@@ -2680,15 +2530,12 @@ with check ((EXISTS ( SELECT 1
      JOIN public.catalogo_rol r ON ((p.rol_id = r.id)))
   WHERE ((p.id = auth.uid()) AND ((r.codigo)::text = 'CLIENTE'::text)))));
 
-
 create policy "Clientes pueden ver sus solicitudes"
 on "public"."solicitud_visita"
 as permissive
 for select
 to authenticated
 using (creado_por = auth.uid());
-
-
 
    create policy "Access for admins and assigned directors"
    on "public"."sucursal"
@@ -2697,16 +2544,12 @@ using (creado_por = auth.uid());
    to authenticated
  using ((public.is_admin_or_coordinator() OR public.is_assigned_director(cliente_id)));
 
-
-
   create policy "Admin access"
   on "public"."contrato"
   as permissive
   for all
   to public
 using (public.is_admin_or_coordinator());
-
-
 
   create policy "Admins can manage all technicians"
   on "public"."tecnico"
@@ -2718,16 +2561,12 @@ using ((EXISTS ( SELECT 1
      JOIN public.catalogo_rol cr ON ((pu.rol_id = cr.id)))
   WHERE ((pu.id = auth.uid()) AND ((cr.codigo)::text = ANY ((ARRAY['ADMIN'::character varying, 'DIRECTOR'::character varying, 'COORDINADOR'::character varying])::text[]))))));
 
-
-
   create policy "Management staff access"
   on "public"."tecnico"
   as permissive
   for all
   to public
 using ((public.is_management_staff() OR (usuario_id = auth.uid())));
-
-
 
   create policy "Admins can manage all technician certificates"
   on "public"."tecnico_certificado"
@@ -2738,8 +2577,6 @@ using ((EXISTS ( SELECT 1
    FROM (public.perfil_usuario pu
      JOIN public.catalogo_rol cr ON ((pu.rol_id = cr.id)))
   WHERE ((pu.id = auth.uid()) AND ((cr.codigo)::text = ANY ((ARRAY['ADMIN'::character varying, 'DIRECTOR'::character varying, 'COORDINADOR'::character varying])::text[]))))));
-
-
 
   create policy "Admin access"
   on "public"."visita"
@@ -2755,7 +2592,6 @@ using (public.is_admin_or_coordinator());
   for select
   to authenticated
 using (public.is_tecnico_asignado_visita(id));
-
 
    create policy "Admins can manage director assignments"
    on "public"."cliente_director"
@@ -2787,15 +2623,12 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER set_updated_at_proveedor BEFORE UPDATE ON public.proveedor FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 CREATE TRIGGER set_updated_at_marca BEFORE UPDATE ON public.marca FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
-
   create policy "Acceso completo usuarios autenticados 69tnde_0"
   on "storage"."objects"
   as permissive
   for select
   to authenticated
 using ((bucket_id = 'inmotika'::text));
-
-
 
   create policy "Acceso completo usuarios autenticados 69tnde_1"
   on "storage"."objects"
@@ -2804,8 +2637,6 @@ using ((bucket_id = 'inmotika'::text));
   to authenticated
 with check ((bucket_id = 'inmotika'::text));
 
-
-
   create policy "Acceso completo usuarios autenticados 69tnde_2"
   on "storage"."objects"
   as permissive
@@ -2813,15 +2644,12 @@ with check ((bucket_id = 'inmotika'::text));
   to authenticated
 using ((bucket_id = 'inmotika'::text));
 
-
-
   create policy "Acceso completo usuarios autenticados 69tnde_3"
   on "storage"."objects"
   as permissive
   for delete
   to authenticated
 using ((bucket_id = 'inmotika'::text));
-
 
 -- =============================================================================
 -- RLS POLICIES: Visit workflow tables (previously locked - RLS enabled, 0 policies)
@@ -2865,7 +2693,6 @@ for select
 to authenticated
 using (tecnico_id = public.get_current_tecnico_id());
 
-
 -- --- intervencion ---
 create policy "Admin manage intervencion"
 on "public"."intervencion"
@@ -2889,7 +2716,6 @@ for update
 to authenticated
 using (public.is_tecnico_asignado_visita(visita_id))
 with check (public.is_tecnico_asignado_visita(visita_id));
-
 
 -- --- ejecucion_paso ---
 create policy "Admin manage ejecucion_paso"
@@ -2920,7 +2746,6 @@ with check (
   )
 );
 
-
 -- --- ejecucion_actividad ---
 create policy "Admin manage ejecucion_actividad"
 on "public"."ejecucion_actividad"
@@ -2950,18 +2775,12 @@ with check (
   )
 );
 
-
--- --- evidencia_paso ---
-create policy "Admin manage evidencia_paso"
-on "public"."evidencia_paso"
 as permissive
 for all
 to authenticated
 using (public.is_admin_or_coordinator())
 with check (public.is_admin_or_coordinator());
 
-create policy "Tecnicos can manage evidencia_paso of assigned visits"
-on "public"."evidencia_paso"
 as permissive
 for all
 to authenticated
@@ -2982,7 +2801,6 @@ with check (
   )
 );
 
-
 -- --- evidencia_visita ---
 create policy "Admin manage evidencia_visita"
 on "public"."evidencia_visita"
@@ -2999,7 +2817,6 @@ for all
 to authenticated
 using (public.is_tecnico_asignado_visita(visita_id))
 with check (public.is_tecnico_asignado_visita(visita_id));
-
 
 -- --- disponibilidad_tecnico ---
 create policy "Admin manage disponibilidad_tecnico"
@@ -3028,7 +2845,6 @@ with check (
   )
 );
 
-
 -- --- historial_traslado ---
 create policy "Admin manage historial_traslado"
 on "public"."historial_traslado"
@@ -3044,7 +2860,6 @@ as permissive
 for select
 to authenticated
 using (true);
-
 
 -- --- solicitud_dispositivo ---
 create policy "Admin manage solicitud_dispositivo"
@@ -3081,7 +2896,6 @@ using (
   )
 );
 
-
 -- =============================================================================
 -- PERFORMANCE INDEXES: FK columns on visit workflow tables
 -- =============================================================================
@@ -3110,7 +2924,6 @@ CREATE INDEX idx_intervencion_estado_id ON public.intervencion USING btree (esta
 CREATE INDEX idx_ejecucion_paso_intervencion_id ON public.ejecucion_paso USING btree (intervencion_id);
 CREATE INDEX idx_ejecucion_paso_paso_protocolo_id ON public.ejecucion_paso USING btree (paso_protocolo_id);
 
-CREATE INDEX idx_evidencia_paso_ejecucion_paso_id ON public.evidencia_paso USING btree (ejecucion_paso_id);
 CREATE INDEX idx_evidencia_visita_visita_id ON public.evidencia_visita USING btree (visita_id);
 
 CREATE INDEX idx_disponibilidad_tecnico_tecnico_id ON public.disponibilidad_tecnico USING btree (tecnico_id);
@@ -3119,7 +2932,6 @@ CREATE INDEX idx_disponibilidad_tecnico_fechas ON public.disponibilidad_tecnico 
 CREATE INDEX idx_dispositivo_sucursal_id ON public.dispositivo USING btree (sucursal_id);
 CREATE INDEX idx_dispositivo_cliente_id ON public.dispositivo USING btree (cliente_id);
 CREATE INDEX idx_dispositivo_categoria_id ON public.dispositivo USING btree (categoria_id);
-
 
 -- =============================================================================
 -- TRIGGERS: auto-update updated_at on visit workflow tables
@@ -3132,5 +2944,70 @@ CREATE TRIGGER set_updated_at_ejecucion_paso BEFORE UPDATE ON public.ejecucion_p
 CREATE TRIGGER set_updated_at_dispositivo BEFORE UPDATE ON public.dispositivo FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 CREATE TRIGGER set_updated_at_perfil_usuario BEFORE UPDATE ON public.perfil_usuario FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+-- --- sucursal_coordinador ---
+create table "public"."sucursal_coordinador" (
+  "id" uuid not null default gen_random_uuid(),
+  "sucursal_id" uuid not null,
+  "coordinador_id" uuid not null,
+  "activo" boolean not null default true,
+  "created_at" timestamp with time zone default now()
+);
 
+alter table "public"."sucursal_coordinador" enable row level security;
+
+alter table "public"."sucursal_coordinador" add constraint "sucursal_coordinador_pkey" PRIMARY KEY ("id");
+alter table "public"."sucursal_coordinador" add constraint "sucursal_coordinador_sucursal_id_fkey" FOREIGN KEY (sucursal_id) REFERENCES public.sucursal(id) ON DELETE CASCADE;
+alter table "public"."sucursal_coordinador" add constraint "sucursal_coordinador_coordinador_id_fkey" FOREIGN KEY (coordinador_id) REFERENCES public.coordinador(id) ON DELETE CASCADE;
+CREATE UNIQUE INDEX sucursal_coordinador_unique ON public.sucursal_coordinador USING btree (sucursal_id, coordinador_id);
+
+create policy "sucursal_coordinador_select"
+on "public"."sucursal_coordinador"
+as permissive
+for select
+to public
+using (public.is_admin_or_coordinator());
+
+create policy "sucursal_coordinador_manage"
+on "public"."sucursal_coordinador"
+as permissive
+for all
+to public
+using (public.is_management_staff())
+with check (public.is_management_staff());
+
+
+-- --- evidencia_intervencion ---
+create table "public"."evidencia_intervencion" (
+  "id" uuid not null default gen_random_uuid(),
+  "intervencion_id" uuid not null,
+  "url" text not null,
+  "numero_foto" integer,
+  "es_etiqueta" boolean not null default false,
+  "descripcion" text,
+  "created_at" timestamp with time zone default now()
+);
+
+alter table "public"."evidencia_intervencion" enable row level security;
+
+alter table "public"."evidencia_intervencion" add constraint "evidencia_intervencion_pkey" PRIMARY KEY ("id");
+alter table "public"."evidencia_intervencion" add constraint "evidencia_intervencion_intervencion_id_fkey" FOREIGN KEY (intervencion_id) REFERENCES public.intervencion(id) ON DELETE CASCADE;
+CREATE INDEX idx_evidencia_intervencion_intervencion_id ON public.evidencia_intervencion USING btree (intervencion_id);
+
+create policy "evidencia_intervencion_select"
+on "public"."evidencia_intervencion"
+as permissive
+for select
+to public
+using (true);
+
+create policy "evidencia_intervencion_manage"
+on "public"."evidencia_intervencion"
+as permissive
+for all
+to public
+using ((auth.role() = 'authenticated'))
+with check ((auth.role() = 'authenticated'));
+
+-- --- intervencion: etiqueta constraint ---
+alter table "public"."intervencion" add constraint "intervencion_etiqueta_formato" CHECK (codigo_etiqueta IS NULL OR codigo_etiqueta ~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$');
 

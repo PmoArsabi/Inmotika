@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { emptyDeviceDraft, applyDeviceUpsert, toDeviceDraft } from '../../../utils/entityMappers';
 import { validateDevice } from '../../../utils/validators';
 import { saveDevice } from '../../../api/deviceApi';
@@ -8,7 +8,7 @@ import { useMasterData } from '../../../context/MasterDataContext';
 import DeviceForm from '../../../modules/devices/DeviceForm';
 
 const DeviceNavigator = ({ onClose }) => {
-  const { route, drafts, updateDraft, setStack, openDeviceSuccess } = useConfigurationContext();
+  const { route, drafts, setDrafts, updateDraft, openDeviceSuccess } = useConfigurationContext();
   const { data, setData } = useMasterData();
   const notify = useNotify();
   const [showErrors, setShowErrors] = useState(false);
@@ -16,16 +16,19 @@ const DeviceNavigator = ({ onClose }) => {
 
   const entityKey = (type, id) => `${type}:${id}`;
   const key = entityKey('dispositivo', route.deviceId);
-  
+
   const currentDevice = (data?.dispositivos || []).find(d => String(d.id) === String(route?.deviceId));
-  
-  // Try to get from drafts, but if it's an empty object or doesn't have critical data for an existing item, use the MasterData
-  const existingDraft = drafts[key];
-  const isDraftValid = !!existingDraft;
-  
-  const draft = isDraftValid
-    ? existingDraft 
-    : (currentDevice ? toDeviceDraft(currentDevice) : emptyDeviceDraft());
+
+  // Seed the draft into context as soon as we have fresh MasterData.
+  // Without this, the first onChange merges the patch over {} (empty),
+  // wiping every field that wasn't just edited.
+  useEffect(() => {
+    if (!route.deviceId || !currentDevice) return;
+    if (drafts[key]) return; // already seeded — don't overwrite in-progress edits
+    setDrafts(prev => ({ ...prev, [key]: toDeviceDraft(currentDevice) }));
+  }, [route.deviceId, currentDevice, key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const draft = drafts[key] ?? (currentDevice ? toDeviceDraft(currentDevice) : emptyDeviceDraft());
   const errors = validateDevice(draft);
   const hasErrors = Object.keys(errors).length > 0;
   const isEditing = route.mode === 'edit';

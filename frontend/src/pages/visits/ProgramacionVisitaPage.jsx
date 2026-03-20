@@ -481,6 +481,10 @@ const ProgramacionVisitaPage = () => {
                   <AlertCircle size={14} className="text-blue-600" />
                   <Label className="text-sm font-bold text-blue-900">Solicitud Origen</Label>
                 </div>
+                <InfoRow icon={Building2} label="Cliente"
+                  value={solicitudOrigen.clienteNombre} />
+                <InfoRow icon={Building2} label="Sucursal"
+                  value={solicitudOrigen.sucursalNombre} />
                 <InfoRow icon={Calendar} label="Solicitada el"
                   value={solicitudOrigen.fechaSolicitud
                     ? new Date(solicitudOrigen.fechaSolicitud).toLocaleDateString('es-ES')

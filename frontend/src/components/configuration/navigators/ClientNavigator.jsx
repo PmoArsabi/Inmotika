@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ClientForm from '../../../modules/clients/ClientForm';
 import { useConfigurationContext } from '../../../context/ConfigurationContext';
 import { useMasterData } from '../../../context/MasterDataContext';
@@ -49,12 +49,17 @@ const ClientNavigator = ({
   const compareIds = (id1, id2) => String(id1 || '').trim().toUpperCase() === String(id2 || '').trim().toUpperCase();
 
   const currentClient = (data?.clientes || []).find(c => compareIds(c.id, route?.clientId));
-  const existingDraft = drafts[key];
-  const isDraftValid = !!existingDraft;
 
-  const draft = isDraftValid
-    ? existingDraft
-    : (currentClient ? toClientDraft(currentClient) : emptyClientDraft());
+  // Seed the draft into context as soon as we have fresh MasterData.
+  // Without this, the first onChange merges the patch over {} (empty),
+  // wiping every field that wasn't just edited.
+  useEffect(() => {
+    if (!route.clientId || !currentClient) return;
+    if (drafts[key]) return; // already seeded — don't overwrite in-progress edits
+    setDrafts(prev => ({ ...prev, [key]: toClientDraft(currentClient) }));
+  }, [route.clientId, currentClient, key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const draft = drafts[key] ?? (currentClient ? toClientDraft(currentClient) : emptyClientDraft());
 
   const currentBranches = currentClient?.sucursales || [];
   const errors = validateClient(draft);

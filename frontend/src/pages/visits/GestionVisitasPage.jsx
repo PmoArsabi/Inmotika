@@ -45,7 +45,7 @@ const GestionVisitasPage = ({ data, setData }) => {
   // ── Filtered list ────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let list = visitas.filter(v =>
-      v.estado === 'PROGRAMADO' || v.estado === 'EN_CURSO' || v.estado === 'FINALIZADO',
+      v.estadoCodigo === 'PROGRAMADA' || v.estadoCodigo === 'EN_PROCESO' || v.estadoCodigo === 'FINALIZADO',
     );
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
@@ -54,7 +54,7 @@ const GestionVisitasPage = ({ data, setData }) => {
         v.sucursalNombre?.toLowerCase().includes(q),
       );
     }
-    if (filterEstado !== 'Todos') list = list.filter(v => v.estado === filterEstado);
+    if (filterEstado !== 'Todos') list = list.filter(v => v.estadoCodigo === filterEstado);
     return list;
   }, [visitas, searchTerm, filterEstado]);
 
@@ -79,11 +79,11 @@ const GestionVisitasPage = ({ data, setData }) => {
       ...prev,
       visitas: (prev.visitas || []).map(v =>
         v.id === activeVisita.id
-          ? { ...v, estado: 'EN_CURSO', fechaInicio: new Date().toISOString() }
+          ? { ...v, estadoCodigo: 'EN_PROCESO', fechaInicio: new Date().toISOString() }
           : v,
       ),
     }));
-    setActiveVisita(prev => ({ ...prev, estado: 'EN_CURSO', fechaInicio: new Date().toISOString() }));
+    setActiveVisita(prev => ({ ...prev, estadoCodigo: 'EN_PROCESO', fechaInicio: new Date().toISOString() }));
   };
 
   // ── Update paso-level execution (comments, photo) ─────────────────────────
@@ -135,7 +135,7 @@ const GestionVisitasPage = ({ data, setData }) => {
         v.id === activeVisita.id
           ? {
               ...v,
-              estado:               'FINALIZADO',
+              estadoCodigo:         'FINALIZADO',
               fechaFin:             new Date().toISOString(),
               ejecucionPasos:       { ...v.ejecucionPasos,       ...ejecucionPasos       },
               ejecucionActividades: { ...v.ejecucionActividades, ...ejecucionActividades },
@@ -164,9 +164,9 @@ const GestionVisitasPage = ({ data, setData }) => {
   // EXECUTION VIEW
   // ══════════════════════════════════════════════════════════════════════════
   if (activeVisita) {
-    const isEnCurso   = activeVisita.estado === 'EN_CURSO';
-    const isProgramado = activeVisita.estado === 'PROGRAMADO';
-    const isFinalizado = activeVisita.estado === 'FINALIZADO';
+    const isEnCurso    = activeVisita.estadoCodigo === 'EN_PROCESO';
+    const isProgramado = activeVisita.estadoCodigo === 'PROGRAMADA';
+    const isFinalizado = activeVisita.estadoCodigo === 'FINALIZADO';
     const viewMode = isFinalizado;
 
     // Per-device completion stats (based on actividades + photos)
@@ -373,8 +373,8 @@ const GestionVisitasPage = ({ data, setData }) => {
             <Select
               options={[
                 { value: 'Todos',      label: 'Todos los estados' },
-                { value: 'PROGRAMADO', label: 'Programado'        },
-                { value: 'EN_CURSO',   label: 'En curso'          },
+                { value: 'PROGRAMADA', label: 'Programada'        },
+                { value: 'EN_PROCESO', label: 'En curso'          },
                 { value: 'FINALIZADO', label: 'Finalizado'        },
               ]}
               value={filterEstado}
@@ -466,15 +466,15 @@ const GestionVisitasPage = ({ data, setData }) => {
                         )}
                       </div>
                     </Td>
-                    <Td><VisitStatusBadge status={visita.estado} /></Td>
+                    <Td><VisitStatusBadge status={visita.estadoCodigo} /></Td>
                     <Td align="right">
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => handleOpenVisita(visita)}
                           className="p-2 hover:bg-blue-50 rounded-md transition-colors"
-                          title={visita.estado === 'FINALIZADO' ? 'Ver informe' : 'Editar / Ejecutar'}
+                          title={visita.estadoCodigo === 'FINALIZADO' ? 'Ver informe' : 'Editar / Ejecutar'}
                         >
-                          {visita.estado === 'FINALIZADO'
+                          {visita.estadoCodigo === 'FINALIZADO'
                             ? <Eye size={16} className="text-blue-600" />
                             : <Edit2 size={16} className="text-green-600" />
                           }

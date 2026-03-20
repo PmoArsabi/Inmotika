@@ -4,6 +4,7 @@ import { useNotify } from '../context/NotificationContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { ROLES } from '../utils/constants';
 import { saveTecnico } from '../api/tecnicoApi';
+import { syncCoordinadorSucursales, getCoordinadorSucursales } from '../api/coordinadorSucursalApi';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -170,7 +171,8 @@ export const useUsers = () => {
           id,
           director_id,
           activo,
-          director!coordinador_director_id_fkey (usuario_id)
+          director!coordinador_director_id_fkey (usuario_id),
+          sucursal_coordinador!sucursal_coordinador_coordinador_id_fkey (sucursal_id, activo)
         ),
         director!director_usuario_id_fkey (id, activo)
       `)
@@ -214,6 +216,10 @@ export const useUsers = () => {
           directorId: dir?.id || null,
           /** ID interno del director asignado al coordinador (tabla `director`). */
           directorAsignadoId: coo?.director_id || null,
+          /** UUIDs de sucursales activamente asignadas al coordinador. */
+          sucursalesACargo: (coo?.sucursal_coordinador || [])
+            .filter(sc => sc.activo)
+            .map(sc => sc.sucursal_id),
           certificados: certs,
           documentos: {
             cedula: tec?.documento_cedula_url || null,
@@ -410,6 +416,25 @@ export const useUsers = () => {
       }
     }
 
+    // Para coordinadores nuevos, sincronizar sucursales una vez que el trigger
+    // haya creado la fila en la tabla `coordinador`.
+    if (payloadUser.rol === ROLES.COORDINADOR && (payloadUser.sucursalesACargo || []).length > 0 && !cancelToken.cancelled) {
+      try {
+        const { data: cooRow } = await supabase
+          .from('coordinador')
+          .select('id')
+          .eq('usuario_id', perfilId)
+          .eq('activo', true)
+          .maybeSingle();
+
+        if (cooRow?.id) {
+          await syncCoordinadorSucursales(cooRow.id, payloadUser.sucursalesACargo);
+        }
+      } catch (err) {
+        console.error('[useUsers] Error sincronizando sucursales de coordinador:', err);
+      }
+    }
+
     if (!cancelToken.cancelled) {
       fetchUsers();
     }
@@ -541,6 +566,14 @@ export const useUsers = () => {
               certificados: newUser.certificados || [],
             },
           });
+        }
+
+        // Para coordinadores, sincronizar sucursales asignadas.
+        if (newUser.rol === ROLES.COORDINADOR && editingUser.coordinadorId) {
+          await syncCoordinadorSucursales(
+            editingUser.coordinadorId,
+            newUser.sucursalesACargo || []
+          );
         }
 
         await fetchUsers();
