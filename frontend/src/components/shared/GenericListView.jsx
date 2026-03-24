@@ -4,14 +4,14 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Select from '../ui/Select';
 import { Table, THead, TBody, Tr, Th, Td } from '../ui/Table';
-import { Subtitle, TextSmall } from '../ui/Typography';
+import { Subtitle, TextSmall, TextTiny } from '../ui/Typography';
 import ModuleHeader from '../ui/ModuleHeader';
 
 /**
  * @param {string} title - Page title
  * @param {React.ReactNode} icon - Lucide icon component
  * @param {Array} items - Data array
- * @param {Array} columns - Column definitions [{ header: 'Header', render: (item) => ... , narrow: bool, align: 'left'|'right'|'center' }]
+ * @param {Array} columns - Column definitions [{ header: 'Header', render: (item) => ... , narrow: bool, align: 'left'|'right'|'center', mobileLabel: 'Label' }]
  * @param {function} onNew - Handler for "New" button
  * @param {function} onView - Handler for "View" icon
  * @param {function} onEdit - Handler for "Edit" icon
@@ -42,23 +42,21 @@ const GenericListView = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(100);
 
-  // Filter items
   const filteredItems = useMemo(() => {
     let result = [...items];
-
     if (searchQuery && filterFunction) {
       const q = searchQuery.toLowerCase();
       result = result.filter(item => filterFunction(item, q));
     }
-
     return result;
   }, [items, searchQuery, filterFunction]);
 
-  // Pagination logic
   const totalPages = Math.ceil(filteredItems.length / entriesPerPage) || 1;
   const startIndex = (currentPage - 1) * entriesPerPage;
   const endIndex = startIndex + entriesPerPage;
   const paginatedItems = filteredItems.slice(startIndex, endIndex);
+
+  const hasActions = onView || onEdit || onDelete;
 
   return (
     <div className="space-y-4 -mt-2">
@@ -99,10 +97,10 @@ const GenericListView = ({
                 setCurrentPage(1);
               }}
               options={[
-                { value: 5, label: '5 Entradas' },
-                { value: 10, label: '10 Entradas' },
-                { value: 25, label: '25 Entradas' },
-                { value: 50, label: '50 Entradas' },
+                { value: 5,   label: '5 Entradas'   },
+                { value: 10,  label: '10 Entradas'  },
+                { value: 25,  label: '25 Entradas'  },
+                { value: 50,  label: '50 Entradas'  },
                 { value: 100, label: '100 Entradas' },
               ]}
               className="w-24 h-8 text-xs"
@@ -130,7 +128,7 @@ const GenericListView = ({
         </div>
       )}
 
-      {/* Main Content Table or Empty State */}
+      {/* Empty state */}
       {filteredItems.length === 0 ? (
         <Card className="p-12 text-center">
           {EmptyIcon && <EmptyIcon size={48} className="mx-auto mb-4 text-gray-300" />}
@@ -140,64 +138,123 @@ const GenericListView = ({
           </TextSmall>
         </Card>
       ) : (
-        <Card className="p-0 overflow-hidden rounded-md border border-gray-200 shadow-sm">
-          <Table>
-            <THead variant="light">
-              <tr>
-                {columns.map((col, i) => (
-                  <Th key={i} narrow={col.narrow} className={col.align === 'right' ? 'text-right' : ''}>
-                    {col.header}
-                  </Th>
-                ))}
-                {(onView || onEdit || onDelete) && <Th narrow className="text-right">Acciones</Th>}
-              </tr>
-            </THead>
-            <TBody>
-              {paginatedItems.map((item, rowIdx) => (
-                <Tr key={item.id || rowIdx} className="hover:bg-gray-50">
-                  {columns.map((col, colIdx) => (
-                    <Td key={colIdx} align={col.align}>
-                      {col.render(item)}
-                    </Td>
+        <>
+          {/* ── Desktop: tabla completa (oculta en mobile) ── */}
+          <Card className="hidden md:block p-0 overflow-hidden rounded-md border border-gray-200 shadow-sm">
+            <Table>
+              <THead variant="light">
+                <tr>
+                  {columns.map((col, i) => (
+                    <Th key={i} narrow={col.narrow} className={col.align === 'right' ? 'text-right' : ''}>
+                      {col.header}
+                    </Th>
                   ))}
-                  {(onView || onEdit || onDelete) && (
-                    <Td align="right">
-                      <div className="flex items-center justify-end gap-2">
-                        {onView && (
-                          <button
-                            onClick={() => onView(item)}
-                            className="p-1.5 rounded hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
-                            title="Ver detalles"
-                          >
-                            <Eye size={16} />
-                          </button>
-                        )}
-                        {onEdit && (
-                          <button
-                            onClick={() => onEdit(item)}
-                            className="p-1.5 rounded hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors"
-                            title="Editar"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                        )}
-                        {onDelete && (
-                          <button
-                            onClick={() => onDelete(item)}
-                            className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
+                  {hasActions && <Th narrow className="text-right">Acciones</Th>}
+                </tr>
+              </THead>
+              <TBody>
+                {paginatedItems.map((item, rowIdx) => (
+                  <Tr key={item.id || rowIdx} className="hover:bg-gray-50">
+                    {columns.map((col, colIdx) => (
+                      <Td key={colIdx} align={col.align}>
+                        {col.render(item)}
+                      </Td>
+                    ))}
+                    {hasActions && (
+                      <Td align="right">
+                        <div className="flex items-center justify-end gap-2">
+                          {onView && (
+                            <button
+                              onClick={() => onView(item)}
+                              className="p-1.5 rounded hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
+                              title="Ver detalles"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          )}
+                          {onEdit && (
+                            <button
+                              onClick={() => onEdit(item)}
+                              className="p-1.5 rounded hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors"
+                              title="Editar"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                          )}
+                          {onDelete && (
+                            <button
+                              onClick={() => onDelete(item)}
+                              className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </Td>
+                    )}
+                  </Tr>
+                ))}
+              </TBody>
+            </Table>
+          </Card>
+
+          {/* ── Mobile: cards (oculto en md+) ── */}
+          <div className="flex flex-col gap-4 md:hidden">
+            {paginatedItems.map((item, rowIdx) => (
+              <Card
+                key={item.id || rowIdx}
+                className="p-5 border border-gray-200 shadow-sm rounded-2xl"
+              >
+                {/* Campos del registro */}
+                <div className="divide-y divide-gray-50">
+                  {columns.map((col, colIdx) => (
+                    <div key={colIdx} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                      {col.mobileLabel !== false && (
+                        <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">
+                          {col.mobileLabel || col.header}
+                        </TextTiny>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        {col.render(item)}
                       </div>
-                    </Td>
-                  )}
-                </Tr>
-              ))}
-            </TBody>
-          </Table>
-        </Card>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Acciones */}
+                {hasActions && (
+                  <div className="flex items-center gap-2 pt-4 mt-3 border-t border-gray-100">
+                    {onView && (
+                      <button
+                        onClick={() => onView(item)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-semibold"
+                      >
+                        <Eye size={14} /> Ver
+                      </button>
+                    )}
+                    {onEdit && (
+                      <button
+                        onClick={() => onEdit(item)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 transition-colors text-xs font-semibold"
+                      >
+                        <Edit2 size={14} /> Editar
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={() => onDelete(item)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition-colors text-xs font-semibold"
+                      >
+                        <Trash2 size={14} /> Eliminar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
