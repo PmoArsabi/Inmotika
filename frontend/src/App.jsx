@@ -32,10 +32,28 @@ const AccessDenied = () => (
   </div>
 );
 
+/**
+ * Declarative route guard that renders children only when the user's role is allowed.
+ * @param {string[]} roles - Roles permitidos para esta ruta.
+ * @param {string} userRole - Rol del usuario actual.
+ * @param {React.ReactNode} children
+ */
+const ProtectedRoute = ({ roles, userRole, children }) => {
+  if (!roles.includes(userRole)) return <AccessDenied />;
+  return children;
+};
+
 function App() {
   const { user, signOut, loading: authLoading, isRecoveryFlow, setIsRecoveryFlow, clearRecoveryFlow } = useAuth();
   const { data, setData } = useMasterData();
-  const [activeTab, setActiveTab]     = useState('dashboard');
+  // Inicializar el tab según el rol para evitar flash de AccessDenied
+  const getInitialTab = () => {
+    const role = user?.role;
+    if (role === ROLES.CLIENTE) return 'client-dashboard';
+    if (role === ROLES.TECNICO) return 'schedule';
+    return 'dashboard';
+  };
+  const [activeTab, setActiveTab] = useState(getInitialTab);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -49,26 +67,18 @@ function App() {
     }
   }, [isRecoveryFlow]);
 
-  // Redirigir según el rol al iniciar sesión (solo una vez, usando ref para evitar setState en effect)
+  // Redirigir al tab correcto según rol una vez que el usuario esté disponible
   useEffect(() => {
     if (!user || didRedirectRef.current) return;
-    if (activeTab !== 'dashboard') return;
-
     didRedirectRef.current = true;
+
     const uRole = user.role || 'TECNICO';
-    const isAdmGrp = isManagementRole(uRole);
+    const tab = uRole === ROLES.CLIENTE ? 'client-dashboard'
+      : uRole === ROLES.TECNICO ? 'schedule'
+      : 'dashboard';
 
-    // Usamos setTimeout(0) para diferir el setState fuera del cuerpo síncrono del effect
-    const tab = uRole === 'CLIENTE' ? 'client-dashboard'
-      : uRole === 'TECNICO' ? 'schedule'
-      : isAdmGrp ? 'dashboard'
-      : null;
-
-    if (tab) {
-      const id = setTimeout(() => setActiveTab(tab), 0);
-      return () => clearTimeout(id);
-    }
-  }, [user, activeTab]);
+    setActiveTab(tab);
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut();
@@ -125,47 +135,101 @@ function App() {
 
       // 1. Handle visits sub-tabs
       const visitsSubTab = getVisitsSubTab(activeTab);
-      
+
       if (visitsSubTab === 'solicitudes') {
-        if (isAdminGroup || userRole === 'CLIENTE') return <SolicitudVisitaPage />;
-        return <AccessDenied />;
+        return (
+          <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.CLIENTE]} userRole={userRole}>
+            <SolicitudVisitaPage />
+          </ProtectedRoute>
+        );
       }
 
       if (visitsSubTab === 'programacion') {
-        if (isAdminGroup) return <ProgramacionVisitaPage />;
-        return <AccessDenied />;
+        return (
+          <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
+            <ProgramacionVisitaPage />
+          </ProtectedRoute>
+        );
       }
 
       if (visitsSubTab === 'gestion') {
-        if (isAdminGroup || userRole === 'TECNICO') return <GestionVisitasPage data={data} setData={setData} />;
-        return <AccessDenied />;
+        return (
+          <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.TECNICO]} userRole={userRole}>
+            <GestionVisitasPage data={data} setData={setData} />
+          </ProtectedRoute>
+        );
       }
 
-      // Handle configuration sub-tabs (Sólo Admin Group)
+      // Handle configuration sub-tabs (Solo Admin Group)
       const configSubTab = getConfigurationSubTab(activeTab);
       if (configSubTab) {
-        if (!isAdminGroup) return <AccessDenied />;
-        
-        if (configSubTab === 'usuarios') return <UsersPage data={data} setData={setData} />;
-        if (configSubTab === 'categorias') return <CategoriasPage />;
-        return <ConfigurationPage key={activeTab} data={data} setData={setData} initialSubTab={configSubTab} isSingleTabView={true} />;
+        if (configSubTab === 'usuarios') {
+          return (
+            <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
+              <UsersPage data={data} setData={setData} />
+            </ProtectedRoute>
+          );
+        }
+        if (configSubTab === 'categorias') {
+          return (
+            <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
+              <CategoriasPage />
+            </ProtectedRoute>
+          );
+        }
+        return (
+          <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
+            <ConfigurationPage key={activeTab} data={data} setData={setData} initialSubTab={configSubTab} isSingleTabView={true} />
+          </ProtectedRoute>
+        );
       }
 
       switch (activeTab) {
-        case 'dashboard':        return isAdminGroup ? <DashboardPage data={data} /> : <AccessDenied />;
-        case 'visits':           return <VisitsPage data={data} setData={setData} />;
-        case 'schedule':         return (isAdminGroup || userRole === 'TECNICO') ? <SchedulePage data={data} setData={setData} /> : <AccessDenied />;
+        case 'dashboard':
+          return (
+            <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
+              <DashboardPage data={data} />
+            </ProtectedRoute>
+          );
+        case 'visits':
+          return <VisitsPage data={data} setData={setData} />;
+        case 'schedule':
+          return (
+            <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.TECNICO]} userRole={userRole}>
+              <SchedulePage data={data} setData={setData} />
+            </ProtectedRoute>
+          );
 
         // Vistas específicas de cliente
-        case 'client-dashboard': return userRole === 'CLIENTE' ? <ClientDashboardPage data={data} /> : <AccessDenied />;
-        case 'client-data':      return userRole === 'CLIENTE' ? <ClientDataPage data={data} /> : <AccessDenied />;
-        case 'client-inventory': return userRole === 'CLIENTE' ? <ClientInventoryPage data={data} /> : <AccessDenied />;
-        case 'client-visits':    return userRole === 'CLIENTE' ? <ClientVisitsPage data={data} /> : <AccessDenied />;
-        
-        default:                 
+        case 'client-dashboard':
+          return (
+            <ProtectedRoute roles={[ROLES.CLIENTE]} userRole={userRole}>
+              <ClientDashboardPage data={data} />
+            </ProtectedRoute>
+          );
+        case 'client-data':
+          return (
+            <ProtectedRoute roles={[ROLES.CLIENTE]} userRole={userRole}>
+              <ClientDataPage />
+            </ProtectedRoute>
+          );
+        case 'client-inventory':
+          return (
+            <ProtectedRoute roles={[ROLES.CLIENTE]} userRole={userRole}>
+              <ClientInventoryPage />
+            </ProtectedRoute>
+          );
+        case 'client-visits':
+          return (
+            <ProtectedRoute roles={[ROLES.CLIENTE]} userRole={userRole}>
+              <ClientVisitsPage data={data} />
+            </ProtectedRoute>
+          );
+
+        default:
           // Default fallbacks by role
-          if (userRole === 'CLIENTE') return <ClientDashboardPage data={data} />;
-          if (userRole === 'TECNICO') return <SchedulePage data={data} setData={setData} />;
+          if (userRole === ROLES.CLIENTE) return <ClientDashboardPage data={data} />;
+          if (userRole === ROLES.TECNICO) return <SchedulePage data={data} setData={setData} />;
           return <DashboardPage data={data} />;
       }
     } catch (error) {

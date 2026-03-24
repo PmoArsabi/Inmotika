@@ -83,18 +83,26 @@ const Sidebar = ({
     }
     if (userRole === ROLES.CLIENTE) {
       return [
-        { id: 'client-dashboard', label: 'Dashboard',  icon: LayoutDashboard },
-        { id: 'client-data',      label: 'Mis Datos',  icon: Building2 },
-        { id: 'client-inventory', label: 'Inventario', icon: Cpu },
+        { id: 'client-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        {
+          id: 'client-config',
+          label: 'Configuración',
+          icon: Building2,
+          hasSubItems: true,
+          subItems: [
+            { id: 'client-data',      label: 'Mis Datos',   icon: Building2 },
+            { id: 'client-inventory', label: 'Dispositivos', icon: Cpu },
+          ],
+        },
         {
           id: 'visits',
-          label: 'Reportar Novedad',
+          label: 'Gestión Visitas',
           icon: ClipboardList,
           hasSubItems: true,
           subItems: [
             { id: 'visits-solicitudes', label: 'Solicitar Visita', icon: List }
           ],
-        }
+        },
       ];
     }
     return [];

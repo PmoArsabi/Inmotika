@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ArrowLeft, Search, X, Eye, FileText, Edit2, Trash2,
   Calendar, Building2, Cpu, Clock, AlertCircle,
@@ -18,6 +18,9 @@ import VisitProgressPanel from '../../components/visits/VisitProgressPanel';
 import { useSolicitudesVisita } from '../../hooks/useSolicitudesVisita';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useMasterData } from '../../context/MasterDataContext';
+import { useAuth } from '../../context/AuthContext';
+import { useClienteData } from '../../hooks/useClienteData';
+import { ROLES } from '../../utils/constants';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const emptySolicitud = () => ({
@@ -51,7 +54,7 @@ const solicitudToDraft = (sol) => ({
 const SolicitudForm = ({
   draft, updateDraft, onSubmit, onCancel, saving,
   tipoVisitaSelectOptions, clienteOptions, sucursalOptions,
-  dispositivoOptions, isEdit,
+  dispositivoOptions, isEdit, isClienteLocked,
 }) => (
   <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
     <header className="flex items-center justify-between bg-white p-4 rounded-md border border-gray-100 shadow-sm flex-wrap gap-3">
@@ -92,19 +95,28 @@ const SolicitudForm = ({
 
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Cliente</Label>
-              <SearchableSelect
-                options={clienteOptions}
-                value={draft.clienteId ? { value: draft.clienteId, label: draft.clienteNombre } : null}
-                onChange={opt => updateDraft({
-                  clienteId: opt?.value || '',
-                  clienteNombre: opt?.label || '',
-                  sucursalId: '',
-                  sucursalNombre: '',
-                  dispositivoIds: [],
-                  dispositivosNombres: [],
-                })}
-                placeholder="Seleccionar cliente..."
-              />
+              {isClienteLocked ? (
+                <div className="flex items-center gap-2 h-10 px-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <Building2 size={14} className="text-gray-400 shrink-0" />
+                  <span className="text-sm font-semibold text-gray-700 truncate">
+                    {draft.clienteNombre || '—'}
+                  </span>
+                </div>
+              ) : (
+                <SearchableSelect
+                  options={clienteOptions}
+                  value={draft.clienteId ? { value: draft.clienteId, label: draft.clienteNombre } : null}
+                  onChange={opt => updateDraft({
+                    clienteId: opt?.value || '',
+                    clienteNombre: opt?.label || '',
+                    sucursalId: '',
+                    sucursalNombre: '',
+                    dispositivoIds: [],
+                    dispositivosNombres: [],
+                  })}
+                  placeholder="Seleccionar cliente..."
+                />
+              )}
             </div>
 
             <div className="space-y-1">
@@ -205,10 +217,28 @@ const SolicitudVisitaPage = () => {
   const [lastCreatedId, setLastCreatedId] = useState(null);
 
   // ── Data ────────────────────────────────────────────────────────────────────
+  const { user } = useAuth();
+  const userRole = user?.role;
+  const isClienteRole = userRole === ROLES.CLIENTE;
+
   const { solicitudes, loading, saving, createSolicitud, updateSolicitud, cancelSolicitud } = useSolicitudesVisita();
   const { data } = useMasterData();
   const { options: tipoVisitaOptions } = useCatalog('TIPO_VISITA');
   const { options: estadoVisitaOptions } = useCatalog('ESTADO_VISITA');
+
+  // Para rol CLIENTE: datos del contacto autenticado
+  const { cliente: clienteContacto, sucursales: sucursalesContacto, dispositivos: dispositivosContacto } = useClienteData();
+
+  // Auto-populate draft con el cliente del contacto al abrir el formulario de creación
+  useEffect(() => {
+    if (isClienteRole && mode === 'create' && clienteContacto) {
+      setDraft(prev => ({
+        ...prev,
+        clienteId: String(clienteContacto.id),
+        clienteNombre: clienteContacto.razon_social || clienteContacto.nombre || '',
+      }));
+    }
+  }, [isClienteRole, mode, clienteContacto]);
 
   const tipoVisitaSelectOptions = useMemo(() => [
     { value: '', label: 'Seleccionar tipo...' },
@@ -224,16 +254,26 @@ const SolicitudVisitaPage = () => {
 
   const sucursalOptions = useMemo(() => {
     if (!draft.clienteId) return [];
+    // Para CLIENTE: usa solo las sucursales de su contacto
+    if (isClienteRole) {
+      return sucursalesContacto.map(s => ({ value: String(s.id), label: s.nombre }));
+    }
     const c = clientes.find(cl => String(cl.id) === String(draft.clienteId));
     return (c?.sucursales || []).map(s => ({ value: s.id, label: s.nombre }));
-  }, [clientes, draft.clienteId]);
+  }, [isClienteRole, sucursalesContacto, clientes, draft.clienteId]);
 
   const dispositivoOptions = useMemo(() => {
     if (!draft.sucursalId) return [];
+    // Para CLIENTE: filtra de su propio conjunto de dispositivos
+    if (isClienteRole) {
+      return dispositivosContacto
+        .filter(d => String(d.sucursal_id || d.branchId) === String(draft.sucursalId))
+        .map(d => ({ value: String(d.id), label: d.id_inmotika || d.idInmotika || d.codigo_unico || `Dispositivo ${d.id}` }));
+    }
     return (data?.dispositivos || [])
       .filter(d => String(d.branchId) === String(draft.sucursalId))
       .map(d => ({ value: String(d.id), label: d.nombre || `Dispositivo ${d.id}` }));
-  }, [data?.dispositivos, draft.sucursalId]);
+  }, [isClienteRole, dispositivosContacto, data?.dispositivos, draft.sucursalId]);
 
   const filtered = useMemo(() => {
     let list = solicitudes;
@@ -350,6 +390,7 @@ const SolicitudVisitaPage = () => {
           sucursalOptions={sucursalOptions}
           dispositivoOptions={dispositivoOptions}
           isEdit={mode === 'edit'}
+          isClienteLocked={isClienteRole}
         />
         <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Información Faltante" maxWidth="max-w-md">
           <div className="space-y-4">
