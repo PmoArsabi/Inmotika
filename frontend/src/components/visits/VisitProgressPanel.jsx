@@ -1,5 +1,6 @@
 import { CheckCircle2, Circle, Clock, ChevronDown, ChevronRight, Minus } from 'lucide-react';
 import { useState } from 'react';
+import SecureImage from '../ui/SecureImage';
 
 // ─── Single paso section (read-only) ─────────────────────────────────────────
 const PasoProgressRow = ({ paso, ejecucionPasos, ejecucionActividades }) => {
@@ -7,8 +8,8 @@ const PasoProgressRow = ({ paso, ejecucionPasos, ejecucionActividades }) => {
   const actividades = paso.actividades || [];
   const totalActs   = actividades.length;
   const doneActs    = actividades.filter(a => ejecucionActividades[a.id]?.completada).length;
-  const hasPhoto    = !!ejecucionPasos[paso.id]?.evidenciaUrl;
-  const pasoDone    = totalActs > 0 && doneActs === totalActs && hasPhoto;
+  const obligatorias = actividades.filter(a => a.esObligatorio);
+  const pasoDone    = obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
 
   return (
     <div className="rounded-md border border-gray-100 overflow-hidden">
@@ -50,13 +51,6 @@ const PasoProgressRow = ({ paso, ejecucionPasos, ejecucionActividades }) => {
               </div>
             );
           })}
-          {ejecucionPasos[paso.id]?.evidenciaUrl && (
-            <img
-              src={ejecucionPasos[paso.id].evidenciaUrl}
-              alt="evidencia"
-              className="mt-1.5 h-16 w-full rounded border border-green-200 object-cover"
-            />
-          )}
         </div>
       )}
     </div>
@@ -64,7 +58,7 @@ const PasoProgressRow = ({ paso, ejecucionPasos, ejecucionActividades }) => {
 };
 
 // ─── Single device progress card ─────────────────────────────────────────────
-const DeviceProgressCard = ({ device, ejecucionPasos, ejecucionActividades }) => {
+const DeviceProgressCard = ({ device, ejecucionPasos, ejecucionActividades, evidencias }) => {
   const [open, setOpen] = useState(false);
 
   const allActs  = (device.pasos || []).flatMap(p => p.actividades || []);
@@ -73,10 +67,8 @@ const DeviceProgressCard = ({ device, ejecucionPasos, ejecucionActividades }) =>
   const pct       = totalActs > 0 ? Math.round((doneActs / totalActs) * 100) : 0;
 
   const deviceDone = (device.pasos || []).length > 0 && (device.pasos || []).every(paso => {
-    const acts = paso.actividades || [];
-    return acts.length > 0
-      && acts.every(a => ejecucionActividades[a.id]?.completada)
-      && !!ejecucionPasos[paso.id]?.evidenciaUrl;
+    const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
+    return obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
   });
 
   const estado = deviceDone ? 'COMPLETADO' : doneActs > 0 ? 'EN_PROCESO' : 'PENDIENTE';
@@ -126,6 +118,25 @@ const DeviceProgressCard = ({ device, ejecucionPasos, ejecucionActividades }) =>
               ejecucionActividades={ejecucionActividades}
             />
           ))}
+          {evidencias && (evidencias.etiqueta || evidencias.fotos?.length > 0) && (
+            <div className="pt-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Evidencias</p>
+              <div className="flex flex-wrap gap-2">
+                {evidencias.etiqueta && (
+                  <div className="flex flex-col items-center gap-0.5">
+                    <SecureImage path={evidencias.etiqueta.preview} alt="Etiqueta" className="w-16 h-16 rounded border border-blue-200 object-cover" />
+                    <span className="text-[9px] text-blue-600 font-semibold">Etiqueta</span>
+                  </div>
+                )}
+                {(evidencias.fotos || []).map((foto, i) => foto && (
+                  <div key={i} className="flex flex-col items-center gap-0.5">
+                    <SecureImage path={foto.preview} alt={`Foto ${i + 1}`} className="w-16 h-16 rounded border border-gray-200 object-cover" />
+                    <span className="text-[9px] text-gray-500">Foto {i + 1}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -133,20 +144,29 @@ const DeviceProgressCard = ({ device, ejecucionPasos, ejecucionActividades }) =>
 };
 
 // ─── Main panel ───────────────────────────────────────────────────────────────
-const VisitProgressPanel = ({ dispositivos = [], ejecucionPasos = {}, ejecucionActividades = {} }) => {
+/**
+ * @param {object} props
+ * @param {Array}  props.dispositivos
+ * @param {object} props.ejecucionPasos
+ * @param {object} props.ejecucionActividades
+ * @param {object} [props.deviceEvidencias] - { [deviceId]: { etiqueta, fotos } }
+ */
+const VisitProgressPanel = ({ dispositivos = [], ejecucionPasos = {}, ejecucionActividades = {}, deviceEvidencias = {} }) => {
   if (!dispositivos.length) {
     return (
       <p className="text-sm text-gray-400 italic">Sin dispositivos registrados para esta visita.</p>
     );
   }
 
-  const completados = dispositivos.filter(d => {
+  const isDeviceDone = (d) => {
     const pasos = d.pasos || [];
-    return pasos.length > 0 && pasos.every(p => {
-      const acts = p.actividades || [];
-      return acts.length > 0 && acts.every(a => ejecucionActividades[a.id]?.completada) && !!ejecucionPasos[p.id]?.evidenciaUrl;
+    return pasos.length > 0 && pasos.every(paso => {
+      const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
+      return obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
     });
-  }).length;
+  };
+
+  const completados = dispositivos.filter(isDeviceDone).length;
   const pendientes = dispositivos.filter(d => {
     const allActs = (d.pasos || []).flatMap(p => p.actividades || []);
     return !allActs.some(a => ejecucionActividades[a.id]?.completada);
@@ -172,6 +192,7 @@ const VisitProgressPanel = ({ dispositivos = [], ejecucionPasos = {}, ejecucionA
           device={d}
           ejecucionPasos={ejecucionPasos}
           ejecucionActividades={ejecucionActividades}
+          evidencias={deviceEvidencias[d.id] || null}
         />
       ))}
     </div>

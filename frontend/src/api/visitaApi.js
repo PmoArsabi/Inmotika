@@ -50,6 +50,12 @@ export async function iniciarVisita(visitaId) {
   if (error) {
     throw new Error(`No se pudo iniciar la visita: ${error.message}`);
   }
+
+  // Sincronizar estado en intervenciones existentes (si las hay)
+  await supabase
+    .from('intervencion')
+    .update({ estado_id: estadoId })
+    .eq('visita_id', visitaId);
 }
 
 /**
@@ -84,33 +90,31 @@ export async function uploadEvidencia(visitaId, dispositivoId, intervencionId, f
     throw new Error(`Error al subir evidencia a Storage: ${uploadError.message}`);
   }
 
-  const { data: { publicUrl } } = supabase.storage
-    .from('inmotika')
-    .getPublicUrl(storagePath);
-
-  // Para fotos etiqueta: eliminar registro previo antes de insertar el nuevo
+  // Para fotos etiqueta: marcar previas como inactivas (soft-delete)
   if (esEtiqueta) {
     await supabase
       .from('evidencia_intervencion')
-      .delete()
+      .update({ activo: false })
       .eq('intervencion_id', intervencionId)
       .eq('es_etiqueta', true);
   }
 
+  // Guardar path relativo — las signed URLs se generan al mostrar con SecureImage
   const { error: dbError } = await supabase
     .from('evidencia_intervencion')
     .insert({
       intervencion_id: intervencionId,
-      url: publicUrl,
+      url: storagePath,
       numero_foto: esEtiqueta ? null : fotoNumber,
       es_etiqueta: esEtiqueta,
+      activo: true,
     });
 
   if (dbError) {
     throw new Error(`Error al registrar evidencia en BD: ${dbError.message}`);
   }
 
-  return publicUrl;
+  return storagePath;
 }
 
 /**
@@ -138,7 +142,7 @@ export async function uploadEvidencia(visitaId, dispositivoId, intervencionId, f
  * @returns {Promise<void>}
  * @throws {Error} Si alguna operación de BD falla
  */
-export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos, pasoData, actividadData, evidencias = { etiqueta: null, fotos: [] }) {
+export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos, pasoData, actividadData, evidencias = { etiqueta: null, fotos: [] }, codigoEtiqueta = null) {
   // 1. Buscar intervención existente para este dispositivo en la visita
   const { data: existingIntervencion, error: fetchIntErr } = await supabase
     .from('intervencion')
@@ -155,14 +159,27 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
 
   if (existingIntervencion) {
     intervencionId = existingIntervencion.id;
+    if (codigoEtiqueta) {
+      await supabase
+        .from('intervencion')
+        .update({ codigo_etiqueta: codigoEtiqueta })
+        .eq('id', intervencionId);
+    }
   } else {
-    // Crear nueva intervención — estado_id null (sin catálogo de estado de intervención definido aún)
+    // Heredar estado_id de la visita para mantener consistencia
+    const { data: visitaRow } = await supabase
+      .from('visita')
+      .select('estado_id')
+      .eq('id', visitaId)
+      .single();
+
     const { data: newIntervencion, error: insertIntErr } = await supabase
       .from('intervencion')
       .insert({
         visita_id: visitaId,
         dispositivo_id: dispositivoId,
-        estado_id: null,
+        estado_id: visitaRow?.estado_id || null,
+        codigo_etiqueta: codigoEtiqueta || null,
       })
       .select('id')
       .single();
@@ -218,7 +235,6 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
           paso_protocolo_id: pasoProtocoloId,
           fecha_inicio: now,
           fecha_fin: pasoDone ? now : null,
-          estado_id: null,
           comentarios: comentarios ?? null,
         });
 
@@ -275,28 +291,38 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
 }
 
 /**
- * Finaliza una visita: establece fecha_fin = now(), guarda las observaciones
- * finales y cambia el estado a FINALIZADO.
- * Resuelve el estado_id desde el catálogo internamente.
+ * Finaliza una visita: establece fecha_fin = now(), cambia el estado a COMPLETADA,
+ * sincroniza el estado_id de todas sus intervenciones, y guarda la observación final
+ * en cada intervención activa (no en visita.observaciones, que ya se usa para instrucciones).
  *
  * @param {string} visitaId - UUID de la visita a finalizar
- * @param {string} observaciones - Observaciones finales del técnico
+ * @param {string} observacionFinal - Resumen del trabajo realizado por el técnico
  * @returns {Promise<void>}
- * @throws {Error} Si el catálogo no contiene FINALIZADO o la actualización falla
+ * @throws {Error} Si el catálogo no contiene COMPLETADA o la actualización falla
  */
-export async function finalizarVisita(visitaId, observaciones) {
+export async function finalizarVisita(visitaId, observacionFinal) {
   const estadoId = await getCatalogoId('ESTADO_VISITA', 'COMPLETADA');
 
-  const { error } = await supabase
+  // 1. Actualizar visita: fecha_fin + estado (NO tocar observaciones)
+  const { error: visitaError } = await supabase
     .from('visita')
     .update({
       fecha_fin: new Date().toISOString(),
-      observaciones: observaciones || null,
       estado_id: estadoId,
     })
     .eq('id', visitaId);
 
-  if (error) {
-    throw new Error(`No se pudo finalizar la visita: ${error.message}`);
+  if (visitaError) {
+    throw new Error(`No se pudo finalizar la visita: ${visitaError.message}`);
   }
+
+  // 2. Sincronizar estado_id + observacion_final en todas las intervenciones activas
+  await supabase
+    .from('intervencion')
+    .update({
+      estado_id: estadoId,
+      observacion_final: observacionFinal || null,
+    })
+    .eq('visita_id', visitaId)
+    .eq('activo', true);
 }

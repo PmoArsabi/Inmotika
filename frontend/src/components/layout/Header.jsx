@@ -6,7 +6,7 @@ const SECTION_LABELS = {
   'dashboard':        { title: 'Tablero de Control', subtitle: 'Módulo Operativo' },
   'visits':           { title: 'Gestión de Visitas', subtitle: 'Módulo Operativo' },
   'configuration':    { title: 'Maestros',            subtitle: 'Módulo Operativo' },
-  'schedule':         { title: 'Mi Agenda',           subtitle: 'Módulo Técnico' },
+  'schedule':         { title: 'Dashboard',            subtitle: 'Módulo Técnico' },
   'client-dashboard': { title: 'Dashboard',           subtitle: 'Portal Cliente' },
   'client-data':      { title: 'Mis Datos',           subtitle: 'Portal Cliente' },
   'client-inventory': { title: 'Inventario',          subtitle: 'Portal Cliente' },

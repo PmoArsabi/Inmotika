@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
 import {
   CheckCircle2, Circle, ChevronDown, ChevronRight,
-  Save, Lock, Camera, X, Plus,
+  Save, Send, Lock, Camera, X, Plus, Tag,
 } from 'lucide-react';
+import SecureImage from '../ui/SecureImage';
 
 // ─── Single activity row ──────────────────────────────────────────────────────
 /**
@@ -165,7 +166,7 @@ const EvidenciaCard = ({ label, isEtiqueta, value, onAdd, onRemove, inputRef, on
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
       {value ? (
         <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
-          <img src={value.preview} alt={label} className="object-cover w-full h-full" />
+          <SecureImage path={value.preview} alt={label} className="object-cover w-full h-full" />
           {onRemove && (
             <button
               type="button"
@@ -290,7 +291,7 @@ const EvidenciasSection = ({ evidencias, onChange }) => {
             />
             {foto ? (
               <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
-                <img src={foto.preview} alt={`Foto ${idx + 1}`} className="object-cover w-full h-full" />
+                <SecureImage path={foto.preview} alt={`Foto ${idx + 1}`} className="object-cover w-full h-full" />
                 <button
                   type="button"
                   onClick={() => handleRemoveFoto(idx)}
@@ -331,12 +332,17 @@ const EvidenciasSection = ({ evidencias, onChange }) => {
  * @param {object}  props.ejecucionActividades  - Estado de ejecución por actividad
  * @param {function} props.onPasoChange         - (pasoId, patch) => void
  * @param {function} props.onActividadChange    - (actividadId, bool) => void
- * @param {function} props.onSaveAvance         - (deviceId, evidencias) => void
- * @param {boolean}  props.viewMode             - Modo solo lectura
- * @param {boolean}  props.isLocked             - Dispositivo bloqueado
+ * @param {function} props.onSaveAvance              - (deviceId, evidencias, codigoEtiqueta) => void
+ * @param {boolean}  props.viewMode                 - Modo solo lectura
+ * @param {boolean}  props.isLocked                 - Dispositivo bloqueado
  * @param {{ etiqueta: { file: File, preview: string }|null, fotos: Array<{ file: File, preview: string }> }} props.deviceEvidencias
  *   Evidencias actuales del dispositivo (gestionadas por el padre)
- * @param {function} props.onDeviceEvidenciasChange - (patch) => void
+ * @param {function} props.onDeviceEvidenciasChange  - (patch) => void
+ * @param {string}   [props.codigoEtiquetaInicial]   - Código de etiqueta existente (si ya fue guardado)
+ * @param {boolean}  [props.isFinalDevice]           - true si es el último dispositivo de la visita (EN_PROGRESO)
+ * @param {boolean}  [props.allDevicesDone]          - true si todos los dispositivos están completados
+ * @param {string}   [props.observacionFinal]        - Valor del textarea de observación final
+ * @param {function} [props.onObservacionChange]     - (string) => void
  */
 const DeviceChecklistCard = ({
   device,
@@ -350,8 +356,14 @@ const DeviceChecklistCard = ({
   isLocked = false,
   deviceEvidencias = { etiqueta: null, fotos: [] },
   onDeviceEvidenciasChange,
+  codigoEtiquetaInicial = '',
+  isFinalDevice = false,
+  allDevicesDone = false,
+  observacionFinal = '',
+  onObservacionChange,
 }) => {
   const [open, setOpen] = useState(!isLocked);
+  const [codigoEtiqueta, setCodigoEtiqueta] = useState(codigoEtiquetaInicial);
 
   // Compute overall device completion — only requires all mandatory activities done (no photo)
   const allActividades = steps.flatMap(p => p.actividades || []);
@@ -442,24 +454,116 @@ const DeviceChecklistCard = ({
             );
           })}
 
-          {/* Device-level evidencias section — always available */}
-          {!viewMode && (
-            <EvidenciasSection
-              evidencias={deviceEvidencias}
-              onChange={onDeviceEvidenciasChange}
-            />
+          {/* Código de etiqueta + evidencias */}
+          {!viewMode ? (
+            <>
+              {/* Código de etiqueta — editable en ejecución */}
+              <div className="flex items-center gap-2 px-1">
+                <Tag size={13} className="text-gray-400 shrink-0" />
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">
+                  Código Etiqueta
+                </label>
+                <input
+                  type="text"
+                  value={codigoEtiqueta}
+                  onChange={e => {
+                    const raw = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 8);
+                    const formatted = raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw;
+                    setCodigoEtiqueta(formatted);
+                  }}
+                  placeholder="XXXX-XXXX"
+                  maxLength={9}
+                  className="flex-1 h-8 px-2 text-xs border border-gray-200 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] font-mono tracking-widest uppercase transition-all"
+                />
+              </div>
+              <EvidenciasSection
+                evidencias={deviceEvidencias}
+                onChange={onDeviceEvidenciasChange}
+              />
+            </>
+          ) : (
+            /* Modo lectura — código de etiqueta + evidencias guardadas */
+            (() => {
+              const tieneEvidencias = deviceEvidencias.etiqueta || (deviceEvidencias.fotos || []).length > 0;
+              const tieneCodigo = !!codigoEtiqueta;
+              if (!tieneEvidencias && !tieneCodigo) return null;
+              return (
+                <div className="space-y-3">
+                  {tieneCodigo && (
+                    <div className="flex items-center gap-2">
+                      <Tag size={13} className="text-gray-400 shrink-0" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Código Etiqueta</span>
+                      <span className="text-xs font-mono font-bold tracking-widest text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
+                        {codigoEtiqueta}
+                      </span>
+                    </div>
+                  )}
+                  {tieneEvidencias && <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Evidencias</p>}
+                  <div className="flex flex-wrap gap-3">
+                    {deviceEvidencias.etiqueta && (
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-24 h-24 rounded-lg overflow-hidden border border-blue-200">
+                          <SecureImage path={deviceEvidencias.etiqueta.preview} alt="Etiqueta" className="object-cover w-full h-full" />
+                        </div>
+                        <p className="text-[10px] text-blue-600 font-semibold">Foto Etiqueta</p>
+                      </div>
+                    )}
+                    {(deviceEvidencias.fotos || []).map((foto, idx) => foto && (
+                      <div key={idx} className="flex flex-col items-center gap-1">
+                        <div className="w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
+                          <SecureImage path={foto.preview} alt={`Foto ${idx + 1}`} className="object-cover w-full h-full" />
+                        </div>
+                        <p className="text-[10px] text-gray-500">Foto {idx + 1}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()
           )}
 
-          {/* Save + Enviar Avance */}
+          {/* Observación final — en el último dispositivo: editable si allDevicesDone, solo lectura si ya hay valor */}
+          {isFinalDevice && (allDevicesDone || observacionFinal) && (
+            <div className="mt-4 pt-4 border-t border-green-200 space-y-2">
+              {allDevicesDone && (
+                <div className="flex items-center gap-2 text-green-700 mb-1">
+                  <CheckCircle2 size={15} className="shrink-0" />
+                  <span className="text-xs font-bold uppercase tracking-wide">¡Todos los dispositivos completados!</span>
+                </div>
+              )}
+              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block">
+                Observación Final {allDevicesDone && !viewMode && <span className="text-red-500">*</span>}
+              </label>
+              {viewMode || !allDevicesDone ? (
+                <p className="text-sm text-gray-700 px-3 py-2 bg-gray-50 rounded-md border border-gray-200 whitespace-pre-wrap">
+                  {observacionFinal || <span className="text-gray-400 italic">Sin observación final registrada.</span>}
+                </p>
+              ) : (
+                <textarea
+                  value={observacionFinal}
+                  onChange={e => onObservacionChange?.(e.target.value)}
+                  rows={3}
+                  placeholder="Resumen del trabajo realizado, hallazgos generales, recomendaciones..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-y focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all"
+                />
+              )}
+            </div>
+          )}
+
+          {/* Guardar / Finalizar */}
           {!viewMode && (
             <div className="pt-2 flex justify-end">
               <button
                 type="button"
-                onClick={() => onSaveAvance && onSaveAvance(device.id, deviceEvidencias)}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase rounded-md bg-[#1A1A1A] text-white hover:bg-black transition-all shadow-sm"
+                onClick={() => onSaveAvance && onSaveAvance(device.id, deviceEvidencias, codigoEtiqueta || null)}
+                className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase rounded-md transition-all shadow-sm text-white ${
+                  isFinalDevice && allDevicesDone
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-[#1A1A1A] hover:bg-black'
+                }`}
               >
-                <Save size={13} />
-                Guardar · Enviar Avance
+                {isFinalDevice && allDevicesDone ? <Send size={13} /> : <Save size={13} />}
+                {isFinalDevice && allDevicesDone ? 'Finalizar y Enviar Informe' : 'Guardar · Enviar Avance'}
               </button>
             </div>
           )}

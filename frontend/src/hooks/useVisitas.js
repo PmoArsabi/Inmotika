@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
@@ -99,6 +99,10 @@ export const useVisitas = () => {
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
   const notify = useNotify();
+  // Ref estable para notify — evita que fetchVisitas se recree en cada render
+  const notifyRef = useRef(notify);
+  notifyRef.current = notify;
+  const userId = user?.id ?? null;
 
   // ── Fetch (2 pasos para evitar ambigüedad PostgREST en joins anidados) ───────
   /**
@@ -106,7 +110,7 @@ export const useVisitas = () => {
    * Paso 2: batch fetch de nombres de perfil_usuario para técnicos asignados.
    */
   const fetchVisitas = useCallback(async () => {
-    if (!user) return;
+    if (!userId) return;
     setLoading(true);
     try {
       // Paso 1: visitas con relaciones directas
@@ -240,18 +244,30 @@ export const useVisitas = () => {
       const visitaIds = (rows || []).map(r => r.id);
       let ejecucionActividadMap = new Map(); // visitaId → { [actividadId]: { completada } }
       let ejecucionPasoMap = new Map();      // visitaId → { [pasoProtocoloId]: { comentarios, fechaInicio, fechaFin } }
-      let evidenciasMap = new Map();         // visitaId → { etiqueta: {url}|null, fotos: [{url}] }
+      let evidenciasMap = new Map();         // visitaId → { [dispositivoId]: { etiqueta, fotos } }
+      let codigoEtiquetaMap = new Map();     // visitaId → { [dispositivoId]: codigoEtiqueta }
+      let observacionFinalMap = new Map();   // visitaId → observacion_final (primera no nula)
 
       if (visitaIds.length > 0) {
-        // Cargar intervenciones para obtener IDs
+        // Cargar intervenciones para obtener IDs y código etiqueta
         const { data: intervenciones } = await supabase
           .from('intervencion')
-          .select('id, visita_id, dispositivo_id')
+          .select('id, visita_id, dispositivo_id, codigo_etiqueta, observacion_final')
           .in('visita_id', visitaIds);
 
         const intervencionIds = (intervenciones || []).map(i => i.id);
         const intervencionByVisita = new Map(); // intervencion_id → visita_id
-        (intervenciones || []).forEach(i => intervencionByVisita.set(i.id, i.visita_id));
+        (intervenciones || []).forEach(i => {
+          intervencionByVisita.set(i.id, i.visita_id);
+          if (i.codigo_etiqueta) {
+            const byDevice = codigoEtiquetaMap.get(i.visita_id) || {};
+            byDevice[i.dispositivo_id] = i.codigo_etiqueta;
+            codigoEtiquetaMap.set(i.visita_id, byDevice);
+          }
+          if (i.observacion_final && !observacionFinalMap.has(i.visita_id)) {
+            observacionFinalMap.set(i.visita_id, i.observacion_final);
+          }
+        });
 
         if (intervencionIds.length > 0) {
           // Actividades completadas
@@ -294,19 +310,33 @@ export const useVisitas = () => {
             .from('evidencia_intervencion')
             .select('intervencion_id, url, numero_foto, es_etiqueta')
             .in('intervencion_id', intervencionIds)
+            .eq('activo', true)
             .order('numero_foto', { ascending: true });
 
           // evidenciasMap: visitaId → { [dispositivoId]: { etiqueta, fotos } }
+          // Normaliza ev.url a path relativo para que SecureImage genere signed URL.
+          // Soporta paths ya relativos ("evidencias/...") y URLs públicas antiguas.
+          const toStoragePath = (url) => {
+            if (!url) return url;
+            if (url.startsWith('http')) {
+              // Extraer path después de "/object/public/inmotika/" o "/object/sign/inmotika/"
+              const match = url.match(/\/object\/(?:public|sign)\/inmotika\/(.+?)(?:\?|$)/);
+              return match ? match[1] : url;
+            }
+            return url; // Ya es path relativo
+          };
+
           (evRows || []).forEach(ev => {
             const vId = intervencionByVisita.get(ev.intervencion_id);
             const dId = intervencionDispositivoMap.get(ev.intervencion_id);
             if (!vId || !dId) return;
+            const path = toStoragePath(ev.url);
             const byDevice = evidenciasMap.get(vId) || {};
             const current = byDevice[dId] || { etiqueta: null, fotos: [] };
             if (ev.es_etiqueta) {
-              current.etiqueta = { url: ev.url, preview: ev.url, file: null };
+              current.etiqueta = { url: path, preview: path, file: null };
             } else {
-              current.fotos.push({ url: ev.url, preview: ev.url, file: null });
+              current.fotos.push({ url: path, preview: path, file: null });
             }
             byDevice[dId] = current;
             evidenciasMap.set(vId, byDevice);
@@ -314,19 +344,24 @@ export const useVisitas = () => {
         }
       }
 
-      setVisitas((rows || []).map(r => ({
+      const mapped = (rows || []).map(r => ({
         ...mapRow(r, tecnicoNameMap, dispositivosBySolicitud),
         ejecucionActividades: ejecucionActividadMap.get(r.id) || {},
         ejecucionPasos: ejecucionPasoMap.get(r.id) || {},
         deviceEvidencias: evidenciasMap.get(r.id) || {},
-      })));
+        codigoEtiquetaByDevice: codigoEtiquetaMap.get(r.id) || {},
+        observacionFinal: observacionFinalMap.get(r.id) || '',
+      }));
+      setVisitas(mapped);
+      return mapped;
     } catch (err) {
       console.error('[useVisitas] fetch error:', err);
-      notify('error', 'No se pudieron cargar las visitas programadas.');
+      notifyRef.current('error', 'No se pudieron cargar las visitas programadas.');
+      return null;
     } finally {
       setLoading(false);
     }
-  }, [user, notify]);
+  }, [userId]);
 
   useEffect(() => {
     fetchVisitas();

@@ -267,7 +267,7 @@ alter table "public"."ejecucion_actividad" enable row level security;
     "fecha_inicio" timestamp with time zone,
     "fecha_fin" timestamp with time zone,
     "comentarios" text,
-    "estado_id" uuid,
+    "activo" boolean not null default true,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
@@ -291,10 +291,10 @@ alter table "public"."historial_traslado" enable row level security;
     "id" uuid not null default gen_random_uuid(),
     "visita_id" uuid,
     "dispositivo_id" uuid,
-    "hallazgos" text,
-    "acciones_realizadas" text,
     "estado_id" uuid,
+    "activo" boolean not null default true,
     "codigo_etiqueta" character varying(9),
+    "observacion_final" text,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
@@ -2363,6 +2363,22 @@ with check (true);
    to authenticated
  using ((public.is_admin_or_coordinator() OR public.is_assigned_director(id)));
 
+create policy "Tecnicos can read assigned visit clients"
+on "public"."cliente"
+as permissive
+for select
+to authenticated
+using (
+  EXISTS (
+    SELECT 1
+    FROM public.visita v
+    JOIN public.visita_tecnico vt ON vt.visita_id = v.id
+    JOIN public.tecnico t ON t.id = vt.tecnico_id
+    WHERE v.cliente_id = cliente.id
+      AND t.usuario_id = auth.uid()
+  )
+);
+
   create policy "Admin access"
   on "public"."contacto"
   as permissive
@@ -2474,6 +2490,22 @@ using (creado_por = auth.uid());
    for all
    to authenticated
  using ((public.is_admin_or_coordinator() OR public.is_assigned_director(cliente_id)));
+
+create policy "Tecnicos can read assigned visit sucursales"
+on "public"."sucursal"
+as permissive
+for select
+to authenticated
+using (
+  EXISTS (
+    SELECT 1
+    FROM public.visita v
+    JOIN public.visita_tecnico vt ON vt.visita_id = v.id
+    JOIN public.tecnico t ON t.id = vt.tecnico_id
+    WHERE v.sucursal_id = sucursal.id
+      AND t.usuario_id = auth.uid()
+  )
+);
 
   create policy "Admin access"
   on "public"."contrato"
@@ -2639,6 +2671,13 @@ as permissive
 for select
 to authenticated
 using (public.is_tecnico_asignado_visita(visita_id));
+
+create policy "Tecnicos can insert interventions for assigned visits"
+on "public"."intervencion"
+as permissive
+for insert
+to authenticated
+with check (public.is_tecnico_asignado_visita(visita_id));
 
 create policy "Tecnicos can update assigned interventions"
 on "public"."intervencion"
@@ -2895,7 +2934,7 @@ create table "public"."evidencia_intervencion" (
   "url" text not null,
   "numero_foto" integer,
   "es_etiqueta" boolean not null default false,
-  "descripcion" text,
+  "activo" boolean not null default true,
   "created_at" timestamp with time zone default now()
 );
 
@@ -2922,4 +2961,32 @@ with check ((auth.role() = 'authenticated'));
 
 -- --- intervencion: etiqueta constraint ---
 alter table "public"."intervencion" add constraint "intervencion_etiqueta_formato" CHECK (codigo_etiqueta IS NULL OR codigo_etiqueta ~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$');
+
+-- --- solicitud_visita: técnicos pueden ver solicitudes de visitas asignadas ---
+create policy "Tecnicos can view solicitudes of assigned visits"
+on "public"."solicitud_visita"
+as permissive
+for select
+to authenticated
+using (
+  EXISTS (
+    SELECT 1 FROM public.visita v
+    WHERE v.solicitud_id = solicitud_visita.id
+    AND public.is_tecnico_asignado_visita(v.id)
+  )
+);
+
+-- --- solicitud_dispositivo: técnicos pueden ver dispositivos de sus solicitudes asignadas ---
+create policy "Tecnicos can view dispositivos of assigned visits"
+on "public"."solicitud_dispositivo"
+as permissive
+for select
+to authenticated
+using (
+  EXISTS (
+    SELECT 1 FROM public.visita v
+    WHERE v.solicitud_id = solicitud_dispositivo.solicitud_id
+    AND public.is_tecnico_asignado_visita(v.id)
+  )
+);
 

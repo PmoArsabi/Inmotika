@@ -1,20 +1,21 @@
 import { useState, useMemo } from 'react';
 import {
   ArrowLeft, Search, X, Play, Eye, Edit2,
-  Calendar, Building2, User, AlertCircle, CheckCircle2,
-  Send, Cpu, Clock, ClipboardList,
+  Calendar, Building2, User, AlertCircle, Clock,
+  Send, Cpu, ClipboardList, CheckCircle2,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ModuleHeader from '../../components/ui/ModuleHeader';
 import Select from '../../components/ui/Select';
 import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
-import { H2, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
+import { H2, H3, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import { TechnicianChipList } from '../../components/ui/TechnicianChip';
 import Modal from '../../components/ui/Modal';
 import DeviceChecklistCard from '../../components/visits/DeviceChecklistCard';
 import { useVisitas } from '../../hooks/useVisitas';
+import { useNotify } from '../../context/NotificationContext';
 import { iniciarVisita, guardarAvanceDispositivo, finalizarVisita } from '../../api/visitaApi';
 
 // ─── Info row helper ──────────────────────────────────────────────────────────
@@ -32,21 +33,20 @@ const InfoRow = ({ icon: Icon, label, value }) => (
 // ─── Main page ────────────────────────────────────────────────────────────────
 const GestionVisitasPage = () => {
   const { visitas: visitasHook, loading: loadingVisitas, fetchVisitas } = useVisitas();
-  const [activeVisita,      setActiveVisita]      = useState(null);
-  const [searchTerm,        setSearchTerm]        = useState('');
-  const [filterEstado,      setFilterEstado]      = useState('Todos');
-  // Paso-level: { [pasoId]: { comentarios } }
-  const [ejecucionPasos,    setEjecucionPasos]    = useState({});
-  // Actividad-level: { [actividadId]: { completada: bool } }
+  const notify   = useNotify();
+  const [activeVisita,         setActiveVisita]         = useState(null);
+  const [searchTerm,           setSearchTerm]           = useState('');
+  const [filterEstado,         setFilterEstado]         = useState('Todos');
+  const [ejecucionPasos,       setEjecucionPasos]       = useState({});
   const [ejecucionActividades, setEjecucionActividades] = useState({});
-  // Device-level evidencias: { [deviceId]: { etiqueta: { file, preview }|null, fotos: [{ file, preview }] } }
-  const [deviceEvidencias, setDeviceEvidencias] = useState({});
-  const [observacionFinal,  setObservacionFinal]  = useState('');
-  const [showHelpModal,     setShowHelpModal]     = useState(false);
-  const [modalTitle,        setModalTitle]        = useState('');
-  const [modalMessage,      setModalMessage]      = useState('');
-  // isSaving: bloquea botones durante operaciones de escritura en Supabase
-  const [isSaving,          setIsSaving]          = useState(false);
+  const [deviceEvidencias,     setDeviceEvidencias]     = useState({});
+  // Modal finalizar — captura observación final antes de confirmar
+  const [observacionFinal,     setObservacionFinal]     = useState('');
+  const [isSaving,             setIsSaving]             = useState(false);
+  const [showHelpModal,        setShowHelpModal]        = useState(false);
+  const [modalTitle,           setModalTitle]           = useState('');
+  const [modalMessage,         setModalMessage]         = useState('');
+  const [successModal,         setSuccessModal]         = useState({ open: false, deviceNombre: '' });
 
   const visitas = visitasHook;
 
@@ -71,8 +71,9 @@ const GestionVisitasPage = () => {
     setActiveVisita(visita);
     setEjecucionPasos(visita.ejecucionPasos || {});
     setEjecucionActividades(visita.ejecucionActividades || {});
+    // Inicializar con evidencias ya subidas (preview = url pública) para mostrar imágenes guardadas
     setDeviceEvidencias(visita.deviceEvidencias || {});
-    setObservacionFinal('');
+    setObservacionFinal(visita.observacionFinal || '');
   };
 
   const handleCloseVisita = () => {
@@ -142,13 +143,20 @@ const GestionVisitasPage = () => {
    * @param {{ etiqueta: { file: File, preview: string }|null, fotos: Array<{ file: File, preview: string }> }} evidencias
    *   Evidencias fotográficas capturadas a nivel de dispositivo
    */
-  const handleSaveAvance = async (dispositivoId, evidencias) => {
+  const handleSaveAvance = async (dispositivoId, evidencias, codigoEtiqueta) => {
     if (!activeVisita || !dispositivoId || isSaving) return;
+
+    const device = (activeVisita.dispositivos || []).find(d => d.id === dispositivoId);
+    const allPasos = device?.pasos || [];
+    const isFinalStep = allDevicesDone;
+
+    if (isFinalStep && !observacionFinal.trim()) {
+      notify('warning', 'Agrega una observación final antes de finalizar la visita.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      // Resolve all protocol steps for this device to ensure every paso is persisted
-      const device = (activeVisita.dispositivos || []).find(d => d.id === dispositivoId);
-      const allPasos = device?.pasos || [];
       await guardarAvanceDispositivo(
         activeVisita.id,
         dispositivoId,
@@ -156,62 +164,47 @@ const GestionVisitasPage = () => {
         ejecucionPasos,
         ejecucionActividades,
         evidencias || { etiqueta: null, fotos: [] },
+        codigoEtiqueta || null,
       );
-      // Reset evidencias del dispositivo tras guardado exitoso
-      setDeviceEvidencias(prev => ({
-        ...prev,
-        [dispositivoId]: { etiqueta: null, fotos: [] },
-      }));
-      setModalTitle('Avance Guardado');
-      setModalMessage('Avance guardado y enviado al coordinador correctamente.');
-      setShowHelpModal(true);
+
+      if (isFinalStep) {
+        await finalizarVisita(activeVisita.id, observacionFinal);
+        await fetchVisitas();
+        handleCloseVisita();
+        return;
+      }
+
+      // Mostrar popup inmediatamente — sin esperar el refresco
+      setSuccessModal({ open: true, deviceNombre: device?.label || 'dispositivo' });
+
+      // Refrescar en background para sincronizar ejecucionPasos, actividades y evidencias desde BD
+      const visitaId = activeVisita.id;
+      const refreshed = await fetchVisitas();
+      if (refreshed) {
+        const updated = refreshed.find(v => v.id === visitaId);
+        if (updated) {
+          setActiveVisita(prev => ({ ...prev, deviceEvidencias: updated.deviceEvidencias }));
+          setEjecucionPasos(updated.ejecucionPasos || {});
+          setEjecucionActividades(updated.ejecucionActividades || {});
+          setDeviceEvidencias(updated.deviceEvidencias || {});
+        }
+      }
     } catch (err) {
       console.error('[GestionVisitasPage] handleSaveAvance error:', err);
-      setModalTitle('Error al guardar avance');
-      setModalMessage(err.message || 'No se pudo guardar el avance. Intenta de nuevo.');
-      setShowHelpModal(true);
+      notify('error', err.message || 'No se pudo guardar el avance. Intenta de nuevo.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  // ── Finalizar visita ──────────────────────────────────────────────────────
-  /**
-   * Persiste la finalización de la visita en Supabase: fecha_fin, observaciones
-   * y estado FINALIZADO. Cierra la vista de ejecución y refresca la lista.
-   */
-  const handleFinalizar = async () => {
-    if (!observacionFinal.trim()) {
-      setModalTitle('Observación Requerida');
-      setModalMessage('Agrega una observación final antes de finalizar la visita.');
-      setShowHelpModal(true);
-      return;
-    }
-    if (!activeVisita || isSaving) return;
-    setIsSaving(true);
-    try {
-      await finalizarVisita(activeVisita.id, observacionFinal);
-      // Refrescar lista antes de cerrar para que la tabla refleje FINALIZADO
-      await fetchVisitas();
-      handleCloseVisita();
-    } catch (err) {
-      console.error('[GestionVisitasPage] handleFinalizar error:', err);
-      setModalTitle('Error al finalizar');
-      setModalMessage(err.message || 'No se pudo finalizar la visita. Intenta de nuevo.');
-      setShowHelpModal(true);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // ── All done: every device has all its actividades checked (no photo required) ─
+  // ── All done: every device has all its mandatory actividades checked ──────
   const allDevicesDone = useMemo(() => {
     if (!activeVisita?.dispositivos?.length) return false;
     return activeVisita.dispositivos.every(device =>
       (device.pasos || []).length > 0 &&
       (device.pasos || []).every(paso => {
-        const acts = paso.actividades || [];
-        return acts.length > 0 && acts.every(a => ejecucionActividades[a.id]?.completada);
+        const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
+        return obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
       }),
     );
   }, [activeVisita, ejecucionActividades]);
@@ -225,14 +218,14 @@ const GestionVisitasPage = () => {
     const isFinalizado = activeVisita.estadoCodigo === 'COMPLETADA';
     const viewMode = isFinalizado;
 
-    // Per-device completion stats (based on actividades only — no photo required)
+    // Per-device completion stats — done when all mandatory actividades are checked
     const deviceStats = (activeVisita.dispositivos || []).map(d => {
       const allActs = (d.pasos || []).flatMap(p => p.actividades || []);
       const totalActs = allActs.length;
       const doneActs  = allActs.filter(a => ejecucionActividades[a.id]?.completada).length;
       const done = (d.pasos || []).length > 0 && (d.pasos || []).every(paso => {
-        const acts = paso.actividades || [];
-        return acts.length > 0 && acts.every(a => ejecucionActividades[a.id]?.completada);
+        const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
+        return obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
       });
       return { ...d, totalActs, doneActs, done };
     });
@@ -290,6 +283,9 @@ const GestionVisitasPage = () => {
             {activeVisita.dispositivos?.length > 0
               ? activeVisita.dispositivos.map((device, idx) => {
                   const isLocked = firstIncompleteIdx !== -1 && idx > firstIncompleteIdx;
+                  const isLastDevice = idx === activeVisita.dispositivos.length - 1;
+                  // isFinalDevice: último dispositivo, tanto en ejecución como en lectura (para mostrar observacion_final)
+                  const isFinalDevice = isLastDevice && (isEnCurso || viewMode);
                   return (
                     <DeviceChecklistCard
                       key={device.id}
@@ -304,6 +300,11 @@ const GestionVisitasPage = () => {
                       isLocked={isLocked}
                       deviceEvidencias={deviceEvidencias[device.id] || { etiqueta: null, fotos: [] }}
                       onDeviceEvidenciasChange={(patch) => handleDeviceEvidenciasChange(device.id, patch)}
+                      codigoEtiquetaInicial={activeVisita.codigoEtiquetaByDevice?.[device.id] || ''}
+                      isFinalDevice={isFinalDevice}
+                      allDevicesDone={allDevicesDone}
+                      observacionFinal={observacionFinal}
+                      onObservacionChange={setObservacionFinal}
                     />
                   );
                 })
@@ -315,36 +316,6 @@ const GestionVisitasPage = () => {
               )
             }
 
-            {/* Finalizar block — only when all devices done and EN_CURSO */}
-            {isEnCurso && allDevicesDone && (
-              <Card className="p-5 border-green-300 bg-green-50 space-y-4">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 size={18} className="text-green-600" />
-                  <Label className="text-sm font-bold text-green-800">¡Todos los dispositivos completados!</Label>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block">
-                    Observación Final <span className="text-red-500">*</span>
-                  </Label>
-                  <textarea
-                    value={observacionFinal}
-                    onChange={e => setObservacionFinal(e.target.value)}
-                    rows={3}
-                    placeholder="Resumen del trabajo realizado, hallazgos generales, recomendaciones..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-semibold resize-y focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all"
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <Button
-                    onClick={handleFinalizar}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 border-0 text-white disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    <Send size={14} /> {isSaving ? 'Finalizando...' : 'Finalizar y Enviar Informe'}
-                  </Button>
-                </div>
-              </Card>
-            )}
           </div>
 
           {/* Side summary panel */}
@@ -395,6 +366,37 @@ const GestionVisitasPage = () => {
             </Card>
           </div>
         </div>
+
+        {/* Popup éxito — avance guardado (mismo patrón que ConfigurationNavigator) */}
+        {successModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
+              <div className="flex items-center gap-3 text-green-600 mb-4">
+                <CheckCircle2 size={32} />
+                <H3 className="normal-case text-gray-900">Avance Guardado</H3>
+              </div>
+              <TextSmall className="text-gray-600 mb-6 leading-relaxed">
+                El avance del dispositivo <strong>{successModal.deviceNombre}</strong> fue guardado y enviado al coordinador correctamente. ¿Qué deseas hacer ahora?
+              </TextSmall>
+              <div className="flex flex-col gap-3">
+                <Button
+                  onClick={() => setSuccessModal({ open: false, deviceNombre: '' })}
+                  variant="success"
+                  className="w-full"
+                >
+                  Continuar con la visita
+                </Button>
+                <Button
+                  onClick={() => { setSuccessModal({ open: false, deviceNombre: '' }); handleCloseVisita(); }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Volver a visitas
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -478,9 +480,8 @@ const GestionVisitasPage = () => {
                 const completedDevices = visita.dispositivos?.filter(d =>
                   (d.pasos || []).length > 0 &&
                   (d.pasos || []).every(paso => {
-                    const acts = paso.actividades || [];
-                    return acts.length > 0
-                      && acts.every(a => visita.ejecucionActividades?.[a.id]?.completada);
+                    const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
+                    return obligatorias.length === 0 || obligatorias.every(a => visita.ejecucionActividades?.[a.id]?.completada);
                   })
                 ).length || 0;
 

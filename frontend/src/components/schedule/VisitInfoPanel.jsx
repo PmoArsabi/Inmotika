@@ -56,7 +56,7 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
     <div className="max-w-4xl mx-auto space-y-6 animate-in slide-in-from-right-12 duration-700 pb-16">
       <button onClick={onBack} className="flex items-center gap-3 text-gray-400 hover:text-black transition-colors">
         <ArrowLeft size={20}/>
-        <Label className="text-inherit cursor-pointer">Volver a Mi Agenda</Label>
+        <Label className="text-inherit cursor-pointer">Volver a Dashboard</Label>
       </button>
       <div className="grid grid-cols-1 gap-6">
         <Card className="p-8 bg-white shadow-xl space-y-8 rounded-md">

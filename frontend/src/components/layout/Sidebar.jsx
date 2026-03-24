@@ -69,7 +69,7 @@ const Sidebar = ({
     }
     if (userRole === ROLES.TECNICO) {
       return [
-        { id: 'schedule', label: 'Mi Agenda', icon: Calendar },
+        { id: 'schedule', label: 'Dashboard', icon: Calendar },
         {
           id: 'visits',
           label: 'Gestión Visitas',
