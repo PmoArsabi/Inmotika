@@ -1,14 +1,14 @@
 import { useState, useMemo } from 'react';
 import {
   ArrowLeft, Search, X, Play, Eye, Edit2,
-  Calendar, Building2, User, AlertCircle, Clock,
+  Calendar, Building2, AlertCircle, Clock,
   Send, Cpu, ClipboardList, CheckCircle2,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import ModuleHeader from '../../components/ui/ModuleHeader';
 import Select from '../../components/ui/Select';
-import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
+import GenericListView from '../../components/shared/GenericListView';
+import VisitaMobileCard from '../../components/visits/VisitaMobileCard';
 import { H2, H3, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import { TechnicianChipList } from '../../components/ui/TechnicianChip';
@@ -404,25 +404,114 @@ const GestionVisitasPage = () => {
   // ══════════════════════════════════════════════════════════════════════════
   // LIST VIEW
   // ══════════════════════════════════════════════════════════════════════════
+
+  /** Calcula dispositivos completados (obligatorios) para una visita */
+  const getDeviceProgress = (visita) => {
+    const total     = visita.dispositivos?.length || 0;
+    const completed = visita.dispositivos?.filter(d =>
+      (d.pasos || []).length > 0 &&
+      (d.pasos || []).every(paso => {
+        const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
+        return obligatorias.length === 0 || obligatorias.every(a => visita.ejecucionActividades?.[a.id]?.completada);
+      })
+    ).length || 0;
+    return { total, completed };
+  };
+
+  const columns = [
+    {
+      header: 'Tipo',
+      render: visita => visita.tipoVisitaLabel || visita.tipoVisitaCodigo
+        ? <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${visita.tipoVisitaCodigo === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+            {visita.tipoVisitaLabel || visita.tipoVisitaCodigo}
+          </span>
+        : <TextSmall className="text-gray-400">—</TextSmall>,
+    },
+    {
+      header: 'Cliente / Sucursal',
+      render: visita => <>
+        <TextSmall className="font-semibold">{visita.clienteNombre}</TextSmall>
+        <TextTiny className="text-gray-400">{visita.sucursalNombre}</TextTiny>
+      </>,
+    },
+    {
+      header: 'Fecha',
+      render: visita => visita.fechaProgramada
+        ? <div className="whitespace-nowrap">
+            <TextSmall>{new Date(visita.fechaProgramada).toLocaleDateString('es-ES')}</TextSmall>
+            <TextTiny className="text-gray-400">{new Date(visita.fechaProgramada).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</TextTiny>
+          </div>
+        : <TextSmall className="text-gray-400">—</TextSmall>,
+    },
+    {
+      header: 'Técnico(s)',
+      render: visita => <TechnicianChipList names={visita.tecnicosNombres || []} />,
+    },
+    {
+      header: 'Dispositivos',
+      render: visita => {
+        const { total, completed } = getDeviceProgress(visita);
+        return (
+          <div className="space-y-1">
+            <TextSmall className="whitespace-nowrap">{total} dispositivo{total !== 1 ? 's' : ''}</TextSmall>
+            {total > 0 && (
+              <div className="flex items-center gap-1.5">
+                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden w-16">
+                  <div className="h-full bg-[#D32F2F] rounded-full" style={{ width: `${(completed / total) * 100}%` }} />
+                </div>
+                <TextTiny className="text-gray-400 whitespace-nowrap">{completed}/{total}</TextTiny>
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      header: 'Estado',
+      render: visita => <VisitStatusBadge status={visita.estadoCodigo} />,
+    },
+    {
+      header: 'Acciones',
+      narrow: true,
+      align: 'right',
+      render: visita => (
+        <button
+          onClick={() => handleOpenVisita(visita)}
+          className="p-2 hover:bg-blue-50 rounded-md transition-colors"
+          title={visita.estadoCodigo === 'COMPLETADA' ? 'Ver informe' : 'Ejecutar'}
+        >
+          {visita.estadoCodigo === 'COMPLETADA'
+            ? <Eye size={16} className="text-blue-600" />
+            : <Edit2 size={16} className="text-green-600" />}
+        </button>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <ModuleHeader
+      <GenericListView
         icon={ClipboardList}
         title="Gestión de Visitas"
-        subtitle="Ejecuta y registra el avance de las visitas técnicas asignadas"
-        onNewClick={() => {
+        items={filtered}
+        columns={columns}
+        loading={loadingVisitas}
+        loadingText="Cargando visitas..."
+        emptyText="No hay visitas asignadas con los filtros seleccionados."
+        emptyIcon={ClipboardList}
+        onNew={() => {
           setModalTitle('¿Cómo crear una visita?');
           setModalMessage('Para crear una visita técnica, por favor diríjase al módulo de "Programación de Visitas" para asignar técnicos a una solicitud existente, o cree una nueva "Solicitud de Visita" desde el módulo correspondiente.');
           setShowHelpModal(true);
         }}
         newButtonLabel="Ayuda Creación"
-        filterContent={
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+        extraFilters={
+          <div className="flex items-center gap-3">
             <div className="relative">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Buscar por cliente o sucursal..."
+                placeholder="Buscar..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
@@ -435,122 +524,37 @@ const GestionVisitasPage = () => {
             </div>
             <Select
               options={[
-                { value: 'Todos',      label: 'Todos los estados' },
-                { value: 'PROGRAMADA', label: 'Programada'        },
-                { value: 'EN_PROGRESO', label: 'En curso'          },
-                { value: 'COMPLETADA',  label: 'Completada'        },
+                { value: 'Todos',       label: 'Todos los estados' },
+                { value: 'PROGRAMADA',  label: 'Programada'        },
+                { value: 'EN_PROGRESO', label: 'En curso'           },
+                { value: 'COMPLETADA',  label: 'Completada'         },
               ]}
               value={filterEstado}
               onChange={e => setFilterEstado(e.target.value)}
             />
           </div>
         }
+        renderMobileCard={visita => {
+          const { total, completed } = getDeviceProgress(visita);
+          return (
+            <VisitaMobileCard
+              visita={visita}
+              tipoCodigo={visita.tipoVisitaCodigo}
+              tipoLabel={visita.tipoVisitaLabel}
+              fechaDisplay={visita.fechaProgramada}
+              estadoCodigo={visita.estadoCodigo}
+              tecnicos={visita.tecnicosNombres || []}
+              totalDevices={total}
+              completedDevices={completed}
+              actions={[
+                visita.estadoCodigo === 'COMPLETADA'
+                  ? { label: 'Ver informe',     icon: Eye,   onClick: () => handleOpenVisita(visita), colorClass: 'bg-blue-50 text-blue-700 hover:bg-blue-100' }
+                  : { label: 'Ejecutar visita', icon: Edit2, onClick: () => handleOpenVisita(visita), colorClass: 'bg-green-50 text-green-700 hover:bg-green-100' },
+              ]}
+            />
+          );
+        }}
       />
-
-      {/* Table */}
-      <Card className="p-0 overflow-hidden">
-        <Table>
-          <THead variant="light">
-            <tr>
-              <Th>Tipo</Th>
-              <Th>Cliente / Sucursal</Th>
-              <Th>Fecha</Th>
-              <Th>Técnico(s)</Th>
-              <Th>Dispositivos</Th>
-              <Th>Estado</Th>
-              <Th align="right">Acciones</Th>
-            </tr>
-          </THead>
-          <TBody>
-            {loadingVisitas ? (
-              <Tr>
-                <td colSpan={7} className="text-center py-12 text-sm text-gray-400">
-                  Cargando visitas...
-                </td>
-              </Tr>
-            ) : filtered.length === 0 ? (
-              <Tr>
-                <td colSpan={7} className="text-center py-12 text-sm text-gray-400">
-                  No hay visitas asignadas con los filtros seleccionados.
-                </td>
-              </Tr>
-            ) : (
-              filtered.map(visita => {
-                const totalDevices = visita.dispositivos?.length || 0;
-                const completedDevices = visita.dispositivos?.filter(d =>
-                  (d.pasos || []).length > 0 &&
-                  (d.pasos || []).every(paso => {
-                    const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
-                    return obligatorias.length === 0 || obligatorias.every(a => visita.ejecucionActividades?.[a.id]?.completada);
-                  })
-                ).length || 0;
-
-                return (
-                  <Tr key={visita.id}>
-                    <Td>
-                      {visita.tipoVisitaLabel || visita.tipoVisitaCodigo
-                        ? <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${
-                            visita.tipoVisitaCodigo === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
-                          }`}>
-                            {visita.tipoVisitaLabel || visita.tipoVisitaCodigo}
-                          </span>
-                        : <TextSmall className="text-gray-400">—</TextSmall>
-                      }
-                    </Td>
-                    <Td>
-                      <TextSmall className="font-semibold">{visita.clienteNombre}</TextSmall>
-                      <TextTiny className="text-gray-400">{visita.sucursalNombre}</TextTiny>
-                    </Td>
-                    <Td>
-                      {visita.fechaProgramada
-                        ? <div className="whitespace-nowrap">
-                            <TextSmall>{new Date(visita.fechaProgramada).toLocaleDateString('es-ES')}</TextSmall>
-                            <TextTiny className="text-gray-400">{new Date(visita.fechaProgramada).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</TextTiny>
-                          </div>
-                        : <TextSmall className="text-gray-400">—</TextSmall>
-                      }
-                    </Td>
-                    <Td>
-                      <TechnicianChipList names={visita.tecnicosNombres || []} />
-                    </Td>
-                    <Td>
-                      <div className="space-y-1">
-                        <TextSmall className="whitespace-nowrap">{totalDevices} dispositivo{totalDevices !== 1 ? 's' : ''}</TextSmall>
-                        {totalDevices > 0 && (
-                          <div className="flex items-center gap-1.5">
-                            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden w-16">
-                              <div
-                                className="h-full bg-[#D32F2F] rounded-full"
-                                style={{ width: `${(completedDevices / totalDevices) * 100}%` }}
-                              />
-                            </div>
-                            <TextTiny className="text-gray-400 whitespace-nowrap">{completedDevices}/{totalDevices}</TextTiny>
-                          </div>
-                        )}
-                      </div>
-                    </Td>
-                    <Td><VisitStatusBadge status={visita.estadoCodigo} /></Td>
-                    <Td align="right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleOpenVisita(visita)}
-                          className="p-2 hover:bg-blue-50 rounded-md transition-colors"
-                          title={visita.estadoCodigo === 'COMPLETADA' ? 'Ver informe' : 'Editar / Ejecutar'}
-                        >
-                          {visita.estadoCodigo === 'COMPLETADA'
-                            ? <Eye size={16} className="text-blue-600" />
-                            : <Edit2 size={16} className="text-green-600" />
-                          }
-                        </button>
-                      </div>
-                    </Td>
-                  </Tr>
-                );
-              })
-            )}
-          </TBody>
-        </Table>
-      </Card>
 
       <Modal
         isOpen={showHelpModal}

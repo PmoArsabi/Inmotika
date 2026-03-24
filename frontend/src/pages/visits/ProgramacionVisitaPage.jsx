@@ -6,12 +6,12 @@ import {
 import { H2, H3, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import ModuleHeader from '../../components/ui/ModuleHeader';
 import Select from '../../components/ui/Select';
 import SearchableSelect from '../../components/ui/SearchableSelect';
-import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
 import InfoRow from '../../components/ui/InfoRow';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
+import VisitaMobileCard from '../../components/visits/VisitaMobileCard';
+import GenericListView from '../../components/shared/GenericListView';
 import { TechnicianChipList } from '../../components/ui/TechnicianChip';
 import { supabase } from '../../utils/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -573,219 +573,139 @@ const ProgramacionVisitaPage = () => {
   // ══════════════════════════════════════════════════════════════════════════
   // LIST VIEW
   // ══════════════════════════════════════════════════════════════════════════
+
+  const progColumns = [
+    {
+      header: 'Tipo',
+      render: item => {
+        const tipoCodigo = item.tipoVisitaCodigo || '';
+        return tipoCodigo
+          ? <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${tipoCodigo === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+              {item.tipoVisitaLabel || tipoCodigo}
+            </span>
+          : <TextSmall className="text-gray-400">—</TextSmall>;
+      },
+    },
+    {
+      header: 'Cliente / Sucursal',
+      render: item => <>
+        <TextSmall className="font-semibold">{item.clienteNombre}</TextSmall>
+        <TextTiny className="text-gray-400">{item.sucursalNombre}</TextTiny>
+      </>,
+    },
+    {
+      header: 'Fecha',
+      render: item => {
+        const fecha = item._type === 'visita' ? item.fechaProgramada : item.fechaSugerida;
+        return fecha
+          ? <div className="whitespace-nowrap">
+              <TextSmall>{new Date(fecha).toLocaleDateString('es-ES')}</TextSmall>
+              <TextTiny className="text-gray-400">{new Date(fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</TextTiny>
+            </div>
+          : <TextSmall className="text-gray-400 italic whitespace-nowrap">Sin programar</TextSmall>;
+      },
+    },
+    {
+      header: 'Técnicos',
+      render: item => item._type === 'visita'
+        ? <TechnicianChipList names={item.tecnicosNombres || []} />
+        : <TextTiny className="text-gray-400 italic">—</TextTiny>,
+    },
+    {
+      header: 'Estado',
+      render: item => <VisitStatusBadge status={item.estadoCodigo || ''} />,
+    },
+    {
+      header: 'Acciones',
+      narrow: true,
+      align: 'right',
+      render: item => {
+        const canEdit = item._type === 'solicitud' ? item.estadoCodigo === 'PENDIENTE' : item.esEditable;
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <button onClick={() => handleView(item)} className="p-2 hover:bg-blue-50 rounded-md transition-colors" title="Ver detalle">
+              <Eye size={15} className="text-blue-600" />
+            </button>
+            {canEdit && (
+              <button onClick={() => handleSchedule(item)} className="p-2 hover:bg-green-50 rounded-md transition-colors" title={item._type === 'solicitud' ? 'Programar' : 'Editar'}>
+                <Edit size={15} className="text-green-600" />
+              </button>
+            )}
+            {item._type === 'visita' && item.esEditable && (
+              <button onClick={() => setCancelModal({ open: true, item })} className="p-2 hover:bg-red-50 rounded-md transition-colors" title="Cancelar">
+                <Trash2 size={15} className="text-red-500" />
+              </button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <ModuleHeader
+      <GenericListView
         icon={CalendarCheck}
         title="Programación de Visitas"
-        subtitle="Asigna técnicos y fechas a las solicitudes pendientes"
-        filterContent={
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+        items={filtered}
+        columns={progColumns}
+        loading={loading}
+        loadingText="Cargando..."
+        emptyText="No hay visitas o solicitudes pendientes con los filtros aplicados."
+        emptyIcon={CalendarCheck}
+        extraFilters={
+          <div className="flex items-center gap-3">
             <div className="relative">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Buscar por cliente o sucursal..."
+                placeholder="Buscar..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
               />
               {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
-                >
+                <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded">
                   <X size={13} className="text-gray-400" />
                 </button>
               )}
             </div>
             <Select
               options={[
-                { value: 'TODOS',       label: 'Todos los estados' },
-                { value: 'PENDIENTE',   label: 'Pendiente'         },
-                { value: 'PROGRAMADA',  label: 'Programada'        },
-                { value: 'EN_PROCESO',  label: 'En proceso'        },
-                { value: 'FINALIZADO',  label: 'Finalizado'        },
-                { value: 'CANCELADO',   label: 'Cancelado'         },
+                { value: 'TODOS',      label: 'Todos los estados' },
+                { value: 'PENDIENTE',  label: 'Pendiente'         },
+                { value: 'PROGRAMADA', label: 'Programada'        },
+                { value: 'EN_PROCESO', label: 'En proceso'        },
+                { value: 'FINALIZADO', label: 'Finalizado'        },
+                { value: 'CANCELADO',  label: 'Cancelado'         },
               ]}
               value={filterEstado}
               onChange={e => setFilterEstado(e.target.value)}
             />
           </div>
         }
+        renderMobileCard={item => {
+          const tipoCodigo   = item.tipoVisitaCodigo || '';
+          const fechaDisplay = item._type === 'visita' ? item.fechaProgramada : item.fechaSugerida;
+          const estadoCodigo = item.estadoCodigo || '';
+          const canEdit      = item._type === 'solicitud' ? estadoCodigo === 'PENDIENTE' : item.esEditable;
+          return (
+            <VisitaMobileCard
+              visita={item}
+              tipoCodigo={tipoCodigo}
+              tipoLabel={item.tipoVisitaLabel}
+              fechaDisplay={fechaDisplay}
+              estadoCodigo={estadoCodigo}
+              tecnicos={item._type === 'visita' ? (item.tecnicosNombres || []) : []}
+              actions={[
+                { label: 'Ver', icon: Eye, onClick: () => handleView(item), colorClass: 'bg-blue-50 text-blue-700 hover:bg-blue-100' },
+                ...(canEdit ? [{ label: item._type === 'solicitud' ? 'Programar' : 'Editar', icon: Edit, onClick: () => handleSchedule(item), colorClass: 'bg-green-50 text-green-700 hover:bg-green-100' }] : []),
+                ...(item._type === 'visita' && item.esEditable ? [{ label: 'Cancelar', icon: Trash2, onClick: () => setCancelModal({ open: true, item }), colorClass: 'bg-red-50 text-red-700 hover:bg-red-100' }] : []),
+              ]}
+            />
+          );
+        }}
       />
-
-      {loading ? (
-        <Card className="p-0 overflow-hidden">
-          <div className="text-center py-12 text-sm text-gray-400">Cargando...</div>
-        </Card>
-      ) : filtered.length === 0 ? (
-        <Card className="p-0 overflow-hidden">
-          <div className="text-center py-12 text-sm text-gray-400">
-            No hay visitas o solicitudes pendientes con los filtros aplicados.
-          </div>
-        </Card>
-      ) : (
-        <>
-          {/* ── Desktop: tabla (oculta en mobile) ── */}
-          <Card className="hidden md:block p-0 overflow-hidden">
-            <Table>
-              <THead variant="light">
-                <tr>
-                  <Th>Tipo</Th>
-                  <Th>Cliente / Sucursal</Th>
-                  <Th>Fecha</Th>
-                  <Th>Técnicos</Th>
-                  <Th>Estado</Th>
-                  <Th align="right">Acciones</Th>
-                </tr>
-              </THead>
-              <TBody>
-                {filtered.map(item => {
-                  const tipoCodigo   = item.tipoVisitaCodigo || '';
-                  const fechaDisplay = item._type === 'visita' ? item.fechaProgramada : item.fechaSugerida;
-                  const estadoCodigo = item.estadoCodigo || '';
-                  const canEdit      = item._type === 'solicitud' ? estadoCodigo === 'PENDIENTE' : item.esEditable;
-
-                  return (
-                    <Tr key={item.id}>
-                      <Td>
-                        {tipoCodigo ? (
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${
-                            tipoCodigo === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
-                          }`}>
-                            {item.tipoVisitaLabel || tipoCodigo}
-                          </span>
-                        ) : (
-                          <TextSmall className="text-gray-400">—</TextSmall>
-                        )}
-                      </Td>
-                      <Td>
-                        <TextSmall className="font-semibold">{item.clienteNombre}</TextSmall>
-                        <TextTiny className="text-gray-400">{item.sucursalNombre}</TextTiny>
-                      </Td>
-                      <Td>
-                        {fechaDisplay ? (
-                          <div className="whitespace-nowrap">
-                            <TextSmall>{new Date(fechaDisplay).toLocaleDateString('es-ES')}</TextSmall>
-                            <TextTiny className="text-gray-400">
-                              {new Date(fechaDisplay).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                            </TextTiny>
-                          </div>
-                        ) : (
-                          <TextSmall className="text-gray-400 italic whitespace-nowrap">Sin programar</TextSmall>
-                        )}
-                      </Td>
-                      <Td>
-                        {item._type === 'visita'
-                          ? <TechnicianChipList names={item.tecnicosNombres || []} />
-                          : <TextTiny className="text-gray-400 italic">—</TextTiny>}
-                      </Td>
-                      <Td><VisitStatusBadge status={estadoCodigo} /></Td>
-                      <Td align="right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => handleView(item)} className="p-2 hover:bg-blue-50 rounded-md transition-colors" title="Ver detalle">
-                            <Eye size={15} className="text-blue-600" />
-                          </button>
-                          {canEdit && (
-                            <button onClick={() => handleSchedule(item)} className="p-2 hover:bg-green-50 rounded-md transition-colors" title={item._type === 'solicitud' ? 'Programar' : 'Editar'}>
-                              <Edit size={15} className="text-green-600" />
-                            </button>
-                          )}
-                          {item._type === 'visita' && item.esEditable && (
-                            <button onClick={() => setCancelModal({ open: true, item })} className="p-2 hover:bg-red-50 rounded-md transition-colors" title="Cancelar visita">
-                              <Trash2 size={15} className="text-red-500" />
-                            </button>
-                          )}
-                        </div>
-                      </Td>
-                    </Tr>
-                  );
-                })}
-              </TBody>
-            </Table>
-          </Card>
-
-          {/* ── Mobile: cards (oculto en md+) ── */}
-          <div className="flex flex-col gap-3 md:hidden">
-            {filtered.map(item => {
-              const tipoCodigo   = item.tipoVisitaCodigo || '';
-              const fechaDisplay = item._type === 'visita' ? item.fechaProgramada : item.fechaSugerida;
-              const estadoCodigo = item.estadoCodigo || '';
-              const canEdit      = item._type === 'solicitud' ? estadoCodigo === 'PENDIENTE' : item.esEditable;
-
-              return (
-                <Card key={item.id} className="p-4 border border-gray-200 shadow-sm rounded-xl">
-                  {/* Header: cliente + badge tipo */}
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="min-w-0">
-                      <TextSmall className="font-bold text-gray-900 truncate">{item.clienteNombre}</TextSmall>
-                      <TextTiny className="text-gray-400 truncate">{item.sucursalNombre}</TextTiny>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      {tipoCodigo && (
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${
-                          tipoCodigo === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
-                        }`}>
-                          {item.tipoVisitaLabel || tipoCodigo}
-                        </span>
-                      )}
-                      <VisitStatusBadge status={estadoCodigo} />
-                    </div>
-                  </div>
-
-                  {/* Detalles */}
-                  <div className="space-y-1.5 mb-3">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={13} className="text-gray-300 shrink-0" />
-                      {fechaDisplay ? (
-                        <TextTiny className="text-gray-500">
-                          {new Date(fechaDisplay).toLocaleDateString('es-ES')}{' '}
-                          {new Date(fechaDisplay).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                        </TextTiny>
-                      ) : (
-                        <TextTiny className="text-gray-400 italic">Sin programar</TextTiny>
-                      )}
-                    </div>
-                    {item._type === 'visita' && (item.tecnicosNombres || []).length > 0 && (
-                      <div className="flex items-start gap-2">
-                        <Users size={13} className="text-gray-300 shrink-0 mt-0.5" />
-                        <TechnicianChipList names={item.tecnicosNombres} />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Acciones */}
-                  <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => handleView(item)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-semibold"
-                    >
-                      <Eye size={14} /> Ver
-                    </button>
-                    {canEdit && (
-                      <button
-                        onClick={() => handleSchedule(item)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors text-xs font-semibold"
-                      >
-                        <Edit size={14} /> {item._type === 'solicitud' ? 'Programar' : 'Editar'}
-                      </button>
-                    )}
-                    {item._type === 'visita' && item.esEditable && (
-                      <button
-                        onClick={() => setCancelModal({ open: true, item })}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors text-xs font-semibold"
-                      >
-                        <Trash2 size={14} /> Cancelar
-                      </button>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </>
-      )}
 
       {/* ── Modal éxito post-acción ───────────────────────────────────────── */}
       {successModal.open && (

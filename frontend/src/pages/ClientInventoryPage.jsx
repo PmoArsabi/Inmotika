@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Cpu, MapPin, Calendar, Activity, Filter, Eye, ArrowLeft } from 'lucide-react';
+import { Cpu, MapPin, Calendar, Activity, Filter, Eye, ArrowLeft, Tag } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
 import IconButton from '../components/ui/IconButton';
 import SectionHeader from '../components/ui/SectionHeader';
-import { Subtitle, TextSmall } from '../components/ui/Typography';
+import { Subtitle, TextSmall, TextTiny } from '../components/ui/Typography';
 import StatusBadge from '../components/ui/StatusBadge';
 import InfoField from '../components/ui/InfoField';
 import { useClienteData } from '../hooks/useClienteData';
@@ -217,7 +217,8 @@ const ClientInventoryPage = () => {
         </div>
       </Card>
 
-      <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
+      {/* ── Desktop: tabla (oculta en mobile) ── */}
+      <Card className="hidden md:block p-0 overflow-hidden rounded-md border-none shadow-xl">
         <Table>
           <THead variant="light">
             <tr>
@@ -232,31 +233,19 @@ const ClientInventoryPage = () => {
               filteredDevices.map((dev) => (
                 <Tr key={dev.id}>
                   <Td>
-                    <Subtitle className="text-[#D32F2F] normal-case tracking-normal">
-                      {getDeviceNombre(dev)}
-                    </Subtitle>
+                    <Subtitle className="text-[#D32F2F] normal-case tracking-normal">{getDeviceNombre(dev)}</Subtitle>
                     <TextSmall className="text-gray-400 mt-0.5">{dev.codigoUnico || dev.idInmotika || ''}</TextSmall>
                   </Td>
                   <Td>
-                    <Subtitle className="text-gray-700 normal-case tracking-normal">
-                      {getCategoriaNombre(dev) || 'Sin categoría'}
-                    </Subtitle>
+                    <Subtitle className="text-gray-700 normal-case tracking-normal">{getCategoriaNombre(dev) || 'Sin categoría'}</Subtitle>
                     <TextSmall className="text-gray-400 mt-0.5">{getSucursalNombre(dev)}</TextSmall>
                   </Td>
                   <Td>
-                    <div className="mb-0.5">
-                      <StatusBadge status={getEstadoNombre(dev) || 'Activo'} />
-                    </div>
-                    <TextSmall className="text-gray-400">
-                      {dev.fechaProximoMantenimiento || dev.fecha_proximo_mantenimiento || '—'}
-                    </TextSmall>
+                    <div className="mb-0.5"><StatusBadge status={getEstadoNombre(dev) || 'Activo'} /></div>
+                    <TextSmall className="text-gray-400">{dev.fechaProximoMantenimiento || dev.fecha_proximo_mantenimiento || '—'}</TextSmall>
                   </Td>
                   <Td align="right">
-                    <IconButton
-                      icon={Eye}
-                      className="text-gray-300 hover:text-[#D32F2F]"
-                      onClick={() => setSelectedDevice(dev)}
-                    />
+                    <IconButton icon={Eye} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => setSelectedDevice(dev)} />
                   </Td>
                 </Tr>
               ))
@@ -270,6 +259,54 @@ const ClientInventoryPage = () => {
           </TBody>
         </Table>
       </Card>
+
+      {/* ── Mobile: cards (oculto en md+) ── */}
+      {filteredDevices.length > 0 ? (
+        <div className="flex flex-col gap-4 md:hidden">
+          {filteredDevices.map((dev) => (
+            <Card key={dev.id} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
+              {/* Header: nombre + estado */}
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                  <Subtitle className="text-[#D32F2F] normal-case tracking-normal truncate">{getDeviceNombre(dev)}</Subtitle>
+                  {(dev.codigoUnico || dev.idInmotika) && (
+                    <TextTiny className="text-gray-400 font-mono">{dev.codigoUnico || dev.idInmotika}</TextTiny>
+                  )}
+                </div>
+                <StatusBadge status={getEstadoNombre(dev) || 'Activo'} />
+              </div>
+
+              {/* Detalles */}
+              <div className="divide-y divide-gray-50 mb-4">
+                <div className="flex items-center gap-2 py-2 first:pt-0">
+                  <Tag size={13} className="text-gray-300 shrink-0" />
+                  <TextTiny className="text-gray-600 font-semibold">{getCategoriaNombre(dev) || 'Sin categoría'}</TextTiny>
+                </div>
+                <div className="flex items-center gap-2 py-2">
+                  <MapPin size={13} className="text-gray-300 shrink-0" />
+                  <TextTiny className="text-gray-600">{getSucursalNombre(dev) || '—'}</TextTiny>
+                </div>
+                <div className="flex items-center gap-2 py-2 last:pb-0">
+                  <Calendar size={13} className="text-gray-300 shrink-0" />
+                  <TextTiny className="text-gray-500">Próx. mant.: {dev.fechaProximoMantenimiento || dev.fecha_proximo_mantenimiento || '—'}</TextTiny>
+                </div>
+              </div>
+
+              {/* Acción */}
+              <button
+                onClick={() => setSelectedDevice(dev)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 hover:border-[#D32F2F] hover:text-[#D32F2F] text-gray-600 transition-colors text-xs font-semibold"
+              >
+                <Eye size={14} /> Ver detalle
+              </button>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="md:hidden text-center py-8">
+          <TextSmall className="text-gray-400 italic">No se encontraron equipos con estos filtros</TextSmall>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,9 +1,9 @@
-import { BarChart3, Calendar, CheckCircle, Clock, FileText, AlertTriangle, Activity } from 'lucide-react';
+import { BarChart3, Calendar, CheckCircle, Clock, FileText, AlertTriangle, Activity, User } from 'lucide-react';
 import Card from '../components/ui/Card';
 import SectionHeader from '../components/ui/SectionHeader';
 import StatCard from '../components/ui/StatCard';
 import StatusBadge from '../components/ui/StatusBadge';
-import { Subtitle, TextSmall } from '../components/ui/Typography';
+import { Subtitle, TextSmall, TextTiny } from '../components/ui/Typography';
 import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
 import CardHeader from '../components/ui/CardHeader';
 
@@ -35,26 +35,52 @@ const ClientDashboardPage = () => {
             <div className="p-6 pb-0">
                <CardHeader icon={FileText} title="Historial de Visitas" className="mb-4 border-none pb-0" />
             </div>
-            <Table>
-              <THead variant="light">
-                <tr>
-                  <Th>Tipo</Th>
-                  <Th>Fecha</Th>
-                  <Th>Técnico</Th>
-                  <Th>Estado</Th>
-                </tr>
-              </THead>
-              <TBody>
-                {myVisits.map((v) => (
-                  <Tr key={v.id}>
-                    <Td><TextSmall className="text-gray-900">{v.tipoMantenimiento}</TextSmall></Td>
-                    <Td><TextSmall className="text-gray-500">{v.fecha}</TextSmall></Td>
-                    <Td><TextSmall className="text-gray-500">{v.tecnico}</TextSmall></Td>
-                    <Td><StatusBadge status={v.estado} /></Td>
-                  </Tr>
-                ))}
-              </TBody>
-            </Table>
+
+            {/* Desktop: tabla */}
+            <div className="hidden md:block">
+              <Table>
+                <THead variant="light">
+                  <tr>
+                    <Th>Tipo</Th>
+                    <Th>Fecha</Th>
+                    <Th>Técnico</Th>
+                    <Th>Estado</Th>
+                  </tr>
+                </THead>
+                <TBody>
+                  {myVisits.map((v) => (
+                    <Tr key={v.id}>
+                      <Td><TextSmall className="text-gray-900">{v.tipoMantenimiento}</TextSmall></Td>
+                      <Td><TextSmall className="text-gray-500">{v.fecha}</TextSmall></Td>
+                      <Td><TextSmall className="text-gray-500">{v.tecnico}</TextSmall></Td>
+                      <Td><StatusBadge status={v.estado} /></Td>
+                    </Tr>
+                  ))}
+                </TBody>
+              </Table>
+            </div>
+
+            {/* Mobile: cards */}
+            <div className="flex flex-col divide-y divide-gray-50 md:hidden px-4 pb-4">
+              {myVisits.map((v) => (
+                <div key={v.id} className="py-3 first:pt-2">
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <TextSmall className="font-semibold text-gray-900 leading-tight">{v.tipoMantenimiento}</TextSmall>
+                    <StatusBadge status={v.estado} />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar size={11} className="text-gray-300" />
+                      <TextTiny className="text-gray-400">{v.fecha}</TextTiny>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <User size={11} className="text-gray-300" />
+                      <TextTiny className="text-gray-400">{v.tecnico}</TextTiny>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </Card>
         </div>
 

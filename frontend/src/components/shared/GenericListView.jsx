@@ -8,19 +8,23 @@ import { Subtitle, TextSmall, TextTiny } from '../ui/Typography';
 import ModuleHeader from '../ui/ModuleHeader';
 
 /**
- * @param {string} title - Page title
- * @param {React.ReactNode} icon - Lucide icon component
- * @param {Array} items - Data array
- * @param {Array} columns - Column definitions [{ header: 'Header', render: (item) => ... , narrow: bool, align: 'left'|'right'|'center', mobileLabel: 'Label' }]
- * @param {function} onNew - Handler for "New" button
- * @param {function} onView - Handler for "View" icon
- * @param {function} onEdit - Handler for "Edit" icon
- * @param {function} onDelete - Handler for "Delete" icon
- * @param {string} newButtonLabel - Label for the "New" button
- * @param {string} searchPlaceholder - Placeholder for search input
- * @param {function} filterFunction - Custom search filter function (item, query) => bool
- * @param {React.ReactNode} emptyIcon - Icon for empty state
- * @param {string} emptyText - Text for empty state
+ * @param {string}   title             - Título de la página
+ * @param {React.ReactNode} icon       - Ícono Lucide del módulo
+ * @param {Array}    items             - Array de datos
+ * @param {Array}    columns           - Definición de columnas: [{ header, render, narrow, align, mobileLabel }]
+ * @param {function} onNew             - Handler del botón "Nuevo"
+ * @param {function} onView            - Handler del botón "Ver"
+ * @param {function} onEdit            - Handler del botón "Editar"
+ * @param {function} onDelete          - Handler del botón "Eliminar"
+ * @param {string}   newButtonLabel    - Texto del botón "Nuevo"
+ * @param {string}   searchPlaceholder - Placeholder del buscador
+ * @param {function} filterFunction    - Función de filtrado (item, query) => bool
+ * @param {React.ReactNode} emptyIcon  - Ícono del estado vacío
+ * @param {string}   emptyText         - Texto del estado vacío
+ * @param {boolean}  loading           - Muestra estado de carga
+ * @param {string}   loadingText       - Texto mientras carga
+ * @param {function} renderMobileCard  - (item) => JSX — card mobile personalizada.
+ *                                       Si se omite, se auto-genera desde `columns`.
  */
 const GenericListView = ({
   title,
@@ -36,7 +40,10 @@ const GenericListView = ({
   filterFunction,
   emptyIcon: EmptyIcon = Icon,
   emptyText = "No se encontraron registros",
-  extraFilters
+  extraFilters,
+  loading = false,
+  loadingText = "Cargando...",
+  renderMobileCard,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -128,8 +135,14 @@ const GenericListView = ({
         </div>
       )}
 
-      {/* Empty state */}
-      {filteredItems.length === 0 ? (
+      {/* Loading state */}
+      {loading ? (
+        <Card className="p-12 text-center">
+          <TextSmall className="text-gray-400">{loadingText}</TextSmall>
+        </Card>
+
+      /* Empty state */
+      ) : filteredItems.length === 0 ? (
         <Card className="p-12 text-center">
           {EmptyIcon && <EmptyIcon size={48} className="mx-auto mb-4 text-gray-300" />}
           <Subtitle className="text-gray-500 mb-2">{emptyText}</Subtitle>
@@ -137,9 +150,10 @@ const GenericListView = ({
             {searchQuery ? 'Intenta con otros términos de búsqueda' : 'No hay registros para mostrar'}
           </TextSmall>
         </Card>
+
       ) : (
         <>
-          {/* ── Desktop: tabla completa (oculta en mobile) ── */}
+          {/* ── Desktop: tabla (oculta en mobile) ── */}
           <Card className="hidden md:block p-0 overflow-hidden rounded-md border border-gray-200 shadow-sm">
             <Table>
               <THead variant="light">
@@ -164,29 +178,17 @@ const GenericListView = ({
                       <Td align="right">
                         <div className="flex items-center justify-end gap-2">
                           {onView && (
-                            <button
-                              onClick={() => onView(item)}
-                              className="p-1.5 rounded hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
-                              title="Ver detalles"
-                            >
+                            <button onClick={() => onView(item)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="Ver detalles">
                               <Eye size={16} />
                             </button>
                           )}
                           {onEdit && (
-                            <button
-                              onClick={() => onEdit(item)}
-                              className="p-1.5 rounded hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors"
-                              title="Editar"
-                            >
+                            <button onClick={() => onEdit(item)} className="p-1.5 rounded hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors" title="Editar">
                               <Edit2 size={16} />
                             </button>
                           )}
                           {onDelete && (
-                            <button
-                              onClick={() => onDelete(item)}
-                              className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors"
-                              title="Eliminar"
-                            >
+                            <button onClick={() => onDelete(item)} className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="Eliminar">
                               <Trash2 size={16} />
                             </button>
                           )}
@@ -202,56 +204,46 @@ const GenericListView = ({
           {/* ── Mobile: cards (oculto en md+) ── */}
           <div className="flex flex-col gap-4 md:hidden">
             {paginatedItems.map((item, rowIdx) => (
-              <Card
-                key={item.id || rowIdx}
-                className="p-5 border border-gray-200 shadow-sm rounded-2xl"
-              >
-                {/* Campos del registro */}
-                <div className="divide-y divide-gray-50">
-                  {columns.map((col, colIdx) => (
-                    <div key={colIdx} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
-                      {col.mobileLabel !== false && (
-                        <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">
-                          {col.mobileLabel || col.header}
-                        </TextTiny>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        {col.render(item)}
+              // Si el caller provee renderMobileCard, se usa; si no, auto-generamos desde columns
+              renderMobileCard ? (
+                <React.Fragment key={item.id || rowIdx}>
+                  {renderMobileCard(item)}
+                </React.Fragment>
+              ) : (
+                <Card key={item.id || rowIdx} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
+                  <div className="divide-y divide-gray-50">
+                    {columns.map((col, colIdx) => (
+                      <div key={colIdx} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                        {col.mobileLabel !== false && (
+                          <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">
+                            {col.mobileLabel || col.header}
+                          </TextTiny>
+                        )}
+                        <div className="flex-1 min-w-0">{col.render(item)}</div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Acciones */}
-                {hasActions && (
-                  <div className="flex items-center gap-2 pt-4 mt-3 border-t border-gray-100">
-                    {onView && (
-                      <button
-                        onClick={() => onView(item)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-semibold"
-                      >
-                        <Eye size={14} /> Ver
-                      </button>
-                    )}
-                    {onEdit && (
-                      <button
-                        onClick={() => onEdit(item)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 transition-colors text-xs font-semibold"
-                      >
-                        <Edit2 size={14} /> Editar
-                      </button>
-                    )}
-                    {onDelete && (
-                      <button
-                        onClick={() => onDelete(item)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition-colors text-xs font-semibold"
-                      >
-                        <Trash2 size={14} /> Eliminar
-                      </button>
-                    )}
+                    ))}
                   </div>
-                )}
-              </Card>
+                  {hasActions && (
+                    <div className="flex items-center gap-2 pt-4 mt-3 border-t border-gray-100">
+                      {onView && (
+                        <button onClick={() => onView(item)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-semibold">
+                          <Eye size={14} /> Ver
+                        </button>
+                      )}
+                      {onEdit && (
+                        <button onClick={() => onEdit(item)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 transition-colors text-xs font-semibold">
+                          <Edit2 size={14} /> Editar
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button onClick={() => onDelete(item)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition-colors text-xs font-semibold">
+                          <Trash2 size={14} /> Eliminar
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              )
             ))}
           </div>
         </>

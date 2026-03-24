@@ -6,7 +6,7 @@ import IconButton from '../components/ui/IconButton';
 import InfoField from '../components/ui/InfoField';
 import SectionHeader from '../components/ui/SectionHeader';
 import { BranchForm } from '../components/forms/BranchForm';
-import { Subtitle, TextSmall } from '../components/ui/Typography';
+import { Subtitle, TextSmall, TextTiny } from '../components/ui/Typography';
 import { useClienteData } from '../hooks/useClienteData';
 import { toBranchDraft } from '../utils/entityMappers';
 
@@ -103,7 +103,8 @@ const ClientDataPage = () => {
           <SectionHeader title="Red de Sucursales" subtitle="Sedes vinculadas al contrato" />
         </div>
 
-        <Card className="p-0 overflow-hidden rounded-md border-none shadow-xl">
+        {/* ── Desktop: tabla (oculta en mobile) ── */}
+        <Card className="hidden md:block p-0 overflow-hidden rounded-md border-none shadow-xl">
           <Table>
             <THead variant="light">
               <tr>
@@ -115,20 +116,15 @@ const ClientDataPage = () => {
             <TBody>
               {sucursales.length > 0 ? (
                 sucursales.map((sucursal, idx) => {
-                  const nombreContacto = contacto
-                    ? `${contacto.nombres || ''} ${contacto.apellidos || ''}`.trim()
-                    : null;
+                  const nombreContacto  = contacto ? `${contacto.nombres || ''} ${contacto.apellidos || ''}`.trim() : null;
                   const telefonoContacto = contacto?.telefono_movil || null;
-                  const ubicacion = formatUbicacion(sucursal);
-
+                  const ubicacion        = formatUbicacion(sucursal);
                   return (
                     <Tr key={sucursal.id || idx}>
                       <Td>
                         <Subtitle className="text-[#D32F2F] normal-case tracking-normal">
                           {sucursal.nombre}
-                          {sucursal.es_principal && (
-                            <span className="ml-2 text-xs font-normal text-gray-400">(Principal)</span>
-                          )}
+                          {sucursal.es_principal && <span className="ml-2 text-xs font-normal text-gray-400">(Principal)</span>}
                         </Subtitle>
                         <TextSmall className="text-gray-400 mt-0.5">{ubicacion}</TextSmall>
                       </Td>
@@ -143,19 +139,13 @@ const ClientDataPage = () => {
                           {(nombreContacto || telefonoContacto) && (
                             <div className="flex items-center gap-2">
                               <UserCircle2 size={10} className="text-gray-400" />
-                              <TextSmall className="text-gray-500">
-                                {[nombreContacto, telefonoContacto].filter(Boolean).join(' — ')}
-                              </TextSmall>
+                              <TextSmall className="text-gray-500">{[nombreContacto, telefonoContacto].filter(Boolean).join(' — ')}</TextSmall>
                             </div>
                           )}
                         </div>
                       </Td>
                       <Td align="right">
-                        <IconButton
-                          icon={Eye}
-                          className="text-gray-300 hover:text-[#D32F2F]"
-                          onClick={() => setSelectedSucursal(sucursal)}
-                        />
+                        <IconButton icon={Eye} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => setSelectedSucursal(sucursal)} />
                       </Td>
                     </Tr>
                   );
@@ -170,6 +160,64 @@ const ClientDataPage = () => {
             </TBody>
           </Table>
         </Card>
+
+        {/* ── Mobile: cards (oculto en md+) ── */}
+        {sucursales.length > 0 ? (
+          <div className="flex flex-col gap-4 md:hidden">
+            {sucursales.map((sucursal, idx) => {
+              const nombreContacto   = contacto ? `${contacto.nombres || ''} ${contacto.apellidos || ''}`.trim() : null;
+              const telefonoContacto = contacto?.telefono_movil || null;
+              const ubicacion        = formatUbicacion(sucursal);
+              return (
+                <Card key={sucursal.id || idx} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <Subtitle className="text-[#D32F2F] normal-case tracking-normal truncate">{sucursal.nombre}</Subtitle>
+                      {sucursal.es_principal && (
+                        <TextTiny className="text-gray-400">(Principal)</TextTiny>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Detalles */}
+                  <div className="divide-y divide-gray-50 mb-4">
+                    {ubicacion && (
+                      <div className="flex items-center gap-2 py-2 first:pt-0">
+                        <Globe size={13} className="text-gray-300 shrink-0" />
+                        <TextTiny className="text-gray-600">{ubicacion}</TextTiny>
+                      </div>
+                    )}
+                    {sucursal.direccion && (
+                      <div className="flex items-center gap-2 py-2">
+                        <MapPin size={13} className="text-gray-300 shrink-0" />
+                        <TextTiny className="text-gray-700 font-semibold">{sucursal.direccion}</TextTiny>
+                      </div>
+                    )}
+                    {(nombreContacto || telefonoContacto) && (
+                      <div className="flex items-center gap-2 py-2 last:pb-0">
+                        <UserCircle2 size={13} className="text-gray-300 shrink-0" />
+                        <TextTiny className="text-gray-500">{[nombreContacto, telefonoContacto].filter(Boolean).join(' — ')}</TextTiny>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Acción */}
+                  <button
+                    onClick={() => setSelectedSucursal(sucursal)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 hover:border-[#D32F2F] hover:text-[#D32F2F] text-gray-600 transition-colors text-xs font-semibold"
+                  >
+                    <Eye size={14} /> Ver detalle
+                  </button>
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="md:hidden text-center py-8">
+            <TextSmall className="text-gray-400 italic">No hay sucursales vinculadas</TextSmall>
+          </div>
+        )}
       </div>
     </div>
   );
