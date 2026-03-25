@@ -1,11 +1,57 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Users } from 'lucide-react';
 import GenericListView from '../../components/shared/GenericListView';
+import FilterBar from '../../components/shared/FilterBar';
 import { Subtitle, TextSmall } from '../../components/ui/Typography';
 
 const ContactsView = ({ config, data }) => {
   const { handleView, handleEdit, handleNew, removeItem } = config;
   const contacts = data.contactos || [];
+
+  // ── Filtros ────────────────────────────────────────────────────────────────
+  const [filters, setFilters] = useState({ cliente: [], sucursal: [] });
+
+  // Opciones únicas de clientes
+  const clienteOptions = useMemo(() => {
+    const seen = new Set();
+    return contacts
+      .map(ct => ({ value: ct.clienteId || ct.cliente_id || '', label: ct.clienteNombre || '' }))
+      .filter(o => o.value && o.label && !seen.has(o.value) && seen.add(o.value))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [contacts]);
+
+  // Sucursales filtradas según clientes seleccionados (cascading)
+  const sucursalOptions = useMemo(() => {
+    const selectedClientes = filters.cliente;
+    const seen = new Set();
+    return contacts
+      .filter(ct => selectedClientes.length === 0 || selectedClientes.includes(String(ct.clienteId || ct.cliente_id || '')))
+      .map(ct => ({
+        value: ct.sucursalId || ct.sucursal_id || '',
+        label: ct.sucursalNombre || '',
+        parentValue: String(ct.clienteId || ct.cliente_id || ''),
+      }))
+      .filter(o => {
+        const key = `${o.value}__${o.parentValue}`;
+        return o.value && o.label && !seen.has(key) && seen.add(key);
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [contacts, filters.cliente]);
+
+  const filterDefs = [
+    { key: 'cliente',  label: 'Cliente',  options: clienteOptions,  multi: true },
+    { key: 'sucursal', label: 'Sucursal', options: sucursalOptions, multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
+  ];
+
+  // Contactos filtrados por multi-select (texto lo maneja GenericListView)
+  const filteredContacts = useMemo(() => {
+    let list = contacts;
+    if (filters.cliente.length > 0)
+      list = list.filter(ct => filters.cliente.includes(String(ct.clienteId || ct.cliente_id || '')));
+    if (filters.sucursal.length > 0)
+      list = list.filter(ct => filters.sucursal.includes(String(ct.sucursalId || ct.sucursal_id || '')));
+    return list;
+  }, [contacts, filters]);
 
   const columns = [
     {
@@ -16,45 +62,28 @@ const ContactsView = ({ config, data }) => {
             {ct.nombres || ct.apellidos ? `${ct.nombres || ''} ${ct.apellidos || ''}`.trim() : 'Sin nombre'}
           </Subtitle>
           {(ct.cargoNombre || ct.cargo) && (
-            <TextSmall className="text-gray-500 mt-0.5">
-              {ct.cargoNombre || ct.cargo}
-            </TextSmall>
+            <TextSmall className="text-gray-500 mt-0.5">{ct.cargoNombre || ct.cargo}</TextSmall>
           )}
         </>
-      )
+      ),
     },
-    {
-      header: 'Correo',
-      render: (ct) => <TextSmall className="text-gray-700 font-bold">{ct.email || '—'}</TextSmall>
-    },
-    {
-      header: 'Celular',
-      render: (ct) => <TextSmall className="text-gray-700 font-bold">{ct.telefonoMovil || '—'}</TextSmall>
-    },
+    { header: 'Correo',  render: (ct) => <TextSmall className="text-gray-700 font-bold">{ct.email || '—'}</TextSmall> },
+    { header: 'Celular', render: (ct) => <TextSmall className="text-gray-700 font-bold">{ct.telefonoMovil || '—'}</TextSmall> },
     {
       header: 'Cliente / Sucursal',
       render: (ct) => (
         <TextSmall className="text-gray-600">
           {ct.clienteNombre || 'Sin cliente'}{ct.sucursalNombre ? ` / ${ct.sucursalNombre}` : ''}
         </TextSmall>
-      )
-    }
+      ),
+    },
   ];
-
-  const filterFunction = (ct, q) => (
-    (ct.nombres || '').toLowerCase().includes(q) ||
-    (ct.apellidos || '').toLowerCase().includes(q) ||
-    (ct.email || '').toLowerCase().includes(q) ||
-    String(ct.telefonoMovil || '').includes(q) ||
-    (ct.clienteNombre || '').toLowerCase().includes(q) ||
-    (ct.sucursalNombre || '').toLowerCase().includes(q)
-  );
 
   return (
     <GenericListView
       title="Información Contactos"
       icon={Users}
-      items={contacts}
+      items={filteredContacts}
       columns={columns}
       onNew={() => handleNew('contacto')}
       onView={(ct) => handleView(ct, 'contacto')}
@@ -62,7 +91,22 @@ const ContactsView = ({ config, data }) => {
       onDelete={(ct) => removeItem(ct.id, 'contactos')}
       newButtonLabel="Nuevo Contacto"
       searchPlaceholder="Buscar: Nombre / Email / Celular"
-      filterFunction={filterFunction}
+      filterFunction={(ct, q) =>
+        (ct.nombres || '').toLowerCase().includes(q) ||
+        (ct.apellidos || '').toLowerCase().includes(q) ||
+        (ct.email || '').toLowerCase().includes(q) ||
+        String(ct.telefonoMovil || '').includes(q)
+      }
+      extraFilters={
+        <FilterBar
+          mode="inline"
+          filters={filterDefs}
+          values={filters}
+          onChange={setFilters}
+          totalItems={contacts.length}
+          filteredCount={filteredContacts.length}
+        />
+      }
     />
   );
 };

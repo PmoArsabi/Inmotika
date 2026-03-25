@@ -1,17 +1,17 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  ArrowLeft, Search, X, Edit, Eye, CalendarCheck,
+  ArrowLeft, Edit, Eye, CalendarCheck,
   Calendar, Building2, User, AlertCircle, Users, Save, Trash2, CheckCircle2, Cpu,
 } from 'lucide-react';
 import { H2, H3, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Select from '../../components/ui/Select';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import InfoRow from '../../components/ui/InfoRow';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import VisitaMobileCard from '../../components/visits/VisitaMobileCard';
 import GenericListView from '../../components/shared/GenericListView';
+import FilterBar from '../../components/shared/FilterBar';
 import { TechnicianChipList } from '../../components/ui/TechnicianChip';
 import { supabase } from '../../utils/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -107,8 +107,7 @@ const ProgramacionVisitaPage = () => {
   const [editingVisitaId, setEditingVisitaId] = useState(null); // null = creating
   const [solicitudOrigen, setSolicitudOrigen] = useState(null);
   const [draft, setDraft]               = useState(emptyDraft());
-  const [searchTerm, setSearchTerm]     = useState('');
-  const [filterEstado, setFilterEstado] = useState('TODOS');
+  const [filters, setFilters]           = useState({ cliente: [], sucursal: [], estado: [], tecnico: [] });
   const [viewingItem, setViewingItem]   = useState(null);
 
   const updateDraft = useCallback(patch => setDraft(prev => ({ ...prev, ...patch })), []);
@@ -132,27 +131,63 @@ const ProgramacionVisitaPage = () => {
     return [...pendientes, ...todasVisitas];
   }, [solicitudes, visitas]);
 
+  // Opciones para FilterBar (derivadas de combinedList)
+  const clienteOptions = useMemo(() => {
+    const seen = new Set();
+    return combinedList
+      .map(item => ({ value: item.clienteId || '', label: item.clienteNombre || '' }))
+      .filter(o => o.value && o.label && !seen.has(o.value) && seen.add(o.value))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [combinedList]);
+
+  const sucursalOptions = useMemo(() => {
+    const selectedClientes = filters.cliente;
+    const seen = new Set();
+    return combinedList
+      .filter(item => selectedClientes.length === 0 || selectedClientes.includes(item.clienteId || ''))
+      .map(item => ({
+        value: item.sucursalId || '',
+        label: item.sucursalNombre || '',
+        parentValue: item.clienteId || '',
+      }))
+      .filter(o => {
+        const key = `${o.value}__${o.parentValue}`;
+        return o.value && o.label && !seen.has(key) && seen.add(key);
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [combinedList, filters.cliente]);
+
+  const estadoFilterOptions = useMemo(() => {
+    const seen = new Set();
+    return combinedList
+      .map(item => ({ value: item.estadoCodigo || '', label: item.estadoLabel || item.estadoCodigo || '' }))
+      .filter(o => o.value && !seen.has(o.value) && seen.add(o.value))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [combinedList]);
+
+  const tecnicoFilterOptions = useMemo(() => tecnicosOptions, [tecnicosOptions]);
+
+  const filterDefs = [
+    { key: 'cliente',  label: 'Cliente',  options: clienteOptions,       multi: true },
+    { key: 'sucursal', label: 'Sucursal', options: sucursalOptions,       multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
+    { key: 'estado',   label: 'Estado',   options: estadoFilterOptions,   multi: true },
+    { key: 'tecnico',  label: 'Técnico',  options: tecnicoFilterOptions,  multi: true },
+  ];
+
   const filtered = useMemo(() => {
     let list = combinedList;
-
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
+    if (filters.cliente.length > 0)
+      list = list.filter(item => filters.cliente.includes(item.clienteId || ''));
+    if (filters.sucursal.length > 0)
+      list = list.filter(item => filters.sucursal.includes(item.sucursalId || ''));
+    if (filters.estado.length > 0)
+      list = list.filter(item => filters.estado.includes(item.estadoCodigo || ''));
+    if (filters.tecnico.length > 0)
       list = list.filter(item =>
-        item.clienteNombre?.toLowerCase().includes(q) ||
-        item.sucursalNombre?.toLowerCase().includes(q)
+        (item.tecnicoIds || []).some(id => filters.tecnico.includes(id))
       );
-    }
-
-    if (filterEstado !== 'TODOS') {
-      list = list.filter(item => {
-        // Para solicitudes usamos estadoCodigo, para visitas también
-        const codigo = item.estadoCodigo || '';
-        return codigo === filterEstado;
-      });
-    }
-
     return list;
-  }, [combinedList, searchTerm, filterEstado]);
+  }, [combinedList, filters]);
 
   const loading = loadingSol || loadingVis;
 
@@ -654,35 +689,14 @@ const ProgramacionVisitaPage = () => {
         emptyText="No hay visitas o solicitudes pendientes con los filtros aplicados."
         emptyIcon={CalendarCheck}
         extraFilters={
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
-              />
-              {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded">
-                  <X size={13} className="text-gray-400" />
-                </button>
-              )}
-            </div>
-            <Select
-              options={[
-                { value: 'TODOS',      label: 'Todos los estados' },
-                { value: 'PENDIENTE',  label: 'Pendiente'         },
-                { value: 'PROGRAMADA', label: 'Programada'        },
-                { value: 'EN_PROCESO', label: 'En proceso'        },
-                { value: 'FINALIZADO', label: 'Finalizado'        },
-                { value: 'CANCELADO',  label: 'Cancelado'         },
-              ]}
-              value={filterEstado}
-              onChange={e => setFilterEstado(e.target.value)}
-            />
-          </div>
+          <FilterBar
+            mode="inline"
+            filters={filterDefs}
+            values={filters}
+            onChange={setFilters}
+            totalItems={combinedList.length}
+            filteredCount={filtered.length}
+          />
         }
         renderMobileCard={item => {
           const tipoCodigo   = item.tipoVisitaCodigo || '';

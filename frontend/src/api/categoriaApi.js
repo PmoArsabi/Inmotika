@@ -4,21 +4,22 @@ import { supabase } from '../utils/supabase';
  * Fetch all device categories with the count of their protocol steps.
  */
 export const getCategorias = async () => {
+  // Una sola query: incluye pasos activos embebidos para contar client-side.
+  // Supabase no soporta filtrar el count embebido directamente, pero sí
+  // traer los ids y contar en JS, evitando una segunda round-trip.
   const { data, error } = await supabase
     .from('categoria_dispositivo')
-    .select(`
-      *,
-      numPasos:paso_protocolo(count)
-    `)
+    .select('*, pasos:paso_protocolo(id)')
     .or('activo.eq.true,activo.is.null')
+    .eq('paso_protocolo.activo', true)
     .order('nombre');
 
   if (error) throw error;
-  
-  // Flatten numPasos count
-  return data.map(cat => ({
+
+  return (data || []).map(cat => ({
     ...cat,
-    numPasos: cat.numPasos?.[0]?.count || 0
+    numPasos: (cat.pasos || []).length,
+    pasos: undefined, // limpiar el array embebido del objeto final
   }));
 };
 

@@ -15,6 +15,7 @@ const ContactNavigator = () => {
   const [showErrors, setShowErrors] = useState(false);
   const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
   const [savingStep, setSavingStep] = useState(''); // '', 'saving_db', 'inviting'
+  const [inviteErrorMsg, setInviteErrorMsg] = useState('');
   const inviteInFlightRef = useRef(false);
   const { activoId, inactivoId } = useActivoInactivo();
 
@@ -144,6 +145,17 @@ const ContactNavigator = () => {
 
           if (inviteError) {
             console.error('Error enviando invitación:', inviteError);
+            // Intentar extraer el mensaje de error del cuerpo de la respuesta
+            let errMsg = inviteError.message || 'Error al enviar la invitación';
+            try {
+              const ctx = inviteError.context;
+              if (ctx && typeof ctx.json === 'function') {
+                const body = await ctx.json();
+                if (body?.error) errMsg = body.error;
+                else if (body?.message) errMsg = body.message;
+              }
+            } catch { /* ignorar */ }
+            setInviteErrorMsg(`El contacto fue guardado correctamente, pero no se pudo crear el acceso al sistema. El usuario no podrá iniciar sesión hasta que se corrija el correo o se reintente la invitación. Detalle: ${errMsg}`);
           } else {
             // Fallback: si el trigger no vinculó contacto.usuario_id, hacerlo desde frontend
             // Polling: esperar hasta 5s a que el perfil_usuario exista, luego vincular
@@ -240,6 +252,16 @@ const ContactNavigator = () => {
 
   return (
     <Card className="p-6">
+      {inviteErrorMsg && (
+        <div className="mb-4 flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <span className="text-red-500 shrink-0 mt-0.5">⚠</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-red-700">Aviso sobre el acceso al sistema</p>
+            <p className="text-xs text-red-600 mt-0.5">{inviteErrorMsg}</p>
+          </div>
+          <button onClick={() => setInviteErrorMsg('')} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
+        </div>
+      )}
       <ContactForm
         draft={currentDraft}
         updateDraft={(patch) => updateDraft(key, patch)}

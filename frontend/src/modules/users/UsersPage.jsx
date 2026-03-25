@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useMasterData } from '../../context/MasterDataContext';
-import { Plus, UserPlus, Search, X } from 'lucide-react';
+import { Plus, UserPlus } from 'lucide-react';
 import ModuleHeader from '../../components/ui/ModuleHeader';
 import Card from '../../components/ui/Card';
-import Select from '../../components/ui/Select';
+import FilterBar from '../../components/shared/FilterBar';
 import { useUsers } from '../../hooks/useUsers';
 import UserTable from './components/UserTable';
 import UserForm from './components/UserForm';
@@ -32,8 +32,8 @@ const UsersPage = ({ setData }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [viewingUser, setViewingUser] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState('Todos');
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState({ rol: [], estado: [] });
   const [newUser, setNewUser] = useState(emptyUser());
   const [tecnicoDocumentos, setTecnicoDocumentos] = useState(emptyDocs());
   const [savingUser, setSavingUser] = useState(false);
@@ -52,27 +52,49 @@ const UsersPage = ({ setData }) => {
     activeDirectors
   } = useUsers();
 
-  // Filter Logic
+  // Filter options
+  const rolOptions = useMemo(() =>
+    roles.filter(r => r.codigo !== 'CLIENTE').map(r => ({ value: r.codigo, label: r.nombre })),
+  [roles]);
+
+  const estadoOptions = [
+    { value: 'activo',   label: 'Activo'   },
+    { value: 'inactivo', label: 'Inactivo' },
+  ];
+
+  const filterDefs = [
+    { key: 'rol',    label: 'Rol',    options: rolOptions,    multi: true },
+    { key: 'estado', label: 'Estado', options: estadoOptions, multi: true },
+  ];
+
+  // Filter Logic (client-side sobre datos en memoria)
   const filteredUsers = useMemo(() => {
-    let filtered = usuarios;
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      filtered = filtered.filter(u =>
+    let list = usuarios;
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(u =>
         u.nombres?.toLowerCase().includes(q) ||
         u.apellidos?.toLowerCase().includes(q) ||
         u.email?.toLowerCase().includes(q)
       );
     }
-    if (filterRole !== 'Todos') {
-      filtered = filtered.filter(u => u.rol === filterRole);
+    if (filters.rol.length > 0)
+      list = list.filter(u => filters.rol.includes(u.rol));
+    if (filters.estado.length > 0) {
+      list = list.filter(u => {
+        const isActivo = u.activo !== false;
+        return (filters.estado.includes('activo') && isActivo) ||
+               (filters.estado.includes('inactivo') && !isActivo);
+      });
     }
-    return filtered;
-  }, [usuarios, searchTerm, filterRole]);
+    return list;
+  }, [usuarios, search, filters]);
 
+  // Kept for legacy prop on UserTable
   const roleOptions = useMemo(() => [
     { value: '', label: 'Seleccionar rol' },
-    ...roles.filter(r => r.codigo !== 'CLIENTE').map(r => ({ value: r.codigo, label: r.nombre }))
-  ], [roles]);
+    ...rolOptions,
+  ], [rolOptions]);
 
   // Handlers
   const handleCreate = () => {
@@ -212,28 +234,16 @@ const UsersPage = ({ setData }) => {
         newButtonLabel="Crear Usuario"
         newButtonIcon={Plus}
         filterContent={
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
-            <div className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre o email..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-md text-sm bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
-              />
-              {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded">
-                  <X size={13} className="text-gray-400" />
-                </button>
-              )}
-            </div>
-            <Select
-              options={[{ value: 'Todos', label: 'Todos los roles' }, ...roleOptions.slice(1)]}
-              value={filterRole}
-              onChange={e => setFilterRole(e.target.value)}
-            />
-          </div>
+          <FilterBar
+            filters={filterDefs}
+            values={filters}
+            onChange={setFilters}
+            searchPlaceholder="Buscar por nombre o email..."
+            searchValue={search}
+            onSearchChange={setSearch}
+            totalItems={usuarios.length}
+            filteredCount={filteredUsers.length}
+          />
         }
       />
 
@@ -244,8 +254,8 @@ const UsersPage = ({ setData }) => {
           onView={handleView}
           onEdit={handleEdit}
           onDelete={onDeleteInternal}
-          searchTerm={searchTerm}
-          filterRole={filterRole}
+          searchTerm={search}
+          filterRole={filters.rol[0] || 'Todos'}
         />
       </Card>
 

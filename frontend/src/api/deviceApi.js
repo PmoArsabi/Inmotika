@@ -77,7 +77,7 @@ export const saveDevice = async (deviceDraft) => {
     fecha_proximo_mantenimiento: fechaProximoMantenimiento || null,
     notas_tecnicas: notasTecnicas,
     id_inmotika: idInmotika,
-    codigo_unico: codigoUnico,
+    codigo_unico: codigoUnico || null,
     proveedor_id: proveedorId || null,
     marca_id: marcaId || null,
     estado_gestion_id: estadoGestionId || null

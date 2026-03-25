@@ -1,14 +1,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
-  ArrowLeft, Search, X, Eye, FileText, Edit2, Trash2,
+  ArrowLeft, Eye, FileText, Edit2, Trash2,
   Calendar, Building2, Cpu, Clock, AlertCircle, Tag,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ModuleHeader from '../../components/ui/ModuleHeader';
 import GenericListView from '../../components/shared/GenericListView';
+import FilterBar from '../../components/shared/FilterBar';
 import { H2, H3, TextSmall, TextTiny, Label, Subtitle } from '../../components/ui/Typography';
-import Select from '../../components/ui/Select';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import Modal from '../../components/ui/Modal';
@@ -16,6 +16,7 @@ import InfoRow from '../../components/ui/InfoRow';
 import SectionHeader from '../../components/ui/SectionHeader';
 import VisitProgressPanel from '../../components/visits/VisitProgressPanel';
 import { useSolicitudesVisita } from '../../hooks/useSolicitudesVisita';
+import { useVisitas } from '../../hooks/useVisitas';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useMasterData } from '../../context/MasterDataContext';
 import { useAuth } from '../../context/AuthContext';
@@ -207,8 +208,7 @@ const SolicitudVisitaPage = () => {
   const [mode,         setMode]        = useState('list'); // 'list' | 'create' | 'edit' | 'view'
   const [selectedSol,  setSelectedSol] = useState(null);
   const [draft,        setDraft]       = useState(emptySolicitud());
-  const [searchTerm,   setSearchTerm]  = useState('');
-  const [filterEstado, setFilterEstado] = useState('Todos');
+  const [filters,      setFilters]     = useState({ cliente: [], sucursal: [], estado: [], tipo: [] });
   const [showModal,    setShowModal]   = useState(false);
   const [modalMsg,     setModalMsg]    = useState('');
   const [modalType,    setModalType]   = useState('error'); // 'error' | 'success'
@@ -222,6 +222,7 @@ const SolicitudVisitaPage = () => {
   const isClienteRole = userRole === ROLES.CLIENTE;
 
   const { solicitudes, loading, saving, createSolicitud, updateSolicitud, cancelSolicitud } = useSolicitudesVisita();
+  const { visitas } = useVisitas();
   const { data } = useMasterData();
   const { options: tipoVisitaOptions } = useCatalog('TIPO_VISITA');
   const { options: estadoVisitaOptions } = useCatalog('ESTADO_VISITA');
@@ -272,25 +273,71 @@ const SolicitudVisitaPage = () => {
     }
     return (data?.dispositivos || [])
       .filter(d => String(d.branchId) === String(draft.sucursalId))
-      .map(d => ({ value: String(d.id), label: d.nombre || `Dispositivo ${d.id}` }));
+      .map(d => {
+        const label = d.idInmotika || d.codigoUnico
+          ? `${d.idInmotika || d.codigoUnico}${d.modelo ? ` — ${d.modelo}` : ''}`
+          : d.serial || d.modelo || d.id;
+        return { value: String(d.id), label };
+      });
   }, [isClienteRole, dispositivosContacto, data?.dispositivos, draft.sucursalId]);
+
+  // Opciones para FilterBar
+  const clienteFilterOptions = useMemo(() => {
+    const seen = new Set();
+    return solicitudes
+      .map(s => ({ value: s.clienteId || '', label: s.clienteNombre || '' }))
+      .filter(o => o.value && o.label && !seen.has(o.value) && seen.add(o.value))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [solicitudes]);
+
+  const sucursalFilterOptions = useMemo(() => {
+    const selectedClientes = filters.cliente;
+    const seen = new Set();
+    return solicitudes
+      .filter(s => selectedClientes.length === 0 || selectedClientes.includes(s.clienteId || ''))
+      .map(s => ({ value: s.sucursalId || '', label: s.sucursalNombre || '', parentValue: s.clienteId || '' }))
+      .filter(o => {
+        const key = `${o.value}__${o.parentValue}`;
+        return o.value && o.label && !seen.has(key) && seen.add(key);
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [solicitudes, filters.cliente]);
+
+  const estadoFilterOptions = useMemo(() => {
+    const seen = new Set();
+    return solicitudes
+      .map(s => ({ value: s.estadoCodigo || '', label: s.estadoLabel || s.estadoCodigo || '' }))
+      .filter(o => o.value && !seen.has(o.value) && seen.add(o.value))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [solicitudes]);
+
+  const tipoFilterOptions = useMemo(() => {
+    const seen = new Set();
+    return solicitudes
+      .map(s => ({ value: s.tipoVisitaCodigo || s.tipoVisitaLabel || '', label: s.tipoVisitaLabel || '' }))
+      .filter(o => o.value && o.label && !seen.has(o.value) && seen.add(o.value))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [solicitudes]);
+
+  const filterDefs = [
+    { key: 'cliente',  label: 'Cliente',  options: clienteFilterOptions,  multi: true },
+    { key: 'sucursal', label: 'Sucursal', options: sucursalFilterOptions,  multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
+    { key: 'estado',   label: 'Estado',   options: estadoFilterOptions,    multi: true },
+    { key: 'tipo',     label: 'Tipo',     options: tipoFilterOptions,      multi: true },
+  ];
 
   const filtered = useMemo(() => {
     let list = solicitudes;
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      list = list.filter(s =>
-        s.clienteNombre?.toLowerCase().includes(q) ||
-        s.sucursalNombre?.toLowerCase().includes(q) ||
-        s.tipoVisitaLabel?.toLowerCase().includes(q) ||
-        s.motivo?.toLowerCase().includes(q)
-      );
-    }
-    if (filterEstado !== 'Todos') {
-      list = list.filter(s => s.estadoCodigo === filterEstado);
-    }
+    if (filters.cliente.length > 0)
+      list = list.filter(s => filters.cliente.includes(s.clienteId || ''));
+    if (filters.sucursal.length > 0)
+      list = list.filter(s => filters.sucursal.includes(s.sucursalId || ''));
+    if (filters.estado.length > 0)
+      list = list.filter(s => filters.estado.includes(s.estadoCodigo || ''));
+    if (filters.tipo.length > 0)
+      list = list.filter(s => filters.tipo.includes(s.tipoVisitaCodigo || s.tipoVisitaLabel || ''));
     return list;
-  }, [solicitudes, searchTerm, filterEstado]);
+  }, [solicitudes, filters]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const updateDraft = (patch) => setDraft(prev => ({ ...prev, ...patch }));
@@ -411,6 +458,8 @@ const SolicitudVisitaPage = () => {
     const sol = selectedSol;
     const canEdit   = sol.estadoCodigo === 'PENDIENTE';
     const canCancel = sol.estadoCodigo === 'PENDIENTE';
+    // Visita vinculada a esta solicitud (si ya fue programada)
+    const visitaVinculada = visitas.find(v => v.solicitudId === sol.id) || null;
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
@@ -474,13 +523,56 @@ const SolicitudVisitaPage = () => {
               )}
             </Card>
 
-            {/* Visita asignada — se conectará en el módulo de Programación */}
-            <Card className="p-5">
-              <div className="flex items-center gap-3 text-gray-400">
-                <Clock size={18} />
-                <p className="text-sm">La solicitud aún no tiene una visita asignada. El coordinador la programará próximamente.</p>
-              </div>
-            </Card>
+            {/* Visita vinculada — muestra avance real si ya fue programada */}
+            {visitaVinculada ? (
+              <Card className="p-5 space-y-4">
+                <SectionHeader icon={Clock} title="Visita Programada" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <InfoRow icon={Calendar} label="Fecha Programada"
+                    value={visitaVinculada.fechaProgramada
+                      ? new Date(visitaVinculada.fechaProgramada).toLocaleString('es-ES')
+                      : '—'} />
+                  <InfoRow icon={Clock} label="Estado de la Visita"
+                    value={<VisitStatusBadge status={visitaVinculada.estadoCodigo} />} />
+                  {visitaVinculada.tecnicosNombres?.length > 0 && (
+                    <InfoRow icon={Tag} label="Técnico(s)"
+                      value={visitaVinculada.tecnicosNombres.join(', ')} />
+                  )}
+                  {visitaVinculada.fechaInicio && (
+                    <InfoRow icon={Clock} label="Iniciada"
+                      value={new Date(visitaVinculada.fechaInicio).toLocaleString('es-ES')} />
+                  )}
+                  {visitaVinculada.fechaFin && (
+                    <InfoRow icon={Clock} label="Finalizada"
+                      value={new Date(visitaVinculada.fechaFin).toLocaleString('es-ES')} />
+                  )}
+                </div>
+                {visitaVinculada.dispositivos?.length > 0 && (
+                  <div className="pt-2 border-t border-gray-100">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Avance de dispositivos</p>
+                    <VisitProgressPanel
+                      dispositivos={visitaVinculada.dispositivos}
+                      ejecucionPasos={visitaVinculada.ejecucionPasos}
+                      ejecucionActividades={visitaVinculada.ejecucionActividades}
+                      deviceEvidencias={visitaVinculada.deviceEvidencias}
+                    />
+                  </div>
+                )}
+                {visitaVinculada.observacionFinal && (
+                  <div className="p-3 rounded-lg bg-green-50 border border-green-100">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-green-600 mb-1">Observación final</p>
+                    <p className="text-sm text-green-900">{visitaVinculada.observacionFinal}</p>
+                  </div>
+                )}
+              </Card>
+            ) : (
+              <Card className="p-5">
+                <div className="flex items-center gap-3 text-gray-400">
+                  <Clock size={18} />
+                  <p className="text-sm">La solicitud aún no tiene una visita asignada. El coordinador la programará próximamente.</p>
+                </div>
+              </Card>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -499,11 +591,11 @@ const SolicitudVisitaPage = () => {
               <p className="text-xs font-bold uppercase tracking-widest text-gray-700 mb-4">Historial de Estado</p>
               <ol className="relative border-l border-gray-200 space-y-5 pl-6">
                 {[
-                  { label: 'Solicitud enviada', active: true,                               fecha: sol.fechaSolicitud },
-                  { label: 'Visita programada', active: false,                              fecha: null },
-                  { label: 'En curso',          active: false,                              fecha: null },
-                  { label: 'Finalizada',        active: sol.estadoCodigo === 'COMPLETADA',  fecha: null },
-                  { label: 'Cancelada',         active: sol.estadoCodigo === 'CANCELADA',   fecha: null },
+                  { label: 'Solicitud enviada', active: true,                                                    fecha: sol.fechaSolicitud },
+                  { label: 'Visita programada', active: !!visitaVinculada,                                       fecha: visitaVinculada?.fechaProgramada || null },
+                  { label: 'En curso',          active: !!visitaVinculada?.fechaInicio,                          fecha: visitaVinculada?.fechaInicio || null },
+                  { label: 'Finalizada',        active: sol.estadoCodigo === 'COMPLETADA',                       fecha: visitaVinculada?.fechaFin || null },
+                  { label: 'Cancelada',         active: sol.estadoCodigo === 'CANCELADA' || sol.estadoCodigo === 'CANCELADO', fecha: null },
                 ].map((step, i) => (
                   <li key={i} className="relative">
                     <span className={`absolute -left-[30px] top-[4px] w-3 h-3 rounded-full border-2 ${
@@ -577,6 +669,40 @@ const SolicitudVisitaPage = () => {
     {
       header: 'Estado',
       render: (sol) => <VisitStatusBadge status={sol.estadoCodigo} />,
+    },
+    {
+      header: 'Acciones',
+      align: 'right',
+      narrow: true,
+      render: (sol) => (
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            onClick={() => handleView(sol)}
+            title="Ver detalle"
+            className="p-1.5 rounded-md text-blue-600 hover:bg-blue-50 transition-colors"
+          >
+            <Eye size={15} />
+          </button>
+          {sol.estadoCodigo === 'PENDIENTE' && (
+            <>
+              <button
+                onClick={() => handleEdit(sol)}
+                title="Editar"
+                className="p-1.5 rounded-md text-yellow-600 hover:bg-yellow-50 transition-colors"
+              >
+                <Edit2 size={15} />
+              </button>
+              <button
+                onClick={() => handleRequestCancel(sol)}
+                title="Cancelar solicitud"
+                className="p-1.5 rounded-md text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 size={15} />
+              </button>
+            </>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -657,36 +783,14 @@ const SolicitudVisitaPage = () => {
         }
         renderMobileCard={renderMobileCard}
         extraFilters={
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end w-full">
-            <div className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Buscar por cliente, sucursal o tipo..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
-              />
-              {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded">
-                  <X size={13} className="text-gray-400" />
-                </button>
-              )}
-            </div>
-            <Select
-              options={[
-                { value: 'Todos',       label: 'Todos los estados' },
-                { value: 'PENDIENTE',   label: 'Pendiente'         },
-                { value: 'PROGRAMADA',  label: 'Programada'        },
-                { value: 'EN_CAMINO',   label: 'En Camino'         },
-                { value: 'EN_PROGRESO', label: 'En Progreso'       },
-                { value: 'COMPLETADA',  label: 'Completada'        },
-                { value: 'CANCELADA',   label: 'Cancelada'         },
-              ]}
-              value={filterEstado}
-              onChange={e => setFilterEstado(e.target.value)}
-            />
-          </div>
+          <FilterBar
+            mode="inline"
+            filters={filterDefs}
+            values={filters}
+            onChange={setFilters}
+            totalItems={solicitudes.length}
+            filteredCount={filtered.length}
+          />
         }
       />
 

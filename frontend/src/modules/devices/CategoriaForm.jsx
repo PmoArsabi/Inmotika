@@ -230,6 +230,15 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!nombre.trim()) { setError('El nombre es requerido'); return; }
+
+    // Cada paso activo debe tener al menos una actividad
+    const activePasos = pasos.filter(p => !p.deleted);
+    const pasoVacio = activePasos.find(p => (p.actividades || []).filter(a => !a.deleted).length === 0);
+    if (pasoVacio) {
+      setError(`El paso "${pasoVacio.descripcion || 'sin nombre'}" necesita al menos una actividad.`);
+      return;
+    }
+
     setError(''); setSaving(true);
     try {
       const result = await saveCategoria({

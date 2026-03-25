@@ -73,10 +73,14 @@ const GenericListView = ({
         onNewClick={onNew}
         newButtonLabel={newButtonLabel}
         filterContent={
-          <div className="flex items-center justify-end gap-3">
-            {extraFilters}
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          /*
+           * Contenedor flex wrap: buscador + items de FilterBar (mode="inline") comparten
+           * el mismo nivel del flex — todos con flex-1 basis-40 para distribuirse igual.
+           * Los chips/contador de FilterBar son w-full y wrappean solos a una nueva línea.
+           */
+          <div className="w-full flex flex-wrap gap-2">
+            <div className="relative min-w-44 flex-1">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
                 type="text"
                 placeholder={searchPlaceholder}
@@ -85,9 +89,10 @@ const GenericListView = ({
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="pl-9 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm w-64"
+                className="w-full h-[38px] pl-9 pr-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] text-sm bg-white transition-all"
               />
             </div>
+            {extraFilters}
           </div>
         }
       />

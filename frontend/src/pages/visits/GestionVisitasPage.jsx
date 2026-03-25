@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react';
 import {
-  ArrowLeft, Search, X, Play, Eye, Edit2,
+  ArrowLeft, Play, Eye, Edit2,
   Calendar, Building2, AlertCircle, Clock,
-  Send, Cpu, ClipboardList, CheckCircle2,
+  Send, Cpu, ClipboardList, CheckCircle2, User,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Select from '../../components/ui/Select';
 import GenericListView from '../../components/shared/GenericListView';
+import FilterBar from '../../components/shared/FilterBar';
 import VisitaMobileCard from '../../components/visits/VisitaMobileCard';
 import { H2, H3, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
@@ -35,8 +35,7 @@ const GestionVisitasPage = () => {
   const { visitas: visitasHook, loading: loadingVisitas, fetchVisitas } = useVisitas();
   const notify   = useNotify();
   const [activeVisita,         setActiveVisita]         = useState(null);
-  const [searchTerm,           setSearchTerm]           = useState('');
-  const [filterEstado,         setFilterEstado]         = useState('Todos');
+  const [filters,              setFilters]              = useState({ cliente: [], sucursal: [], estado: [], tecnico: [] });
   const [ejecucionPasos,       setEjecucionPasos]       = useState({});
   const [ejecucionActividades, setEjecucionActividades] = useState({});
   const [deviceEvidencias,     setDeviceEvidencias]     = useState({});
@@ -50,21 +49,67 @@ const GestionVisitasPage = () => {
 
   const visitas = visitasHook;
 
-  // ── Filtered list ────────────────────────────────────────────────────────
+  // Base list: only relevant states for gestión
+  const baseList = useMemo(() => visitas.filter(v =>
+    v.estadoCodigo === 'PROGRAMADA' || v.estadoCodigo === 'EN_PROGRESO' || v.estadoCodigo === 'COMPLETADA',
+  ), [visitas]);
+
+  // Opciones para FilterBar
+  const clienteOptions = useMemo(() => {
+    const seen = new Set();
+    return baseList
+      .map(v => ({ value: v.clienteId || '', label: v.clienteNombre || '' }))
+      .filter(o => o.value && o.label && !seen.has(o.value) && seen.add(o.value))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [baseList]);
+
+  const sucursalOptions = useMemo(() => {
+    const selectedClientes = filters.cliente;
+    const seen = new Set();
+    return baseList
+      .filter(v => selectedClientes.length === 0 || selectedClientes.includes(v.clienteId || ''))
+      .map(v => ({ value: v.sucursalId || '', label: v.sucursalNombre || '', parentValue: v.clienteId || '' }))
+      .filter(o => {
+        const key = `${o.value}__${o.parentValue}`;
+        return o.value && o.label && !seen.has(key) && seen.add(key);
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [baseList, filters.cliente]);
+
+  const estadoOptions = useMemo(() => [
+    { value: 'PROGRAMADA',  label: 'Programada'  },
+    { value: 'EN_PROGRESO', label: 'En curso'     },
+    { value: 'COMPLETADA',  label: 'Completada'   },
+  ], []);
+
+  const tecnicoOptions = useMemo(() => {
+    const seen = new Set();
+    return baseList
+      .flatMap(v => (v.tecnicosNombres || []).map((nombre, i) => ({ value: (v.tecnicoIds || [])[i] || nombre, label: nombre })))
+      .filter(o => o.value && o.label && !seen.has(o.value) && seen.add(o.value))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [baseList]);
+
+  const filterDefs = [
+    { key: 'cliente',  label: 'Cliente',  options: clienteOptions,  multi: true },
+    { key: 'sucursal', label: 'Sucursal', options: sucursalOptions,  multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
+    { key: 'estado',   label: 'Estado',   options: estadoOptions,    multi: true },
+    { key: 'tecnico',  label: 'Técnico',  options: tecnicoOptions,   multi: true },
+  ];
+
+  // ── Filtered list (multi-select filters; text search handled by GenericListView) ──
   const filtered = useMemo(() => {
-    let list = visitas.filter(v =>
-      v.estadoCodigo === 'PROGRAMADA' || v.estadoCodigo === 'EN_PROGRESO' || v.estadoCodigo === 'COMPLETADA',
-    );
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      list = list.filter(v =>
-        v.clienteNombre?.toLowerCase().includes(q) ||
-        v.sucursalNombre?.toLowerCase().includes(q),
-      );
-    }
-    if (filterEstado !== 'Todos') list = list.filter(v => v.estadoCodigo === filterEstado);
+    let list = baseList;
+    if (filters.cliente.length > 0)
+      list = list.filter(v => filters.cliente.includes(v.clienteId || ''));
+    if (filters.sucursal.length > 0)
+      list = list.filter(v => filters.sucursal.includes(v.sucursalId || ''));
+    if (filters.estado.length > 0)
+      list = list.filter(v => filters.estado.includes(v.estadoCodigo || ''));
+    if (filters.tecnico.length > 0)
+      list = list.filter(v => (v.tecnicoIds || []).some(id => filters.tecnico.includes(id)));
     return list;
-  }, [visitas, searchTerm, filterEstado]);
+  }, [baseList, filters]);
 
   // ── Open execution view ──────────────────────────────────────────────────
   const handleOpenVisita = (visita) => {
@@ -507,33 +552,14 @@ const GestionVisitasPage = () => {
         }}
         newButtonLabel="Ayuda Creación"
         extraFilters={
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
-              />
-              {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded">
-                  <X size={13} className="text-gray-400" />
-                </button>
-              )}
-            </div>
-            <Select
-              options={[
-                { value: 'Todos',       label: 'Todos los estados' },
-                { value: 'PROGRAMADA',  label: 'Programada'        },
-                { value: 'EN_PROGRESO', label: 'En curso'           },
-                { value: 'COMPLETADA',  label: 'Completada'         },
-              ]}
-              value={filterEstado}
-              onChange={e => setFilterEstado(e.target.value)}
-            />
-          </div>
+          <FilterBar
+            mode="inline"
+            filters={filterDefs}
+            values={filters}
+            onChange={setFilters}
+            totalItems={baseList.length}
+            filteredCount={filtered.length}
+          />
         }
         renderMobileCard={visita => {
           const { total, completed } = getDeviceProgress(visita);

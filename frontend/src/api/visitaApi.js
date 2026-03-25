@@ -304,13 +304,15 @@ export async function finalizarVisita(visitaId, observacionFinal) {
   const estadoId = await getCatalogoId('ESTADO_VISITA', 'COMPLETADA');
 
   // 1. Actualizar visita: fecha_fin + estado (NO tocar observaciones)
-  const { error: visitaError } = await supabase
+  const { data: visitaRow, error: visitaError } = await supabase
     .from('visita')
     .update({
       fecha_fin: new Date().toISOString(),
       estado_id: estadoId,
     })
-    .eq('id', visitaId);
+    .eq('id', visitaId)
+    .select('solicitud_id')
+    .maybeSingle();
 
   if (visitaError) {
     throw new Error(`No se pudo finalizar la visita: ${visitaError.message}`);
@@ -325,4 +327,12 @@ export async function finalizarVisita(visitaId, observacionFinal) {
     })
     .eq('visita_id', visitaId)
     .eq('activo', true);
+
+  // 3. Actualizar el estado de la solicitud de origen a COMPLETADA
+  if (visitaRow?.solicitud_id) {
+    await supabase
+      .from('solicitud_visita')
+      .update({ estado_id: estadoId })
+      .eq('id', visitaRow.solicitud_id);
+  }
 }

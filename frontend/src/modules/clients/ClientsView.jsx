@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Plus, Eye, Edit2, Trash2, Building2, Navigation2, MapPin, Globe, Users } from 'lucide-react';
 import { Country } from 'country-state-city';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import IconButton from '../../components/ui/IconButton';
-import Select from '../../components/ui/Select';
 import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
 import { Subtitle, TextSmall, Label, H3 } from '../../components/ui/Typography';
 import SectionHeader from '../../components/ui/SectionHeader';
 import GenericListView from '../../components/shared/GenericListView';
+import FilterBar from '../../components/shared/FilterBar';
 import BranchForm from '../../components/forms/BranchForm';
 import SecureImage from '../../components/ui/SecureImage';
 
@@ -44,6 +44,12 @@ const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
   isoCode: c.isoCode,
 }));
 
+const getCountryName = (countryCode) => {
+  if (!countryCode) return 'No especificado';
+  const country = ALL_COUNTRIES?.find(c => c.value === countryCode);
+  return country?.label || countryCode;
+};
+
 const ClientsView = ({ config, data }) => {
   const {
     viewLevel, selectedClient, selectedBranch,
@@ -53,13 +59,56 @@ const ClientsView = ({ config, data }) => {
   } = config;
 
   // Hooks deben estar antes de cualquier early return
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [filters, setFilters] = useState({ pais: [], ciudad: [], tipoDocumento: [] });
 
-  const getCountryName = (countryCode) => {
-    if (!countryCode) return 'No especificado';
-    const country = ALL_COUNTRIES?.find(c => c.value === countryCode);
-    return country?.label || countryCode;
-  };
+  const clientes = data.clientes || [];
+
+  // Opciones únicas derivadas de los clientes cargados
+  const paisOptions = useMemo(() => {
+    const seen = new Set();
+    return clientes
+      .map(c => ({ value: c.pais || '', label: getCountryName(c.pais) }))
+      .filter(o => o.value && !seen.has(o.value) && seen.add(o.value))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [clientes]);
+
+  const ciudadOptions = useMemo(() => {
+    const selectedPaises = filters.pais;
+    const seen = new Set();
+    return clientes
+      .filter(c => selectedPaises.length === 0 || selectedPaises.includes(c.pais || ''))
+      .map(c => ({ value: c.ciudad || '', label: c.ciudad || '', parentValue: c.pais || '' }))
+      .filter(o => {
+        const key = `${o.value}__${o.parentValue}`;
+        return o.value && !seen.has(key) && seen.add(key);
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [clientes, filters.pais]);
+
+  const tipoDocumentoOptions = useMemo(() => {
+    const seen = new Set();
+    return clientes
+      .map(c => ({ value: c.tipoDocumento || c.tipo_documento || '', label: c.tipoDocumento || c.tipo_documento || '' }))
+      .filter(o => o.value && !seen.has(o.value) && seen.add(o.value))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [clientes]);
+
+  const filterDefs = [
+    { key: 'pais',           label: 'País',            options: paisOptions,           multi: true },
+    { key: 'ciudad',         label: 'Ciudad',          options: ciudadOptions,          multi: true, dependsOn: 'pais', dependsOnLabel: 'un país' },
+    { key: 'tipoDocumento',  label: 'Tipo Documento',  options: tipoDocumentoOptions,   multi: true },
+  ];
+
+  const filteredClientes = useMemo(() => {
+    let list = clientes;
+    if (filters.pais.length > 0)
+      list = list.filter(c => filters.pais.includes(c.pais || ''));
+    if (filters.ciudad.length > 0)
+      list = list.filter(c => filters.ciudad.includes(c.ciudad || ''));
+    if (filters.tipoDocumento.length > 0)
+      list = list.filter(c => filters.tipoDocumento.includes(c.tipoDocumento || c.tipo_documento || ''));
+    return list;
+  }, [clientes, filters]);
 
   // 1. Client Details View
   if (viewLevel === 'client-details' && selectedClient) {
@@ -246,7 +295,7 @@ const ClientsView = ({ config, data }) => {
     <GenericListView
       title="Información Clientes"
       icon={Users}
-      items={data.clientes || []}
+      items={filteredClientes}
       columns={columns}
       onNew={() => handleNew('cliente')}
       onView={(item) => handleView(item, 'cliente')}
@@ -256,15 +305,13 @@ const ClientsView = ({ config, data }) => {
       searchPlaceholder="Buscar: NIT / Nombre"
       filterFunction={filterFunction}
       extraFilters={
-        <Select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          options={[
-            { value: 'all', label: 'Todos los Clientes' },
-            { value: 'active', label: 'Activos' },
-            { value: 'inactive', label: 'Inactivos' },
-          ]}
-          className="w-48"
+        <FilterBar
+          mode="inline"
+          filters={filterDefs}
+          values={filters}
+          onChange={setFilters}
+          totalItems={clientes.length}
+          filteredCount={filteredClientes.length}
         />
       }
     />

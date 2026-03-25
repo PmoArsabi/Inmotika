@@ -240,8 +240,10 @@ export const useVisitas = () => {
         dispositivosBySolicitud.set(sd.solicitud_id, list);
       });
 
-      // Paso 5: cargar estado de ejecución guardado para visitas en progreso o completadas
-      const visitaIds = (rows || []).map(r => r.id);
+      // Paso 5: cargar estado de ejecución — solo para visitas que ya iniciaron o completaron
+      // (PROGRAMADA sin fecha_inicio no tiene intervenciones aún; omitirlas reduce queries)
+      const visitasConEjecucion = (rows || []).filter(r => r.fecha_inicio);
+      const visitaIds = visitasConEjecucion.map(r => r.id);
       let ejecucionActividadMap = new Map(); // visitaId → { [actividadId]: { completada } }
       let ejecucionPasoMap = new Map();      // visitaId → { [pasoProtocoloId]: { comentarios, fechaInicio, fechaFin } }
       let evidenciasMap = new Map();         // visitaId → { [dispositivoId]: { etiqueta, fotos } }

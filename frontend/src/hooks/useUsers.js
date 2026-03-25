@@ -540,6 +540,7 @@ export const useUsers = () => {
           .update({
             nombres: newUser.nombres,
             apellidos: newUser.apellidos,
+            email: newUser.email || undefined,
             rol_id: selectedRole?.id,
             telefono: newUser.telefono || null,
             tipo_documento: newUser.tipoDocumento || null,
