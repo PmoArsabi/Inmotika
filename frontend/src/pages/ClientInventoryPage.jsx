@@ -265,34 +265,42 @@ const ClientInventoryPage = () => {
         <div className="flex flex-col gap-4 md:hidden">
           {filteredDevices.map((dev) => (
             <Card key={dev.id} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
-              {/* Header: nombre + estado */}
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="min-w-0">
-                  <Subtitle className="text-[#D32F2F] normal-case tracking-normal truncate">{getDeviceNombre(dev)}</Subtitle>
-                  {(dev.codigoUnico || dev.idInmotika) && (
-                    <TextTiny className="text-gray-400 font-mono">{dev.codigoUnico || dev.idInmotika}</TextTiny>
-                  )}
-                </div>
-                <StatusBadge status={getEstadoNombre(dev) || 'Activo'} />
-              </div>
-
-              {/* Detalles */}
               <div className="divide-y divide-gray-50 mb-4">
-                <div className="flex items-center gap-2 py-2 first:pt-0">
-                  <Tag size={13} className="text-gray-300 shrink-0" />
-                  <TextTiny className="text-gray-600 font-semibold">{getCategoriaNombre(dev) || 'Sin categoría'}</TextTiny>
+                <div className="flex items-start gap-3 py-2.5 first:pt-0">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Equipo</TextTiny>
+                  <div className="flex-1 min-w-0">
+                    <Subtitle className="text-[#D32F2F] normal-case tracking-normal">{getDeviceNombre(dev)}</Subtitle>
+                    {(dev.codigoUnico || dev.idInmotika) && (
+                      <TextTiny className="text-gray-400 font-mono">{dev.codigoUnico || dev.idInmotika}</TextTiny>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 py-2">
-                  <MapPin size={13} className="text-gray-300 shrink-0" />
-                  <TextTiny className="text-gray-600">{getSucursalNombre(dev) || '—'}</TextTiny>
+                <div className="flex items-start gap-3 py-2.5">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Estado</TextTiny>
+                  <div className="flex-1"><StatusBadge status={getEstadoNombre(dev) || 'Activo'} /></div>
                 </div>
-                <div className="flex items-center gap-2 py-2 last:pb-0">
-                  <Calendar size={13} className="text-gray-300 shrink-0" />
-                  <TextTiny className="text-gray-500">Próx. mant.: {dev.fechaProximoMantenimiento || dev.fecha_proximo_mantenimiento || '—'}</TextTiny>
+                <div className="flex items-start gap-3 py-2.5">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Categoría</TextTiny>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <Tag size={13} className="text-gray-300 shrink-0" />
+                    <TextTiny className="text-gray-600 font-semibold">{getCategoriaNombre(dev) || 'Sin categoría'}</TextTiny>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 py-2.5">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Sede</TextTiny>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <MapPin size={13} className="text-gray-300 shrink-0" />
+                    <TextTiny className="text-gray-600">{getSucursalNombre(dev) || '—'}</TextTiny>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 py-2.5 last:pb-0">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Próx. Mant.</TextTiny>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <Calendar size={13} className="text-gray-300 shrink-0" />
+                    <TextTiny className="text-gray-500">{dev.fechaProximoMantenimiento || dev.fecha_proximo_mantenimiento || '—'}</TextTiny>
+                  </div>
                 </div>
               </div>
-
-              {/* Acción */}
               <button
                 onClick={() => setSelectedDevice(dev)}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 hover:border-[#D32F2F] hover:text-[#D32F2F] text-gray-600 transition-colors text-xs font-semibold"

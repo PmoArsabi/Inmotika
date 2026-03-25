@@ -452,15 +452,16 @@ const GestionVisitasPage = () => {
       render: visita => {
         const { total, completed } = getDeviceProgress(visita);
         return (
-          <div className="space-y-1">
-            <TextSmall className="whitespace-nowrap">{total} dispositivo{total !== 1 ? 's' : ''}</TextSmall>
-            {total > 0 && (
-              <div className="flex items-center gap-1.5">
-                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden w-16">
+          <div className="flex items-center gap-1.5 min-w-[80px]">
+            {total > 0 ? (
+              <>
+                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div className="h-full bg-[#D32F2F] rounded-full" style={{ width: `${(completed / total) * 100}%` }} />
                 </div>
-                <TextTiny className="text-gray-400 whitespace-nowrap">{completed}/{total}</TextTiny>
-              </div>
+                <TextTiny className="text-gray-400 whitespace-nowrap shrink-0">{completed}/{total}</TextTiny>
+              </>
+            ) : (
+              <TextTiny className="text-gray-400">—</TextTiny>
             )}
           </div>
         );

@@ -93,9 +93,6 @@ const VisitaMobileCard = ({
           <div className="flex items-start gap-3 py-2.5 last:pb-0">
             <TextTiny className="text-gray-400 shrink-0 pt-px w-28 font-bold uppercase tracking-wide leading-tight">Dispositivos</TextTiny>
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <TextTiny className="text-gray-600 whitespace-nowrap shrink-0">
-                {totalDevices} {totalDevices !== 1 ? 'dispositivos' : 'dispositivo'}
-              </TextTiny>
               <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-[#D32F2F] rounded-full transition-all"

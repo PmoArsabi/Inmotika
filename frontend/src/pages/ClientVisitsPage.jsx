@@ -44,30 +44,31 @@ const ClientVisitsPage = ({ data }) => {
       </Card>
 
       {/* ── Mobile: cards (oculto en md+) ── */}
-      <div className="flex flex-col gap-3 md:hidden">
+      <div className="flex flex-col gap-4 md:hidden">
         {myVisits.map((v, i) => (
-          <Card key={i} className="p-4 border border-gray-200 shadow-sm rounded-xl">
-            {/* Header: ID + estado */}
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <TextSmall className="font-mono font-bold text-gray-700 text-xs">{v.id}</TextSmall>
-              <StatusBadge status={v.estado} />
-            </div>
-
-            {/* Detalles */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <CalendarDays size={13} className="text-gray-300 shrink-0" />
-                <TextTiny className="text-gray-600 font-semibold">{v.fecha}</TextTiny>
+          <Card key={i} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
+            <div className="divide-y divide-gray-50">
+              <div className="flex items-start gap-3 py-2.5 first:pt-0">
+                <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Tipo</TextTiny>
+                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[10px] font-bold inline-block">{v.tipoMantenimiento}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <User size={13} className="text-gray-300 shrink-0" />
-                <TextTiny className="text-gray-600">{v.tecnico_asignado}</TextTiny>
+              <div className="flex items-start gap-3 py-2.5">
+                <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Estado</TextTiny>
+                <div className="flex-1"><StatusBadge status={v.estado} /></div>
               </div>
-              <div className="flex items-center gap-2">
-                <Tag size={13} className="text-gray-300 shrink-0" />
-                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[10px] font-bold inline-block">
-                  {v.tipoMantenimiento}
-                </span>
+              <div className="flex items-start gap-3 py-2.5">
+                <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Fecha</TextTiny>
+                <div className="flex items-center gap-1.5 flex-1">
+                  <CalendarDays size={13} className="text-gray-300 shrink-0" />
+                  <TextTiny className="text-gray-600 font-semibold">{v.fecha}</TextTiny>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 py-2.5 last:pb-0">
+                <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Técnico</TextTiny>
+                <div className="flex items-center gap-1.5 flex-1">
+                  <User size={13} className="text-gray-300 shrink-0" />
+                  <TextTiny className="text-gray-600">{v.tecnico_asignado}</TextTiny>
+                </div>
               </div>
             </div>
           </Card>

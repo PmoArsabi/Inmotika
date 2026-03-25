@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   ArrowLeft, Search, X, Eye, FileText, Edit2, Trash2,
-  Calendar, Building2, Cpu, Clock, AlertCircle,
+  Calendar, Building2, Cpu, Clock, AlertCircle, Tag,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ModuleHeader from '../../components/ui/ModuleHeader';
-import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
+import GenericListView from '../../components/shared/GenericListView';
 import { H2, H3, TextSmall, TextTiny, Label, Subtitle } from '../../components/ui/Typography';
 import Select from '../../components/ui/Select';
 import SearchableSelect from '../../components/ui/SearchableSelect';
@@ -527,19 +527,137 @@ const SolicitudVisitaPage = () => {
     );
   }
 
+  // ── Columnas para desktop ───────────────────────────────────────────────────
+  const tipoBg = (codigo) =>
+    codigo === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700'
+    : codigo === 'CORRECTIVO' ? 'bg-orange-100 text-orange-700'
+    : 'bg-gray-100 text-gray-700';
+
+  const columns = [
+    {
+      header: 'Tipo',
+      render: (sol) => (
+        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${tipoBg(sol.tipoVisitaCodigo)}`}>
+          {sol.tipoVisitaLabel || sol.tipoVisitaCodigo || '—'}
+        </span>
+      ),
+    },
+    {
+      header: 'Cliente / Sucursal',
+      render: (sol) => (
+        <>
+          <TextSmall className="font-semibold">{sol.clienteNombre || '—'}</TextSmall>
+          <TextTiny className="text-gray-400">{sol.sucursalNombre}</TextTiny>
+        </>
+      ),
+    },
+    {
+      header: 'Fecha Sugerida',
+      render: (sol) => sol.fechaSugerida ? (
+        <>
+          <TextSmall>{new Date(sol.fechaSugerida).toLocaleDateString('es-ES')}</TextSmall>
+          <TextTiny className="text-gray-400">
+            {new Date(sol.fechaSugerida).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+          </TextTiny>
+        </>
+      ) : <TextSmall className="text-gray-400">—</TextSmall>,
+    },
+    {
+      header: 'Fecha Solicitud',
+      render: (sol) => (
+        <TextSmall>{sol.fechaSolicitud ? new Date(sol.fechaSolicitud).toLocaleDateString('es-ES') : '—'}</TextSmall>
+      ),
+    },
+    {
+      header: 'Dispositivos',
+      render: (sol) => (
+        <TextSmall>{sol.dispositivoIds?.length || 0} dispositivo{sol.dispositivoIds?.length !== 1 ? 's' : ''}</TextSmall>
+      ),
+    },
+    {
+      header: 'Estado',
+      render: (sol) => <VisitStatusBadge status={sol.estadoCodigo} />,
+    },
+  ];
+
+  // ── Card mobile personalizada ────────────────────────────────────────────────
+  const renderMobileCard = (sol) => (
+    <Card className="p-5 border border-gray-200 shadow-sm rounded-2xl">
+      <div className="divide-y divide-gray-50 mb-4">
+        <div className="flex items-start gap-3 py-2.5 first:pt-0">
+          <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Cliente</TextTiny>
+          <div className="flex-1 min-w-0">
+            <TextSmall className="font-bold text-gray-900">{sol.clienteNombre || '—'}</TextSmall>
+            <TextTiny className="text-gray-400">{sol.sucursalNombre}</TextTiny>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 py-2.5">
+          <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Tipo</TextTiny>
+          <div className="flex-1">
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${tipoBg(sol.tipoVisitaCodigo)}`}>
+              {sol.tipoVisitaLabel || sol.tipoVisitaCodigo || '—'}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 py-2.5">
+          <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Estado</TextTiny>
+          <div className="flex-1"><VisitStatusBadge status={sol.estadoCodigo} /></div>
+        </div>
+        <div className="flex items-start gap-3 py-2.5">
+          <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">F. Sugerida</TextTiny>
+          <TextTiny className="text-gray-600 flex-1">
+            {sol.fechaSugerida ? new Date(sol.fechaSugerida).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+          </TextTiny>
+        </div>
+        <div className="flex items-start gap-3 py-2.5 last:pb-0">
+          <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">F. Solicitud</TextTiny>
+          <TextTiny className="text-gray-600 flex-1">
+            {sol.fechaSolicitud ? new Date(sol.fechaSolicitud).toLocaleDateString('es-ES') : '—'}
+          </TextTiny>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+        <button onClick={() => handleView(sol)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-semibold">
+          <Eye size={14} /> Ver
+        </button>
+        {sol.estadoCodigo === 'PENDIENTE' && (
+          <>
+            <button onClick={() => handleEdit(sol)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors text-xs font-semibold">
+              <Edit2 size={14} /> Editar
+            </button>
+            <button onClick={() => handleRequestCancel(sol)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition-colors text-xs font-semibold">
+              <Trash2 size={14} /> Cancelar
+            </button>
+          </>
+        )}
+      </div>
+    </Card>
+  );
+
   // ══════════════════════════════════════════════════════════════════════════
   // LIST VIEW
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <ModuleHeader
+      <GenericListView
         icon={FileText}
         title="Solicitudes de Visita"
-        subtitle="Gestiona y da seguimiento a las solicitudes de visita técnica"
-        onNewClick={handleCreate}
+        items={filtered}
+        columns={columns}
+        onNew={handleCreate}
         newButtonLabel="Nueva Solicitud"
-        filterContent={
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+        loading={loading}
+        loadingText="Cargando solicitudes..."
+        emptyText="No hay solicitudes registradas. Crea la primera."
+        filterFunction={(sol, q) =>
+          sol.clienteNombre?.toLowerCase().includes(q) ||
+          sol.sucursalNombre?.toLowerCase().includes(q) ||
+          sol.tipoVisitaLabel?.toLowerCase().includes(q) ||
+          sol.motivo?.toLowerCase().includes(q)
+        }
+        renderMobileCard={renderMobileCard}
+        extraFilters={
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end w-full">
             <div className="relative">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
@@ -571,107 +689,6 @@ const SolicitudVisitaPage = () => {
           </div>
         }
       />
-
-      <Card className="p-0 overflow-hidden">
-        {loading ? (
-          <div className="py-16 text-center text-sm text-gray-400">Cargando solicitudes...</div>
-        ) : (
-          <Table>
-            <THead variant="light">
-              <tr>
-                <Th>Tipo</Th>
-                <Th>Cliente / Sucursal</Th>
-                <Th>Fecha Sugerida</Th>
-                <Th>Fecha Solicitud</Th>
-                <Th>Dispositivos</Th>
-                <Th>Estado</Th>
-                <Th align="right">Acciones</Th>
-              </tr>
-            </THead>
-            <TBody>
-              {filtered.length === 0 ? (
-                <Tr>
-                  <td colSpan={7} className="text-center py-12 text-sm text-gray-400">
-                    {searchTerm || filterEstado !== 'Todos'
-                      ? 'No se encontraron solicitudes con los filtros aplicados.'
-                      : 'No hay solicitudes registradas. Crea la primera.'}
-                  </td>
-                </Tr>
-              ) : (
-                filtered.map(sol => (
-                  <Tr key={sol.id}>
-                    <Td>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                        sol.tipoVisitaCodigo === 'PREVENTIVO'
-                          ? 'bg-blue-100 text-blue-700'
-                          : sol.tipoVisitaCodigo === 'CORRECTIVO'
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}>
-                        {sol.tipoVisitaLabel || sol.tipoVisitaCodigo || '—'}
-                      </span>
-                    </Td>
-                    <Td>
-                      <TextSmall className="font-semibold">{sol.clienteNombre || '—'}</TextSmall>
-                      <TextTiny className="text-gray-400">{sol.sucursalNombre}</TextTiny>
-                    </Td>
-                    <Td>
-                      {sol.fechaSugerida ? (
-                        <>
-                          <TextSmall>{new Date(sol.fechaSugerida).toLocaleDateString('es-ES')}</TextSmall>
-                          <TextTiny className="text-gray-400">
-                            {new Date(sol.fechaSugerida).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                          </TextTiny>
-                        </>
-                      ) : (
-                        <TextSmall className="text-gray-400">—</TextSmall>
-                      )}
-                    </Td>
-                    <Td>
-                      <TextSmall>{sol.fechaSolicitud ? new Date(sol.fechaSolicitud).toLocaleDateString('es-ES') : '—'}</TextSmall>
-                    </Td>
-                    <Td>
-                      <TextSmall>
-                        {sol.dispositivoIds?.length || 0} dispositivo{sol.dispositivoIds?.length !== 1 ? 's' : ''}
-                      </TextSmall>
-                    </Td>
-                    <Td><VisitStatusBadge status={sol.estadoCodigo} /></Td>
-                    <Td align="right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleView(sol)}
-                          className="p-2 hover:bg-blue-50 rounded-md transition-colors"
-                          title="Ver detalle"
-                        >
-                          <Eye size={15} className="text-blue-600" />
-                        </button>
-                        {sol.estadoCodigo === 'PENDIENTE' && (
-                          <>
-                            <button
-                              onClick={() => handleEdit(sol)}
-                              className="p-2 hover:bg-yellow-50 rounded-md transition-colors"
-                              title="Editar"
-                            >
-                              <Edit2 size={15} className="text-yellow-600" />
-                            </button>
-                            <button
-                              onClick={() => handleRequestCancel(sol)}
-                              className="p-2 hover:bg-red-50 rounded-md transition-colors"
-                              title="Cancelar solicitud"
-                            >
-                              <Trash2 size={15} className="text-red-500" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </Td>
-                  </Tr>
-                ))
-              )}
-            </TBody>
-          </Table>
-        )}
-      </Card>
 
       {/* Modal cancelación */}
       <Modal

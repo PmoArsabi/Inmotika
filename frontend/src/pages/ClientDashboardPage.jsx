@@ -61,24 +61,34 @@ const ClientDashboardPage = () => {
             </div>
 
             {/* Mobile: cards */}
-            <div className="flex flex-col divide-y divide-gray-50 md:hidden px-4 pb-4">
+            <div className="flex flex-col gap-4 md:hidden px-4 pb-4">
               {myVisits.map((v) => (
-                <div key={v.id} className="py-3 first:pt-2">
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <TextSmall className="font-semibold text-gray-900 leading-tight">{v.tipoMantenimiento}</TextSmall>
-                    <StatusBadge status={v.estado} />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar size={11} className="text-gray-300" />
-                      <TextTiny className="text-gray-400">{v.fecha}</TextTiny>
+                <Card key={v.id} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
+                  <div className="divide-y divide-gray-50">
+                    <div className="flex items-start gap-3 py-2.5 first:pt-0">
+                      <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Tipo</TextTiny>
+                      <TextSmall className="font-semibold text-gray-900 flex-1">{v.tipoMantenimiento}</TextSmall>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <User size={11} className="text-gray-300" />
-                      <TextTiny className="text-gray-400">{v.tecnico}</TextTiny>
+                    <div className="flex items-start gap-3 py-2.5">
+                      <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Estado</TextTiny>
+                      <div className="flex-1"><StatusBadge status={v.estado} /></div>
+                    </div>
+                    <div className="flex items-start gap-3 py-2.5">
+                      <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Fecha</TextTiny>
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <Calendar size={13} className="text-gray-300 shrink-0" />
+                        <TextTiny className="text-gray-600">{v.fecha}</TextTiny>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 py-2.5 last:pb-0">
+                      <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Técnico</TextTiny>
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <User size={13} className="text-gray-300 shrink-0" />
+                        <TextTiny className="text-gray-600">{v.tecnico}</TextTiny>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           </Card>

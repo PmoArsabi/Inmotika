@@ -138,57 +138,48 @@ const UserTable = ({
       </div>
 
       {/* ── Mobile: cards (oculto en md+) ── */}
-      <div className="flex flex-col gap-3 md:hidden p-3">
+      <div className="flex flex-col gap-4 md:hidden">
         {users.map(user => {
           const fullName = `${user.nombres || ''} ${user.apellidos || ''}`.trim() || '—';
           return (
-            <Card key={user.id} className="p-4 border border-gray-200 shadow-sm rounded-xl">
-              {/* Header: nombre + estado */}
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                    <User size={14} className="text-gray-400" />
-                  </div>
-                  <div className="min-w-0">
-                    <TextSmall className="font-bold text-gray-900 truncate">{fullName}</TextSmall>
-                    <TextTiny className="text-gray-400 truncate">{user.email}</TextTiny>
+            <Card key={user.id} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
+              <div className="divide-y divide-gray-50 mb-4">
+                <div className="flex items-start gap-3 py-2.5 first:pt-0">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Usuario</TextTiny>
+                  <div className="flex-1 min-w-0">
+                    <TextSmall className="font-bold text-gray-900">{fullName}</TextSmall>
+                    <TextTiny className="text-gray-400">{user.email}</TextTiny>
                   </div>
                 </div>
-                <UserStatusCell user={user} />
-              </div>
-
-              {/* Detalles */}
-              <div className="space-y-1.5 mb-3">
-                <div className="flex items-center gap-2">
-                  <Shield size={13} className="text-gray-300 shrink-0" />
-                  <TextTiny className="text-gray-500 font-semibold">{roleLabels[user.rol] || user.rol}</TextTiny>
+                <div className="flex items-start gap-3 py-2.5">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Rol</TextTiny>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <Shield size={13} className="text-gray-300 shrink-0" />
+                    <TextTiny className="text-gray-600 font-semibold">{roleLabels[user.rol] || user.rol}</TextTiny>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 py-2.5">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Estado</TextTiny>
+                  <div className="flex-1"><UserStatusCell user={user} /></div>
                 </div>
                 {user.telefono && (
-                  <div className="flex items-center gap-2">
-                    <Phone size={13} className="text-gray-300 shrink-0" />
-                    <TextTiny className="text-gray-500">{user.telefono}</TextTiny>
+                  <div className="flex items-start gap-3 py-2.5 last:pb-0">
+                    <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Teléfono</TextTiny>
+                    <div className="flex items-center gap-1.5 flex-1">
+                      <Phone size={13} className="text-gray-300 shrink-0" />
+                      <TextTiny className="text-gray-600">{user.telefono}</TextTiny>
+                    </div>
                   </div>
                 )}
               </div>
-
-              {/* Acciones */}
-              <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-                <button
-                  onClick={() => onView(user)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-semibold"
-                >
+              <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                <button onClick={() => onView(user)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-semibold">
                   <Eye size={14} /> Ver
                 </button>
-                <button
-                  onClick={() => onEdit(user)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors text-xs font-semibold"
-                >
+                <button onClick={() => onEdit(user)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 transition-colors text-xs font-semibold">
                   <Edit size={14} /> Editar
                 </button>
-                <button
-                  onClick={() => onDelete(user.id)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors text-xs font-semibold"
-                >
+                <button onClick={() => onDelete(user.id)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition-colors text-xs font-semibold">
                   <Trash2 size={14} /> Eliminar
                 </button>
               </div>
