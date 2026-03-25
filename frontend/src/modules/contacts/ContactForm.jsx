@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   User, IdCard, Mail, Calendar, Briefcase, Heart, MessageSquare,
-  Building2, GitBranch, Shield, CheckCircle2,
+  Building2, GitBranch, Shield, CheckCircle2, Camera,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -9,7 +9,70 @@ import Select from '../../components/ui/Select';
 import Switch from '../../components/ui/Switch';
 import PhoneInput from '../../components/ui/PhoneInput';
 import SearchableSelect from '../../components/ui/SearchableSelect';
+import SecureImage from '../../components/ui/SecureImage';
+import { TextTiny } from '../../components/ui/Typography';
 import { useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
+
+/**
+ * Avatar centrado para contacto con acceso al sistema.
+ * - hasAccess + usuarioId: muestra foto real (SecureImage) con botón editar en modo edición
+ * - !hasAccess (darAcceso): muestra preview del File seleccionado o iniciales
+ * - viewMode: solo muestra, sin interacción
+ * @param {{ hasAccess: boolean, usuarioId: string|null, avatarFile: File|null, avatarPreview: string|null, nombres: string, isEditing: boolean, onChange: Function }} props
+ */
+const ContactAvatarBlock = ({ hasAccess, usuarioId, avatarFile, avatarPreview, nombres, isEditing, onChange }) => {
+  const inputRef = useRef(null);
+  const initials = (nombres || '?').charAt(0).toUpperCase();
+  const avatarPath = usuarioId ? `usuarios/${usuarioId}/avatar` : null;
+  // Para contactos existentes con usuario vinculado usamos SecureImage (ruta en storage)
+  // Para contactos nuevos con darAcceso usamos preview local (ObjectURL)
+  const canEdit = isEditing;
+
+  const handleClick = () => {
+    if (!canEdit) return;
+    inputRef.current?.click();
+  };
+
+  const handleChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const preview = URL.createObjectURL(file);
+    onChange(file, preview);
+    if (inputRef.current) inputRef.current.value = '';
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-2 mb-6">
+      <div className="relative">
+        <div
+          onClick={handleClick}
+          className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-md border-2 border-gray-200 bg-gradient-to-br from-[#D32F2F] to-[#8B0000] ${canEdit ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+        >
+          {hasAccess && avatarPath && !avatarPreview ? (
+            <SecureImage path={avatarPath} bucket="inmotika" alt="Avatar" className="w-full h-full object-cover" fallback={<span className="text-white text-2xl font-black">{initials}</span>} />
+          ) : avatarPreview ? (
+            <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-white text-2xl font-black">{initials}</span>
+          )}
+        </div>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={handleClick}
+            className="absolute -bottom-1 -right-1 w-7 h-7 bg-white rounded-full border-2 border-gray-200 flex items-center justify-center shadow hover:bg-gray-50 transition-colors"
+          >
+            <Camera size={13} className="text-gray-600" />
+          </button>
+        )}
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
+      </div>
+      {canEdit && (
+        <TextTiny className="text-gray-400">Haz clic para cambiar la foto</TextTiny>
+      )}
+    </div>
+  );
+};
 
 const ContactForm = ({
   draft,
@@ -249,6 +312,20 @@ const ContactForm = ({
           <Shield size={15} className="text-gray-500" />
           <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Acceso a la plataforma</span>
         </div>
+
+        {/* Avatar centrado — visible siempre que haya acceso (ver o editar) o cuando se va a dar acceso */}
+        {(hasAccess || draft.darAcceso) && (
+          <ContactAvatarBlock
+            hasAccess={hasAccess}
+            usuarioId={draft.usuarioId || null}
+            avatarFile={draft.avatarFile}
+            avatarPreview={draft.avatarPreview}
+            nombres={draft.nombres}
+            isEditing={isEditing}
+            onChange={(file, preview) => updateDraft({ avatarFile: file, avatarPreview: preview })}
+          />
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-4">
             {hasAccess ? (

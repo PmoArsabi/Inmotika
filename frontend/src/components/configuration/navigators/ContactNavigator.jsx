@@ -170,12 +170,41 @@ const ContactNavigator = () => {
                     .update({ usuario_id: perfil.id })
                     .eq('id', contactId);
                 }
+
+                // Subir avatar si el admin seleccionó uno
+                if (currentDraft.avatarFile) {
+                  const avatarPath = `usuarios/${perfil.id}/avatar`;
+                  const { error: uploadError } = await supabase.storage
+                    .from('inmotika')
+                    .upload(avatarPath, currentDraft.avatarFile, { upsert: true });
+                  if (!uploadError) {
+                    await supabase
+                      .from('perfil_usuario')
+                      .update({ avatar_url: avatarPath })
+                      .eq('id', perfil.id);
+                  }
+                }
+
                 break;
               }
             }
           }
         } catch (inviteErr) {
           console.error('Error enviando invitación:', inviteErr);
+        }
+      }
+
+      // Si el contacto ya tiene usuario y se subió un avatar, actualizarlo
+      if (hasAccess && currentDraft.usuarioId && currentDraft.avatarFile) {
+        const avatarPath = `usuarios/${currentDraft.usuarioId}/avatar`;
+        const { error: uploadError } = await supabase.storage
+          .from('inmotika')
+          .upload(avatarPath, currentDraft.avatarFile, { upsert: true });
+        if (!uploadError) {
+          await supabase
+            .from('perfil_usuario')
+            .update({ avatar_url: avatarPath })
+            .eq('id', currentDraft.usuarioId);
         }
       }
 

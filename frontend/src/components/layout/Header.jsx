@@ -1,5 +1,6 @@
 import { Menu, Bell } from 'lucide-react';
 import { TextSmall } from '../ui/Typography';
+import SecureImage from '../ui/SecureImage';
 
 // Maps route IDs to human-readable section names
 const SECTION_LABELS = {
@@ -51,8 +52,19 @@ const Header = ({ user, onToggleMobileMenu }) => {
           </button>
 
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-[#D32F2F] text-white rounded-xl flex items-center justify-center text-xs font-black shadow-lg shadow-red-900/20">
-              {getInitial(user)}
+            <div className="w-9 h-9 rounded-xl overflow-hidden shadow-lg shadow-red-900/20 shrink-0">
+              {user?.avatar_url ? (
+                <SecureImage
+                  path={user.avatar_url}
+                  bucket="inmotika"
+                  alt={getDisplayName(user)}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-[#D32F2F] text-white flex items-center justify-center text-xs font-black">
+                  {getInitial(user)}
+                </div>
+              )}
             </div>
             <div className="hidden sm:block">
               <p className="text-[11px] font-black text-gray-900 uppercase tracking-wide leading-none">

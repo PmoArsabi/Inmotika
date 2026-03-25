@@ -1,8 +1,9 @@
-import { Eye, Edit, Trash2, User, Mail, Phone, Shield, Clock, RefreshCw } from 'lucide-react';
+import { Eye, Edit, Trash2, Mail, Phone, Shield, Clock, RefreshCw } from 'lucide-react';
 import { Table, THead, TBody, Tr, Th, Td } from '../../../components/ui/Table';
 import { Subtitle, TextSmall, TextTiny } from '../../../components/ui/Typography';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import Card from '../../../components/ui/Card';
+import SecureImage from '../../../components/ui/SecureImage';
 import { ROLES } from '../../../utils/constants';
 
 const roleLabels = {
@@ -76,8 +77,16 @@ const UserTable = ({
             {users.map(user => (
               <Tr key={user.id}>
                 <Td>
-                  <div className="flex items-center gap-2">
-                    <User size={14} className="text-gray-400 shrink-0" />
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-gradient-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center">
+                      {user.avatar_url ? (
+                        <SecureImage path={user.avatar_url} bucket="inmotika" alt={`${user.nombres || ''}`} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-white text-xs font-black">
+                          {(user.nombres || '?').charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
                     <Subtitle className="text-gray-900">
                       {`${user.nombres || ''} ${user.apellidos || ''}`.trim() || '—'}
                     </Subtitle>
@@ -145,7 +154,15 @@ const UserTable = ({
             <Card key={user.id} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
               <div className="divide-y divide-gray-50 mb-4">
                 <div className="flex items-start gap-3 py-2.5 first:pt-0">
-                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Usuario</TextTiny>
+                  <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-gradient-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center">
+                    {user.avatar_url ? (
+                      <SecureImage path={user.avatar_url} bucket="inmotika" alt={fullName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-white text-sm font-black">
+                        {(user.nombres || '?').charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <TextSmall className="font-bold text-gray-900">{fullName}</TextSmall>
                     <TextTiny className="text-gray-400">{user.email}</TextTiny>

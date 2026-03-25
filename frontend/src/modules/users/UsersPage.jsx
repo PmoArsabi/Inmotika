@@ -100,6 +100,7 @@ const UsersPage = ({ setData }) => {
       certificados: Array.isArray(user.certificados) ? user.certificados : [],
       directorId: user.directorAsignadoId || '',
       sucursalesACargo: Array.isArray(user.sucursalesACargo) ? user.sucursalesACargo : [],
+      avatarUrl: user.avatar_url || '',
     });
     setTecnicoDocumentos({
       cedula: user.documentos?.cedula || null,
@@ -122,6 +123,7 @@ const UsersPage = ({ setData }) => {
       certificados: Array.isArray(user.certificados) ? user.certificados : [],
       directorId: user.assignedDirectorProfileId || '',
       sucursalesACargo: Array.isArray(user.sucursalesACargo) ? user.sucursalesACargo : [],
+      avatarUrl: user.avatar_url || '',
     });
     setTecnicoDocumentos({
       cedula: user.documentos?.cedula || null,

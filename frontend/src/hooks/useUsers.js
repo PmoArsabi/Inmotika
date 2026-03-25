@@ -159,7 +159,7 @@ export const useUsers = () => {
     const { data: usersData, error } = await supabase
       .from('perfil_usuario')
       .select(`
-        id, nombres, apellidos, email, telefono, tipo_documento, identificacion,
+        id, nombres, apellidos, email, telefono, tipo_documento, identificacion, avatar_url,
         catalogo_rol (id, codigo, nombre),
         catalogo_estado_general (id, codigo, nombre, activo),
         tecnico!tecnico_usuario_id_fkey (
@@ -544,6 +544,7 @@ export const useUsers = () => {
             telefono: newUser.telefono || null,
             tipo_documento: newUser.tipoDocumento || null,
             identificacion: newUser.identificacion || null,
+            ...(newUser.avatarUrl !== undefined && { avatar_url: newUser.avatarUrl || null }),
           })
           .eq('id', editingUser.id);
 

@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { User, Mail, Shield, IdCard, Hash, FileText, AlertTriangle, Save, ArrowLeft, RefreshCw, Loader2, Building2, MapPin, ChevronRight, Search } from 'lucide-react';
+import { User, Mail, Shield, IdCard, Hash, FileText, AlertTriangle, Save, ArrowLeft, RefreshCw, Loader2, Building2, MapPin, ChevronRight, Search, Camera } from 'lucide-react';
+import { supabase } from '../../../utils/supabase';
+import SecureImage from '../../../components/ui/SecureImage';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
@@ -71,6 +73,74 @@ const roleLabels = {
   [ROLES.COORDINADOR]: 'Coordinador',
   [ROLES.TECNICO]: 'Técnico',
   [ROLES.CLIENTE]: 'Cliente'
+};
+
+/**
+ * Bloque de avatar reutilizable para UserForm.
+ * - Si hay userId: permite subir/cambiar imagen a `usuarios/{userId}/avatar`
+ * - Si isCreating: muestra placeholder (se sube al guardar)
+ * - isView: solo muestra la imagen, sin botón de cambio
+ */
+const AvatarUpload = ({ userId, avatarUrl, nombres, isView, isCreating, onChange }) => {
+  const inputRef = useRef(null);
+  const avatarPath = userId ? `usuarios/${userId}/avatar` : null;
+
+  const handleClick = () => {
+    if (isView || isCreating || !avatarPath) return;
+    inputRef.current?.click();
+  };
+
+  const handleChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !avatarPath) return;
+    try {
+      const { error } = await supabase.storage
+        .from('inmotika')
+        .upload(avatarPath, file, { upsert: true });
+      if (error) throw error;
+      onChange(avatarPath);
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+    } finally {
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const initials = (nombres || '?').charAt(0).toUpperCase();
+  const canEdit = !isView && !isCreating && !!avatarPath;
+
+  return (
+    <div className="flex flex-col items-center gap-2 mb-6">
+      <div className="relative">
+        <div
+          onClick={handleClick}
+          className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-md border-2 border-gray-200 bg-gradient-to-br from-[#D32F2F] to-[#8B0000] ${canEdit ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+        >
+          {avatarUrl ? (
+            <SecureImage path={avatarUrl} bucket="inmotika" alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-white text-2xl font-black">{initials}</span>
+          )}
+        </div>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={handleClick}
+            className="absolute -bottom-1 -right-1 w-7 h-7 bg-white rounded-full border-2 border-gray-200 flex items-center justify-center shadow hover:bg-gray-50 transition-colors"
+          >
+            <Camera size={13} className="text-gray-600" />
+          </button>
+        )}
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
+      </div>
+      {canEdit && (
+        <TextTiny className="text-gray-400">Haz clic para cambiar la foto</TextTiny>
+      )}
+      {isCreating && (
+        <TextTiny className="text-gray-400">La foto se podrá agregar después de crear el usuario</TextTiny>
+      )}
+    </div>
+  );
 };
 
 const UserForm = ({
@@ -213,6 +283,16 @@ const UserForm = ({
                 <TextTiny className="text-gray-500">Datos básicos del usuario</TextTiny>
               </div>
             </div>
+
+            {/* Avatar upload */}
+            <AvatarUpload
+              userId={editingUser?.id || viewingUser?.id}
+              avatarUrl={newUser.avatarUrl}
+              nombres={newUser.nombres}
+              isView={isView}
+              isCreating={isCreating}
+              onChange={(url) => setNewUser({ ...newUser, avatarUrl: url })}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
