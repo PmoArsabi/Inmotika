@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   LayoutDashboard, ClipboardList, Settings, Calendar, Building2,
   Cpu, Eye, LogOut, Menu, ChevronUp, ChevronDown, Users,
@@ -32,6 +32,7 @@ const Sidebar = ({
     }));
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const getMenuItems = () => {
     const userRole = user?.role;
     if (isManagementRole(userRole)) {
@@ -108,20 +109,20 @@ const Sidebar = ({
     return [];
   };
 
-  const menuItems = getMenuItems();
+  // Memoized so the auto-expand effect only fires when activeTab truly changes,
+  // not on every render (which was causing the menu to re-open after the user closed it).
+  const menuItems = useMemo(getMenuItems, [user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-expand menu if a sub-item is active
+  // Auto-expand parent when navigating to a sub-item from outside the sidebar.
+  // Only opens — never fights against an explicit user collapse.
   useEffect(() => {
     menuItems.forEach(item => {
       if (item.hasSubItems && item.subItems) {
         const hasActiveSubItem = item.subItems.some(sub => activeTab === sub.id);
         if (hasActiveSubItem) {
-          setExpandedMenus(prev => {
-            if (!prev[item.id]) {
-              return { ...prev, [item.id]: true };
-            }
-            return prev;
-          });
+          setExpandedMenus(prev =>
+            prev[item.id] ? prev : { ...prev, [item.id]: true }
+          );
         }
       }
     });
