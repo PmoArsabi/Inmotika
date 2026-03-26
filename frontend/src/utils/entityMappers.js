@@ -40,6 +40,9 @@ export const emptyContractDraft = () => ({
   fechaFin: '',
   documentoUrl: '',
   estadoId: '',
+  numVisitasPreventivas: 0,
+  fechasPreventivas: [],   // Array de { inicio: 'YYYY-MM-DD', fin: 'YYYY-MM-DD' }
+  visitaIdsPreventivas: [],
 });
 
 export const emptyBranchDraft = () => ({
@@ -189,6 +192,9 @@ export const toBranchDraft = (branch) => {
       documentoUrl: c.documento_url ?? c.documentoUrl ?? '',
       fechaInicio: c.fecha_inicio ?? c.fechaInicio ?? '',
       fechaFin: c.fecha_fin ?? c.fechaFin ?? '',
+      numVisitasPreventivas: c.num_visitas_preventivas ?? c.numVisitasPreventivas ?? 0,
+      fechasPreventivas: c.fechasPreventivas || [],
+      visitaIdsPreventivas: c.visitaIdsPreventivas || [],
     })),
   };
 };
@@ -269,6 +275,8 @@ export const toDeviceDraft = (device, route = null) => ({
   marcaId: device?.marcaId || device?.marca_id || '',
   estadoGestionId: device?.estadoGestionId || device?.estado_gestion_id || '',
   notasTecnicas: device?.notasTecnicas || device?.notas_tecnicas || '',
+  fechaCompra: device?.fechaCompra || device?.fecha_compra || '',
+  fechaCaducidad: device?.fechaCaducidad || device?.fecha_caducidad || '',
   pasoAPaso: Array.isArray(device?.pasoAPaso)
     ? device.pasoAPaso.map((p, i) =>
         typeof p === 'string'

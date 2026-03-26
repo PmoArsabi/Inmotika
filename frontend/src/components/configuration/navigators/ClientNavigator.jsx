@@ -16,6 +16,7 @@ import { saveSucursal } from '../../../api/sucursalApi';
 import { saveCliente, syncClientDirectors } from '../../../api/clienteApi';
 import { useUsers } from '../../../hooks/useUsers';
 import { useNotify } from '../../../context/NotificationContext';
+import { useAuth } from '../../../context/AuthContext';
 
 const ClientNavigator = ({ 
   setAssociateContactsModal,
@@ -39,7 +40,10 @@ const ClientNavigator = ({
   const { data, setData } = useMasterData();
   const { activeDirectors } = useUsers();
   const notify = useNotify();
+  const { user } = useAuth();
   const { options: tipoPersonaOptions } = useCatalog('TIPO_PERSONA');
+  const { options: tipoVisitaOptions }  = useCatalog('TIPO_VISITA');
+  const { options: estadoVisitaOptions } = useCatalog('ESTADO_VISITA');
   const tipoPersonaIdNatural = tipoPersonaOptions.find(o => o.codigo === 'NATURAL')?.value || '';
   const tipoPersonaIdJuridica = tipoPersonaOptions.find(o => o.codigo === 'JURIDICA')?.value || '';
 
@@ -227,10 +231,17 @@ const ClientNavigator = ({
     startSaving();
 
     try {
+      const catalogIds = {
+        tipoPreventivId: tipoVisitaOptions.find(o => o.codigo === 'PREVENTIVO')?.value,
+        estadoPendienteId: estadoVisitaOptions.find(o => o.codigo === 'PENDIENTE')?.value,
+        estadoProgramadaId: estadoVisitaOptions.find(o => o.codigo === 'PROGRAMADA')?.value,
+        userId: user?.id,
+      };
       const { sucursalId, contratos } = await saveSucursal({
         sucursalId: editingBranchId,
         clienteId: route.clientId,
         draft: activeBranchDraft,
+        catalogIds,
       });
       const finalDraft = { ...activeBranchDraft, id: sucursalId, contratos };
 

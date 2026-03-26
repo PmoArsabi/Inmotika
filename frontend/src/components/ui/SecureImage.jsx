@@ -28,21 +28,39 @@ const SecureImage = ({
   useEffect(() => {
     let isMounted = true;
 
+    /**
+     * Normaliza cualquier URL/path al path relativo dentro del bucket.
+     * Soporta:
+     *  - paths relativos ("evidencias/visita-id/disp-id/foto.jpg")
+     *  - URLs públicas de Supabase Storage ("/object/public/bucket/…")
+     *  - URLs firmadas de Supabase Storage ("/object/sign/bucket/…?token=…")
+     */
+    const toRelativePath = (rawPath) => {
+      if (!rawPath || rawPath.startsWith('blob:')) return rawPath;
+      if (rawPath.startsWith('http')) {
+        const match = rawPath.match(/\/object\/(?:public|sign)\/[^/]+\/(.+?)(?:\?|$)/);
+        return match ? match[1] : null; // null → URL externa real, usar directamente
+      }
+      return rawPath;
+    };
+
     const loadSecureUrl = async () => {
       if (!path) {
         setLoading(false);
         return;
       }
 
-      // Handle local blob URLs (previews before saving)
+      // Blob: preview local antes de guardar
       if (path.startsWith('blob:')) {
         setUrl(path);
         setLoading(false);
         return;
       }
 
-      // Handle already full URLs (external)
-      if (path.startsWith('http')) {
+      const storagePath = toRelativePath(path);
+
+      // URL externa (no Supabase Storage) → usar directamente
+      if (storagePath === null) {
         setUrl(path);
         setLoading(false);
         return;
@@ -54,7 +72,7 @@ const SecureImage = ({
 
         const { data, error: signedError } = await supabase.storage
           .from(bucket)
-          .createSignedUrl(path, expiresIn);
+          .createSignedUrl(storagePath, expiresIn);
 
         if (signedError) throw signedError;
 

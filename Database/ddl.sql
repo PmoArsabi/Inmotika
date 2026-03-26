@@ -165,6 +165,7 @@ alter table "public"."contacto_sucursal" enable row level security;
     "fecha_fin" date,
     "documento_url" text,
     "estado_id" uuid,
+    "num_visitas_preventivas" integer not null default 0,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
@@ -245,7 +246,9 @@ alter table "public"."disponibilidad_tecnico" enable row level security;
     "modelo" character varying(255),
     "proveedor_id" uuid,
     "marca_id" uuid,
-    "estado_gestion_id" uuid
+    "estado_gestion_id" uuid,
+    "fecha_compra" date,
+    "fecha_caducidad" date
       );
 
 alter table "public"."dispositivo" enable row level security;
@@ -2585,6 +2588,43 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER set_updated_at_proveedor BEFORE UPDATE ON public.proveedor FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 CREATE TRIGGER set_updated_at_marca BEFORE UPDATE ON public.marca FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE OR REPLACE FUNCTION public.recalcular_proximo_mantenimiento()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_frecuencia  integer;
+  v_estado_code text;
+BEGIN
+  IF OLD.estado_id IS NOT DISTINCT FROM NEW.estado_id THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT codigo INTO v_estado_code
+    FROM catalogo
+   WHERE id = NEW.estado_id
+   LIMIT 1;
+
+  IF v_estado_code = 'COMPLETADA' THEN
+    SELECT frecuencia_mantenimiento_meses INTO v_frecuencia
+      FROM dispositivo
+     WHERE id = NEW.dispositivo_id;
+
+    IF v_frecuencia IS NOT NULL AND v_frecuencia > 0 THEN
+      UPDATE dispositivo
+         SET fecha_proximo_mantenimiento = CURRENT_DATE + (v_frecuencia || ' months')::interval,
+             updated_at = now()
+       WHERE id = NEW.dispositivo_id;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_recalcular_mantenimiento
+  AFTER UPDATE ON public.intervencion
+  FOR EACH ROW
+  EXECUTE FUNCTION public.recalcular_proximo_mantenimiento();
 
   create policy "Acceso completo usuarios autenticados 69tnde_0"
   on "storage"."objects"

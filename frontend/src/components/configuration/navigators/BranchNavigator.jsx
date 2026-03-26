@@ -6,6 +6,8 @@ import { useMasterData } from '../../../context/MasterDataContext';
 import { emptyBranchDraft, toBranchDraft, applyBranchUpsert } from '../../../utils/entityMappers';
 import { validateBranch } from '../../../utils/validators';
 import { useNotify } from '../../../context/NotificationContext';
+import { useAuth } from '../../../context/AuthContext';
+import { useCatalog } from '../../../hooks/useCatalog';
 import { saveSucursal } from '../../../api/sucursalApi';
 
 const BranchNavigator = ({
@@ -15,6 +17,9 @@ const BranchNavigator = ({
   const { route, drafts, setDrafts, updateDraft, setStack } = useConfigurationContext();
   const { data, setData } = useMasterData();
   const notify = useNotify();
+  const { user } = useAuth();
+  const { options: tipoVisitaOptions } = useCatalog('TIPO_VISITA');
+  const { options: estadoVisitaOptions } = useCatalog('ESTADO_VISITA');
   const [showErrors, setShowErrors] = useState(false);
   const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
   const saveBranchInFlightRef = useRef(false);
@@ -62,10 +67,17 @@ const BranchNavigator = ({
     setSaveState({ isSaving: true, savedAt: null });
 
     try {
+      const catalogIds = {
+        tipoPreventivId: tipoVisitaOptions.find(o => o.codigo === 'PREVENTIVO')?.value,
+        estadoPendienteId: estadoVisitaOptions.find(o => o.codigo === 'PENDIENTE')?.value,
+        estadoProgramadaId: estadoVisitaOptions.find(o => o.codigo === 'PROGRAMADA')?.value,
+        userId: user?.id,
+      };
       const { sucursalId, contratos } = await saveSucursal({
         sucursalId: route.branchId,
         clienteId: route.clientId,
         draft,
+        catalogIds,
       });
       const finalDraft = { ...draft, id: sucursalId, contratos };
 

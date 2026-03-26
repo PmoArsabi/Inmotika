@@ -60,7 +60,9 @@ export const saveDevice = async (deviceDraft) => {
     codigoUnico,
     proveedorId,
     marcaId,
-    estadoGestionId
+    estadoGestionId,
+    fechaCompra,
+    fechaCaducidad,
   } = deviceDraft;
 
   const deviceData = {
@@ -80,7 +82,9 @@ export const saveDevice = async (deviceDraft) => {
     codigo_unico: codigoUnico || null,
     proveedor_id: proveedorId || null,
     marca_id: marcaId || null,
-    estado_gestion_id: estadoGestionId || null
+    estado_gestion_id: estadoGestionId || null,
+    fecha_compra: fechaCompra || null,
+    fecha_caducidad: fechaCaducidad || null,
   };
 
   // Check if it's a new device (UUID starting with 'new-' or similar frontend-generated ID)

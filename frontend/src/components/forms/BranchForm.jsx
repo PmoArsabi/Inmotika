@@ -1,7 +1,7 @@
 import React from 'react';
-import { 
+import {
   Building2, MapPin, Navigation, Link2, Eye,
-  Plus, Calendar, FileText
+  Plus, Calendar, FileText, CalendarClock
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -177,6 +177,9 @@ export const BranchForm = (props) => {
             url: c.documentoUrl || '',
             fechaInicio: c.fechaInicio || '',
             fechaFin: c.fechaFin || '',
+            numVisitasPreventivas: c.numVisitasPreventivas ?? 0,
+            fechasPreventivas: c.fechasPreventivas || [],
+            visitaIdsPreventivas: c.visitaIdsPreventivas || [],
           }))}
           onChange={(newItems) => {
             updateNewBranchDraft({
@@ -186,6 +189,9 @@ export const BranchForm = (props) => {
                 documentoUrl: item.url,
                 fechaInicio: item.fechaInicio || '',
                 fechaFin: item.fechaFin || '',
+                numVisitasPreventivas: item.numVisitasPreventivas ?? 0,
+                fechasPreventivas: item.fechasPreventivas || [],
+                visitaIdsPreventivas: item.visitaIdsPreventivas || [],
               }))
             });
           }}
@@ -193,25 +199,96 @@ export const BranchForm = (props) => {
           storagePathPrefix={null}
           deferred
           renderExtraFields={(item, updateRow) => isEditing ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-gray-600 mb-1 block">Fecha inicio</Label>
+            <div className="space-y-3">
+              {/* Fechas del contrato */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-600 mb-1 block">Fecha inicio</Label>
+                  <input
+                    type="date"
+                    value={item.fechaInicio || ''}
+                    onChange={e => updateRow({ fechaInicio: e.target.value || '' })}
+                    className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600 mb-1 block">Fecha fin</Label>
+                  <input
+                    type="date"
+                    value={item.fechaFin || ''}
+                    onChange={e => updateRow({ fechaFin: e.target.value || '' })}
+                    className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                  />
+                </div>
+              </div>
+
+              {/* Número de visitas preventivas */}
+              <div className="sm:w-1/2 pr-1.5">
+                <Label className="text-xs text-gray-600 mb-1 block">Visitas preventivas incluidas</Label>
                 <input
-                  type="date"
-                  value={item.fechaInicio || ''}
-                  onChange={e => updateRow({ fechaInicio: e.target.value || '' })}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={item.numVisitasPreventivas ?? 0}
+                  onChange={e => {
+                    const n = parseInt(e.target.value, 10) || 0;
+                    const prev = item.fechasPreventivas || [];
+                    const fechas = Array.from({ length: n }, (_, i) => prev[i] || { inicio: '', fin: '' });
+                    updateRow({ numVisitasPreventivas: n, fechasPreventivas: fechas });
+                  }}
+                  placeholder="Ej: 3"
                   className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
                 />
               </div>
-              <div>
-                <Label className="text-xs text-gray-600 mb-1 block">Fecha fin</Label>
-                <input
-                  type="date"
-                  value={item.fechaFin || ''}
-                  onChange={e => updateRow({ fechaFin: e.target.value || '' })}
-                  className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
-                />
-              </div>
+
+              {/* Date pickers — inicio y fin por cada visita preventiva */}
+              {(item.numVisitasPreventivas ?? 0) > 0 && (
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center gap-2">
+                    <CalendarClock size={14} className="text-[#D32F2F]" />
+                    <Label className="text-xs text-[#D32F2F] font-semibold">Fechas de visitas preventivas</Label>
+                  </div>
+                  {Array.from({ length: item.numVisitasPreventivas ?? 0 }).map((_, idx) => {
+                    const slot = (item.fechasPreventivas || [])[idx] || { inicio: '', fin: '' };
+                    const updateSlot = (patch) => {
+                      const fechas = Array.from({ length: item.numVisitasPreventivas }, (_, i) =>
+                        (item.fechasPreventivas || [])[i] || { inicio: '', fin: '' }
+                      );
+                      fechas[idx] = { ...slot, ...patch };
+                      updateRow({ fechasPreventivas: fechas });
+                    };
+                    return (
+                      <div key={idx} className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs text-gray-500 font-semibold">Visita preventiva {idx + 1}</Label>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-600 mb-1 block">Fecha inicio</Label>
+                          <input
+                            type="date"
+                            value={slot.inicio || ''}
+                            min={item.fechaInicio || undefined}
+                            max={slot.fin || item.fechaFin || undefined}
+                            onChange={e => updateSlot({ inicio: e.target.value || '' })}
+                            className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-600 mb-1 block">Fecha fin</Label>
+                          <input
+                            type="date"
+                            value={slot.fin || ''}
+                            min={slot.inicio || item.fechaInicio || undefined}
+                            max={item.fechaFin || undefined}
+                            onChange={e => updateSlot({ fin: e.target.value || '' })}
+                            className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : (item.fechaInicio || item.fechaFin || item.url || (item.nombre && item.nombre !== 'Contrato sin título')) ? (
             <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-600 font-semibold">
@@ -231,6 +308,24 @@ export const BranchForm = (props) => {
                   <Calendar size={14} className="text-gray-400" />
                   Fin: <span className="text-gray-900">{new Date(item.fechaFin).toLocaleDateString('es-CO')}</span>
                 </span>
+              )}
+              {(item.numVisitasPreventivas > 0) && (
+                <div className="w-full space-y-1 mt-1">
+                  <span className="flex items-center gap-1.5">
+                    <CalendarClock size={14} className="text-[#D32F2F]" />
+                    <span className="text-[#D32F2F] text-xs font-semibold">{item.numVisitasPreventivas} visita{item.numVisitasPreventivas !== 1 ? 's' : ''} preventiva{item.numVisitasPreventivas !== 1 ? 's' : ''}</span>
+                  </span>
+                  {(item.fechasPreventivas || []).map((f, i) => {
+                    const s = f || {};
+                    if (!s.inicio && !s.fin) return null;
+                    const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CO') : '—';
+                    return (
+                      <span key={i} className="text-xs text-gray-600 flex items-center gap-1 pl-5">
+                        #{i + 1} {fmt(s.inicio)} → {fmt(s.fin)}
+                      </span>
+                    );
+                  })}
+                </div>
               )}
             </div>
           ) : null}

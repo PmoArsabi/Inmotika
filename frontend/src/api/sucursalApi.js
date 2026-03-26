@@ -39,9 +39,14 @@ export function buildSucursalPayload(branchDraft, clienteId) {
  * @param {string} sucursalId - UUID de la sucursal
  * @param {string} clientId - UUID del cliente
  * @param {Object} branchDraft - draft con contratos[]
- * @returns {Promise<Array>} contratos actualizados con id, tema, documentoUrl, fechaInicio, fechaFin
+ * @param {Object} [catalogIds] - IDs de catálogo para crear visitas preventivas
+ * @param {string} [catalogIds.tipoPreventivId] - UUID tipo_visita PREVENTIVO
+ * @param {string} [catalogIds.estadoPendienteId] - UUID estado PENDIENTE
+ * @param {string} [catalogIds.estadoProgramadaId] - UUID estado PROGRAMADA
+ * @param {string} [catalogIds.userId] - UUID del usuario autenticado (coordinador)
+ * @returns {Promise<Array>} contratos actualizados
  */
-export async function syncSucursalContracts(sucursalId, clientId, branchDraft) {
+export async function syncSucursalContracts(sucursalId, clientId, branchDraft, catalogIds = {}) {
   const updated = [];
   for (const c of branchDraft.contratos || []) {
     const isNewId = !c.id || String(c.id).length < 20;
@@ -54,6 +59,7 @@ export async function syncSucursalContracts(sucursalId, clientId, branchDraft) {
         tema: (c.tema || '').trim() || null,
         fecha_inicio: c.fechaInicio || null,
         fecha_fin: c.fechaFin || null,
+        num_visitas_preventivas: c.numVisitasPreventivas ?? 0,
       })
       .select()
       .single();
@@ -69,6 +75,19 @@ export async function syncSucursalContracts(sucursalId, clientId, branchDraft) {
       });
     }
 
+    // Sincronizar visitas preventivas si hay slots con fecha inicio definida y catálogo disponible
+    const fechas = (c.fechasPreventivas || []).filter(f => f && f.inicio);
+    if (fechas.length > 0 && catalogIds.tipoPreventivId && catalogIds.userId) {
+      await syncVisitasPreventivas({
+        contratoId: row.id,
+        sucursalId,
+        clienteId: clientId,
+        fechas,
+        visitaIdsExistentes: c.visitaIdsPreventivas || [],
+        ...catalogIds,
+      });
+    }
+
     updated.push({
       ...c,
       id: row.id,
@@ -76,9 +95,100 @@ export async function syncSucursalContracts(sucursalId, clientId, branchDraft) {
       documentoUrl: finalUrl || row.documento_url || '',
       fechaInicio: row.fecha_inicio || c.fechaInicio || '',
       fechaFin: row.fecha_fin || c.fechaFin || '',
+      numVisitasPreventivas: row.num_visitas_preventivas ?? 0,
+      fechasPreventivas: c.fechasPreventivas || [],
     });
   }
   return updated;
+}
+
+/**
+ * Crea o actualiza las solicitudes+visitas preventivas de un contrato.
+ * Estrategia: por cada fecha en el array, busca si ya existe visita vinculada al contrato
+ * (por contrato_id en observaciones como referencia) y actualiza su fecha; si no existe, crea.
+ *
+ * @param {Object} params
+ * @param {string} params.contratoId
+ * @param {string} params.sucursalId
+ * @param {string} params.clienteId
+ * @param {string[]} params.fechas - array de fechas ISO date (YYYY-MM-DD)
+ * @param {string[]} params.visitaIdsExistentes - IDs de visitas ya creadas para este contrato
+ * @param {string} params.tipoPreventivId
+ * @param {string} params.estadoPendienteId
+ * @param {string} params.estadoProgramadaId
+ * @param {string} params.userId
+ */
+async function syncVisitasPreventivas({
+  contratoId, sucursalId, clienteId, fechas,
+  visitaIdsExistentes = [],
+  tipoPreventivId, estadoPendienteId, estadoProgramadaId, userId,
+}) {
+  // Cargar visitas existentes vinculadas a este contrato
+  const { data: visitasExistentes } = visitaIdsExistentes.length > 0
+    ? await supabase.from('visita').select('id, fecha_programada, solicitud_id').in('id', visitaIdsExistentes)
+    : { data: [] };
+
+  const existentes = visitasExistentes || [];
+
+  for (let i = 0; i < fechas.length; i++) {
+    const slot = fechas[i];
+    const fechaInicioISO = new Date(slot.inicio + 'T08:00:00').toISOString();
+    const fechaFinISO    = slot.fin ? new Date(slot.fin + 'T18:00:00').toISOString() : null;
+    const visitaExistente = existentes[i];
+
+    if (visitaExistente) {
+      // Actualizar fechas de visita y solicitud existentes
+      await supabase
+        .from('visita')
+        .update({
+          fecha_programada: fechaInicioISO,
+          fecha_fin: fechaFinISO,
+        })
+        .eq('id', visitaExistente.id);
+
+      if (visitaExistente.solicitud_id) {
+        await supabase
+          .from('solicitud_visita')
+          .update({ fecha_sugerida: fechaInicioISO })
+          .eq('id', visitaExistente.solicitud_id);
+      }
+    } else {
+      // Crear solicitud + visita nuevas
+      const { data: solicitud, error: solErr } = await supabase
+        .from('solicitud_visita')
+        .insert({
+          cliente_id: clienteId,
+          sucursal_id: sucursalId,
+          creado_por: userId,
+          tipo_visita_id: tipoPreventivId,
+          fecha_sugerida: fechaInicioISO,
+          motivo: `Visita preventiva ${i + 1} — Contrato ${contratoId}`,
+          prioridad: 'MEDIA',
+          estado_id: estadoProgramadaId || estadoPendienteId || null,
+        })
+        .select('id')
+        .single();
+
+      if (solErr) {
+        console.error('[syncVisitasPreventivas] error creando solicitud:', solErr.message);
+        continue;
+      }
+
+      await supabase
+        .from('visita')
+        .insert({
+          solicitud_id: solicitud.id,
+          coordinador_usuario_id: userId,
+          cliente_id: clienteId,
+          sucursal_id: sucursalId,
+          tipo_visita_id: tipoPreventivId,
+          fecha_programada: fechaInicioISO,
+          fecha_fin: fechaFinISO,
+          observaciones: `contrato:${contratoId}`,
+          estado_id: estadoProgramadaId || null,
+        });
+    }
+  }
 }
 
 /**
@@ -122,7 +232,7 @@ export async function syncSucursalDispositivos(sucursalId, deviceIds) {
  * @param {Object} params.draft - draft del formulario
  * @returns {Promise<{ sucursalId: string, contratos: Array }>}
  */
-export async function saveSucursal({ sucursalId, clienteId, draft }) {
+export async function saveSucursal({ sucursalId, clienteId, draft, catalogIds = {} }) {
   const payload = buildSucursalPayload(draft, clienteId);
   const isNew = isNewSucursalId(sucursalId);
   let resolvedId = sucursalId;
@@ -144,7 +254,7 @@ export async function saveSucursal({ sucursalId, clienteId, draft }) {
     if (error) throw error;
   }
 
-  const contratos = await syncSucursalContracts(resolvedId, clienteId, draft);
+  const contratos = await syncSucursalContracts(resolvedId, clienteId, draft, catalogIds);
 
   // Sincronizar contactos asociados desde el modal de asociar
   if (Array.isArray(draft.associatedContactIds) && draft.associatedContactIds.length > 0) {
