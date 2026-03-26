@@ -36,9 +36,6 @@ const ActividadRow = ({ actividad, completada, onChange, viewMode, isBlocked }) 
       </button>
       <span className={`text-xs leading-relaxed ${completada ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
         {actividad.descripcion}
-        {actividad.esObligatorio && (
-          <span className="ml-1 text-[9px] font-bold text-red-400 uppercase">*</span>
-        )}
       </span>
     </div>
   );
@@ -59,9 +56,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
   const actividades = paso.actividades || [];
   const totalActs   = actividades.length;
   const doneActs    = actividades.filter(a => ejecucionActividades[a.id]?.completada).length;
-  const obligatorias = actividades.filter(a => a.esObligatorio);
-  const allObligatoriasDone = obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
-  const pasoCerrado = allObligatoriasDone;
+  const pasoCerrado = actividades.length === 0 || actividades.every(a => ejecucionActividades[a.id]?.completada);
   const [open, setOpen] = useState(!isLocked);
 
   return (
@@ -113,7 +108,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
           {actividades.map((act, actIdx) => {
             const isActBlocked = !viewMode && !isLocked && actividades
               .slice(0, actIdx)
-              .some(prev => prev.esObligatorio && !ejecucionActividades[prev.id]?.completada);
+              .some(prev => !ejecucionActividades[prev.id]?.completada);
             return (
               <ActividadRow
                 key={act.id}
@@ -371,10 +366,10 @@ const DeviceChecklistCard = ({
   const doneActs       = allActividades.filter(a => ejecucionActividades[a.id]?.completada).length;
   const pct            = totalActs > 0 ? Math.round((doneActs / totalActs) * 100) : 0;
 
-  const allDone = steps.length > 0 && steps.every(paso => {
-    const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
-    return obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
-  });
+  const allDone = steps.length > 0 && steps.every(paso =>
+    (paso.actividades || []).length === 0 ||
+    (paso.actividades || []).every(a => ejecucionActividades[a.id]?.completada)
+  );
 
   return (
     <div className={`border rounded-lg overflow-hidden transition-all ${
@@ -435,11 +430,9 @@ const DeviceChecklistCard = ({
             <p className="text-xs text-gray-400 italic text-center py-2">Sin pasos de protocolo definidos</p>
           )}
           {steps.map((paso, pasoIdx) => {
-            // A paso is locked if any previous paso has mandatory activities not done
-            const isPasoLocked = !viewMode && steps.slice(0, pasoIdx).some(prev => {
-              const obligatorias = (prev.actividades || []).filter(a => a.esObligatorio);
-              return obligatorias.some(a => !ejecucionActividades[a.id]?.completada);
-            });
+            const isPasoLocked = !viewMode && steps.slice(0, pasoIdx).some(prev =>
+              (prev.actividades || []).some(a => !ejecucionActividades[a.id]?.completada)
+            );
             return (
               <PasoSection
                 key={paso.id}

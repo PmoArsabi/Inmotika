@@ -7,7 +7,6 @@ drop extension if exists "pg_net";
     "paso_id" uuid not null,
     "descripcion" text not null,
     "orden" integer not null default 1,
-    "es_obligatorio" boolean default true,
     "activo" boolean default true,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()

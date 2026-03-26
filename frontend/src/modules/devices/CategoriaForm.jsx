@@ -14,7 +14,6 @@ const emptyActividad = (orden) => ({
   id: null,
   tempId: `temp-act-${Date.now()}-${Math.random()}`,
   descripcion: '',
-  esObligatorio: true,
   orden,
   isNew: true,
   deleted: false,
@@ -22,21 +21,16 @@ const emptyActividad = (orden) => ({
 
 // ─── Actividades sub-list for a paso ─────────────────────────────────────────
 const ActividadesList = ({ actividades, isEditing, onChange }) => {
-  const [showInput, setShowInput]   = useState(false);
-  const [inputText, setInputText]   = useState('');
-  const [inputOblig, setInputOblig] = useState(true);
+  const [showInput, setShowInput] = useState(false);
+  const [inputText, setInputText] = useState('');
 
   const visible = actividades.filter(a => !a.deleted);
 
   const addActividad = () => {
     if (!inputText.trim()) return;
-    const newA = {
-      ...emptyActividad(visible.length + 1),
-      descripcion: inputText.trim(),
-      esObligatorio: inputOblig,
-    };
+    const newA = { ...emptyActividad(visible.length + 1), descripcion: inputText.trim() };
     onChange([...actividades, newA]);
-    setInputText(''); setInputOblig(true); setShowInput(false);
+    setInputText(''); setShowInput(false);
   };
 
   const remove = (idx) => {
@@ -51,11 +45,6 @@ const ActividadesList = ({ actividades, isEditing, onChange }) => {
   const updateDesc = (idx, val) => {
     const realIdx = actividades.indexOf(visible[idx]);
     onChange(actividades.map((a, i) => i === realIdx ? { ...a, descripcion: val } : a));
-  };
-
-  const toggleOblig = (idx) => {
-    const realIdx = actividades.indexOf(visible[idx]);
-    onChange(actividades.map((a, i) => i === realIdx ? { ...a, esObligatorio: !a.esObligatorio } : a));
   };
 
   return (
@@ -73,16 +62,6 @@ const ActividadesList = ({ actividades, isEditing, onChange }) => {
           ) : (
             <span className="flex-1 min-w-0 text-xs text-gray-700">{act.descripcion}</span>
           )}
-          {/* Fixed-width obligatorio column */}
-          <div className="w-6 flex justify-center shrink-0">
-            {isEditing ? (
-              <input type="checkbox" checked={!!act.esObligatorio} onChange={() => toggleOblig(i)}
-                className="w-3.5 h-3.5 accent-[#D32F2F] cursor-pointer" />
-            ) : act.esObligatorio ? (
-              <span className="text-[#D32F2F] font-bold text-xs leading-none">*</span>
-            ) : null}
-          </div>
-          {/* Fixed-width trash column */}
           <div className="w-6 flex justify-center shrink-0">
             {isEditing && (
               <button type="button" onClick={() => remove(i)}
@@ -107,10 +86,6 @@ const ActividadesList = ({ actividades, isEditing, onChange }) => {
               if (e.key === 'Escape') { setShowInput(false); setInputText(''); }
             }}
           />
-          <div className="w-6 flex justify-center shrink-0">
-            <input type="checkbox" checked={inputOblig} onChange={e => setInputOblig(e.target.checked)}
-              className="w-3.5 h-3.5 accent-[#D32F2F] cursor-pointer" />
-          </div>
           <div className="w-6 flex justify-center shrink-0">
             <button type="button" onClick={addActividad} disabled={!inputText.trim()}
               className="w-5 h-5 flex items-center justify-center rounded bg-[#D32F2F] text-white text-sm font-bold disabled:opacity-40 hover:bg-[#B71C1C] transition-colors">

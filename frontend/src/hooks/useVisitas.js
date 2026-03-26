@@ -203,7 +203,7 @@ export const useVisitas = () => {
           .from('paso_protocolo')
           .select(`
             id, descripcion, orden, categoria_id,
-            actividades:actividad_protocolo(id, descripcion, orden, es_obligatorio, activo)
+            actividades:actividad_protocolo(id, descripcion, orden, activo)
           `)
           .in('categoria_id', allCategoriaIds)
           .eq('activo', true)
@@ -216,7 +216,7 @@ export const useVisitas = () => {
             actividades: (paso.actividades || [])
               .filter(a => a.activo !== false)
               .sort((a, b) => (a.orden || 0) - (b.orden || 0))
-              .map(a => ({ id: a.id, descripcion: a.descripcion, esObligatorio: a.es_obligatorio })),
+              .map(a => ({ id: a.id, descripcion: a.descripcion })),
           });
           pasosByCatId.set(paso.categoria_id, list);
         });

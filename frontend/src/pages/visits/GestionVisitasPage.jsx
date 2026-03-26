@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Play, Eye, Edit2,
   Calendar, Building2, AlertCircle, Clock,
@@ -31,7 +31,10 @@ const InfoRow = ({ icon: Icon, label, value }) => (
 );
 
 // ─── Main page ────────────────────────────────────────────────────────────────
-const GestionVisitasPage = () => {
+/**
+ * @param {{ initialVisitaId?: string|null, onInitialVisitaConsumed?: () => void }} props
+ */
+const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed }) => {
   const { visitas: visitasHook, loading: loadingVisitas, fetchVisitas } = useVisitas();
   const notify   = useNotify();
   const [activeVisita,         setActiveVisita]         = useState(null);
@@ -48,6 +51,21 @@ const GestionVisitasPage = () => {
   const [successModal,         setSuccessModal]         = useState({ open: false, deviceNombre: '' });
 
   const visitas = visitasHook;
+
+  // Auto-abrir la visita indicada desde el dashboard del técnico.
+  // consumedRef guarda el último ID procesado para evitar doble apertura
+  // cuando visitas se recarga en background, pero sí responde a un nuevo ID.
+  const consumedRef = useRef(null);
+  useEffect(() => {
+    if (!initialVisitaId || loadingVisitas) return;
+    if (consumedRef.current === initialVisitaId) return;
+    const target = visitas.find(v => v.id === initialVisitaId);
+    if (!target) return;
+    consumedRef.current = initialVisitaId;
+    onInitialVisitaConsumed?.();
+    handleOpenVisita(target);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialVisitaId, visitas, loadingVisitas]);
 
   // Base list: only relevant states for gestión
   const baseList = useMemo(() => visitas.filter(v =>
@@ -247,10 +265,10 @@ const GestionVisitasPage = () => {
     if (!activeVisita?.dispositivos?.length) return false;
     return activeVisita.dispositivos.every(device =>
       (device.pasos || []).length > 0 &&
-      (device.pasos || []).every(paso => {
-        const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
-        return obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
-      }),
+      (device.pasos || []).every(paso =>
+        (paso.actividades || []).length === 0 ||
+        (paso.actividades || []).every(a => ejecucionActividades[a.id]?.completada)
+      ),
     );
   }, [activeVisita, ejecucionActividades]);
 
@@ -268,10 +286,10 @@ const GestionVisitasPage = () => {
       const allActs = (d.pasos || []).flatMap(p => p.actividades || []);
       const totalActs = allActs.length;
       const doneActs  = allActs.filter(a => ejecucionActividades[a.id]?.completada).length;
-      const done = (d.pasos || []).length > 0 && (d.pasos || []).every(paso => {
-        const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
-        return obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
-      });
+      const done = (d.pasos || []).length > 0 && (d.pasos || []).every(paso =>
+        (paso.actividades || []).length === 0 ||
+        (paso.actividades || []).every(a => ejecucionActividades[a.id]?.completada)
+      );
       return { ...d, totalActs, doneActs, done };
     });
 
@@ -455,10 +473,10 @@ const GestionVisitasPage = () => {
     const total     = visita.dispositivos?.length || 0;
     const completed = visita.dispositivos?.filter(d =>
       (d.pasos || []).length > 0 &&
-      (d.pasos || []).every(paso => {
-        const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
-        return obligatorias.length === 0 || obligatorias.every(a => visita.ejecucionActividades?.[a.id]?.completada);
-      })
+      (d.pasos || []).every(paso =>
+        (paso.actividades || []).length === 0 ||
+        (paso.actividades || []).every(a => visita.ejecucionActividades?.[a.id]?.completada)
+      )
     ).length || 0;
     return { total, completed };
   };

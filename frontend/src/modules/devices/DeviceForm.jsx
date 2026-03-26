@@ -128,9 +128,6 @@ const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdate
               </div>
               <div className="flex-1">
                 <TextSmall className="font-semibold text-gray-800">{paso.descripcion}</TextSmall>
-                {paso.esObligatorio && (
-                  <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide block mt-0.5">Obligatorio</span>
-                )}
               </div>
             </div>
             
@@ -140,10 +137,7 @@ const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdate
                 {paso.actividades.map((act, actIdx) => (
                   <div key={actIdx} className="flex items-start gap-2">
                     <CheckCircle2 size={13} className="text-gray-400 mt-0.5 shrink-0" />
-                    <div className="flex-1">
-                      <TextSmall className="text-gray-600">{act.descripcion}</TextSmall>
-                      {act.esObligatorio && <span className="ml-2 text-[9px] font-bold text-orange-500 uppercase tracking-wide">Oblig.</span>}
-                    </div>
+                    <TextSmall className="text-gray-600">{act.descripcion}</TextSmall>
                   </div>
                 ))}
               </div>
@@ -180,15 +174,6 @@ const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdate
                 ) : (
                   <TextSmall className="font-medium text-gray-700">{step.descripcion}</TextSmall>
                 )}
-                {isEditing && (
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={!!step.esObligatorio} onChange={e => onUpdateStep(idx, { esObligatorio: e.target.checked })} className="w-3 h-3 accent-[#D32F2F]" />
-                    <span className="text-[10px] font-semibold text-gray-500">Obligatorio</span>
-                  </label>
-                )}
-                {!isEditing && step.esObligatorio && (
-                  <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide">Obligatorio</span>
-                )}
               </div>
               {isEditing && (
                 <IconButton icon={Trash2} onClick={() => onRemoveStep(idx)} className="text-gray-300 hover:text-red-500 shrink-0" size={13} />
@@ -201,10 +186,7 @@ const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdate
                 {step.actividades.map((act, actIdx) => (
                   <div key={actIdx} className="flex items-start gap-2">
                     <CheckCircle2 size={13} className="text-gray-400 mt-0.5 shrink-0" />
-                    <div className="flex-1">
-                      <TextSmall className="text-gray-600">{act.descripcion}</TextSmall>
-                      {act.esObligatorio && <span className="ml-2 text-[9px] font-bold text-orange-500 uppercase tracking-wide">Oblig.</span>}
-                    </div>
+                    <TextSmall className="text-gray-600">{act.descripcion}</TextSmall>
                   </div>
                 ))}
               </div>

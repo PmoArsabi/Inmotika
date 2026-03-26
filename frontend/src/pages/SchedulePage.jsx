@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   CheckCircle2, Clock, MapPin, ClipboardList,
-  Search, CalendarDays, Cpu, Activity, Filter,
+  Search, CalendarDays, Cpu, Activity, Filter, ChevronRight,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
@@ -86,17 +86,23 @@ const TipoBadge = ({ label }) => {
 // ─── Visit card ───────────────────────────────────────────────────────────────
 
 /**
- * Read-only card for a single visita. Navigation is handled externally.
- * @param {{ visita: import('../hooks/useVisitas').Visita }} props
+ * Tarjeta de visita clickable. Al hacer clic navega al detalle de ejecución.
+ * @param {{ visita: import('../hooks/useVisitas').Visita, onClick: (id: string) => void }} props
  */
-const VisitCard = ({ visita }) => {
+const VisitCard = ({ visita, onClick }) => {
   const isCompleted = visita.estadoCodigo === 'COMPLETADA';
 
   return (
-    <Card
-      className={`p-5 transition-all duration-200 ${isCompleted ? 'opacity-60' : 'hover:shadow-md hover:-translate-y-px'}`}
+    <button
+      type="button"
+      onClick={() => onClick?.(visita.id)}
+      className={`w-full text-left rounded-xl border border-gray-100 bg-white shadow-sm p-5 transition-all duration-200 group cursor-pointer
+        ${isCompleted
+          ? 'opacity-70 hover:opacity-90 hover:shadow-md hover:border-gray-200'
+          : 'hover:shadow-md hover:-translate-y-px hover:border-[#D32F2F]/20'
+        }`}
     >
-      {/* Top row: tipo + estado */}
+      {/* Top row: tipo + estado + flecha */}
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <TipoBadge label={visita.tipoVisitaLabel} />
@@ -105,12 +111,18 @@ const VisitCard = ({ visita }) => {
             className={visita.estadoCodigo === 'EN_PROGRESO' ? 'animate-pulse' : ''}
           />
         </div>
-        <TextSmall className="text-gray-300 shrink-0">{visita.id.slice(0, 8)}</TextSmall>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <TextSmall className="text-gray-300">{visita.id.slice(0, 8)}</TextSmall>
+          <ChevronRight
+            size={14}
+            className="text-gray-300 group-hover:text-[#D32F2F] transition-colors"
+          />
+        </div>
       </div>
 
       {/* Client + branch */}
       <div className="mb-3">
-        <H2 className="text-base leading-tight text-gray-900 mb-0.5 normal-case tracking-normal">
+        <H2 className="text-base leading-tight text-gray-900 mb-0.5 normal-case tracking-normal group-hover:text-[#D32F2F] transition-colors">
           {visita.clienteNombre || '—'}
         </H2>
         <div className="flex items-center gap-1.5 text-xs text-gray-400 font-semibold">
@@ -136,7 +148,7 @@ const VisitCard = ({ visita }) => {
           </span>
         </div>
       </div>
-    </Card>
+    </button>
   );
 };
 
@@ -162,10 +174,9 @@ const VisitSkeleton = () => (
 
 /**
  * SchedulePage — dashboard de visitas para el rol Técnico.
- * Consumes `useVisitas` para datos reales y `useAuth` para el nombre del usuario.
- * Sin props de datos externos; sin navegación interna a detalle de visita.
+ * @param {{ onVisitClick?: (visitaId: string) => void }} props
  */
-const SchedulePage = () => {
+const SchedulePage = ({ onVisitClick }) => {
   const { visitas, loading } = useVisitas();
   const { user } = useAuth();
 
@@ -293,7 +304,7 @@ const SchedulePage = () => {
           </>
         ) : filteredVisits.length > 0 ? (
           filteredVisits.map(v => (
-            <VisitCard key={v.id} visita={v} />
+            <VisitCard key={v.id} visita={v} onClick={onVisitClick} />
           ))
         ) : (
           <div className="col-span-full p-16 text-center border-2 border-dashed border-gray-100 rounded-md">

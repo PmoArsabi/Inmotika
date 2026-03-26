@@ -131,7 +131,7 @@ export async function uploadEvidencia(visitaId, dispositivoId, intervencionId, f
  *
  * @param {string} visitaId      - UUID de la visita
  * @param {string} dispositivoId - UUID del dispositivo
- * @param {Array<{ id: string, descripcion: string, orden: number, actividades: Array<{ id: string, esObligatorio: boolean }> }>} allPasos
+ * @param {Array<{ id: string, descripcion: string, orden: number, actividades: Array<{ id: string }> }>} allPasos
  *   Lista completa de pasos del protocolo para este dispositivo
  * @param {{ [pasoId: string]: { comentarios?: string } }} pasoData
  *   Mapa de paso_protocolo.id → datos del paso ejecutado (puede estar vacío si no hay comentarios)
@@ -207,10 +207,9 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
       throw new Error(`Error al buscar ejecucion_paso: ${fetchPasoErr.message}`);
     }
 
-    // Determinar si todas las actividades obligatorias de este paso están completadas
-    const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
-    const pasoDone = obligatorias.length === 0 ||
-      obligatorias.every(a => actividadData[a.id]?.completada);
+    // Determinar si todas las actividades de este paso están completadas
+    const pasoDone = (paso.actividades || []).length === 0 ||
+      (paso.actividades || []).every(a => actividadData[a.id]?.completada);
 
     if (existingPaso) {
       const updatePayload = {

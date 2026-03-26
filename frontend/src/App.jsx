@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ROLES, isManagementRole } from './utils/constants';
 import { useAuth } from './context/AuthContext';
@@ -46,19 +46,21 @@ const ProtectedRoute = ({ roles, userRole, children }) => {
 function App() {
   const { user, signOut, loading: authLoading, isRecoveryFlow, setIsRecoveryFlow, clearRecoveryFlow } = useAuth();
   const { data, setData } = useMasterData();
-  // Inicializar el tab según el rol para evitar flash de AccessDenied
-  const getInitialTab = () => {
-    const role = user?.role;
-    if (role === ROLES.CLIENTE) return 'client-dashboard';
-    if (role === ROLES.TECNICO) return 'schedule';
-    return 'dashboard';
-  };
-  const [activeTab, setActiveTab] = useState(getInitialTab);
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  /** ID de visita pendiente de abrir al entrar a GestionVisitasPage. */
+  const [pendingVisitId, setPendingVisitId] = useState(null);
 
-  // Ref para saber si ya se aplicó el redirect de rol (solo una vez por sesión)
-  const didRedirectRef = useRef(false);
+  /**
+   * Navega al detalle de ejecución de una visita desde cualquier pantalla.
+   * Guarda el ID para que GestionVisitasPage lo consuma y lo abre automáticamente.
+   * @param {string} visitaId
+   */
+  const handleNavigateToVisit = (visitaId) => {
+    setPendingVisitId(visitaId);
+    setActiveTab('visits-gestion');
+  };
 
   // Efecto para limpiar la URL
   useEffect(() => {
@@ -67,18 +69,16 @@ function App() {
     }
   }, [isRecoveryFlow]);
 
-  // Redirigir al tab correcto según rol una vez que el usuario esté disponible
+  // Redirigir al tab correcto cada vez que el rol cambia (login, logout, cambio de usuario).
+  // Depende de user?.role para no dispararse durante navegación normal (el rol no cambia).
   useEffect(() => {
-    if (!user || didRedirectRef.current) return;
-    didRedirectRef.current = true;
-
-    const uRole = user.role || 'TECNICO';
-    const tab = uRole === ROLES.CLIENTE ? 'client-dashboard'
-      : uRole === ROLES.TECNICO ? 'schedule'
+    const role = user?.role;
+    if (!role) return;
+    const tab = role === ROLES.CLIENTE ? 'client-dashboard'
+      : role === ROLES.TECNICO ? 'schedule'
       : 'dashboard';
-
     setActiveTab(tab);
-  }, [user]);
+  }, [user?.role]);
 
   const handleLogout = async () => {
     await signOut();
@@ -155,7 +155,12 @@ function App() {
       if (visitsSubTab === 'gestion') {
         return (
           <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.TECNICO]} userRole={userRole}>
-            <GestionVisitasPage data={data} setData={setData} />
+            <GestionVisitasPage
+              data={data}
+              setData={setData}
+              initialVisitaId={pendingVisitId}
+              onInitialVisitaConsumed={() => setPendingVisitId(null)}
+            />
           </ProtectedRoute>
         );
       }
@@ -196,7 +201,7 @@ function App() {
         case 'schedule':
           return (
             <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.TECNICO]} userRole={userRole}>
-              <SchedulePage data={data} setData={setData} />
+              <SchedulePage data={data} setData={setData} onVisitClick={handleNavigateToVisit} />
             </ProtectedRoute>
           );
 

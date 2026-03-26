@@ -102,7 +102,7 @@ export const emptyDeviceDraft = () => ({
   notasTecnicas: '',
   idInmotika: '',           // ID asignado por Inmotika
   codigoUnico: '',          // Código único adicional
-  pasoAPaso: [],            // [{descripcion, esObligatorio, orden}] — derivado de la categoría
+  pasoAPaso: [],            // [{descripcion, orden}] — derivado de la categoría
 });
 
 export const emptyTecnicoDraft = () => ({
@@ -280,7 +280,7 @@ export const toDeviceDraft = (device, route = null) => ({
   pasoAPaso: Array.isArray(device?.pasoAPaso)
     ? device.pasoAPaso.map((p, i) =>
         typeof p === 'string'
-          ? { descripcion: p, esObligatorio: true, orden: i + 1 }
+          ? { descripcion: p, orden: i + 1 }
           : p
       )
     : [],

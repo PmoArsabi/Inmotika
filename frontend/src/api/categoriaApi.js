@@ -45,10 +45,7 @@ export const getProtocoloByCategory = async (categoriaId) => {
     actividades: (paso.actividades || [])
       .filter(a => a.activo !== false)
       .sort((a, b) => a.orden - b.orden)
-      .map(a => ({
-        ...a,
-        esObligatorio: !!a.es_obligatorio // Map snake_case to camelCase for UI
-      }))
+      .map(a => ({ id: a.id, descripcion: a.descripcion, orden: a.orden, isNew: false, deleted: false }))
   }));
 };
 
@@ -134,7 +131,6 @@ export const saveCategoria = async ({ categoriaId, draft, steps }) => {
         paso_id: stepId,
         descripcion: activity.descripcion,
         orden: activity.orden,
-        es_obligatorio: activity.esObligatorio // Fix: Mapping camelCase to snake_case
       };
 
       if (!activity.id || activity.isNew) {

@@ -8,8 +8,7 @@ const PasoProgressRow = ({ paso, ejecucionPasos, ejecucionActividades }) => {
   const actividades = paso.actividades || [];
   const totalActs   = actividades.length;
   const doneActs    = actividades.filter(a => ejecucionActividades[a.id]?.completada).length;
-  const obligatorias = actividades.filter(a => a.esObligatorio);
-  const pasoDone    = obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
+  const pasoDone = actividades.length === 0 || actividades.every(a => ejecucionActividades[a.id]?.completada);
 
   return (
     <div className="rounded-md border border-gray-100 overflow-hidden">
@@ -66,10 +65,10 @@ const DeviceProgressCard = ({ device, ejecucionPasos, ejecucionActividades, evid
   const doneActs  = allActs.filter(a => ejecucionActividades[a.id]?.completada).length;
   const pct       = totalActs > 0 ? Math.round((doneActs / totalActs) * 100) : 0;
 
-  const deviceDone = (device.pasos || []).length > 0 && (device.pasos || []).every(paso => {
-    const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
-    return obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
-  });
+  const deviceDone = (device.pasos || []).length > 0 && (device.pasos || []).every(paso =>
+    (paso.actividades || []).length === 0 ||
+    (paso.actividades || []).every(a => ejecucionActividades[a.id]?.completada)
+  );
 
   const estado = deviceDone ? 'COMPLETADO' : doneActs > 0 ? 'EN_PROCESO' : 'PENDIENTE';
 
@@ -160,10 +159,10 @@ const VisitProgressPanel = ({ dispositivos = [], ejecucionPasos = {}, ejecucionA
 
   const isDeviceDone = (d) => {
     const pasos = d.pasos || [];
-    return pasos.length > 0 && pasos.every(paso => {
-      const obligatorias = (paso.actividades || []).filter(a => a.esObligatorio);
-      return obligatorias.length === 0 || obligatorias.every(a => ejecucionActividades[a.id]?.completada);
-    });
+    return pasos.length > 0 && pasos.every(paso =>
+      (paso.actividades || []).length === 0 ||
+      (paso.actividades || []).every(a => ejecucionActividades[a.id]?.completada)
+    );
   };
 
   const completados = dispositivos.filter(isDeviceDone).length;
