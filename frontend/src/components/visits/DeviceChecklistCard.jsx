@@ -60,7 +60,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
   const [open, setOpen] = useState(!isLocked);
 
   return (
-    <div className={`border rounded-lg overflow-hidden transition-all ${
+    <div className={`border rounded-lg overflow-hidden transition-all bg-white ${
       pasoCerrado ? 'border-green-300' : 'border-gray-200'
     }`}>
       {/* Paso header */}
@@ -104,7 +104,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
 
       {/* Activities */}
       {open && (
-        <div className="px-3 py-2 space-y-1">
+        <div className="px-3 py-2 space-y-1 bg-gray-50">
           {actividades.map((act, actIdx) => {
             const isActBlocked = !viewMode && !isLocked && actividades
               .slice(0, actIdx)
@@ -372,7 +372,7 @@ const DeviceChecklistCard = ({
   );
 
   return (
-    <div className={`border rounded-lg overflow-hidden transition-all ${
+    <div className={`border rounded-lg overflow-hidden transition-all bg-white ${
       allDone ? 'border-green-300' : 'border-gray-200'
     }`}>
       {/* Card header */}
@@ -425,7 +425,7 @@ const DeviceChecklistCard = ({
 
       {/* Pasos + Evidencias + Save */}
       {open && (
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3 bg-white">
           {steps.length === 0 && (
             <p className="text-xs text-gray-400 italic text-center py-2">Sin pasos de protocolo definidos</p>
           )}

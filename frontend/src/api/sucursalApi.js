@@ -77,8 +77,9 @@ export async function syncSucursalContracts(sucursalId, clientId, branchDraft, c
 
     // Sincronizar visitas preventivas si hay slots con fecha inicio definida y catálogo disponible
     const fechas = (c.fechasPreventivas || []).filter(f => f && f.inicio);
+    let visitaIdsActualizados = c.visitaIdsPreventivas || [];
     if (fechas.length > 0 && catalogIds.tipoPreventivId && catalogIds.userId) {
-      await syncVisitasPreventivas({
+      const nuevosIds = await syncVisitasPreventivas({
         contratoId: row.id,
         sucursalId,
         clienteId: clientId,
@@ -86,6 +87,8 @@ export async function syncSucursalContracts(sucursalId, clientId, branchDraft, c
         visitaIdsExistentes: c.visitaIdsPreventivas || [],
         ...catalogIds,
       });
+      // Guardar IDs retornados (pueden incluir nulls si hubo error puntual)
+      visitaIdsActualizados = (nuevosIds || []).filter(Boolean);
     }
 
     updated.push({
@@ -97,53 +100,162 @@ export async function syncSucursalContracts(sucursalId, clientId, branchDraft, c
       fechaFin: row.fecha_fin || c.fechaFin || '',
       numVisitasPreventivas: row.num_visitas_preventivas ?? 0,
       fechasPreventivas: c.fechasPreventivas || [],
+      visitaIdsPreventivas: visitaIdsActualizados,
     });
   }
   return updated;
 }
 
 /**
+ * Calcula los dispositivos activos de la sucursal elegibles para una visita preventiva
+ * dado el rango de fechas del slot.
+ *
+ * Elegibles:
+ *   - fecha_proximo_mantenimiento IS NULL (nunca intervenidos — siempre incluir)
+ *   - fecha_proximo_mantenimiento <= fechaFinSlot (vencen dentro o antes del slot)
+ *
+ * Próximos a vencer (alerta, 30 días después del fin del slot):
+ *   - fecha_proximo_mantenimiento BETWEEN fechaFinSlot+1 AND fechaFinSlot+30
+ *
+ * @param {string} sucursalId
+ * @param {string} fechaFinSlot - ISO date string (YYYY-MM-DD) del fin del slot
+ * @param {string} [activoEstadoId] - UUID del estado ACTIVO en catalogo_estado_general (opcional, filtro extra)
+ * @returns {Promise<{ elegibles: string[], proximosAlerta: string[] }>} arrays de dispositivo UUIDs
+ */
+async function calcularDispositivosElegibles(sucursalId, fechaFinSlot, activoEstadoId) {
+  // Traer todos los dispositivos activos de la sucursal con frecuencia definida
+  let query = supabase
+    .from('dispositivo')
+    .select('id, fecha_proximo_mantenimiento')
+    .eq('sucursal_id', sucursalId);
+
+  if (activoEstadoId) {
+    query = query.eq('estado_id', activoEstadoId);
+  }
+
+  const { data: dispositivos, error } = await query;
+  if (error || !dispositivos) return { elegibles: [], proximosAlerta: [] };
+
+  const finSlot = new Date(fechaFinSlot + 'T23:59:59');
+  const alertaHasta = new Date(finSlot);
+  alertaHasta.setDate(alertaHasta.getDate() + 30);
+
+  const elegibles = [];
+  const proximosAlerta = [];
+
+  for (const d of dispositivos) {
+    if (!d.fecha_proximo_mantenimiento) {
+      // Nunca intervenidos — siempre incluir
+      elegibles.push(d.id);
+    } else {
+      const fpm = new Date(d.fecha_proximo_mantenimiento);
+      if (fpm <= finSlot) {
+        elegibles.push(d.id);
+      } else if (fpm > finSlot && fpm <= alertaHasta) {
+        proximosAlerta.push(d.id);
+      }
+    }
+  }
+
+  return { elegibles, proximosAlerta };
+}
+
+/**
+ * Sincroniza los dispositivos elegibles en solicitud_dispositivo para una solicitud dada.
+ * - Inserta los nuevos elegibles (upsert, ignorando duplicados).
+ * - Marca como inactivos (activo=false) los que ya no son elegibles y la visita no ha iniciado.
+ *
+ * @param {string} solicitudId - UUID de la solicitud_visita
+ * @param {string[]} elegiblesIds - UUIDs de dispositivos que deben estar activos
+ * @param {boolean} visitaIniciada - Si true, no se eliminan dispositivos (la visita ya empezó)
+ */
+async function syncSolicitudDispositivos(solicitudId, elegiblesIds, visitaIniciada) {
+  // Obtener dispositivos actuales activos en la solicitud
+  const { data: actuales } = await supabase
+    .from('solicitud_dispositivo')
+    .select('id, dispositivo_id, activo')
+    .eq('solicitud_id', solicitudId);
+
+  const actualesMap = new Map((actuales || []).map(r => [r.dispositivo_id, r]));
+  const elegiblesSet = new Set(elegiblesIds);
+
+  // Insertar nuevos elegibles que no existen aún
+  const nuevos = elegiblesIds.filter(id => !actualesMap.has(id));
+  if (nuevos.length > 0) {
+    await supabase
+      .from('solicitud_dispositivo')
+      .upsert(
+        nuevos.map(id => ({ solicitud_id: solicitudId, dispositivo_id: id, activo: true })),
+        { onConflict: 'solicitud_id,dispositivo_id', ignoreDuplicates: false }
+      );
+  }
+
+  // Reactivar dispositivos que estaban inactivos y ahora vuelven a ser elegibles
+  const reactivar = (actuales || []).filter(r => !r.activo && elegiblesSet.has(r.dispositivo_id)).map(r => r.id);
+  if (reactivar.length > 0) {
+    await supabase.from('solicitud_dispositivo').update({ activo: true }).in('id', reactivar);
+  }
+
+  // Si la visita no ha iniciado, desactivar los que ya no son elegibles
+  if (!visitaIniciada) {
+    const desactivar = (actuales || []).filter(r => r.activo && !elegiblesSet.has(r.dispositivo_id)).map(r => r.id);
+    if (desactivar.length > 0) {
+      await supabase.from('solicitud_dispositivo').update({ activo: false }).in('id', desactivar);
+    }
+  }
+}
+
+/**
  * Crea o actualiza las solicitudes+visitas preventivas de un contrato.
- * Estrategia: por cada fecha en el array, busca si ya existe visita vinculada al contrato
- * (por contrato_id en observaciones como referencia) y actualiza su fecha; si no existe, crea.
+ * Al editar una visita existente (no iniciada), recalcula los dispositivos elegibles
+ * según la nueva ventana de fechas.
+ *
+ * Dispositivos elegibles para cada slot:
+ *   - fecha_proximo_mantenimiento IS NULL (nunca intervenidos)
+ *   - fecha_proximo_mantenimiento <= fecha_fin del slot (vencen en o antes de la visita)
  *
  * @param {Object} params
  * @param {string} params.contratoId
  * @param {string} params.sucursalId
  * @param {string} params.clienteId
- * @param {string[]} params.fechas - array de fechas ISO date (YYYY-MM-DD)
- * @param {string[]} params.visitaIdsExistentes - IDs de visitas ya creadas para este contrato
+ * @param {Array<{inicio: string, fin: string}>} params.fechas - slots con fecha inicio y fin (YYYY-MM-DD)
+ * @param {string[]} params.visitaIdsExistentes - IDs de visitas ya creadas para este contrato (por posición)
  * @param {string} params.tipoPreventivId
  * @param {string} params.estadoPendienteId
  * @param {string} params.estadoProgramadaId
  * @param {string} params.userId
+ * @returns {Promise<string[]>} IDs de las visitas (en el mismo orden que fechas)
  */
 async function syncVisitasPreventivas({
   contratoId, sucursalId, clienteId, fechas,
   visitaIdsExistentes = [],
   tipoPreventivId, estadoPendienteId, estadoProgramadaId, userId,
 }) {
-  // Cargar visitas existentes vinculadas a este contrato
+  // Cargar visitas existentes vinculadas a este contrato (por posición)
   const { data: visitasExistentes } = visitaIdsExistentes.length > 0
-    ? await supabase.from('visita').select('id, fecha_programada, solicitud_id').in('id', visitaIdsExistentes)
+    ? await supabase.from('visita').select('id, fecha_programada, fecha_inicio, solicitud_id').in('id', visitaIdsExistentes)
     : { data: [] };
 
-  const existentes = visitasExistentes || [];
+  // Indexar por id para acceso rápido
+  const existentesById = new Map((visitasExistentes || []).map(v => [v.id, v]));
+  const visitaIds = [];
 
   for (let i = 0; i < fechas.length; i++) {
     const slot = fechas[i];
     const fechaInicioISO = new Date(slot.inicio + 'T08:00:00').toISOString();
     const fechaFinISO    = slot.fin ? new Date(slot.fin + 'T18:00:00').toISOString() : null;
-    const visitaExistente = existentes[i];
+    const fechaFinSlot   = slot.fin || slot.inicio;
+
+    // Calcular dispositivos elegibles para este slot
+    const { elegibles } = await calcularDispositivosElegibles(sucursalId, fechaFinSlot);
+
+    const visitaExistente = visitaIdsExistentes[i] ? existentesById.get(visitaIdsExistentes[i]) : null;
 
     if (visitaExistente) {
       // Actualizar fechas de visita y solicitud existentes
       await supabase
         .from('visita')
-        .update({
-          fecha_programada: fechaInicioISO,
-          fecha_fin: fechaFinISO,
-        })
+        .update({ fecha_programada: fechaInicioISO, fecha_fin: fechaFinISO })
         .eq('id', visitaExistente.id);
 
       if (visitaExistente.solicitud_id) {
@@ -151,7 +263,13 @@ async function syncVisitasPreventivas({
           .from('solicitud_visita')
           .update({ fecha_sugerida: fechaInicioISO })
           .eq('id', visitaExistente.solicitud_id);
+
+        // Resincronizar dispositivos según nueva ventana de fechas
+        const visitaIniciada = !!visitaExistente.fecha_inicio;
+        await syncSolicitudDispositivos(visitaExistente.solicitud_id, elegibles, visitaIniciada);
       }
+
+      visitaIds.push(visitaExistente.id);
     } else {
       // Crear solicitud + visita nuevas
       const { data: solicitud, error: solErr } = await supabase
@@ -171,10 +289,18 @@ async function syncVisitasPreventivas({
 
       if (solErr) {
         console.error('[syncVisitasPreventivas] error creando solicitud:', solErr.message);
+        visitaIds.push(null);
         continue;
       }
 
-      await supabase
+      // Insertar dispositivos elegibles en la solicitud
+      if (elegibles.length > 0) {
+        await supabase
+          .from('solicitud_dispositivo')
+          .insert(elegibles.map(id => ({ solicitud_id: solicitud.id, dispositivo_id: id, activo: true })));
+      }
+
+      const { data: nuevaVisita } = await supabase
         .from('visita')
         .insert({
           solicitud_id: solicitud.id,
@@ -182,13 +308,20 @@ async function syncVisitasPreventivas({
           cliente_id: clienteId,
           sucursal_id: sucursalId,
           tipo_visita_id: tipoPreventivId,
+          contrato_id: contratoId,
           fecha_programada: fechaInicioISO,
           fecha_fin: fechaFinISO,
-          observaciones: `contrato:${contratoId}`,
+          observaciones: `Visita preventiva ${i + 1}`,
           estado_id: estadoProgramadaId || null,
-        });
+        })
+        .select('id')
+        .single();
+
+      visitaIds.push(nuevaVisita?.id || null);
     }
   }
+
+  return visitaIds;
 }
 
 /**

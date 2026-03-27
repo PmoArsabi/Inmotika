@@ -281,7 +281,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     const isFinalizado = activeVisita.estadoCodigo === 'COMPLETADA';
     const viewMode = isFinalizado;
 
-    // Per-device completion stats — done when all mandatory actividades are checked
+    // Per-device completion stats — done when all actividades are checked
     const deviceStats = (activeVisita.dispositivos || []).map(d => {
       const allActs = (d.pasos || []).flatMap(p => p.actividades || []);
       const totalActs = allActs.length;
@@ -290,12 +290,17 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
         (paso.actividades || []).length === 0 ||
         (paso.actividades || []).every(a => ejecucionActividades[a.id]?.completada)
       );
-      return { ...d, totalActs, doneActs, done };
+      // started: al menos una actividad completada pero no terminado del todo
+      const started = doneActs > 0 && !done;
+      return { ...d, totalActs, doneActs, done, started };
     });
 
-    const completedDevices   = deviceStats.filter(d => d.done).length;
-    const totalDevices       = deviceStats.length;
-    const firstIncompleteIdx = deviceStats.findIndex(d => !d.done);
+    const completedDevices = deviceStats.filter(d => d.done).length;
+    const totalDevices     = deviceStats.length;
+
+    // Dispositivo actualmente en progreso (empezado pero no terminado)
+    // Si existe, bloquea a los demás hasta que se termine
+    const inProgressDevice = deviceStats.find(d => d.started);
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
@@ -342,10 +347,12 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
               </div>
             )}
 
-            {/* Device checklists — sequential: lock devices after the first incomplete */}
+            {/* Device checklists — libre elección; bloqueado solo si otro dispositivo está en progreso */}
             {activeVisita.dispositivos?.length > 0
               ? activeVisita.dispositivos.map((device, idx) => {
-                  const isLocked = firstIncompleteIdx !== -1 && idx > firstIncompleteIdx;
+                  const stat = deviceStats[idx];
+                  // Bloqueado si hay un dispositivo en progreso Y este dispositivo no es ese, ni está ya terminado
+                  const isLocked = !!(inProgressDevice && inProgressDevice.id !== device.id && !stat.done);
                   const isLastDevice = idx === activeVisita.dispositivos.length - 1;
                   // isFinalDevice: último dispositivo, tanto en ejecución como en lectura (para mostrar observacion_final)
                   const isFinalDevice = isLastDevice && (isEnCurso || viewMode);

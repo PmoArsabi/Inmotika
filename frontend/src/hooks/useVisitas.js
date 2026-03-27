@@ -66,6 +66,7 @@ const mapRow = (row, tecnicoNameMap = new Map(), dispositivosBySolicitud = new M
   return {
     id: row.id,
     solicitudId: row.solicitud_id || null,
+    contratoId: row.contrato_id || null,
     clienteId: row.cliente_id || row.solicitud?.cliente_id || '',
     clienteNombre: row.solicitud?.cliente?.razon_social || row.cliente?.razon_social || '',
     sucursalId: row.sucursal_id || row.solicitud?.sucursal_id || '',
@@ -119,6 +120,7 @@ export const useVisitas = () => {
         .select(`
           id,
           solicitud_id,
+          contrato_id,
           coordinador_usuario_id,
           cliente_id,
           sucursal_id,
@@ -185,7 +187,7 @@ export const useVisitas = () => {
       if (allSolicitudIds.length > 0) {
         const { data: sdRows } = await supabase
           .from('solicitud_dispositivo')
-          .select('solicitud_id,activo,dispositivo:dispositivo_id(id,id_inmotika,codigo_unico,modelo,serial,categoria_id)')
+          .select('solicitud_id,activo,dispositivo:dispositivo_id(id,id_inmotika,codigo_unico,modelo,serial,categoria_id,categoria:categoria_id(nombre))')
           .in('solicitud_id', allSolicitudIds)
           .eq('activo', true);
         rawDispositivos = (sdRows || []).filter(sd => sd.dispositivo);
@@ -233,8 +235,11 @@ export const useVisitas = () => {
         list.push({
           id: d.id,
           label,
+          serial: d.serial || null,
+          modelo: d.modelo || null,
           idInmotika: d.id_inmotika || null,
           categoriaId: d.categoria_id || null,
+          categoria: d.categoria?.nombre || null,
           pasos,
         });
         dispositivosBySolicitud.set(sd.solicitud_id, list);

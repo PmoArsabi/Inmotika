@@ -409,6 +409,7 @@ alter table "public"."tecnico_certificado" enable row level security;
   create table "public"."visita" (
     "id" uuid not null default gen_random_uuid(),
     "solicitud_id" uuid,
+    "contrato_id" uuid,                          -- FK a contrato; sólo en visitas preventivas generadas por contrato
     "coordinador_usuario_id" uuid,
     "cliente_id" uuid,
     "sucursal_id" uuid,
@@ -421,6 +422,7 @@ alter table "public"."tecnico_certificado" enable row level security;
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
+-- Columna agregada vía: ALTER TABLE visita ADD COLUMN contrato_id uuid REFERENCES contrato(id);
 
 alter table "public"."visita" enable row level security;
 
