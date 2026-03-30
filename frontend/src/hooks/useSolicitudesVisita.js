@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
+import { sendEmail } from './useEmail';
 
 /**
  * @typedef {Object} SolicitudVisita
@@ -188,6 +189,52 @@ export const useSolicitudesVisita = () => {
       }
 
       notify('success', 'Solicitud enviada. El equipo de coordinación la revisará pronto.');
+
+      // Notificar a los coordinadores por correo (fire-and-forget)
+      // Obtener emails de coordinadores y datos del cliente/sucursal
+      supabase
+        .from('solicitud_visita')
+        .select(`
+          motivo,
+          fecha_sugerida,
+          cliente:cliente_id(razon_social),
+          sucursal:sucursal_id(nombre),
+          tipo_visita:tipo_visita_id(nombre),
+          creador:creado_por(nombres, apellidos, email)
+        `)
+        .eq('id', inserted.id)
+        .maybeSingle()
+        .then(async ({ data: sol }) => {
+          if (!sol) return;
+          // Obtener emails de coordinadores activos
+          const { data: coordinadores } = await supabase
+            .from('coordinador')
+            .select('perfil:usuario_id(email, nombres)')
+            .limit(10);
+          const emailsCoord = (coordinadores || [])
+            .map(c => c.perfil?.email)
+            .filter(Boolean);
+          if (emailsCoord.length === 0) return;
+
+          const solicitante = sol.creador
+            ? `${sol.creador.nombres || ''} ${sol.creador.apellidos || ''}`.trim() || sol.creador.email
+            : '—';
+
+          if (!emailsCoord.length) return;
+          sendEmail('solicitud_visita', {
+            destinatario: emailsCoord[0],
+            clienteNombre: sol.cliente?.razon_social || '',
+            sucursalNombre: sol.sucursal?.nombre || '',
+            tipoVisita: sol.tipo_visita?.nombre || '',
+            fechaSugerida: sol.fecha_sugerida
+              ? new Date(sol.fecha_sugerida).toLocaleDateString('es-ES')
+              : '—',
+            motivo: sol.motivo || '',
+            solicitante,
+            appUrl: window.location.origin,
+          }, emailsCoord.slice(1));
+        });
+
       await fetchSolicitudes();
       return inserted.id;
     } catch (err) {

@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase';
+import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { ROLES } from '../utils/constants';
 import { saveTecnico } from '../api/tecnicoApi';
 import { syncCoordinadorSucursales } from '../api/coordinadorSucursalApi';
+import { sendEmail } from './useEmail';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -72,6 +74,7 @@ export const useUsers = () => {
   /** Ref para evitar múltiples invitaciones en vuelo simultáneas. */
   const inviteInFlightRef = useRef(false);
 
+  const { user } = useAuth();
   const notify = useNotify();
   const confirm = useConfirm();
 
@@ -510,6 +513,19 @@ export const useUsers = () => {
           }
 
           setSuccessInfo({ email: newUser.email, nombres: newUser.nombres, rol: newUser.rol });
+
+          // Correo de bienvenida al nuevo usuario (fire-and-forget)
+          // El correo de invitación de Supabase ya fue enviado; este es el correo de bienvenida con contexto
+          const rolLabel = roles.find(r => r.codigo === newUser.rol)?.label || newUser.rol || '';
+          sendEmail('usuario_creado', {
+            destinatario: newUser.email,
+            nombres: newUser.nombres || '',
+            apellidos: newUser.apellidos || '',
+            email: newUser.email,
+            rol: rolLabel,
+            responsable: user?.email || '',
+            appUrl: window.location.origin,
+          });
         } finally {
           inviteInFlightRef.current = false;
         }

@@ -1,6 +1,24 @@
 import { supabase } from '../utils/supabase';
+import { sendEmail } from '../hooks/useEmail';
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Obtiene los emails activos de los contactos asociados a una sucursal.
+ * @param {string} sucursalId
+ * @returns {Promise<string[]>}
+ */
+async function getContactoEmailsBySucursal(sucursalId) {
+  if (!sucursalId) return [];
+  const { data } = await supabase
+    .from('contacto_sucursal')
+    .select('contacto:contacto_id(email)')
+    .eq('sucursal_id', sucursalId)
+    .eq('activo', true);
+  return (data || [])
+    .map(r => r.contacto?.email)
+    .filter(Boolean);
+}
 
 /**
  * Busca el UUID de un estado en el catálogo por su tipo y código.
@@ -38,14 +56,24 @@ async function getCatalogoId(tipo, codigo) {
  */
 export async function iniciarVisita(visitaId) {
   const estadoId = await getCatalogoId('ESTADO_VISITA', 'EN_PROGRESO');
+  const fechaInicio = new Date().toISOString();
 
-  const { error } = await supabase
+  const { data: visitaRow, error } = await supabase
     .from('visita')
     .update({
-      fecha_inicio: new Date().toISOString(),
+      fecha_inicio: fechaInicio,
       estado_id: estadoId,
     })
-    .eq('id', visitaId);
+    .eq('id', visitaId)
+    .select(`
+      sucursal_id,
+      cliente:cliente_id(razon_social),
+      sucursal:sucursal_id(nombre),
+      tipo_visita:tipo_visita_id(nombre),
+      solicitud:solicitud_id(cliente:cliente_id(razon_social), sucursal:sucursal_id(nombre)),
+      visita_tecnico(tecnico:tecnico_id(perfil:usuario_id(nombres, apellidos)))
+    `)
+    .maybeSingle();
 
   if (error) {
     throw new Error(`No se pudo iniciar la visita: ${error.message}`);
@@ -56,6 +84,30 @@ export async function iniciarVisita(visitaId) {
     .from('intervencion')
     .update({ estado_id: estadoId })
     .eq('visita_id', visitaId);
+
+  // Notificar a los contactos de la sucursal en un solo correo con CC (fire-and-forget)
+  if (visitaRow?.sucursal_id) {
+    const tecnicos = (visitaRow?.visita_tecnico || [])
+      .map(vt => {
+        const p = vt.tecnico?.perfil;
+        return p ? `${p.nombres || ''} ${p.apellidos || ''}`.trim() : null;
+      })
+      .filter(Boolean)
+      .join(', ');
+
+    getContactoEmailsBySucursal(visitaRow.sucursal_id).then(emails => {
+      if (!emails.length) return;
+      sendEmail('visita_iniciada', {
+        destinatario: emails[0],
+        clienteNombre: visitaRow?.cliente?.razon_social || visitaRow?.solicitud?.cliente?.razon_social || '',
+        sucursalNombre: visitaRow?.sucursal?.nombre || visitaRow?.solicitud?.sucursal?.nombre || '',
+        tipoVisita: visitaRow?.tipo_visita?.nombre || '',
+        fechaInicio: new Date(fechaInicio).toLocaleString('es-ES'),
+        tecnicos: tecnicos || '—',
+        appUrl: window.location.origin,
+      }, emails.slice(1));
+    });
+  }
 }
 
 /**
@@ -301,16 +353,25 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
  */
 export async function finalizarVisita(visitaId, observacionFinal) {
   const estadoId = await getCatalogoId('ESTADO_VISITA', 'COMPLETADA');
+  const fechaFin = new Date().toISOString();
 
   // 1. Actualizar visita: fecha_fin + estado (NO tocar observaciones)
   const { data: visitaRow, error: visitaError } = await supabase
     .from('visita')
     .update({
-      fecha_fin: new Date().toISOString(),
+      fecha_fin: fechaFin,
       estado_id: estadoId,
     })
     .eq('id', visitaId)
-    .select('solicitud_id')
+    .select(`
+      solicitud_id,
+      sucursal_id,
+      cliente:cliente_id(razon_social),
+      sucursal:sucursal_id(nombre),
+      tipo_visita:tipo_visita_id(nombre),
+      solicitud:solicitud_id(cliente:cliente_id(razon_social), sucursal:sucursal_id(nombre)),
+      visita_tecnico(tecnico:tecnico_id(perfil:usuario_id(nombres, apellidos)))
+    `)
     .maybeSingle();
 
   if (visitaError) {
@@ -318,14 +379,15 @@ export async function finalizarVisita(visitaId, observacionFinal) {
   }
 
   // 2. Sincronizar estado_id + observacion_final en todas las intervenciones activas
-  await supabase
+  const { data: intervenciones } = await supabase
     .from('intervencion')
     .update({
       estado_id: estadoId,
       observacion_final: observacionFinal || null,
     })
     .eq('visita_id', visitaId)
-    .eq('activo', true);
+    .eq('activo', true)
+    .select('id');
 
   // 3. Actualizar el estado de la solicitud de origen a COMPLETADA
   if (visitaRow?.solicitud_id) {
@@ -333,5 +395,32 @@ export async function finalizarVisita(visitaId, observacionFinal) {
       .from('solicitud_visita')
       .update({ estado_id: estadoId })
       .eq('id', visitaRow.solicitud_id);
+  }
+
+  // 4. Notificar a los contactos de la sucursal en un solo correo con CC (fire-and-forget)
+  if (visitaRow?.sucursal_id) {
+    const tecnicos = (visitaRow?.visita_tecnico || [])
+      .map(vt => {
+        const p = vt.tecnico?.perfil;
+        return p ? `${p.nombres || ''} ${p.apellidos || ''}`.trim() : null;
+      })
+      .filter(Boolean)
+      .join(', ');
+
+    getContactoEmailsBySucursal(visitaRow.sucursal_id).then(emails => {
+      if (!emails.length) return;
+      sendEmail('visita_finalizada', {
+        destinatario: emails[0],
+        clienteNombre: visitaRow?.cliente?.razon_social || visitaRow?.solicitud?.cliente?.razon_social || '',
+        sucursalNombre: visitaRow?.sucursal?.nombre || visitaRow?.solicitud?.sucursal?.nombre || '',
+        tipoVisita: visitaRow?.tipo_visita?.nombre || '',
+        fechaFin: new Date(fechaFin).toLocaleString('es-ES'),
+        tecnicos: tecnicos || '—',
+        observacionFinal: observacionFinal || '',
+        dispositivosCompletados: String(intervenciones?.length ?? 0),
+        dispositivosTotal: String(intervenciones?.length ?? 0),
+        appUrl: window.location.origin,
+      }, emails.slice(1));
+    });
   }
 }

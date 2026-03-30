@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
+import { sendEmail } from './useEmail';
 
 /**
  * @typedef {Object} Visita
@@ -443,6 +444,52 @@ export const useVisitas = () => {
           // No lanzamos: la visita ya fue creada; solo notificamos
           console.warn('[useVisitas] No se pudo actualizar estado solicitud:', solError.message);
         }
+      }
+
+      // Notificar a los contactos de la sucursal (fire-and-forget)
+      if (payload.sucursalId) {
+        supabase
+          .from('visita')
+          .select(`
+            cliente:cliente_id(razon_social),
+            sucursal:sucursal_id(nombre),
+            tipo_visita:tipo_visita_id(nombre),
+            solicitud:solicitud_id(cliente:cliente_id(razon_social)),
+            visita_tecnico(tecnico:tecnico_id(perfil:usuario_id(nombres, apellidos)))
+          `)
+          .eq('id', inserted.id)
+          .maybeSingle()
+          .then(async ({ data: v }) => {
+            const { data: contactos } = await supabase
+              .from('contacto_sucursal')
+              .select('contacto:contacto_id(email)')
+              .eq('sucursal_id', payload.sucursalId)
+              .eq('activo', true);
+            const emails = (contactos || []).map(r => r.contacto?.email).filter(Boolean);
+            if (!emails.length) return;
+
+            const tecnicos = (v?.visita_tecnico || [])
+              .map(vt => {
+                const p = vt.tecnico?.perfil;
+                return p ? `${p.nombres || ''} ${p.apellidos || ''}`.trim() : null;
+              })
+              .filter(Boolean)
+              .join(', ');
+
+            if (!emails.length) return;
+            sendEmail('visita_programada', {
+              destinatario: emails[0],
+              clienteNombre: v?.cliente?.razon_social || v?.solicitud?.cliente?.razon_social || '',
+              sucursalNombre: v?.sucursal?.nombre || '',
+              tipoVisita: v?.tipo_visita?.nombre || '',
+              fechaProgramada: payload.fechaProgramada
+                ? new Date(payload.fechaProgramada).toLocaleString('es-ES')
+                : '—',
+              tecnicos: tecnicos || '—',
+              coordinador: payload.coordinadorNombre || '',
+              appUrl: window.location.origin,
+            }, emails.slice(1));
+          });
       }
 
       await fetchVisitas();
