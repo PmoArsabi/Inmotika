@@ -17,6 +17,7 @@ import { saveCliente, syncClientDirectors } from '../../../api/clienteApi';
 import { useUsers } from '../../../hooks/useUsers';
 import { useNotify } from '../../../context/NotificationContext';
 import { useAuth } from '../../../context/AuthContext';
+import { sendEmail } from '../../../hooks/useEmail';
 
 const ClientNavigator = ({ 
   setAssociateContactsModal,
@@ -95,6 +96,14 @@ const ClientNavigator = ({
 
       const isNew = key !== entityKey('cliente', realId);
       if (isNew) {
+        sendEmail('cliente_creado', {
+          destinatario: user?.email || '',
+          nombreCliente: draft.nombre || '',
+          ruc: draft.nit ? `${draft.nit}${draft.dv ? `-${draft.dv}` : ''}` : '—',
+          ciudad: draft.ciudad || '—',
+          responsable: user?.email || '',
+          appUrl: window.location.origin,
+        });
         setData(prev => ({ ...prev, clientes: [...(prev.clientes || []), savedData] }));
         const updatedDraft = toClientDraft({ ...savedData, razon_social: draft.nombre });
         setDrafts(prev => {

@@ -8,6 +8,7 @@ import { validateContact } from '../../../utils/validators';
 import { supabase } from '../../../utils/supabase';
 import { saveContacto, updatePerfilUsuarioEstado } from '../../../api/contactoApi';
 import { useActivoInactivo } from '../../../hooks/useCatalog';
+import { sendEmail } from '../../../hooks/useEmail';
 
 const ContactNavigator = () => {
   const { route, drafts, updateDraft, setDrafts, setStack, openContactSuccess } = useConfigurationContext();
@@ -145,6 +146,7 @@ const ContactNavigator = () => {
 
           if (inviteError) {
             console.error('Error enviando invitación:', inviteError);
+            // No se envía correo de acceso si la invitación falló
             // Intentar extraer el mensaje de error del cuerpo de la respuesta
             let errMsg = inviteError.message || 'Error al enviar la invitación';
             try {
@@ -182,6 +184,21 @@ const ContactNavigator = () => {
                     .update({ usuario_id: perfil.id })
                     .eq('id', contactId);
                 }
+
+                // Notificar al contacto que su acceso fue habilitado
+                const clienteObj = data.clientes?.find(c => String(c.id) === String(route.clientId));
+                const sucursalObj = clienteObj?.sucursales?.find(s =>
+                  (currentDraft.associatedBranchIds || []).includes(String(s.id))
+                );
+                sendEmail('contacto_acceso', {
+                  destinatario: currentDraft.email,
+                  nombres: currentDraft.nombres || '',
+                  apellidos: currentDraft.apellidos || '',
+                  email: currentDraft.email,
+                  cliente: clienteObj?.nombre || clienteObj?.razon_social || '—',
+                  sucursal: sucursalObj?.nombre || '—',
+                  appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
+                });
 
                 // Subir avatar si el admin seleccionó uno
                 if (currentDraft.avatarFile) {
