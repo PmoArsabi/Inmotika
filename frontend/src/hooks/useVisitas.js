@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
-import { sendEmail } from './useEmail';
+import { sendEmail, getAdminEmails, getDirectorEmailsByCliente, getCoordinadorEmailsBySucursal, splitEmailRecipients } from './useEmail';
 
 /**
  * @typedef {Object} Visita
@@ -465,8 +465,7 @@ export const useVisitas = () => {
               .select('contacto:contacto_id(email)')
               .eq('sucursal_id', payload.sucursalId)
               .eq('activo', true);
-            const emails = (contactos || []).map(r => r.contacto?.email).filter(Boolean);
-            if (!emails.length) return;
+            const contactEmails = (contactos || []).map(r => r.contacto?.email).filter(Boolean);
 
             const tecnicos = (v?.visita_tecnico || [])
               .map(vt => {
@@ -476,9 +475,23 @@ export const useVisitas = () => {
               .filter(Boolean)
               .join(', ');
 
-            if (!emails.length) return;
+            const [directorEmails, coordEmails, adminEmails] = await Promise.all([
+              getDirectorEmailsByCliente(payload.clienteId),
+              getCoordinadorEmailsBySucursal(payload.sucursalId),
+              getAdminEmails(),
+            ]);
+
+            const allEmails = [...new Set([
+              ...contactEmails,
+              ...coordEmails,
+              ...directorEmails,
+              ...adminEmails,
+            ].filter(Boolean))];
+            const recipients = splitEmailRecipients(allEmails);
+            if (!recipients) return;
+
             sendEmail('visita_programada', {
-              destinatario: emails[0],
+              destinatario: recipients.destinatario,
               clienteNombre: v?.cliente?.razon_social || v?.solicitud?.cliente?.razon_social || '',
               sucursalNombre: v?.sucursal?.nombre || '',
               tipoVisita: v?.tipo_visita?.nombre || '',
@@ -488,7 +501,7 @@ export const useVisitas = () => {
               tecnicos: tecnicos || '—',
               coordinador: payload.coordinadorNombre || '',
               appUrl: window.location.origin,
-            }, emails.slice(1));
+            }, recipients.cc);
           });
       }
 

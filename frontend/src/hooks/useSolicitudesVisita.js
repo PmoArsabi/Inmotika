@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
-import { sendEmail } from './useEmail';
+import { sendEmail, getAdminEmails, getDirectorEmailsByCliente, splitEmailRecipients } from './useEmail';
 
 /**
  * @typedef {Object} SolicitudVisita
@@ -190,8 +190,7 @@ export const useSolicitudesVisita = () => {
 
       notify('success', 'Solicitud enviada. El equipo de coordinación la revisará pronto.');
 
-      // Notificar a los coordinadores por correo (fire-and-forget)
-      // Obtener emails de coordinadores y datos del cliente/sucursal
+      // Notificar a coordinadores, directores del cliente y admins (fire-and-forget)
       supabase
         .from('solicitud_visita')
         .select(`
@@ -206,23 +205,29 @@ export const useSolicitudesVisita = () => {
         .maybeSingle()
         .then(async ({ data: sol }) => {
           if (!sol) return;
-          // Obtener emails de coordinadores activos
-          const { data: coordinadores } = await supabase
-            .from('coordinador')
-            .select('perfil:usuario_id(email, nombres)')
-            .limit(10);
-          const emailsCoord = (coordinadores || [])
-            .map(c => c.perfil?.email)
-            .filter(Boolean);
-          if (emailsCoord.length === 0) return;
+
+          const [coordRows, directorEmails, adminEmails] = await Promise.all([
+            supabase
+              .from('coordinador')
+              .select('perfil:usuario_id(email)')
+              .eq('activo', true)
+              .limit(20)
+              .then(r => r.data || []),
+            getDirectorEmailsByCliente(payload.clienteId),
+            getAdminEmails(),
+          ]);
+
+          const coordEmails = coordRows.map(c => c.perfil?.email).filter(Boolean);
+          const allEmails = [...new Set([...coordEmails, ...directorEmails, ...adminEmails].filter(Boolean))];
+          const recipients = splitEmailRecipients(allEmails);
+          if (!recipients) return;
 
           const solicitante = sol.creador
             ? `${sol.creador.nombres || ''} ${sol.creador.apellidos || ''}`.trim() || sol.creador.email
             : '—';
 
-          if (!emailsCoord.length) return;
           sendEmail('solicitud_visita', {
-            destinatario: emailsCoord[0],
+            destinatario: recipients.destinatario,
             clienteNombre: sol.cliente?.razon_social || '',
             sucursalNombre: sol.sucursal?.nombre || '',
             tipoVisita: sol.tipo_visita?.nombre || '',
@@ -232,7 +237,7 @@ export const useSolicitudesVisita = () => {
             motivo: sol.motivo || '',
             solicitante,
             appUrl: window.location.origin,
-          }, emailsCoord.slice(1));
+          }, recipients.cc);
         });
 
       await fetchSolicitudes();

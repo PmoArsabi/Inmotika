@@ -1,5 +1,5 @@
 import { supabase } from '../utils/supabase';
-import { sendEmail } from '../hooks/useEmail';
+import { sendEmail, getAdminEmails, getDirectorEmailsByCliente, getCoordinadorEmailsBySucursal, splitEmailRecipients } from '../hooks/useEmail';
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -67,6 +67,7 @@ export async function iniciarVisita(visitaId) {
     .eq('id', visitaId)
     .select(`
       sucursal_id,
+      cliente_id,
       cliente:cliente_id(razon_social),
       sucursal:sucursal_id(nombre),
       tipo_visita:tipo_visita_id(nombre),
@@ -85,7 +86,7 @@ export async function iniciarVisita(visitaId) {
     .update({ estado_id: estadoId })
     .eq('visita_id', visitaId);
 
-  // Notificar a los contactos de la sucursal en un solo correo con CC (fire-and-forget)
+  // Notificar a contactos, coordinadores, directores y admins (fire-and-forget)
   if (visitaRow?.sucursal_id) {
     const tecnicos = (visitaRow?.visita_tecnico || [])
       .map(vt => {
@@ -95,17 +96,24 @@ export async function iniciarVisita(visitaId) {
       .filter(Boolean)
       .join(', ');
 
-    getContactoEmailsBySucursal(visitaRow.sucursal_id).then(emails => {
-      if (!emails.length) return;
+    Promise.all([
+      getContactoEmailsBySucursal(visitaRow.sucursal_id),
+      getCoordinadorEmailsBySucursal(visitaRow.sucursal_id),
+      getDirectorEmailsByCliente(visitaRow.cliente_id),
+      getAdminEmails(),
+    ]).then(([contactEmails, coordEmails, directorEmails, adminEmails]) => {
+      const allEmails = [...new Set([...contactEmails, ...coordEmails, ...directorEmails, ...adminEmails].filter(Boolean))];
+      const recipients = splitEmailRecipients(allEmails);
+      if (!recipients) return;
       sendEmail('visita_iniciada', {
-        destinatario: emails[0],
+        destinatario: recipients.destinatario,
         clienteNombre: visitaRow?.cliente?.razon_social || visitaRow?.solicitud?.cliente?.razon_social || '',
         sucursalNombre: visitaRow?.sucursal?.nombre || visitaRow?.solicitud?.sucursal?.nombre || '',
         tipoVisita: visitaRow?.tipo_visita?.nombre || '',
         fechaInicio: new Date(fechaInicio).toLocaleString('es-ES'),
         tecnicos: tecnicos || '—',
         appUrl: window.location.origin,
-      }, emails.slice(1));
+      }, recipients.cc);
     });
   }
 }
@@ -366,6 +374,7 @@ export async function finalizarVisita(visitaId, observacionFinal) {
     .select(`
       solicitud_id,
       sucursal_id,
+      cliente_id,
       cliente:cliente_id(razon_social),
       sucursal:sucursal_id(nombre),
       tipo_visita:tipo_visita_id(nombre),
@@ -397,7 +406,7 @@ export async function finalizarVisita(visitaId, observacionFinal) {
       .eq('id', visitaRow.solicitud_id);
   }
 
-  // 4. Notificar a los contactos de la sucursal en un solo correo con CC (fire-and-forget)
+  // 4. Notificar a contactos, coordinadores, directores y admins (fire-and-forget)
   if (visitaRow?.sucursal_id) {
     const tecnicos = (visitaRow?.visita_tecnico || [])
       .map(vt => {
@@ -407,10 +416,17 @@ export async function finalizarVisita(visitaId, observacionFinal) {
       .filter(Boolean)
       .join(', ');
 
-    getContactoEmailsBySucursal(visitaRow.sucursal_id).then(emails => {
-      if (!emails.length) return;
+    Promise.all([
+      getContactoEmailsBySucursal(visitaRow.sucursal_id),
+      getCoordinadorEmailsBySucursal(visitaRow.sucursal_id),
+      getDirectorEmailsByCliente(visitaRow.cliente_id),
+      getAdminEmails(),
+    ]).then(([contactEmails, coordEmails, directorEmails, adminEmails]) => {
+      const allEmails = [...new Set([...contactEmails, ...coordEmails, ...directorEmails, ...adminEmails].filter(Boolean))];
+      const recipients = splitEmailRecipients(allEmails);
+      if (!recipients) return;
       sendEmail('visita_finalizada', {
-        destinatario: emails[0],
+        destinatario: recipients.destinatario,
         clienteNombre: visitaRow?.cliente?.razon_social || visitaRow?.solicitud?.cliente?.razon_social || '',
         sucursalNombre: visitaRow?.sucursal?.nombre || visitaRow?.solicitud?.sucursal?.nombre || '',
         tipoVisita: visitaRow?.tipo_visita?.nombre || '',
@@ -420,7 +436,7 @@ export async function finalizarVisita(visitaId, observacionFinal) {
         dispositivosCompletados: String(intervenciones?.length ?? 0),
         dispositivosTotal: String(intervenciones?.length ?? 0),
         appUrl: window.location.origin,
-      }, emails.slice(1));
+      }, recipients.cc);
     });
   }
 }
