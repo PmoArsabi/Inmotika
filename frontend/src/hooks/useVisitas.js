@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
-import { sendEmail, getAdminEmails, getDirectorEmailsByCliente, getCoordinadorEmailsBySucursal, splitEmailRecipients } from './useEmail';
+import { sendEmail, getVisitaEmailRecipients, buildRecipients } from './useEmail';
 
 /**
  * @typedef {Object} Visita
@@ -460,13 +460,6 @@ export const useVisitas = () => {
           .eq('id', inserted.id)
           .maybeSingle()
           .then(async ({ data: v }) => {
-            const { data: contactos } = await supabase
-              .from('contacto_sucursal')
-              .select('contacto:contacto_id(email)')
-              .eq('sucursal_id', payload.sucursalId)
-              .eq('activo', true);
-            const contactEmails = (contactos || []).map(r => r.contacto?.email).filter(Boolean);
-
             const tecnicos = (v?.visita_tecnico || [])
               .map(vt => {
                 const p = vt.tecnico?.perfil;
@@ -475,23 +468,17 @@ export const useVisitas = () => {
               .filter(Boolean)
               .join(', ');
 
-            const [directorEmails, coordEmails, adminEmails] = await Promise.all([
-              getDirectorEmailsByCliente(payload.clienteId),
-              getCoordinadorEmailsBySucursal(payload.sucursalId),
-              getAdminEmails(),
-            ]);
+            const allEmails = await getVisitaEmailRecipients({
+              actorId: user?.id,
+              actorRole: user?.role,
+              clienteId: payload.clienteId,
+              sucursalId: payload.sucursalId,
+            });
+            if (!allEmails.length) return;
 
-            const allEmails = [...new Set([
-              ...contactEmails,
-              ...coordEmails,
-              ...directorEmails,
-              ...adminEmails,
-            ].filter(Boolean))];
-            const recipients = splitEmailRecipients(allEmails);
-            if (!recipients) return;
-
+            const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
             sendEmail('visita_programada', {
-              destinatario: recipients.destinatario,
+              destinatario,
               clienteNombre: v?.cliente?.razon_social || v?.solicitud?.cliente?.razon_social || '',
               sucursalNombre: v?.sucursal?.nombre || '',
               tipoVisita: v?.tipo_visita?.nombre || '',
@@ -501,7 +488,7 @@ export const useVisitas = () => {
               tecnicos: tecnicos || '—',
               coordinador: payload.coordinadorNombre || '',
               appUrl: window.location.origin,
-            }, recipients.cc);
+            }, cc);
           });
       }
 

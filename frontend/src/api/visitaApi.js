@@ -1,5 +1,5 @@
 import { supabase } from '../utils/supabase';
-import { sendEmail, getAdminEmails, getDirectorEmailsByCliente, getCoordinadorEmailsBySucursal, splitEmailRecipients } from '../hooks/useEmail';
+import { sendEmail, getVisitaEmailRecipients, buildRecipients } from '../hooks/useEmail';
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -51,10 +51,11 @@ async function getCatalogoId(tipo, codigo) {
  * o ser Admin/Coordinador/Director (cubiertas por las políticas existentes).
  *
  * @param {string} visitaId - UUID de la visita a iniciar
+ * @param {import('../hooks/useEmail').ActorContext} [actor] - contexto del usuario que inicia
  * @returns {Promise<void>}
  * @throws {Error} Si el catálogo no contiene EN_PROCESO o la actualización falla
  */
-export async function iniciarVisita(visitaId) {
+export async function iniciarVisita(visitaId, actor = null) {
   const estadoId = await getCatalogoId('ESTADO_VISITA', 'EN_PROGRESO');
   const fechaInicio = new Date().toISOString();
 
@@ -96,24 +97,23 @@ export async function iniciarVisita(visitaId) {
       .filter(Boolean)
       .join(', ');
 
-    Promise.all([
-      getContactoEmailsBySucursal(visitaRow.sucursal_id),
-      getCoordinadorEmailsBySucursal(visitaRow.sucursal_id),
-      getDirectorEmailsByCliente(visitaRow.cliente_id),
-      getAdminEmails(),
-    ]).then(([contactEmails, coordEmails, directorEmails, adminEmails]) => {
-      const allEmails = [...new Set([...contactEmails, ...coordEmails, ...directorEmails, ...adminEmails].filter(Boolean))];
-      const recipients = splitEmailRecipients(allEmails);
-      if (!recipients) return;
+    getVisitaEmailRecipients({
+      actorId: actor?.actorId,
+      actorRole: actor?.actorRole,
+      clienteId: visitaRow.cliente_id,
+      sucursalId: visitaRow.sucursal_id,
+    }).then(allEmails => {
+      if (!allEmails.length) return;
+      const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
       sendEmail('visita_iniciada', {
-        destinatario: recipients.destinatario,
+        destinatario,
         clienteNombre: visitaRow?.cliente?.razon_social || visitaRow?.solicitud?.cliente?.razon_social || '',
         sucursalNombre: visitaRow?.sucursal?.nombre || visitaRow?.solicitud?.sucursal?.nombre || '',
         tipoVisita: visitaRow?.tipo_visita?.nombre || '',
         fechaInicio: new Date(fechaInicio).toLocaleString('es-ES'),
         tecnicos: tecnicos || '—',
         appUrl: window.location.origin,
-      }, recipients.cc);
+      }, cc);
     });
   }
 }
@@ -359,7 +359,7 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
  * @returns {Promise<void>}
  * @throws {Error} Si el catálogo no contiene COMPLETADA o la actualización falla
  */
-export async function finalizarVisita(visitaId, observacionFinal) {
+export async function finalizarVisita(visitaId, observacionFinal, actor = null) {
   const estadoId = await getCatalogoId('ESTADO_VISITA', 'COMPLETADA');
   const fechaFin = new Date().toISOString();
 
@@ -416,17 +416,16 @@ export async function finalizarVisita(visitaId, observacionFinal) {
       .filter(Boolean)
       .join(', ');
 
-    Promise.all([
-      getContactoEmailsBySucursal(visitaRow.sucursal_id),
-      getCoordinadorEmailsBySucursal(visitaRow.sucursal_id),
-      getDirectorEmailsByCliente(visitaRow.cliente_id),
-      getAdminEmails(),
-    ]).then(([contactEmails, coordEmails, directorEmails, adminEmails]) => {
-      const allEmails = [...new Set([...contactEmails, ...coordEmails, ...directorEmails, ...adminEmails].filter(Boolean))];
-      const recipients = splitEmailRecipients(allEmails);
-      if (!recipients) return;
+    getVisitaEmailRecipients({
+      actorId: actor?.actorId,
+      actorRole: actor?.actorRole,
+      clienteId: visitaRow.cliente_id,
+      sucursalId: visitaRow.sucursal_id,
+    }).then(allEmails => {
+      if (!allEmails.length) return;
+      const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
       sendEmail('visita_finalizada', {
-        destinatario: recipients.destinatario,
+        destinatario,
         clienteNombre: visitaRow?.cliente?.razon_social || visitaRow?.solicitud?.cliente?.razon_social || '',
         sucursalNombre: visitaRow?.sucursal?.nombre || visitaRow?.solicitud?.sucursal?.nombre || '',
         tipoVisita: visitaRow?.tipo_visita?.nombre || '',
@@ -436,7 +435,7 @@ export async function finalizarVisita(visitaId, observacionFinal) {
         dispositivosCompletados: String(intervenciones?.length ?? 0),
         dispositivosTotal: String(intervenciones?.length ?? 0),
         appUrl: window.location.origin,
-      }, recipients.cc);
+      }, cc);
     });
   }
 }

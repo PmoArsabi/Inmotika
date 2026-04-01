@@ -6,7 +6,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import { ROLES } from '../utils/constants';
 import { saveTecnico } from '../api/tecnicoApi';
 import { syncCoordinadorSucursales } from '../api/coordinadorSucursalApi';
-import { sendEmail, getAdminEmails, getDirectorEmailByCoordinador, splitEmailRecipients } from './useEmail';
+import { sendEmail, getSupervisorCCs, buildRecipients } from './useEmail';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -525,22 +525,9 @@ export const useUsers = () => {
             responsable: user?.email || '',
             appUrl: window.location.origin,
           };
-          // Al nuevo usuario
-          sendEmail('usuario_creado', { destinatario: newUser.email, ...emailData });
-          // Al admin que lo creó (si es distinto al nuevo usuario) + admins + director si es coordinador
-          Promise.all([
-            getAdminEmails(),
-            newUser.rol === 'COORDINADOR' ? getDirectorEmailByCoordinador(user?.id) : Promise.resolve([]),
-          ]).then(([adminEmails, directorEmails]) => {
-            const extra = [...new Set([
-              ...(user?.email && user.email !== newUser.email ? [user.email] : []),
-              ...adminEmails,
-              ...directorEmails,
-            ].filter(e => e && e !== newUser.email))];
-            const recipients = splitEmailRecipients(extra);
-            if (recipients) {
-              sendEmail('usuario_creado', { ...emailData, destinatario: recipients.destinatario }, recipients.cc);
-            }
+          getSupervisorCCs({ actorId: user?.id, actorRole: user?.role }).then(supervisorEmails => {
+            const { destinatario, cc } = buildRecipients(newUser.email, supervisorEmails);
+            sendEmail('usuario_creado', { destinatario, ...emailData }, cc);
           });
         } finally {
           inviteInFlightRef.current = false;

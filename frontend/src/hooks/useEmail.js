@@ -5,13 +5,166 @@ import { supabase } from '../utils/supabase';
  */
 
 /**
+ * @typedef {Object} ActorContext
+ * @property {string} actorId       - perfil_usuario.id del usuario que ejecuta la acción
+ * @property {string} actorRole     - código del rol: 'COORDINADOR' | 'DIRECTOR' | 'ADMIN' | etc.
+ * @property {string} [clienteId]   - UUID del cliente relacionado a la acción (opcional)
+ * @property {string} [sucursalId]  - UUID de la sucursal relacionada a la acción (opcional)
+ */
+
+/**
+ * @typedef {Object} EmailRecipients
+ * @property {string}   destinatario  - Email principal (To)
+ * @property {string[]} cc            - Emails en copia (CC), sin duplicados
+ */
+
+// ─── Queries primitivas ───────────────────────────────────────────────────────
+
+/** Emails de todos los admins activos. */
+async function fetchAdminEmails() {
+  const { data } = await supabase
+    .from('administrador')
+    .select('perfil:usuario_id(email)')
+    .eq('activo', true);
+  return (data || []).map(a => a.perfil?.email).filter(Boolean);
+}
+
+/** Email del director asignado a un coordinador (por perfil_usuario.id del coordinador). */
+async function fetchDirectorEmailByCoordinador(coordinadorUsuarioId) {
+  if (!coordinadorUsuarioId) return [];
+  const { data } = await supabase
+    .from('coordinador')
+    .select('director:director_id(perfil:usuario_id(email))')
+    .eq('usuario_id', coordinadorUsuarioId)
+    .eq('activo', true)
+    .maybeSingle();
+  const email = data?.director?.perfil?.email;
+  return email ? [email] : [];
+}
+
+/** Emails de los directores activos asignados a un cliente. */
+async function fetchDirectorEmailsByCliente(clienteId) {
+  if (!clienteId) return [];
+  const { data } = await supabase
+    .from('cliente_director')
+    .select('director:director_id(perfil:usuario_id(email))')
+    .eq('cliente_id', clienteId)
+    .eq('activo', true);
+  return (data || []).map(r => r.director?.perfil?.email).filter(Boolean);
+}
+
+/** Emails de los coordinadores activos asignados a una sucursal. */
+async function fetchCoordinadorEmailsBySucursal(sucursalId) {
+  if (!sucursalId) return [];
+  const { data } = await supabase
+    .from('sucursal_coordinador')
+    .select('coordinador:coordinador_id(perfil:usuario_id(email))')
+    .eq('sucursal_id', sucursalId);
+  return (data || []).map(r => r.coordinador?.perfil?.email).filter(Boolean);
+}
+
+/** Emails de los contactos activos de una sucursal. */
+async function fetchContactoEmailsBySucursal(sucursalId) {
+  if (!sucursalId) return [];
+  const { data } = await supabase
+    .from('contacto_sucursal')
+    .select('contacto:contacto_id(email)')
+    .eq('sucursal_id', sucursalId)
+    .eq('activo', true);
+  return (data || []).map(r => r.contacto?.email).filter(Boolean);
+}
+
+// ─── Lógica de supervisión por rol ───────────────────────────────────────────
+
+/**
+ * Dado el contexto del actor, devuelve los emails que deben ir en CC
+ * por razones de supervisión y auditoría:
+ *
+ * - Siempre: todos los admins activos
+ * - Si el actor es COORDINADOR: también el director asignado a ese coordinador
+ * - Si el actor es DIRECTOR o ADMIN: solo admins (él mismo ya es parte de la cadena)
+ *
+ * Los emails del propio actor y del destinatario principal se deduplicarán
+ * al llamar a buildRecipients().
+ *
+ * @param {ActorContext} actor
+ * @returns {Promise<string[]>}
+ */
+export async function getSupervisorCCs(actor) {
+  const [adminEmails, directorEmails] = await Promise.all([
+    fetchAdminEmails(),
+    actor.actorRole === 'COORDINADOR'
+      ? fetchDirectorEmailByCoordinador(actor.actorId)
+      : Promise.resolve([]),
+  ]);
+  return [...adminEmails, ...directorEmails];
+}
+
+/**
+ * Devuelve todos los emails relevantes para eventos de visita
+ * (contactos de la sucursal + coordinadores de la sucursal +
+ * directores del cliente + supervisores del actor).
+ *
+ * @param {ActorContext} actor
+ * @returns {Promise<string[]>}
+ */
+export async function getVisitaEmailRecipients(actor) {
+  const [contactEmails, coordEmails, directorEmails, supervisorEmails] = await Promise.all([
+    fetchContactoEmailsBySucursal(actor.sucursalId),
+    fetchCoordinadorEmailsBySucursal(actor.sucursalId),
+    fetchDirectorEmailsByCliente(actor.clienteId),
+    getSupervisorCCs(actor),
+  ]);
+  return [...contactEmails, ...coordEmails, ...directorEmails, ...supervisorEmails];
+}
+
+/**
+ * Devuelve todos los emails relevantes para eventos de solicitud de visita
+ * (coordinadores activos + directores del cliente + supervisores del actor).
+ *
+ * @param {ActorContext} actor
+ * @returns {Promise<string[]>}
+ */
+export async function getSolicitudVisitaEmailRecipients(actor) {
+  const [coordRows, directorEmails, supervisorEmails] = await Promise.all([
+    supabase
+      .from('coordinador')
+      .select('perfil:usuario_id(email)')
+      .eq('activo', true)
+      .limit(20)
+      .then(r => r.data || []),
+    fetchDirectorEmailsByCliente(actor.clienteId),
+    getSupervisorCCs(actor),
+  ]);
+  const coordEmails = coordRows.map(c => c.perfil?.email).filter(Boolean);
+  return [...coordEmails, ...directorEmails, ...supervisorEmails];
+}
+
+// ─── Utilidades ───────────────────────────────────────────────────────────────
+
+/**
+ * Dado un destinatario principal y una lista extra de CCs, devuelve
+ * { destinatario, cc } sin duplicados y sin vacíos.
+ * Si el destinatario ya está en los CCs, se elimina de ellos.
+ *
+ * @param {string} destinatario
+ * @param {string[]} extraCCs
+ * @returns {EmailRecipients}
+ */
+export function buildRecipients(destinatario, extraCCs = []) {
+  const cc = [...new Set(extraCCs.filter(e => Boolean(e) && e !== destinatario))];
+  return { destinatario, cc };
+}
+
+// ─── Envío ────────────────────────────────────────────────────────────────────
+
+/**
  * Envía un correo transaccional via la Edge Function send-email.
- * Función standalone — usable en hooks, apis y fuera de componentes React.
  * Fire-and-forget: los errores solo se loguean; nunca bloquean el flujo principal.
  *
- * @param {EmailType} type - Tipo de correo a enviar
- * @param {Record<string, string>} data - Datos del template. Siempre debe incluir `destinatario`.
- * @param {string[]} [cc] - Emails adicionales en copia (CC). Se envía un solo correo con todos.
+ * @param {EmailType} type
+ * @param {Record<string, string>} data - Debe incluir `destinatario`.
+ * @param {string[]} [cc]
  * @returns {Promise<{success: boolean, id?: string, error?: string}>}
  */
 export async function sendEmail(type, data, cc = []) {
@@ -28,84 +181,8 @@ export async function sendEmail(type, data, cc = []) {
 }
 
 /**
- * Obtiene los emails de todos los administradores activos.
- * @returns {Promise<string[]>}
- */
-export async function getAdminEmails() {
-  const { data } = await supabase
-    .from('administrador')
-    .select('perfil:usuario_id(email)')
-    .eq('activo', true);
-  return (data || []).map(a => a.perfil?.email).filter(Boolean);
-}
-
-/**
- * Dado el usuario_id de un coordinador, devuelve el email del director
- * al que está asignado (si existe).
- *
- * @param {string} coordinadorUsuarioId - perfil_usuario.id del coordinador
- * @returns {Promise<string[]>} - array con 0 o 1 email
- */
-export async function getDirectorEmailByCoordinador(coordinadorUsuarioId) {
-  if (!coordinadorUsuarioId) return [];
-  const { data } = await supabase
-    .from('coordinador')
-    .select('director:director_id(perfil:usuario_id(email))')
-    .eq('usuario_id', coordinadorUsuarioId)
-    .eq('activo', true)
-    .maybeSingle();
-  const email = data?.director?.perfil?.email;
-  return email ? [email] : [];
-}
-
-/**
- * Dado un cliente_id, devuelve los emails de los directores activos asignados.
- * @param {string} clienteId
- * @returns {Promise<string[]>}
- */
-export async function getDirectorEmailsByCliente(clienteId) {
-  if (!clienteId) return [];
-  const { data } = await supabase
-    .from('cliente_director')
-    .select('director:director_id(perfil:usuario_id(email))')
-    .eq('cliente_id', clienteId)
-    .eq('activo', true);
-  return (data || []).map(r => r.director?.perfil?.email).filter(Boolean);
-}
-
-/**
- * Dado un sucursal_id, devuelve los emails de los coordinadores activos asignados.
- * @param {string} sucursalId
- * @returns {Promise<string[]>}
- */
-export async function getCoordinadorEmailsBySucursal(sucursalId) {
-  if (!sucursalId) return [];
-  const { data } = await supabase
-    .from('sucursal_coordinador')
-    .select('coordinador:coordinador_id(perfil:usuario_id(email))')
-    .eq('sucursal_id', sucursalId);
-  return (data || []).map(r => r.coordinador?.perfil?.email).filter(Boolean);
-}
-
-/**
- * Combina destinatario principal + cc únicos y sin vacíos.
- * Retorna { destinatario, cc } listo para sendEmail.
- *
- * @param {string[]} emails - Lista completa de emails (el primero será destinatario)
- * @returns {{ destinatario: string, cc: string[] } | null} - null si no hay emails
- */
-export function splitEmailRecipients(emails) {
-  const unique = [...new Set(emails.filter(Boolean))];
-  if (!unique.length) return null;
-  return { destinatario: unique[0], cc: unique.slice(1) };
-}
-
-/**
  * Hook centralizado para enviar correos transaccionales.
- * Reutiliza sendEmail standalone; útil en componentes que prefieren hooks.
- *
  * @example
  * const { sendEmail } = useEmail();
- * await sendEmail('visita_programada', { destinatario: 'x@x.com', clienteNombre: 'Empresa' });
  */
 export const useEmail = () => ({ sendEmail });

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
-import { sendEmail, getAdminEmails, getDirectorEmailsByCliente, splitEmailRecipients } from './useEmail';
+import { sendEmail, getSolicitudVisitaEmailRecipients, buildRecipients } from './useEmail';
 
 /**
  * @typedef {Object} SolicitudVisita
@@ -206,28 +206,20 @@ export const useSolicitudesVisita = () => {
         .then(async ({ data: sol }) => {
           if (!sol) return;
 
-          const [coordRows, directorEmails, adminEmails] = await Promise.all([
-            supabase
-              .from('coordinador')
-              .select('perfil:usuario_id(email)')
-              .eq('activo', true)
-              .limit(20)
-              .then(r => r.data || []),
-            getDirectorEmailsByCliente(payload.clienteId),
-            getAdminEmails(),
-          ]);
-
-          const coordEmails = coordRows.map(c => c.perfil?.email).filter(Boolean);
-          const allEmails = [...new Set([...coordEmails, ...directorEmails, ...adminEmails].filter(Boolean))];
-          const recipients = splitEmailRecipients(allEmails);
-          if (!recipients) return;
+          const allEmails = await getSolicitudVisitaEmailRecipients({
+            actorId: user?.id,
+            actorRole: user?.role,
+            clienteId: payload.clienteId,
+          });
+          if (!allEmails.length) return;
 
           const solicitante = sol.creador
             ? `${sol.creador.nombres || ''} ${sol.creador.apellidos || ''}`.trim() || sol.creador.email
             : '—';
 
+          const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
           sendEmail('solicitud_visita', {
-            destinatario: recipients.destinatario,
+            destinatario,
             clienteNombre: sol.cliente?.razon_social || '',
             sucursalNombre: sol.sucursal?.nombre || '',
             tipoVisita: sol.tipo_visita?.nombre || '',
@@ -237,7 +229,7 @@ export const useSolicitudesVisita = () => {
             motivo: sol.motivo || '',
             solicitante,
             appUrl: window.location.origin,
-          }, recipients.cc);
+          }, cc);
         });
 
       await fetchSolicitudes();
