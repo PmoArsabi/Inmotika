@@ -1,4 +1,4 @@
-import { Menu, Bell } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { TextSmall } from '../ui/Typography';
 import SecureImage from '../ui/SecureImage';
 
@@ -46,11 +46,6 @@ const Header = ({ user, onToggleMobileMenu }) => {
 
         {/* Right — notifications + user */}
         <div className="flex items-center gap-3">
-          <button className="relative p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
-            <Bell size={18} className="text-gray-400" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#D32F2F] rounded-full animate-pulse border-2 border-white" />
-          </button>
-
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl overflow-hidden shadow-lg shadow-red-900/20 shrink-0">
               {user?.avatar_url ? (

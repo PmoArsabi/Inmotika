@@ -233,14 +233,6 @@ const Sidebar = ({
         {!collapsed && (
           <>
             <button
-              className="flex items-center gap-3 px-3 py-2 w-full rounded-lg transition-all outline-none text-gray-400 hover:text-white hover:bg-white/5"
-              title="Configuración"
-            >
-              <Settings size={20} className="shrink-0" />
-              <TextSmall className="font-medium whitespace-nowrap">Settings</TextSmall>
-            </button>
-
-            <button
               onClick={onLogout}
               className="flex items-center gap-3 px-3 py-2 w-full rounded-lg transition-all outline-none text-gray-400 hover:text-white hover:bg-white/5"
             >
@@ -252,12 +244,6 @@ const Sidebar = ({
 
         {collapsed && (
           <>
-            <button
-              className="w-10 h-10 mx-auto rounded-lg transition-all outline-none text-gray-400 hover:text-white hover:bg-white/5 flex items-center justify-center"
-              title="Configuración"
-            >
-              <Settings size={20} />
-            </button>
             <button
               onClick={onLogout}
               className="w-10 h-10 mx-auto rounded-lg transition-all outline-none text-gray-400 hover:text-white hover:bg-white/5 flex items-center justify-center"

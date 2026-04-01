@@ -10,6 +10,7 @@ import GenericListView from '../../components/shared/GenericListView';
 import FilterBar from '../../components/shared/FilterBar';
 import { H2, H3, TextSmall, TextTiny, Label, Subtitle } from '../../components/ui/Typography';
 import SearchableSelect from '../../components/ui/SearchableSelect';
+import Select from '../../components/ui/Select';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import Modal from '../../components/ui/Modal';
 import InfoRow from '../../components/ui/InfoRow';
