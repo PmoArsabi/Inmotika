@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 // ─── Sub-componentes locales ──────────────────────────────────────────────────
 
 /** Tarjeta de stat simple (visitas / totales). */
+// eslint-disable-next-line no-unused-vars
 const StatCard = ({ label, value, sub, icon: Icon, color }) => (
   <Card className="p-8">
     <div className="flex justify-between items-start">
@@ -91,7 +92,7 @@ const DashboardPage = ({ data }) => {
       <Card className="p-8 bg-white shadow-sm border border-gray-100">
         <div className="flex items-center gap-3 mb-6 text-[#D32F2F]">
           <div className="p-3 bg-red-50 rounded-xl"><Filter size={20} /></div>
-          <H3 className="text-xs">Panel de Filtros de Gestión</H3>
+          <H3 className="text-xs">Panel de Filtros</H3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Input label="Fecha de Corte" type="date" icon={Calendar} value={filters.fecha} onChange={e => setFilters({ ...filters, fecha: e.target.value })} />

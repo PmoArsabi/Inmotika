@@ -207,35 +207,39 @@ const useDeviceVisitHistory = (deviceId) => {
 
   useEffect(() => {
     if (!deviceId || String(deviceId).startsWith('new-')) return;
-    setLoading(true);
-
-    supabase
-      .from('intervencion')
-      .select(`
-        id,
-        observacion_final,
-        estado:estado_id(codigo, nombre),
-        visita:visita_id(
+    let cancelled = false;
+    const fetch = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('intervencion')
+        .select(`
           id,
-          fecha_programada,
-          fecha_inicio,
-          fecha_fin,
-          tipo_visita:tipo_visita_id(codigo, nombre),
-          visita_tecnico(
-            tecnico:tecnico_id(
-              perfil:usuario_id(nombres, apellidos)
+          observacion_final,
+          estado:estado_id(codigo, nombre),
+          visita:visita_id(
+            id,
+            fecha_programada,
+            fecha_inicio,
+            fecha_fin,
+            tipo_visita:tipo_visita_id(codigo, nombre),
+            visita_tecnico(
+              tecnico:tecnico_id(
+                perfil:usuario_id(nombres, apellidos)
+              )
             )
-          )
-        ),
-        evidencias:evidencia_intervencion(id, url, es_etiqueta, activo)
-      `)
-      .eq('dispositivo_id', deviceId)
-      .eq('activo', true)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
+          ),
+          evidencias:evidencia_intervencion(id, url, es_etiqueta, activo)
+        `)
+        .eq('dispositivo_id', deviceId)
+        .eq('activo', true)
+        .order('created_at', { ascending: false });
+      if (!cancelled) {
         if (!error) setVisitas(data || []);
         setLoading(false);
-      });
+      }
+    };
+    fetch();
+    return () => { cancelled = true; };
   }, [deviceId]);
 
   return { visitas, loading };

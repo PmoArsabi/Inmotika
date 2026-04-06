@@ -3,7 +3,7 @@ import { useState } from 'react';
 import SecureImage from '../ui/SecureImage';
 
 // ─── Single paso section (read-only) ─────────────────────────────────────────
-const PasoProgressRow = ({ paso, ejecucionPasos, ejecucionActividades }) => {
+const PasoProgressRow = ({ paso, ejecucionActividades }) => {
   const [open, setOpen] = useState(false);
   const actividades = paso.actividades || [];
   const totalActs   = actividades.length;
@@ -57,7 +57,7 @@ const PasoProgressRow = ({ paso, ejecucionPasos, ejecucionActividades }) => {
 };
 
 // ─── Single device progress card ─────────────────────────────────────────────
-const DeviceProgressCard = ({ device, ejecucionPasos, ejecucionActividades, evidencias }) => {
+const DeviceProgressCard = ({ device, ejecucionActividades, evidencias }) => {
   const [open, setOpen] = useState(false);
 
   const allActs  = (device.pasos || []).flatMap(p => p.actividades || []);
@@ -113,7 +113,6 @@ const DeviceProgressCard = ({ device, ejecucionPasos, ejecucionActividades, evid
             <PasoProgressRow
               key={paso.id || idx}
               paso={paso}
-              ejecucionPasos={ejecucionPasos}
               ejecucionActividades={ejecucionActividades}
             />
           ))}

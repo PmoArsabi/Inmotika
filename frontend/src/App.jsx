@@ -46,7 +46,12 @@ const ProtectedRoute = ({ roles, userRole, children }) => {
 function App() {
   const { user, signOut, loading: authLoading, isRecoveryFlow, setIsRecoveryFlow, clearRecoveryFlow } = useAuth();
   const { data, setData } = useMasterData();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => {
+    const role = user?.role;
+    if (role === ROLES.CLIENTE) return 'client-dashboard';
+    if (role === ROLES.TECNICO) return 'schedule';
+    return 'dashboard';
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   /** ID de visita pendiente de abrir al entrar a GestionVisitasPage. */
@@ -69,16 +74,16 @@ function App() {
     }
   }, [isRecoveryFlow]);
 
-  // Redirigir al tab correcto cada vez que el rol cambia (login, logout, cambio de usuario).
-  // Depende de user?.role para no dispararse durante navegación normal (el rol no cambia).
+  // Redirigir al tab correcto cuando el rol cambia (ej. login posterior al mount).
+  const userRole = user?.role;
   useEffect(() => {
-    const role = user?.role;
-    if (!role) return;
-    const tab = role === ROLES.CLIENTE ? 'client-dashboard'
-      : role === ROLES.TECNICO ? 'schedule'
+    if (!userRole) return;
+    const tab = userRole === ROLES.CLIENTE ? 'client-dashboard'
+      : userRole === ROLES.TECNICO ? 'schedule'
       : 'dashboard';
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveTab(tab);
-  }, [user?.role]);
+  }, [userRole]);
 
   const handleLogout = async () => {
     await signOut();
@@ -131,7 +136,7 @@ function App() {
     try {
       // Identificar el rol del usuario para restringir módulos
       const userRole = user?.role || 'TECNICO';
-      const isAdminGroup = isManagementRole(userRole);
+      const _isAdminGroup = isManagementRole(userRole);
 
       // 1. Handle visits sub-tabs
       const visitsSubTab = getVisitsSubTab(activeTab);

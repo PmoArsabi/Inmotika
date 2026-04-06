@@ -3,22 +3,6 @@ import { sendEmail, getVisitaEmailRecipients, buildRecipients } from '../hooks/u
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-/**
- * Obtiene los emails activos de los contactos asociados a una sucursal.
- * @param {string} sucursalId
- * @returns {Promise<string[]>}
- */
-async function getContactoEmailsBySucursal(sucursalId) {
-  if (!sucursalId) return [];
-  const { data } = await supabase
-    .from('contacto_sucursal')
-    .select('contacto:contacto_id(email)')
-    .eq('sucursal_id', sucursalId)
-    .eq('activo', true);
-  return (data || [])
-    .map(r => r.contacto?.email)
-    .filter(Boolean);
-}
 
 /**
  * Busca el UUID de un estado en el catálogo por su tipo y código.

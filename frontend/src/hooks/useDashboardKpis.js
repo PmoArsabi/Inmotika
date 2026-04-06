@@ -67,7 +67,7 @@ export function useDashboardKpis() {
 
     load();
     return () => { cancelled = true; };
-  }, [user?.id, user?.role]);
+  }, [user?.id, user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return kpis;
 }

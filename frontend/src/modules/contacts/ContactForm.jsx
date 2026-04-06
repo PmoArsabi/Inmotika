@@ -20,7 +20,7 @@ import { useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
  * - viewMode: solo muestra, sin interacción
  * @param {{ hasAccess: boolean, usuarioId: string|null, avatarFile: File|null, avatarPreview: string|null, nombres: string, isEditing: boolean, onChange: Function }} props
  */
-const ContactAvatarBlock = ({ hasAccess, usuarioId, avatarFile, avatarPreview, nombres, isEditing, onChange }) => {
+const ContactAvatarBlock = ({ hasAccess, usuarioId, avatarPreview, nombres, isEditing, onChange }) => {
   const inputRef = useRef(null);
   const initials = (nombres || '?').charAt(0).toUpperCase();
   const avatarPath = usuarioId ? `usuarios/${usuarioId}/avatar` : null;

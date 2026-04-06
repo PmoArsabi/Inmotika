@@ -61,7 +61,7 @@ const ClientsView = ({ config, data }) => {
   // Hooks deben estar antes de cualquier early return
   const [filters, setFilters] = useState({ pais: [], ciudad: [], tipoDocumento: [] });
 
-  const clientes = data.clientes || [];
+  const clientes = useMemo(() => data.clientes || [], [data.clientes]);
 
   // Opciones únicas derivadas de los clientes cargados
   const paisOptions = useMemo(() => {

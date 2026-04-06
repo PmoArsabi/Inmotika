@@ -7,7 +7,7 @@ import { Subtitle, TextSmall } from '../../components/ui/Typography';
 
 const ContactsView = ({ config, data }) => {
   const { handleView, handleEdit, handleNew, removeItem } = config;
-  const contacts = data.contactos || [];
+  const contacts = useMemo(() => data.contactos || [], [data.contactos]);
 
   // ── Filtros ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({ cliente: [], sucursal: [] });

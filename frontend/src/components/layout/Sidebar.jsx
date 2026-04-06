@@ -32,9 +32,10 @@ const Sidebar = ({
     }));
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const getMenuItems = () => {
-    const userRole = user?.role;
+  // Memoized so the auto-expand effect only fires when activeTab truly changes,
+  // not on every render (which was causing the menu to re-open after the user closed it).
+  const userRole = user?.role;
+  const menuItems = useMemo(() => {
     if (isManagementRole(userRole)) {
       return [
         {
@@ -42,9 +43,9 @@ const Sidebar = ({
           label: 'Tablero',
           icon: LayoutDashboard
         },
-        { 
-          id: 'configuration', 
-          label: 'Configuración', 
+        {
+          id: 'configuration',
+          label: 'Configuración',
           icon: Settings,
           hasSubItems: true,
           subItems: [
@@ -107,11 +108,7 @@ const Sidebar = ({
       ];
     }
     return [];
-  };
-
-  // Memoized so the auto-expand effect only fires when activeTab truly changes,
-  // not on every render (which was causing the menu to re-open after the user closed it).
-  const menuItems = useMemo(getMenuItems, [user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userRole]);
 
   // Auto-expand parent when navigating to a sub-item from outside the sidebar.
   // Only opens — never fights against an explicit user collapse.

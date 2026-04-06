@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   ArrowLeft, Eye, FileText, Edit2, Trash2,
   Calendar, Building2, Cpu, Clock, AlertCircle, Tag,
@@ -231,16 +231,13 @@ const SolicitudVisitaPage = () => {
   // Para rol CLIENTE: datos del contacto autenticado
   const { cliente: clienteContacto, sucursales: sucursalesContacto, dispositivos: dispositivosContacto } = useClienteData();
 
-  // Auto-populate draft con el cliente del contacto al abrir el formulario de creación
-  useEffect(() => {
-    if (isClienteRole && mode === 'create' && clienteContacto) {
-      setDraft(prev => ({
-        ...prev,
-        clienteId: String(clienteContacto.id),
-        clienteNombre: clienteContacto.razon_social || clienteContacto.nombre || '',
-      }));
-    }
-  }, [isClienteRole, mode, clienteContacto]);
+  // Auto-populate draft con el cliente del contacto al abrir el formulario de creación.
+  // Se hace durante el render (no en effect) para evitar setState-in-effect.
+  const clienteContactoId = clienteContacto?.id ? String(clienteContacto.id) : '';
+  const clienteContactoNombre = clienteContacto?.razon_social || clienteContacto?.nombre || '';
+  if (isClienteRole && mode === 'create' && clienteContactoId && draft.clienteId !== clienteContactoId) {
+    setDraft(prev => ({ ...prev, clienteId: clienteContactoId, clienteNombre: clienteContactoNombre }));
+  }
 
   const tipoVisitaSelectOptions = useMemo(() => [
     { value: '', label: 'Seleccionar tipo...' },

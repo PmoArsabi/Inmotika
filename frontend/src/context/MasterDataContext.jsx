@@ -91,7 +91,7 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
         return { ...s, contactos: branchContacts };
       }),
     }));
-  }, [loadContactos]);
+  }, [loadContactos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Fetches and maps the `dispositivo` collection.

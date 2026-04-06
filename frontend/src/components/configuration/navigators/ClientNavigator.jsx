@@ -66,7 +66,7 @@ const ClientNavigator = ({
 
   const draft = drafts[key] ?? (currentClient ? toClientDraft(currentClient) : emptyClientDraft());
 
-  const currentBranches = currentClient?.sucursales || [];
+  const currentBranches = useMemo(() => currentClient?.sucursales || [], [currentClient]);
   const errors = validateClient(draft);
   const hasErrors = Object.keys(errors).length > 0;
 

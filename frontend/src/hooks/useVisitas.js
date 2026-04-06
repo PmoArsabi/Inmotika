@@ -501,7 +501,7 @@ export const useVisitas = () => {
     } finally {
       setSaving(false);
     }
-  }, [fetchVisitas, notify]);
+  }, [fetchVisitas, notify]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Update ─────────────────────────────────────────────────────────────────
   /**
