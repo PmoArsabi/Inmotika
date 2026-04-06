@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import ClientForm from '../../../modules/clients/ClientForm';
 import { useConfigurationContext } from '../../../context/ConfigurationContext';
 import { useMasterData } from '../../../context/MasterDataContext';
@@ -257,14 +257,15 @@ const ClientNavigator = ({
       });
       const finalDraft = { ...activeBranchDraft, id: sucursalId, contratos };
 
+      const selectedDeviceIds = new Set((finalDraft.associatedDeviceIds || []).map(String));
       setData(prev => {
         const withBranch = applyBranchUpsert(prev, route.clientId, sucursalId, finalDraft);
-        // Actualizar branchId en dispositivos asociados para reflejo inmediato en UI
-        const deviceIds = new Set((finalDraft.associatedDeviceIds || []).map(String));
-        if (deviceIds.size === 0) return withBranch;
-        const updatedDispositivos = (withBranch.dispositivos || []).map(d =>
-          deviceIds.has(String(d.id)) ? { ...d, branchId: sucursalId, sucursal_id: sucursalId } : d
-        );
+        const updatedDispositivos = (withBranch.dispositivos || []).map(d => {
+          const id = String(d.id);
+          if (selectedDeviceIds.has(id)) return { ...d, branchId: sucursalId, sucursal_id: sucursalId };
+          if (String(d.branchId || d.sucursal_id) === String(sucursalId)) return { ...d, branchId: null, sucursal_id: null };
+          return d;
+        });
         return { ...withBranch, dispositivos: updatedDispositivos };
       });
       setDrafts(prev => {
@@ -275,9 +276,9 @@ const ClientNavigator = ({
       if (editingBranchId) {
         stopEditingBranch();
       } else {
-        openBranchSuccess({ clientId: route.clientId, branchId: sucursalId });
         stopCreatingBranch();
       }
+      openBranchSuccess({ clientId: route.clientId, branchId: sucursalId });
       finishSaving();
       setSaveError(null);
     } catch (err) {
@@ -317,7 +318,15 @@ const ClientNavigator = ({
   };
 
   const totalSucursales = currentBranches.length;
-  const totalContactos = (data?.contactos || []).filter(c => compareIds(c.clientId, route.clientId)).length;
+  // Los contactos asociados a sucursales viven en data.clientes[x].sucursales[y].contactos,
+  // no en data.contactos (que solo contiene contactos sin sucursal asignada).
+  const totalContactos = useMemo(() => {
+    const seen = new Set();
+    (currentBranches).forEach(s => {
+      (s.contactos || []).forEach(ct => seen.add(String(ct.id)));
+    });
+    return seen.size;
+  }, [currentBranches]);
   const totalDispositivos = (data?.dispositivos || []).filter(d => compareIds(d.clientId, route.clientId)).length;
 
   return (

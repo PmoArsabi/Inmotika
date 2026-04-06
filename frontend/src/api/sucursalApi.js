@@ -341,22 +341,47 @@ export async function syncSucursalContactos(sucursalId, contactIds) {
 }
 
 /**
- * Sincroniza dispositivos asociados a la sucursal: actualiza dispositivo.sucursal_id.
- * Un dispositivo solo puede pertenecer a una sucursal a la vez.
+ * Sincroniza dispositivos asociados a la sucursal.
+ * Estrategia declarativa: el estado final en BD debe coincidir con selectedIds.
+ * 1. Quita sucursal_id de todos los dispositivos de esta sucursal que no estén en selectedIds.
+ * 2. Asigna sucursal_id a todos los dispositivos en selectedIds.
  * @param {string} sucursalId
- * @param {string[]} deviceIds - IDs de dispositivos a asociar
+ * @param {string[]} selectedIds - IDs finales que deben quedar asociados
  */
-export async function syncSucursalDispositivos(sucursalId, deviceIds) {
-  if (!deviceIds || deviceIds.length === 0) return;
-  const { error } = await supabase
+export async function syncSucursalDispositivos(sucursalId, selectedIds) {
+  const selectedSet = new Set((selectedIds || []).map(String).filter(Boolean));
+  // Leer dispositivos actuales de esta sucursal en BD
+  const { data: current, error: fetchError } = await supabase
     .from('dispositivo')
-    .update({ sucursal_id: sucursalId })
-    .in('id', deviceIds);
-  if (error) throw error;
+    .select('id')
+    .eq('sucursal_id', sucursalId);
+  if (fetchError) throw fetchError;
+
+  const currentIds = (current || []).map(d => String(d.id));
+
+  // Quitar sucursal solo a los que fueron removidos de la selección
+  const toRemove = currentIds.filter(id => !selectedSet.has(id));
+  if (toRemove.length > 0) {
+    const { error } = await supabase
+      .from('dispositivo')
+      .update({ sucursal_id: null })
+      .in('id', toRemove);
+    if (error) throw error;
+  }
+
+  // Asignar sucursal a los seleccionados
+  const toAssign = [...selectedSet].filter(id => !currentIds.includes(id));
+  if (toAssign.length > 0) {
+    const { error } = await supabase
+      .from('dispositivo')
+      .update({ sucursal_id: sucursalId })
+      .in('id', toAssign);
+    if (error) throw error;
+  }
 }
 
 /**
- * Persiste sucursal (insert o update), sincroniza contratos y contactos asociados.
+ * Persiste sucursal (insert o update), sincroniza contratos, contactos y dispositivos asociados.
  * Un solo punto de verdad: crear y editar usan la misma función.
  *
  * @param {Object} params
@@ -394,10 +419,8 @@ export async function saveSucursal({ sucursalId, clienteId, draft, catalogIds = 
     await syncSucursalContactos(resolvedId, draft.associatedContactIds);
   }
 
-  // Sincronizar dispositivos asociados desde el modal de asociar
-  if (Array.isArray(draft.associatedDeviceIds) && draft.associatedDeviceIds.length > 0) {
-    await syncSucursalDispositivos(resolvedId, draft.associatedDeviceIds);
-  }
+  // Sincronizar dispositivos: estado declarativo, siempre ejecutar
+  await syncSucursalDispositivos(resolvedId, draft.associatedDeviceIds || []);
 
   return { sucursalId: resolvedId, contratos };
 }

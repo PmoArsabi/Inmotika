@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Users } from 'lucide-react';
 import GenericListView from '../../components/shared/GenericListView';
 import FilterBar from '../../components/shared/FilterBar';
+import Input from '../../components/ui/Input';
 import { Subtitle, TextSmall } from '../../components/ui/Typography';
 
 const ContactsView = ({ config, data }) => {
@@ -10,30 +11,33 @@ const ContactsView = ({ config, data }) => {
 
   // ── Filtros ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({ cliente: [], sucursal: [] });
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
 
   // Opciones únicas de clientes
   const clienteOptions = useMemo(() => {
     const seen = new Set();
     return contacts
-      .map(ct => ({ value: ct.clienteId || ct.cliente_id || '', label: ct.clienteNombre || '' }))
+      .map(ct => ({ value: String(ct.clientId || ct.clienteId || ct.cliente_id || ''), label: ct.clienteNombre || '' }))
       .filter(o => o.value && o.label && !seen.has(o.value) && seen.add(o.value))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [contacts]);
 
-  // Sucursales filtradas según clientes seleccionados (cascading)
+  // Sucursales filtradas según clientes seleccionados (cascading).
+  // contactsFlat usa `branchId` como identificador de sucursal.
   const sucursalOptions = useMemo(() => {
     const selectedClientes = filters.cliente;
     const seen = new Set();
     return contacts
-      .filter(ct => selectedClientes.length === 0 || selectedClientes.includes(String(ct.clienteId || ct.cliente_id || '')))
+      .filter(ct => selectedClientes.length === 0 || selectedClientes.includes(String(ct.clientId || ct.clienteId || ct.cliente_id || '')))
       .map(ct => ({
-        value: ct.sucursalId || ct.sucursal_id || '',
+        value: String(ct.branchId || ct.sucursalId || ct.sucursal_id || ''),
         label: ct.sucursalNombre || '',
-        parentValue: String(ct.clienteId || ct.cliente_id || ''),
+        parentValue: String(ct.clientId || ct.clienteId || ct.cliente_id || ''),
       }))
       .filter(o => {
         const key = `${o.value}__${o.parentValue}`;
-        return o.value && o.label && !seen.has(key) && seen.add(key);
+        return o.value && o.label && o.value !== 'null' && !seen.has(key) && seen.add(key);
       })
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [contacts, filters.cliente]);
@@ -43,15 +47,19 @@ const ContactsView = ({ config, data }) => {
     { key: 'sucursal', label: 'Sucursal', options: sucursalOptions, multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
   ];
 
-  // Contactos filtrados por multi-select (texto lo maneja GenericListView)
+  // Contactos filtrados por multi-select y rango de fechas (texto lo maneja GenericListView)
   const filteredContacts = useMemo(() => {
     let list = contacts;
     if (filters.cliente.length > 0)
-      list = list.filter(ct => filters.cliente.includes(String(ct.clienteId || ct.cliente_id || '')));
+      list = list.filter(ct => filters.cliente.includes(String(ct.clientId || ct.clienteId || ct.cliente_id || '')));
     if (filters.sucursal.length > 0)
-      list = list.filter(ct => filters.sucursal.includes(String(ct.sucursalId || ct.sucursal_id || '')));
+      list = list.filter(ct => filters.sucursal.includes(String(ct.branchId || ct.sucursalId || ct.sucursal_id || '')));
+    if (fechaDesde)
+      list = list.filter(ct => ct.created_at && ct.created_at >= fechaDesde);
+    if (fechaHasta)
+      list = list.filter(ct => ct.created_at && ct.created_at <= fechaHasta + 'T23:59:59');
     return list;
-  }, [contacts, filters]);
+  }, [contacts, filters, fechaDesde, fechaHasta]);
 
   const columns = [
     {
@@ -98,14 +106,30 @@ const ContactsView = ({ config, data }) => {
         String(ct.telefonoMovil || '').includes(q)
       }
       extraFilters={
-        <FilterBar
-          mode="inline"
-          filters={filterDefs}
-          values={filters}
-          onChange={setFilters}
-          totalItems={contacts.length}
-          filteredCount={filteredContacts.length}
-        />
+        <>
+          <FilterBar
+            mode="inline"
+            filters={filterDefs}
+            values={filters}
+            onChange={setFilters}
+            totalItems={contacts.length}
+            filteredCount={filteredContacts.length}
+          />
+          <Input
+            type="date"
+            label="Creado desde"
+            value={fechaDesde}
+            onChange={e => setFechaDesde(e.target.value)}
+            className="min-w-36 flex-1"
+          />
+          <Input
+            type="date"
+            label="Creado hasta"
+            value={fechaHasta}
+            onChange={e => setFechaHasta(e.target.value)}
+            className="min-w-36 flex-1"
+          />
+        </>
       }
     />
   );

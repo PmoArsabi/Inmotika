@@ -3031,3 +3031,48 @@ using (
   )
 );
 
+-- --- contacto_sucursal: validar que la sucursal pertenezca al cliente del contacto ---
+-- El trigger evita que se inserten registros incoherentes donde la sucursal
+-- pertenece a un cliente distinto al que tiene asignado el contacto.
+
+DROP FUNCTION IF EXISTS public.validate_contacto_sucursal_coherencia() CASCADE;
+
+CREATE OR REPLACE FUNCTION public.validate_contacto_sucursal_coherencia()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_cliente_id_contacto uuid;
+  v_cliente_id_sucursal uuid;
+BEGIN
+  -- Obtener el cliente_id del contacto
+  SELECT cliente_id INTO v_cliente_id_contacto
+  FROM public.contacto
+  WHERE id = NEW.contacto_id;
+
+  -- Si el contacto no tiene cliente asignado, permitir la asociación
+  IF v_cliente_id_contacto IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Obtener el cliente_id de la sucursal
+  SELECT cliente_id INTO v_cliente_id_sucursal
+  FROM public.sucursal
+  WHERE id = NEW.sucursal_id;
+
+  -- Validar coherencia: la sucursal debe pertenecer al mismo cliente del contacto
+  IF v_cliente_id_sucursal IS DISTINCT FROM v_cliente_id_contacto THEN
+    RAISE EXCEPTION
+      'La sucursal (id: %) pertenece al cliente % pero el contacto (id: %) está asignado al cliente %. Un contacto solo puede asociarse a sucursales de su cliente.',
+      NEW.sucursal_id, v_cliente_id_sucursal, NEW.contacto_id, v_cliente_id_contacto;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_validate_contacto_sucursal_coherencia
+  BEFORE INSERT OR UPDATE ON public.contacto_sucursal
+  FOR EACH ROW
+  EXECUTE FUNCTION public.validate_contacto_sucursal_coherencia();
+

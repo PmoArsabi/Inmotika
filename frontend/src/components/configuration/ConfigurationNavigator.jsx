@@ -3,6 +3,7 @@ import { Users, Building2, MapPin, User, Monitor, Phone, CheckCircle2, Search, L
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { TextSmall, H3 } from '../ui/Typography';
+import SearchableSelect from '../ui/SearchableSelect';
 import Breadcrumbs from './Breadcrumbs';
 
 import { useConfigurationContext } from '../../context/ConfigurationContext';
@@ -82,6 +83,7 @@ const ConfigurationNavigator = ({ onClose }) => {
   const [associateDevicesModal, setAssociateDevicesModal] = useState(null);
   const [associateDevicesSearch, setAssociateDevicesSearch] = useState('');
   const [associateDevicesSelected, setAssociateDevicesSelected] = useState([]);
+  const [associateDevicesCatFilter, setAssociateDevicesCatFilter] = useState([]);
   const [associateDirectorsModal, setAssociateDirectorsModal] = useState(null);
   const [associateDirectorsSearch, setAssociateDirectorsSearch] = useState('');
   const [associateDirectorsSelected, setAssociateDirectorsSelected] = useState([]);
@@ -279,10 +281,33 @@ const ConfigurationNavigator = ({ onClose }) => {
 
       {/* Associate Modals (Mini versions) */}
       {associateContactsModal && (() => {
-        // Usar todos los contactos disponibles en master data
-        const todosContactos = data?.contactos || [];
+        // Solo mostrar contactos del cliente al que pertenece la sucursal que se está editando.
+        // Los contactos viven en data.clientes[x].sucursales[y].contactos (deduplicados por id).
+        const clientId = associateContactsModal.clientId;
+        const clienteObj = (data?.clientes || []).find(c => String(c.id) === String(clientId));
+        const contactosPorCliente = (() => {
+          const seen = new Set();
+          const result = [];
+          (clienteObj?.sucursales || []).forEach(s => {
+            (s.contactos || []).forEach(ct => {
+              if (!seen.has(String(ct.id))) {
+                seen.add(String(ct.id));
+                result.push(ct);
+              }
+            });
+          });
+          // También incluir contactos de data.contactos que tengan este cliente_id
+          (data?.contactos || []).forEach(ct => {
+            const ctClientId = ct.clientId || ct.cliente_id;
+            if (String(ctClientId) === String(clientId) && !seen.has(String(ct.id))) {
+              seen.add(String(ct.id));
+              result.push(ct);
+            }
+          });
+          return result;
+        })();
         const q = associateContactsSearch.toLowerCase();
-        const filtered = todosContactos.filter(ct =>
+        const filtered = contactosPorCliente.filter(ct =>
           !q || (ct.nombres || ct.nombre || '').toLowerCase().includes(q) ||
           (ct.apellidos || ct.apellido || '').toLowerCase().includes(q) ||
           (ct.email || '').toLowerCase().includes(q)
@@ -364,12 +389,21 @@ const ConfigurationNavigator = ({ onClose }) => {
           if (dBranchId && currentBranchId && String(dBranchId) !== String(currentBranchId)) return false;
           return true;
         });
+        // Categorías únicas de los dispositivos disponibles (para el select)
+        const catOptions = [...new Map(
+          dispositivos
+            .filter(d => d.categoriaId && d.categoria?.nombre)
+            .map(d => [d.categoriaId, d.categoria.nombre])
+        ).entries()].map(([id, nombre]) => ({ value: id, label: nombre }));
+
         const q = associateDevicesSearch.toLowerCase();
-        const filtered = dispositivos.filter(d =>
-          !q || (d.descripcion || '').toLowerCase().includes(q) ||
-          (d.serial || '').toLowerCase().includes(q) ||
-          (d.idInmotika || d.id_inmotika || '').toLowerCase().includes(q)
-        );
+        const catFilterIds = new Set(associateDevicesCatFilter.map(o => o.value));
+        const filtered = dispositivos.filter(d => {
+          if (catFilterIds.size > 0 && !catFilterIds.has(d.categoriaId)) return false;
+          return !q || (d.descripcion || '').toLowerCase().includes(q) ||
+            (d.serial || '').toLowerCase().includes(q) ||
+            (d.idInmotika || d.id_inmotika || '').toLowerCase().includes(q);
+        });
         return (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <Card className="max-w-md w-full p-6 shadow-2xl">
@@ -377,7 +411,7 @@ const ConfigurationNavigator = ({ onClose }) => {
                 <div className="p-2 bg-red-50 rounded-lg"><Monitor size={20} className="text-[#D32F2F]" /></div>
                 <H3 className="normal-case">Asociar Dispositivos</H3>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input
@@ -387,7 +421,17 @@ const ConfigurationNavigator = ({ onClose }) => {
                     onChange={(e) => setAssociateDevicesSearch(e.target.value)}
                   />
                 </div>
-                <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1">
+                {catOptions.length > 0 && (
+                  <SearchableSelect
+                    placeholder="Filtrar por categoría..."
+                    options={catOptions}
+                    value={associateDevicesCatFilter}
+                    onChange={setAssociateDevicesCatFilter}
+                    isMulti
+                    icon={Tag}
+                  />
+                )}
+                <div className="max-h-[260px] overflow-y-auto space-y-2 pr-1">
                   {filtered.length === 0 && (
                     <div className="text-center py-8">
                       <Monitor size={32} className="mx-auto text-gray-300 mb-2" />
@@ -397,6 +441,7 @@ const ConfigurationNavigator = ({ onClose }) => {
                   {filtered.map(d => {
                     const isSelected = associateDevicesSelected.includes(String(d.id));
                     const label = d.descripcion || d.serial || d.idInmotika || 'Dispositivo';
+                    const categoriaNombre = d.categoria?.nombre || d.categoriaNombre || null;
                     return (
                       <div
                         key={d.id}
@@ -413,7 +458,7 @@ const ConfigurationNavigator = ({ onClose }) => {
                           </div>
                           <div>
                             <TextSmall className="font-bold text-gray-900">{label}</TextSmall>
-                            {d.serial && <TextSmall className="text-gray-500 text-[10px]">Serial: {d.serial}</TextSmall>}
+                            {categoriaNombre && <TextSmall className="text-gray-500 text-[10px]">{categoriaNombre}</TextSmall>}
                           </div>
                         </div>
                         {isSelected && <CheckCircle2 size={18} className="text-[#D32F2F]" />}
@@ -426,10 +471,11 @@ const ConfigurationNavigator = ({ onClose }) => {
                     updateDraft(associateDevicesModal.branchKey, { associatedDeviceIds: associateDevicesSelected });
                     setAssociateDevicesModal(null);
                     setAssociateSuccess(true);
+                    setAssociateDevicesCatFilter([]);
                   }} className="w-full bg-[#1A1A1A] hover:bg-[#D32F2F] text-white">
                     Confirmar
                   </Button>
-                  <Button onClick={() => setAssociateDevicesModal(null)} variant="ghost" className="w-full">Cancelar</Button>
+                  <Button onClick={() => { setAssociateDevicesModal(null); setAssociateDevicesCatFilter([]); }} variant="ghost" className="w-full">Cancelar</Button>
                 </div>
               </div>
             </Card>

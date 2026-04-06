@@ -149,6 +149,7 @@ const ContactForm = ({
             icon={Building2}
             viewMode={!isEditing}
             error={clientError}
+            required
           />
 
           {/* Sucursales: desplegable multi-select */}

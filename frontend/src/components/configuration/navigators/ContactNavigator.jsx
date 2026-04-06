@@ -71,7 +71,7 @@ const ContactNavigator = () => {
   }, [route.contactId, data, key, setDrafts, setStack]);
 
   const currentDraft = draft || emptyContactDraft();
-  const errors = validateContact(currentDraft);
+  const errors = validateContact(currentDraft, route.clientId);
   const hasErrors = Object.keys(errors).length > 0;
   const isEditing = route.mode === 'edit';
 
@@ -297,7 +297,7 @@ const ContactNavigator = () => {
         availableBranchOptions={availableBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
         selectedBranchValues={selectedBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
         onBranchesChange={handleBranchesChange}
-        clientError={null}
+        clientError={showErrors ? errors.clienteId : null}
         branchError={null}
       />
     </Card>

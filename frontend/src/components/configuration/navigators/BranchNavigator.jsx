@@ -80,18 +80,23 @@ const BranchNavigator = ({
         catalogIds,
       });
       const finalDraft = { ...draft, id: sucursalId, contratos };
+      const selectedDeviceIds = new Set((finalDraft.associatedDeviceIds || []).map(String));
 
       setData(prev => {
         const withBranch = applyBranchUpsert(prev, route.clientId, sucursalId, finalDraft);
-        const deviceIds = new Set((finalDraft.associatedDeviceIds || []).map(String));
-        if (deviceIds.size === 0) return withBranch;
-        const updatedDispositivos = (withBranch.dispositivos || []).map(d =>
-          deviceIds.has(String(d.id)) ? { ...d, branchId: sucursalId, sucursal_id: sucursalId } : d
-        );
+        // Refleja en memoria el estado declarativo: cada dispositivo tiene o no esta sucursal
+        const updatedDispositivos = (withBranch.dispositivos || []).map(d => {
+          const id = String(d.id);
+          if (selectedDeviceIds.has(id)) return { ...d, branchId: sucursalId, sucursal_id: sucursalId };
+          if (compareIds(d.branchId || d.sucursal_id, sucursalId)) return { ...d, branchId: null, sucursal_id: null };
+          return d;
+        });
         return { ...withBranch, dispositivos: updatedDispositivos };
       });
 
       setSaveState({ isSaving: false, savedAt: Date.now() });
+      // Limpiar draft para que al re-abrir se re-lea desde data actualizado
+      setDrafts(prev => { const next = { ...prev }; delete next[key]; return next; });
       setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view', branchId: sucursalId } : s));
       notify('success', 'Sucursal guardada con éxito');
     } catch (err) {
@@ -114,15 +119,18 @@ const BranchNavigator = ({
         onSaveNewBranch={handleSave}
         isSaving={saveState.isSaving}
         onAssociateContacts={() => {
-          if (!drafts[key]) updateDraft(key, draft);
-          const currentIds = (drafts[key] || draft).associatedContactIds || [];
+          const fullDraft = drafts[key] ?? getDraft();
+          if (!drafts[key]) setDrafts(prev => ({ ...prev, [key]: fullDraft }));
+          const currentIds = fullDraft.associatedContactIds || [];
           setAssociateContactsSelected(currentIds);
           setAssociateContactsSearch('');
           setAssociateContactsModal({ branchKey: key, clientId: route.clientId });
         }}
         onAssociateDevices={() => {
-          if (!drafts[key]) updateDraft(key, draft);
-          const currentIds = (drafts[key] || draft).associatedDeviceIds || [];
+          // Asegurar que el draft completo esté en context antes de abrir el modal
+          const fullDraft = drafts[key] ?? getDraft();
+          if (!drafts[key]) setDrafts(prev => ({ ...prev, [key]: fullDraft }));
+          const currentIds = fullDraft.associatedDeviceIds || [];
           setAssociateDevicesSelected(currentIds);
           setAssociateDevicesSearch('');
           setAssociateDevicesModal({ branchKey: key, clientId: route.clientId, branchId: route.branchId });
