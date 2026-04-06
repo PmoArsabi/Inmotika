@@ -18,9 +18,9 @@ import { useAuth } from '../context/AuthContext';
 const StatCard = ({ label, value, sub, icon: Icon, color }) => (
   <Card className="p-8">
     <div className="flex justify-between items-start">
-      <div className="space-y-3">
-        <Label>{label}</Label>
-        <Metric className="text-3xl text-gray-900">{value}</Metric>
+      <div className="flex flex-col gap-3">
+        <Label className="block">{label}</Label>
+        <Metric className="block text-3xl text-gray-900">{value}</Metric>
         <TextSmall className="text-[10px] uppercase text-gray-400">{sub}</TextSmall>
       </div>
       <div className="p-4 bg-gray-50 rounded-4xl shadow-inner">

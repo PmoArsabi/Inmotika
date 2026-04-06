@@ -37,10 +37,10 @@ const Sidebar = ({
     const userRole = user?.role;
     if (isManagementRole(userRole)) {
       return [
-        { 
-          id: 'dashboard', 
-          label: 'Dashboard', 
-          icon: LayoutDashboard 
+        {
+          id: 'dashboard',
+          label: 'Tablero',
+          icon: LayoutDashboard
         },
         { 
           id: 'configuration', 
@@ -70,7 +70,7 @@ const Sidebar = ({
     }
     if (userRole === ROLES.TECNICO) {
       return [
-        { id: 'schedule', label: 'Dashboard', icon: Calendar },
+        { id: 'schedule', label: 'Tablero', icon: Calendar },
         {
           id: 'visits',
           label: 'Gestión Visitas',
@@ -84,7 +84,7 @@ const Sidebar = ({
     }
     if (userRole === ROLES.CLIENTE) {
       return [
-        { id: 'client-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'client-dashboard', label: 'Tablero', icon: LayoutDashboard },
         {
           id: 'client-config',
           label: 'Configuración',
@@ -139,7 +139,7 @@ const Sidebar = ({
         {!collapsed && (
           <div className="overflow-hidden animate-in fade-in duration-300">
             <H3 className="text-white text-sm leading-none whitespace-nowrap">Inmotika</H3>
-            <TextSmall className="text-gray-500 uppercase mt-0.5 text-[8px] whitespace-nowrap">Field Service</TextSmall>
+            <TextSmall className="text-gray-500 uppercase mt-0.5 text-[8px] whitespace-nowrap">Gestión Inmobiliaria</TextSmall>
           </div>
         )}
         {!collapsed && onToggleCollapsed && (
@@ -237,7 +237,7 @@ const Sidebar = ({
               className="flex items-center gap-3 px-3 py-2 w-full rounded-lg transition-all outline-none text-gray-400 hover:text-white hover:bg-white/5"
             >
               <LogOut size={20} className="shrink-0" />
-              <TextSmall className="font-medium whitespace-nowrap">Logout</TextSmall>
+              <TextSmall className="font-medium whitespace-nowrap">Cerrar sesión</TextSmall>
             </button>
           </>
         )}

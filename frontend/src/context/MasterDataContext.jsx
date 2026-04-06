@@ -19,16 +19,36 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
   }, []);
 
   /**
+   * Obtiene los UUIDs de los estados que representan registros eliminados/inactivos.
+   * Se usan para filtrar clientes y contactos tras el soft-delete.
+   * @returns {Promise<Set<string>>}
+   */
+  const loadEstadosInactivos = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('catalogo_estado_general')
+      .select('id, codigo')
+      .in('codigo', ['INACTIVO', 'RETIRADO']);
+    if (error) throw error;
+    return new Set((data || []).map(e => e.id));
+  }, []);
+
+  /**
    * Fetches and maps the `contacto` collection.
    * @returns {Promise<Array>} Array of mapped contact drafts.
    */
-  const loadContactos = useCallback(async () => {
-    const { data: contactRows, error: contactError } = await supabase
-      .from('contacto')
-      .select('*, contacto_sucursal(sucursal_id), perfil_usuario(id, estado_id, catalogo_estado_general(codigo, activo))');
+  const loadContactos = useCallback(async (estadosInactivos) => {
+    const [{ data: contactRows, error: contactError }, inactivos] = await Promise.all([
+      supabase
+        .from('contacto')
+        .select('*, contacto_sucursal(sucursal_id), perfil_usuario(id, estado_id, catalogo_estado_general(codigo, activo))'),
+      estadosInactivos ?? loadEstadosInactivos(),
+    ]);
     if (contactError) throw contactError;
-    return (contactRows || []).map(row => toContactDraft(row));
-  }, []);
+    // Filtrar contactos cuyo estado_id corresponda a INACTIVO o RETIRADO
+    return (contactRows || [])
+      .filter(row => !row.estado_id || !inactivos.has(row.estado_id))
+      .map(row => toContactDraft(row));
+  }, [loadEstadosInactivos]);
 
   /**
    * Fetches and maps the `cliente` collection.
@@ -41,7 +61,7 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
    * @returns {Promise<Array>} Array of mapped client drafts with nested sucursales.
    */
   const loadClientes = useCallback(async (preloadedContactos) => {
-    const [clienteResult, contactos] = await Promise.all([
+    const [clienteResult, contactos, inactivos] = await Promise.all([
       supabase
         .from('cliente')
         .select('*, cliente_documento(id, nombre, url, activo), sucursal(*, contrato(*)), cliente_director(*)')
@@ -49,14 +69,18 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
       preloadedContactos !== undefined
         ? Promise.resolve(preloadedContactos)
         : loadContactos(),
+      loadEstadosInactivos(),
     ]);
 
     if (clienteResult.error) throw clienteResult.error;
 
-    const clientesBase = (clienteResult.data || []).map(row => ({
-      ...toClientDraft(row),
-      sucursales: (row.sucursal || []).map(s => toBranchDraft(s)),
-    }));
+    // Filtrar clientes cuyo estado_id corresponda a INACTIVO o RETIRADO (soft-deleted)
+    const clientesBase = (clienteResult.data || [])
+      .filter(row => !row.estado_id || !inactivos.has(row.estado_id))
+      .map(row => ({
+        ...toClientDraft(row),
+        sucursales: (row.sucursal || []).map(s => toBranchDraft(s)),
+      }));
 
     return clientesBase.map(c => ({
       ...c,
@@ -125,14 +149,13 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
       setError(null);
 
       if (key === undefined) {
-        // Load contactos first so loadClientes can reuse the result without a
-        // second network round-trip, while dispositivos and categorias run in
-        // parallel at the same time.
-        const [contactos, dispositivos, categorias] = await Promise.all([
-          loadContactos(),
+        // Cargar estados inactivos una sola vez y reutilizar en contactos y clientes
+        const [inactivos, dispositivos, categorias] = await Promise.all([
+          loadEstadosInactivos(),
           loadDispositivos(),
           loadCategorias(),
         ]);
+        const contactos = await loadContactos(inactivos);
         const clientes = await loadClientes(contactos);
 
         setData(prev => ({
@@ -165,7 +188,7 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
     } finally {
       setLoading(false);
     }
-  }, [loadClientes, loadContactos, loadDispositivos, loadCategorias, updateCollection]);
+  }, [loadClientes, loadContactos, loadDispositivos, loadCategorias, loadEstadosInactivos, updateCollection]);
 
   const { user } = useAuth();
 

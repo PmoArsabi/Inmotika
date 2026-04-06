@@ -1,8 +1,79 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../utils/supabase';
 import { useNotify } from '../context/NotificationContext';
 import { useConfirm } from '../context/ConfirmContext';
 
-export const useConfiguration = (data, setData, initialSubTab = 'clientes') => {
+/**
+ * Mapa de tipo de entidad → función de soft-delete en Supabase.
+ * cliente/contacto/sucursal usan estado_id (busca el estado inactivo).
+ * dispositivo/categoria usan columna activo = false.
+ *
+ * @param {string} id  - UUID del registro a desactivar
+ * @param {string} type - 'clientes' | 'contactos' | 'sucursales' | 'dispositivos' | 'categorias'
+ */
+/** Obtiene el UUID del estado INACTIVO del catálogo (código fijo). */
+async function getEstadoInactivoId() {
+  const { data, error } = await supabase
+    .from('catalogo_estado_general')
+    .select('id')
+    .eq('codigo', 'INACTIVO')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.id) throw new Error('Estado INACTIVO no encontrado en catálogo_estado_general');
+  return data.id;
+}
+
+async function softDeleteInDB(id, type) {
+  switch (type) {
+    case 'clientes': {
+      const estadoId = await getEstadoInactivoId();
+      const { error } = await supabase
+        .from('cliente')
+        .update({ estado_id: estadoId })
+        .eq('id', id);
+      if (error) throw error;
+      break;
+    }
+    case 'contactos': {
+      const estadoId = await getEstadoInactivoId();
+      const { error } = await supabase
+        .from('contacto')
+        .update({ estado_id: estadoId })
+        .eq('id', id);
+      if (error) throw error;
+      break;
+    }
+    case 'sucursales': {
+      const estadoId = await getEstadoInactivoId();
+      const { error } = await supabase
+        .from('sucursal')
+        .update({ estado_id: estadoId })
+        .eq('id', id);
+      if (error) throw error;
+      break;
+    }
+    case 'dispositivos': {
+      const { error } = await supabase
+        .from('dispositivo')
+        .update({ activo: false })
+        .eq('id', id);
+      if (error) throw error;
+      break;
+    }
+    case 'categorias': {
+      const { error } = await supabase
+        .from('categoria_dispositivo')
+        .update({ activo: false })
+        .eq('id', id);
+      if (error) throw error;
+      break;
+    }
+    default:
+      throw new Error(`Tipo de entidad desconocido para eliminar: ${type}`);
+  }
+}
+
+export const useConfiguration = (data, setData, initialSubTab = 'clientes', refreshData) => {
   const notify = useNotify();
   const confirm = useConfirm();
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab);
@@ -16,9 +87,41 @@ export const useConfiguration = (data, setData, initialSubTab = 'clientes') => {
       type: 'danger'
     });
 
-    if (confirmed) {
-      setData({ ...data, [type]: data[type].filter(i => i.id !== id) });
+    if (!confirmed) return;
+
+    try {
+      // Optimistic UI: quitar del estado local inmediatamente.
+      // Para contactos, también limpiarlos de las sucursales de cada cliente.
+      setData(prev => {
+        const next = { ...prev, [type]: (prev[type] || []).filter(i => i.id !== id) };
+        if (type === 'contactos') {
+          next.clientes = (prev.clientes || []).map(c => ({
+            ...c,
+            sucursales: (c.sucursales || []).map(s => ({
+              ...s,
+              contactos: (s.contactos || []).filter(ct => String(ct.id) !== String(id)),
+            })),
+          }));
+        }
+        return next;
+      });
+
+      // Persistir en Supabase
+      await softDeleteInDB(id, type);
+
       notify('success', 'Registro eliminado correctamente');
+
+      // Refrescar desde BD para mantener consistencia.
+      // Contactos viven en dos lugares (data.contactos y data.clientes[].sucursales[].contactos),
+      // por lo que un refreshData completo es necesario para sincronizar ambos.
+      if (refreshData) {
+        if (type === 'contactos') refreshData();
+        else refreshData(type);
+      }
+    } catch (err) {
+      // Revertir el optimistic update si falla
+      notify('error', err.message || 'Error al eliminar el registro');
+      if (refreshData) refreshData();
     }
   };
 

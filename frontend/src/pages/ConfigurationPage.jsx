@@ -17,8 +17,8 @@ import { useMasterData } from '../context/MasterDataContext';
 import { ConfigurationProvider } from '../context/ConfigurationContext';
 
 const ConfigurationPage = ({ initialSubTab = 'clientes', isSingleTabView = false }) => {
-  const { data, setData } = useMasterData();
-  const config = useConfiguration(data, setData, initialSubTab);
+  const { data, setData, refreshData } = useMasterData();
+  const config = useConfiguration(data, setData, initialSubTab, refreshData);
   const [clientModalParams, setClientModalParams] = useState(null);
   const {
     activeSubTab, setActiveSubTab,
