@@ -69,14 +69,14 @@ export const emptyContactDraft = () => ({
   tipoDocumento: '',      // código: CC, CE, PAS, TI, NIT, PPT
   identificacion: '',
   generoId: '',           // UUID → catalogo(tipo=GENERO)
-  esMarido: false,        // true = casado → muestra fecha aniversario
+  esMarido: false,        // true = casado → muestra fecha boda
   cargoId: '',            // UUID → catalogo(tipo=CARGO_CONTACTO)
   descripcionCargo: '',
   email: '',
   telefonoMovil: '',
   telefonoMovilPais: 'CO',
   fechaNacimiento: '',
-  fechaMatrimonio: '',    // fecha aniversario — solo visible si esMarido=true
+  fechaMatrimonio: '',    // fecha boda — solo visible si esMarido=true
   estadoId: '',           // UUID → catalogo_estado_general (oculto en creación)
   darAcceso: false,       // true = invitar al sistema al guardar
   associatedBranchIds: [],
@@ -211,6 +211,7 @@ export const toContactDraft = (contact) => {
       ? contact.branches
       : [];
   const associatedBranchIds = bridges
+    .filter(b => b.activo !== false)
     .map(b => b.sucursal_id || b.sucursalId || b.branchId)
     .filter(Boolean)
     .map(id => String(id));
@@ -328,11 +329,17 @@ export const applyTecnicoUpsert = (prevData, tecnicoId, tecnicoDraft) => {
 export const applyBranchUpsert = (prevData, clientId, branchId, branchDraft) => {
   // Reconstruir el array de objetos contacto a partir de los IDs del draft.
   // data.contactos es la fuente de verdad de objetos; el draft solo guarda IDs.
-  const allContactos = prevData?.contactos || [];
+  // Contactos viven en data.contactos Y en clientes[].sucursales[].contactos — buscar en ambas fuentes
   const contactIds = new Set((branchDraft.associatedContactIds || []).map(String));
-  const updatedContactos = contactIds.size > 0
-    ? allContactos.filter(ct => contactIds.has(String(ct.id)))
-    : null; // null = no cambiar los contactos existentes si no hay IDs en el draft
+  const contactosPorId = new Map();
+  (prevData?.contactos || []).forEach(ct => contactosPorId.set(String(ct.id), ct));
+  (prevData?.clientes || []).forEach(c =>
+    (c.sucursales || []).forEach(s =>
+      (s.contactos || []).forEach(ct => contactosPorId.set(String(ct.id), ct))
+    )
+  );
+  // Siempre reconstruir: array vacío significa que se removieron todos
+  const updatedContactos = [...contactIds].map(id => contactosPorId.get(id)).filter(Boolean);
 
   const updatedClients = (prevData?.clientes || []).map(c => {
     if (String(c.id) !== String(clientId)) return c;
@@ -349,10 +356,10 @@ export const applyBranchUpsert = (prevData, clientId, branchId, branchDraft) => 
             ...b,
             ...mapped,
             // Si el draft tenía IDs de contactos, actualizar el array de objetos
-            contactos: updatedContactos !== null ? updatedContactos : (b.contactos || []),
+            contactos: updatedContactos,
           };
         })
-      : [...current, { ...mapped, contactos: updatedContactos || [], dispositivos: [] }];
+      : [...current, { ...mapped, contactos: updatedContactos, dispositivos: [] }];
     return { ...c, sucursales: upserted };
   });
   return { ...prevData, clientes: updatedClients };

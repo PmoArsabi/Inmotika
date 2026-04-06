@@ -326,18 +326,47 @@ async function syncVisitasPreventivas({
 
 /**
  * Sincroniza contactos asociados a la sucursal via tabla puente contacto_sucursal.
- * Estrategia: para cada contactId en el draft, asegurar que exista la fila.
- * No elimina filas de contactos no listados (el contacto puede pertenecer a varias sucursales).
+ * Estrategia declarativa: el estado final debe coincidir exactamente con selectedIds.
+ * - Elimina filas de contactos que ya no están en la selección.
+ * - Inserta filas de contactos nuevos (upsert ignorando duplicados).
  * @param {string} sucursalId
- * @param {string[]} contactIds - IDs de contactos a asociar
+ * @param {string[]} selectedIds - IDs finales que deben quedar asociados
  */
-export async function syncSucursalContactos(sucursalId, contactIds) {
-  if (!contactIds || contactIds.length === 0) return;
-  const rows = contactIds.map(cId => ({ contacto_id: cId, sucursal_id: sucursalId }));
-  const { error } = await supabase
+export async function syncSucursalContactos(sucursalId, selectedIds) {
+  const ids = (selectedIds || []).map(String).filter(Boolean);
+
+  // Leer asociaciones activas actuales de esta sucursal
+  const { data: current, error: fetchError } = await supabase
     .from('contacto_sucursal')
-    .upsert(rows, { onConflict: 'contacto_id,sucursal_id', ignoreDuplicates: true });
-  if (error) throw error;
+    .select('contacto_id')
+    .eq('sucursal_id', sucursalId)
+    .eq('activo', true);
+  if (fetchError) throw fetchError;
+
+  const currentIds = (current || []).map(r => String(r.contacto_id));
+  const selectedSet = new Set(ids);
+
+  // Soft-delete: marcar activo=false los que fueron removidos
+  const toRemove = currentIds.filter(id => !selectedSet.has(id));
+  if (toRemove.length > 0) {
+    const { error } = await supabase
+      .from('contacto_sucursal')
+      .update({ activo: false })
+      .eq('sucursal_id', sucursalId)
+      .in('contacto_id', toRemove);
+    if (error) throw error;
+  }
+
+  // Upsert los seleccionados (activo=true cubre tanto nuevos como re-activaciones)
+  if (ids.length > 0) {
+    const { error } = await supabase
+      .from('contacto_sucursal')
+      .upsert(
+        ids.map(cId => ({ contacto_id: cId, sucursal_id: sucursalId, activo: true })),
+        { onConflict: 'contacto_id,sucursal_id' }
+      );
+    if (error) throw error;
+  }
 }
 
 /**
@@ -414,10 +443,8 @@ export async function saveSucursal({ sucursalId, clienteId, draft, catalogIds = 
 
   const contratos = await syncSucursalContracts(resolvedId, clienteId, draft, catalogIds);
 
-  // Sincronizar contactos asociados desde el modal de asociar
-  if (Array.isArray(draft.associatedContactIds) && draft.associatedContactIds.length > 0) {
-    await syncSucursalContactos(resolvedId, draft.associatedContactIds);
-  }
+  // Sincronizar contactos: siempre ejecutar para poder eliminar los removidos
+  await syncSucursalContactos(resolvedId, draft.associatedContactIds || []);
 
   // Sincronizar dispositivos: estado declarativo, siempre ejecutar
   await syncSucursalDispositivos(resolvedId, draft.associatedDeviceIds || []);

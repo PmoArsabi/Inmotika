@@ -220,7 +220,7 @@ const ContactForm = ({
             viewMode={!isEditing}
           />
           <Input
-            label="Fecha de Cumpleaños"
+            label="Fecha de Nacimiento"
             type="date"
             value={draft.fechaNacimiento || ''}
             onChange={e => updateDraft({ fechaNacimiento: e.target.value })}
@@ -240,7 +240,7 @@ const ContactForm = ({
             />
             {draft.esMarido && (
               <Input
-                label="Fecha de Aniversario"
+                label="Fecha de Boda"
                 type="date"
                 value={draft.fechaMatrimonio || ''}
                 onChange={e => updateDraft({ fechaMatrimonio: e.target.value })}
