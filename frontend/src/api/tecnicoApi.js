@@ -1,6 +1,6 @@
 /**
  * API compartida para técnico: perfil_usuario, tecnico, documentos y certificados.
- * Usada por TechnicalNavigator (Configuración) y useUsers (Usuarios AP).
+ * Usada por TechnicalNavigator (Configuración) y useUsers (Usuarios).
  */
 import { supabase } from '../utils/supabase';
 import { uploadAndSyncFile } from '../utils/storageUtils';

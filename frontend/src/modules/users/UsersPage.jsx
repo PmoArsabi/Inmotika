@@ -33,7 +33,7 @@ const UsersPage = ({ setData }) => {
   const [editingUser, setEditingUser] = useState(null);
   const [viewingUser, setViewingUser] = useState(null);
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({ rol: [], estado: [] });
+  const [filters, setFilters] = useState({ rol: [], estado: [], fechaDesde: '', fechaHasta: '' });
   const [newUser, setNewUser] = useState(emptyUser());
   const [tecnicoDocumentos, setTecnicoDocumentos] = useState(emptyDocs());
   const [savingUser, setSavingUser] = useState(false);
@@ -63,8 +63,10 @@ const UsersPage = ({ setData }) => {
   ];
 
   const filterDefs = [
-    { key: 'rol',    label: 'Rol',    options: rolOptions,    multi: true },
-    { key: 'estado', label: 'Estado', options: estadoOptions, multi: true },
+    { key: 'rol',        label: 'Rol',         options: rolOptions,    multi: true },
+    { key: 'estado',     label: 'Estado',      options: estadoOptions, multi: true },
+    { key: 'fechaDesde', label: 'Fecha desde', type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
+    { key: 'fechaHasta', label: 'Fecha hasta', type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
   ];
 
   // Filter Logic (client-side sobre datos en memoria)
@@ -87,6 +89,10 @@ const UsersPage = ({ setData }) => {
                (filters.estado.includes('inactivo') && !isActivo);
       });
     }
+    if (filters.fechaDesde)
+      list = list.filter(u => u.created_at && u.created_at >= filters.fechaDesde);
+    if (filters.fechaHasta)
+      list = list.filter(u => u.created_at && u.created_at <= filters.fechaHasta + 'T23:59:59');
     return list;
   }, [usuarios, search, filters]);
 
@@ -227,7 +233,7 @@ const UsersPage = ({ setData }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
       <ModuleHeader
-        title="USUARIOS AP"
+        title="USUARIOS"
         subtitle="Gestión de usuarios con acceso a la plataforma"
         icon={UserPlus}
         onNewClick={handleCreate}

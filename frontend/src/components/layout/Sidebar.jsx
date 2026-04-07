@@ -53,7 +53,7 @@ const Sidebar = ({
             { id: 'configuration-contacto',     label: 'Contactos',    icon: Phone   },
             { id: 'configuration-dispositivos', label: 'Dispositivos', icon: Cpu    },
             { id: 'configuration-categorias',   label: 'Categorías',  icon: Tag     },
-            { id: 'configuration-usuarios',     label: 'Usuarios Ap', icon: UserCog },
+            { id: 'configuration-usuarios',     label: 'Usuarios', icon: UserCog },
           ]
         },
         {
@@ -128,7 +128,7 @@ const Sidebar = ({
   return (
     <aside
       className={`flex flex-col bg-[#1A1A1A] text-white h-screen sticky top-0 overflow-hidden transition-[width] duration-300 ease-in-out ${
-        collapsed ? 'w-[52px]' : 'w-60'
+        collapsed ? 'w-13' : 'w-60'
       } ${className}`}
     >
       {/* Logo Section */}

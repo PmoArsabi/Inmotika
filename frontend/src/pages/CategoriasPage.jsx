@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Tag, ClipboardList } from 'lucide-react';
 import { TextSmall, Subtitle } from '../components/ui/Typography';
 import CategoriaForm from '../modules/devices/CategoriaForm';
 import GenericListView from '../components/shared/GenericListView';
+import FilterBar from '../components/shared/FilterBar';
 import { useMasterData } from '../context/MasterDataContext';
 import { deleteCategoria } from '../api/categoriaApi';
 
@@ -10,7 +11,22 @@ const CategoriasPage = () => {
   const { data, refreshData } = useMasterData();
   const [selected, setSelected] = useState(null); // { categoria, mode }
 
-  const categorias = data?.categorias || [];
+  const allCategorias = useMemo(() => data?.categorias || [], [data?.categorias]);
+  const [filters, setFilters] = useState({ fechaDesde: '', fechaHasta: '' });
+
+  const filterDefs = [
+    { key: 'fechaDesde', label: 'Fecha desde', type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
+    { key: 'fechaHasta', label: 'Fecha hasta', type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
+  ];
+
+  const categorias = useMemo(() => {
+    let list = allCategorias;
+    if (filters.fechaDesde)
+      list = list.filter(c => c.created_at && c.created_at >= filters.fechaDesde);
+    if (filters.fechaHasta)
+      list = list.filter(c => c.created_at && c.created_at <= filters.fechaHasta + 'T23:59:59');
+    return list;
+  }, [allCategorias, filters]);
 
   // ─── Delete category ─────────────────────────────────────────────────────
   const handleDelete = async (cat) => {
@@ -92,6 +108,13 @@ const CategoriasPage = () => {
         searchPlaceholder="Buscar por nombre o descripción..."
         filterFunction={filterFunction}
         emptyText="Sin categorías registradas"
+        activeFiltersCount={(filters.fechaDesde ? 1 : 0) + (filters.fechaHasta ? 1 : 0)}
+        onClearFilters={() => setFilters({ fechaDesde: '', fechaHasta: '' })}
+        filteredCount={categorias.length}
+        totalItems={allCategorias.length}
+        extraFilters={
+          <FilterBar filters={filterDefs} values={filters} onChange={setFilters} />
+        }
       />
     </div>
   );

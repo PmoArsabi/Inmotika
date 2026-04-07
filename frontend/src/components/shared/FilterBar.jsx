@@ -59,13 +59,16 @@ const FilterBar = ({ filters = [], values = {}, onChange, leadingSlot }) => {
   };
 
   // Separamos las fechas del resto para manejarlas como un bloque
-  const dateFilters = filters.filter(f => f.type === 'date');
+  const dateFilters  = filters.filter(f => f.type === 'date');
   const otherFilters = filters.filter(f => f.type !== 'date');
+
+  // Ancho mínimo compartido por todos los ítems del flex.
+  const ITEM_MIN_W = '160px';
 
   return (
     <div className="flex flex-wrap gap-x-2 gap-y-3 items-end">
       {leadingSlot && (
-        <div className="flex-1 min-w-45">
+        <div className="flex-1" style={{ minWidth: ITEM_MIN_W }}>
           {leadingSlot}
         </div>
       )}
@@ -75,17 +78,31 @@ const FilterBar = ({ filters = [], values = {}, onChange, leadingSlot }) => {
           key={f.key}
           filter={f}
           values={values}
-          // ... (mismos props)
+          isOpen={openKey === f.key}
+          onToggle={() => setOpenKey(prev => prev === f.key ? null : f.key)}
+          onClose={() => setOpenKey(null)}
+          onSelect={handleSelectChange}
+          onClear={clearFilter}
+          itemMinW={ITEM_MIN_W}
         />
       ))}
+
+      {/* Las fechas comparten un wrapper con nowrap: nunca se separan entre sí.
+          El wrapper en sí es un ítem flex con min-width = 2 * ITEM_MIN_W + gap,
+          así cuando no caben ambas en la fila actual, el bloque entero baja. */}
+      {/* Mobile (< md): w-full + flex-wrap → cada fecha ocupa su propia fila.
+          Desktop (≥ md): flex-nowrap + md:min-w-[calc(320px+0.5rem)] →
+          el bloque tiene peso suficiente para bajar junto si no cabe,
+          y una vez abajo, las dos fechas siempre van lado a lado. */}
       {dateFilters.length > 0 && (
-        <div className="flex flex-2 min-w-45 gap-2 flex-row flex-wrap">
+        <div className="flex flex-wrap md:flex-nowrap gap-x-2 gap-y-3 items-end w-full md:w-auto md:flex-1 md:min-w-82">
           {dateFilters.map(f => (
             <FilterDateInput
               key={f.key}
               filter={f}
               values={values}
-              onChange={(key, e) => onChange({ ...values, [key]: e.target.value })}
+              onChange={handleDateChange}
+              itemMinW={ITEM_MIN_W}
             />
           ))}
         </div>
@@ -100,29 +117,30 @@ const FilterBar = ({ filters = [], values = {}, onChange, leadingSlot }) => {
  * Input de fecha que participa en el grid del FilterBar.
  * Soporta constraint min/max cruzado con el campo linkedTo.
  */
-const FilterDateInput = ({ filter, values, onChange }) => {
-  const value = values[filter.key] || '';
-  const linkedValue = filter.linkedTo ? (values[filter.linkedTo] || '') : '';
+const FilterDateInput = ({ filter, values, onChange, itemMinW }) => {
+  const value    = values[filter.key] || '';
+  const linked   = filter.linkedTo ? (values[filter.linkedTo] || '') : '';
   const hasValue = !!value;
 
-  const inputClass = [
-    'w-full h-10 px-3 border rounded-md bg-white text-sm text-gray-600',
-    'focus:outline-none transition-all cursor-pointer',
-    hasValue
-      ? 'border-[#D32F2F] ring-2 ring-[#D32F2F]/10'
-      : 'border-gray-300 hover:border-gray-400 focus:border-[#D32F2F] focus:ring-2 focus:ring-[#D32F2F]/10',
-  ].join(' ');
-
   return (
-    <div className="flex flex-col gap-0.5 flex-1">
+    <div className="flex flex-col gap-0.5 flex-1" style={{ minWidth: itemMinW }}>
       <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
         {filter.label}
       </span>
       <input
         type="date"
         value={value}
+        max={filter.dateRole === 'desde' && linked ? linked : undefined}
+        min={filter.dateRole === 'hasta' && linked ? linked : undefined}
         onChange={e => onChange(filter.key, e)}
-        className="w-full h-10 px-3 border border-gray-300 rounded-md bg-white text-sm text-gray-600 focus:outline-none focus:border-[#D32F2F] focus:ring-2 focus:ring-[#D32F2F]/10 transition-all cursor-pointer"
+        aria-label={filter.label}
+        className={[
+          'w-full h-10 px-3 border rounded-md bg-white text-sm text-gray-600',
+          'focus:outline-none transition-all cursor-pointer',
+          hasValue
+            ? 'border-[#D32F2F] ring-2 ring-[#D32F2F]/10'
+            : 'border-gray-300 hover:border-gray-400 focus:border-[#D32F2F] focus:ring-2 focus:ring-[#D32F2F]/10',
+        ].join(' ')}
       />
     </div>
   );
@@ -133,7 +151,7 @@ const FilterDateInput = ({ filter, values, onChange }) => {
 /**
  * Select con label encima y dropdown portal de checkboxes.
  */
-const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onClear }) => {
+const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onClear, itemMinW }) => {
   const triggerRef = useRef(null);
   const dropdownRef = useRef(null);
   const isDisabled = !!(filter.dependsOn && (values[filter.dependsOn] || []).length === 0);
@@ -175,7 +193,7 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
   }, [isOpen, onClose]);
 
   return (
-    <div className="flex flex-col gap-0.5 flex-1 min-w-45">
+    <div className="flex flex-col gap-0.5 flex-1" style={{ minWidth: itemMinW }}>
       <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
         {filter.label}
       </span>
