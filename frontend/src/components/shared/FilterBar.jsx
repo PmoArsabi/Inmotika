@@ -58,29 +58,37 @@ const FilterBar = ({ filters = [], values = {}, onChange, leadingSlot }) => {
     onChange({ ...values, [filterKey]: e.target.value });
   };
 
+  // Separamos las fechas del resto para manejarlas como un bloque
+  const dateFilters = filters.filter(f => f.type === 'date');
+  const otherFilters = filters.filter(f => f.type !== 'date');
+
   return (
-    <div className="grid gap-x-2 gap-y-3 items-end" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
-      {leadingSlot}
-      {filters.map(f =>
-        f.type === 'date' ? (
-          <FilterDateInput
-            key={f.key}
-            filter={f}
-            values={values}
-            onChange={handleDateChange}
-          />
-        ) : (
-          <FilterSelect
-            key={f.key}
-            filter={f}
-            values={values}
-            isOpen={openKey === f.key}
-            onToggle={() => setOpenKey(prev => prev === f.key ? null : f.key)}
-            onClose={() => setOpenKey(null)}
-            onSelect={handleSelectChange}
-            onClear={clearFilter}
-          />
-        )
+    <div className="flex flex-wrap gap-x-2 gap-y-3 items-end">
+      {leadingSlot && (
+        <div className="flex-1 min-w-45">
+          {leadingSlot}
+        </div>
+      )}
+
+      {otherFilters.map(f => (
+        <FilterSelect
+          key={f.key}
+          filter={f}
+          values={values}
+          // ... (mismos props)
+        />
+      ))}
+      {dateFilters.length > 0 && (
+        <div className="flex flex-2 min-w-45 gap-2 flex-row flex-wrap">
+          {dateFilters.map(f => (
+            <FilterDateInput
+              key={f.key}
+              filter={f}
+              values={values}
+              onChange={(key, e) => onChange({ ...values, [key]: e.target.value })}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
@@ -106,18 +114,15 @@ const FilterDateInput = ({ filter, values, onChange }) => {
   ].join(' ');
 
   return (
-    <div className="flex flex-col gap-0.5 min-w-35">
+    <div className="flex flex-col gap-0.5 flex-1">
       <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
         {filter.label}
       </span>
       <input
         type="date"
         value={value}
-        max={filter.dateRole === 'desde' && linkedValue ? linkedValue : undefined}
-        min={filter.dateRole === 'hasta' && linkedValue ? linkedValue : undefined}
         onChange={e => onChange(filter.key, e)}
-        aria-label={filter.label}
-        className={inputClass}
+        className="w-full h-10 px-3 border border-gray-300 rounded-md bg-white text-sm text-gray-600 focus:outline-none focus:border-[#D32F2F] focus:ring-2 focus:ring-[#D32F2F]/10 transition-all cursor-pointer"
       />
     </div>
   );
@@ -170,7 +175,7 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
   }, [isOpen, onClose]);
 
   return (
-    <div className="flex flex-col gap-0.5 min-w-35">
+    <div className="flex flex-col gap-0.5 flex-1 min-w-45">
       <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
         {filter.label}
       </span>
