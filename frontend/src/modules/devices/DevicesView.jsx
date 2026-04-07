@@ -19,7 +19,7 @@ const DevicesView = ({ config, data: masterData }) => {
   const notify = useNotify();
   const { activoId, inactivoId } = useActivoInactivo();
 
-  const [filters, setFilters] = useState({ categoria: [], marca: [], proveedor: [], fechaDesde: '', fechaHasta: '' });
+  const [filters, setFilters] = useState({ categoria: [], marca: [], proveedor: [], cliente: [], sucursal: [], fechaDesde: '', fechaHasta: '' });
 
   // Dispositivos activos (base)
   const allDevices = useMemo(
@@ -28,6 +28,30 @@ const DevicesView = ({ config, data: masterData }) => {
     ),
     [masterData.dispositivos, activoId]
   );
+
+  const clienteOptions = useMemo(() => {
+    const seen = new Set();
+    return allDevices
+      .filter(d => d.cliente_id && d.cliente?.razon_social && !seen.has(d.cliente_id) && seen.add(d.cliente_id))
+      .map(d => ({ value: String(d.cliente_id), label: d.cliente.razon_social }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [allDevices]);
+
+  const sucursalOptions = useMemo(() => {
+    const seen = new Set();
+    return allDevices
+      .filter(d => d.sucursal_id && d.sucursal?.nombre)
+      .filter(d => {
+        const key = `${d.sucursal_id}__${d.cliente_id}`;
+        return !seen.has(key) && seen.add(key);
+      })
+      .map(d => ({
+        value: String(d.sucursal_id),
+        label: d.sucursal.nombre,
+        parentValue: String(d.cliente_id),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [allDevices]);
 
   const categoriaOptions = useMemo(() => {
     const seen = new Set();
@@ -57,7 +81,9 @@ const DevicesView = ({ config, data: masterData }) => {
   }, [allDevices]);
 
   const filterDefs = [
-    { key: 'categoria',  label: 'Categoría',   options: categoriaOptions, multi: true },
+    { key: 'cliente',    label: 'Cliente',      options: clienteOptions,   multi: true },
+    { key: 'sucursal',   label: 'Sucursal',     options: sucursalOptions,  multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
+    { key: 'categoria',  label: 'Categoría',    options: categoriaOptions, multi: true },
     { key: 'marca',      label: 'Marca',        options: marcaOptions,     multi: true },
     { key: 'proveedor',  label: 'Proveedor',    options: proveedorOptions, multi: true },
     { key: 'fechaDesde', label: 'Fecha desde',  type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
@@ -65,9 +91,11 @@ const DevicesView = ({ config, data: masterData }) => {
   ];
 
   const devices = useMemo(() => allDevices.filter(d => {
-    if (filters.categoria.length > 0 && !filters.categoria.includes(getName(d.categoria))) return false;
-    if (filters.marca.length     > 0 && !filters.marca.includes(getName(d.marca)))         return false;
-    if (filters.proveedor.length > 0 && !filters.proveedor.includes(getName(d.proveedor))) return false;
+    if (filters.cliente.length   > 0 && !filters.cliente.includes(String(d.cliente_id)))    return false;
+    if (filters.sucursal.length  > 0 && !filters.sucursal.includes(String(d.sucursal_id)))  return false;
+    if (filters.categoria.length > 0 && !filters.categoria.includes(getName(d.categoria)))  return false;
+    if (filters.marca.length     > 0 && !filters.marca.includes(getName(d.marca)))          return false;
+    if (filters.proveedor.length > 0 && !filters.proveedor.includes(getName(d.proveedor)))  return false;
     if (filters.fechaDesde && !(d.created_at && d.created_at >= filters.fechaDesde)) return false;
     if (filters.fechaHasta && !(d.created_at && d.created_at <= filters.fechaHasta + 'T23:59:59')) return false;
     return true;
@@ -156,8 +184,8 @@ const DevicesView = ({ config, data: masterData }) => {
       filterFunction={filterFunction}
       filteredCount={devices.length}
       totalItems={allDevices.length}
-      activeFiltersCount={filters.categoria.length + filters.marca.length + filters.proveedor.length + (filters.fechaDesde ? 1 : 0) + (filters.fechaHasta ? 1 : 0)}
-      onClearFilters={() => setFilters({ categoria: [], marca: [], proveedor: [], fechaDesde: '', fechaHasta: '' })}
+      activeFiltersCount={filters.cliente.length + filters.sucursal.length + filters.categoria.length + filters.marca.length + filters.proveedor.length + (filters.fechaDesde ? 1 : 0) + (filters.fechaHasta ? 1 : 0)}
+      onClearFilters={() => setFilters({ cliente: [], sucursal: [], categoria: [], marca: [], proveedor: [], fechaDesde: '', fechaHasta: '' })}
       extraFilters={
         <FilterBar filters={filterDefs} values={filters} onChange={setFilters} />
       }
