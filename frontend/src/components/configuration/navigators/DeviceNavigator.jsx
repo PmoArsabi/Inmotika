@@ -28,7 +28,7 @@ const DeviceNavigator = () => {
     setDrafts(prev => ({ ...prev, [key]: toDeviceDraft(currentDevice) }));
   }, [route.deviceId, currentDevice, key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const draft = drafts[key] ?? (currentDevice ? toDeviceDraft(currentDevice) : emptyDeviceDraft());
+  const draft = drafts[key] ?? (currentDevice ? toDeviceDraft(currentDevice) : { ...emptyDeviceDraft(), clientId: route.clientId || '' });
   const errors = validateDevice(draft);
   const hasErrors = Object.keys(errors).length > 0;
   const isEditing = route.mode === 'edit';

@@ -66,8 +66,8 @@ const DynamicDocumentList = ({
 
       {items.map(item => (
         <div key={item.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-gray-300 transition-all space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="w-full sm:w-64 shrink-0">
+          <div className="flex flex-col gap-3">
+            <div className="w-full">
               {viewMode ? (
                 <p className="text-sm font-semibold text-gray-700 px-1 truncate">
                   {item.nombre || <span className="italic text-gray-400">Sin nombre</span>}
@@ -77,14 +77,13 @@ const DynamicDocumentList = ({
                   label="Descripción"
                   placeholder={itemPlaceholder}
                   value={item.nombre}
-                  onChange={e => updateRow(item.id, { nombre: e.target.value })} // Removed toUpperCase()
+                  onChange={e => updateRow(item.id, { nombre: e.target.value })}
                   viewMode={viewMode}
-                  className="h-10"
                 />
               )}
             </div>
 
-            <div className="flex-1 w-full min-w-0">
+            <div className="w-full">
               <FileUploader
                 label="Documento"
                 bucket="inmotika"
@@ -108,14 +107,16 @@ const DynamicDocumentList = ({
             </div>
 
             {!viewMode && (
-              <button
-                type="button"
-                onClick={() => removeRow(item.id)}
-                className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0 self-end sm:self-center"
-                title="Quitar"
-              >
-                <Trash2 size={16} />
-              </button>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => removeRow(item.id)}
+                  className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Quitar"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             )}
           </div>
 

@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { Users } from 'lucide-react';
 import GenericListView from '../../components/shared/GenericListView';
 import FilterBar from '../../components/shared/FilterBar';
-import Input from '../../components/ui/Input';
 import { Subtitle, TextSmall } from '../../components/ui/Typography';
 
 const ContactsView = ({ config, data }) => {
@@ -10,9 +9,7 @@ const ContactsView = ({ config, data }) => {
   const contacts = useMemo(() => data.contactos || [], [data.contactos]);
 
   // ── Filtros ────────────────────────────────────────────────────────────────
-  const [filters, setFilters] = useState({ cliente: [], sucursal: [] });
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
+  const [filters, setFilters] = useState({ cliente: [], sucursal: [], fechaDesde: '', fechaHasta: '' });
 
   // Opciones únicas de clientes
   const clienteOptions = useMemo(() => {
@@ -43,8 +40,10 @@ const ContactsView = ({ config, data }) => {
   }, [contacts, filters.cliente]);
 
   const filterDefs = [
-    { key: 'cliente',  label: 'Cliente',  options: clienteOptions,  multi: true },
-    { key: 'sucursal', label: 'Sucursal', options: sucursalOptions, multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
+    { key: 'cliente',    label: 'Cliente',      options: clienteOptions,  multi: true },
+    { key: 'sucursal',   label: 'Sucursal',     options: sucursalOptions, multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
+    { key: 'fechaDesde', label: 'Fecha desde',  type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
+    { key: 'fechaHasta', label: 'Fecha hasta',  type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
   ];
 
   // Contactos filtrados por multi-select y rango de fechas (texto lo maneja GenericListView)
@@ -54,12 +53,12 @@ const ContactsView = ({ config, data }) => {
       list = list.filter(ct => filters.cliente.includes(String(ct.clientId || ct.clienteId || ct.cliente_id || '')));
     if (filters.sucursal.length > 0)
       list = list.filter(ct => filters.sucursal.includes(String(ct.branchId || ct.sucursalId || ct.sucursal_id || '')));
-    if (fechaDesde)
-      list = list.filter(ct => ct.created_at && ct.created_at >= fechaDesde);
-    if (fechaHasta)
-      list = list.filter(ct => ct.created_at && ct.created_at <= fechaHasta + 'T23:59:59');
+    if (filters.fechaDesde)
+      list = list.filter(ct => ct.created_at && ct.created_at >= filters.fechaDesde);
+    if (filters.fechaHasta)
+      list = list.filter(ct => ct.created_at && ct.created_at <= filters.fechaHasta + 'T23:59:59');
     return list;
-  }, [contacts, filters, fechaDesde, fechaHasta]);
+  }, [contacts, filters]);
 
   const columns = [
     {
@@ -98,7 +97,11 @@ const ContactsView = ({ config, data }) => {
       onEdit={(ct) => handleEdit(ct, 'contacto', ct.branchId)}
       onDelete={(ct) => removeItem(ct.id, 'contactos')}
       newButtonLabel="Nuevo Contacto"
-      searchPlaceholder="Buscar: Nombre / Email / Celular"
+      searchPlaceholder="Nombre / Email / Celular"
+      filteredCount={filteredContacts.length}
+      totalItems={contacts.length}
+      activeFiltersCount={filters.cliente.length + filters.sucursal.length + (filters.fechaDesde ? 1 : 0) + (filters.fechaHasta ? 1 : 0)}
+      onClearFilters={() => setFilters({ cliente: [], sucursal: [], fechaDesde: '', fechaHasta: '' })}
       filterFunction={(ct, q) =>
         (ct.nombres || '').toLowerCase().includes(q) ||
         (ct.apellidos || '').toLowerCase().includes(q) ||
@@ -106,30 +109,7 @@ const ContactsView = ({ config, data }) => {
         String(ct.telefonoMovil || '').includes(q)
       }
       extraFilters={
-        <>
-          <FilterBar
-            mode="inline"
-            filters={filterDefs}
-            values={filters}
-            onChange={setFilters}
-            totalItems={contacts.length}
-            filteredCount={filteredContacts.length}
-          />
-          <Input
-            type="date"
-            label="Creado desde"
-            value={fechaDesde}
-            onChange={e => setFechaDesde(e.target.value)}
-            className="min-w-36 flex-1"
-          />
-          <Input
-            type="date"
-            label="Creado hasta"
-            value={fechaHasta}
-            onChange={e => setFechaHasta(e.target.value)}
-            className="min-w-36 flex-1"
-          />
-        </>
+        <FilterBar filters={filterDefs} values={filters} onChange={setFilters} />
       }
     />
   );

@@ -146,6 +146,13 @@ Fusión de `database-standards.md` y `database-context.md`:
 | `supabase migration apply` | ❌ No | Prohibido; user ejecuta en SQL Editor |
 | Crear archivos en `frontend/docs/` | ❌ No | Ruido innecesario |
 
+### Regla obligatoria de lint
+
+**SIEMPRE ejecuta `npm run lint` (desde `/frontend`) al finalizar cualquier tarea que modifique archivos `.jsx` o `.js`.**
+- Cwd correcto: `cd /c/Proyectos/Inmotika/Inmotika/frontend && npm run lint`
+- Si hay errores: corrígelos todos antes de reportar la tarea como completa.
+- Errores frecuentes: imports no usados, variables no usadas, hooks sin importar (`useMemo`, `useCallback`, etc.).
+
 ---
 
 ## 9. Common Workflows

@@ -42,7 +42,7 @@ const SearchableSelect = ({
       borderRadius: '0.375rem',
       paddingLeft: Icon ? '2.25rem' : '0.25rem',
       fontSize: '0.875rem',
-      fontWeight: '600',
+      fontWeight: '400',
       boxShadow: state.isFocused
         ? (dark ? '0 0 0 4px rgba(255,255,255,0.1)' : '0 0 0 4px rgba(211,47,47,0.05)')
         : 'none',
@@ -98,7 +98,7 @@ const SearchableSelect = ({
       ...base,
       color: dark ? 'white' : '#111827',
       fontSize: '0.75rem',
-      fontWeight: '600',
+      fontWeight: '500',
       padding: '0.125rem 0.375rem',
       whiteSpace: 'nowrap',
       overflow: 'hidden',
@@ -129,7 +129,7 @@ const SearchableSelect = ({
       color: state.isSelected ? 'white' : (dark ? 'white' : '#111827'),
       cursor: 'pointer',
       fontSize: '0.875rem',
-      fontWeight: '600',
+      fontWeight: '400',
       '&:active': { backgroundColor: '#D32F2F', color: 'white' },
     }),
     input: (base) => ({

@@ -19,7 +19,7 @@ import { useNotify } from '../../../context/NotificationContext';
 import { useAuth } from '../../../context/AuthContext';
 import { sendEmail, getSupervisorCCs, buildRecipients } from '../../../hooks/useEmail';
 
-const ClientNavigator = ({ 
+const ClientNavigator = ({
   setAssociateContactsModal,
   setAssociateDevicesModal,
   setAssociateContactsSelected,
@@ -29,6 +29,8 @@ const ClientNavigator = ({
   setAssociateDirectorsModal,
   setAssociateDirectorsSelected,
   setAssociateDirectorsSearch,
+  setClientContactsModal,
+  setClientDevicesModal,
 }) => {
   const {
     route, drafts, setDrafts, updateDraft, setStack,
@@ -306,6 +308,14 @@ const ClientNavigator = ({
     setAssociateDevicesModal({ branchKey: activeBranchKey, clientId: route.clientId, branchId: editingBranchId });
   };
 
+  const handleOpenClientContacts = () => {
+    setClientContactsModal({ clientId: route.clientId, branches: currentBranches });
+  };
+
+  const handleOpenClientDevices = () => {
+    setClientDevicesModal({ clientId: route.clientId, branches: currentBranches });
+  };
+
   const handleOpenAssociateDirectors = () => {
     // Si no hay draft en el contexto, lo inicializamos con los datos actuales
     if (!drafts[key]) {
@@ -316,6 +326,16 @@ const ClientNavigator = ({
     setAssociateDirectorsSearch('');
     setAssociateDirectorsModal({ key, allDirectors: activeDirectors });
   };
+
+  const clientContacts = useMemo(() => {
+    const seen = new Map();
+    currentBranches.forEach(s => {
+      (s.contactos || []).forEach(ct => {
+        if (!seen.has(String(ct.id))) seen.set(String(ct.id), { ...ct, branchName: s.nombre });
+      });
+    });
+    return [...seen.values()];
+  }, [currentBranches]);
 
   const totalSucursales = currentBranches.length;
   // Los contactos asociados a sucursales viven en data.clientes[x].sucursales[y].contactos,
@@ -360,6 +380,12 @@ const ClientNavigator = ({
       onAssociateContacts={handleOpenAssociateContacts}
       onAssociateDevices={handleOpenAssociateDevices}
       onAssociateDirectors={handleOpenAssociateDirectors}
+      onAddDevice={() => setStack(prev => [...prev, { type: 'dispositivo', deviceId: `new-${Date.now()}`, mode: 'edit', clientId: route.clientId }])}
+      onOpenClientContacts={handleOpenClientContacts}
+      onOpenClientDevices={handleOpenClientDevices}
+      clientDevices={(data?.dispositivos || []).filter(d => compareIds(d.clientId || d.cliente_id, route.clientId))}
+      clientBranches={currentBranches}
+      clientContacts={clientContacts}
       isDeviceAdmin={false}
       allDevices={data.dispositivos || []}
       totalSucursales={totalSucursales}

@@ -47,7 +47,7 @@ const CoordRow = ({ coord }) => (
         <TextTiny className="text-gray-400 uppercase tracking-wide">Pendientes</TextTiny>
         <TextSmall className="font-bold text-yellow-500">{coord.visitasPendientes}</TextSmall>
       </div>
-      <div className="text-center min-w-[56px]">
+      <div className="text-center min-w-14">
         <TextTiny className="text-gray-400 uppercase tracking-wide">Efectividad</TextTiny>
         <TextSmall className={`font-bold ${coord.efectividad >= 80 ? 'text-green-600' : coord.efectividad >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>
           {coord.efectividad}%
@@ -97,7 +97,7 @@ const DashboardPage = ({ data }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Input label="Fecha de Corte" type="date" icon={Calendar} value={filters.fecha} onChange={e => setFilters({ ...filters, fecha: e.target.value })} />
           <Select label="Estado Operativo" icon={Activity} options={[{ value: '', label: 'Todos' }, { value: 'PROGRAMADA', label: 'Programada' }, { value: 'EN_PROGRESO', label: 'En Ejecución' }, { value: 'COMPLETADA', label: 'Finalizada' }, { value: 'CANCELADA', label: 'Cancelada' }]} value={filters.estado} onChange={e => setFilters({ ...filters, estado: e.target.value })} />
-          <Select label="Cliente Corporativo" icon={Building2} options={[{ value: '', label: 'Todos' }, ...(data.clientes || []).map(c => ({ value: c.nombre, label: c.nombre }))]} value={filters.cliente} onChange={e => setFilters({ ...filters, cliente: e.target.value })} />
+          <Select label="Cliente" icon={Building2} options={[{ value: '', label: 'Todos' }, ...(data.clientes || []).map(c => ({ value: c.nombre, label: c.nombre }))]} value={filters.cliente} onChange={e => setFilters({ ...filters, cliente: e.target.value })} />
           <Select label="Ciudad / Zona" icon={MapPin} options={[{ value: '', label: 'Todas' }, ...ciudades.map(c => ({ value: c, label: c }))]} value={filters.ciudad} onChange={e => setFilters({ ...filters, ciudad: e.target.value })} />
           <Select label="Líder Técnico" icon={UserCircle2} options={[{ value: '', label: 'Todos' }, ...(data.tecnicos || []).map(t => ({ value: t.nombre, label: t.nombre }))]} value={filters.tecnico} onChange={e => setFilters({ ...filters, tecnico: e.target.value })} />
         </div>
@@ -170,7 +170,7 @@ const DashboardPage = ({ data }) => {
         </div>
         <div className="h-64 flex items-end gap-2 sm:gap-6 overflow-hidden pb-4">
           {kpis.tendenciaMeses.map((h, i) => (
-            <div key={i} className="flex-1 min-w-[20px] flex flex-col items-center gap-4 group">
+            <div key={i} className="flex-1 min-w-5 flex flex-col items-center gap-4 group">
               <div
                 className={`w-full rounded-t-3xl transition-all duration-700 group-hover:bg-primary group-hover:shadow-2xl shadow-red-500/30 ${h >= 80 ? 'bg-primary' : 'bg-[#F5F5F5]'}`}
                 style={{ height: `${Math.max(h, 4)}%` }}

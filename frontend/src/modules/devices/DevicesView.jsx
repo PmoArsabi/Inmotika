@@ -19,7 +19,7 @@ const DevicesView = ({ config, data: masterData }) => {
   const notify = useNotify();
   const { activoId, inactivoId } = useActivoInactivo();
 
-  const [filters, setFilters] = useState({ categoria: [], marca: [], proveedor: [] });
+  const [filters, setFilters] = useState({ categoria: [], marca: [], proveedor: [], fechaDesde: '', fechaHasta: '' });
 
   // Dispositivos activos (base)
   const allDevices = useMemo(
@@ -57,15 +57,19 @@ const DevicesView = ({ config, data: masterData }) => {
   }, [allDevices]);
 
   const filterDefs = [
-    { key: 'categoria', label: 'Categoría', options: categoriaOptions, multi: true },
-    { key: 'marca',     label: 'Marca',     options: marcaOptions,     multi: true },
-    { key: 'proveedor', label: 'Proveedor', options: proveedorOptions, multi: true },
+    { key: 'categoria',  label: 'Categoría',   options: categoriaOptions, multi: true },
+    { key: 'marca',      label: 'Marca',        options: marcaOptions,     multi: true },
+    { key: 'proveedor',  label: 'Proveedor',    options: proveedorOptions, multi: true },
+    { key: 'fechaDesde', label: 'Fecha desde',  type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
+    { key: 'fechaHasta', label: 'Fecha hasta',  type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
   ];
 
   const devices = useMemo(() => allDevices.filter(d => {
     if (filters.categoria.length > 0 && !filters.categoria.includes(getName(d.categoria))) return false;
     if (filters.marca.length     > 0 && !filters.marca.includes(getName(d.marca)))         return false;
     if (filters.proveedor.length > 0 && !filters.proveedor.includes(getName(d.proveedor))) return false;
+    if (filters.fechaDesde && !(d.created_at && d.created_at >= filters.fechaDesde)) return false;
+    if (filters.fechaHasta && !(d.created_at && d.created_at <= filters.fechaHasta + 'T23:59:59')) return false;
     return true;
   }), [allDevices, filters]);
 
@@ -148,17 +152,14 @@ const DevicesView = ({ config, data: masterData }) => {
       onEdit={(dev) => handleEdit(dev, 'dispositivo')}
       onDelete={handleDelete}
       newButtonLabel="Nuevo Dispositivo"
-      searchPlaceholder="Buscar por nombre, marca, serial..."
+      searchPlaceholder="Nombre / Marca / Serial"
       filterFunction={filterFunction}
+      filteredCount={devices.length}
+      totalItems={allDevices.length}
+      activeFiltersCount={filters.categoria.length + filters.marca.length + filters.proveedor.length + (filters.fechaDesde ? 1 : 0) + (filters.fechaHasta ? 1 : 0)}
+      onClearFilters={() => setFilters({ categoria: [], marca: [], proveedor: [], fechaDesde: '', fechaHasta: '' })}
       extraFilters={
-        <FilterBar
-          mode="inline"
-          filters={filterDefs}
-          values={filters}
-          onChange={setFilters}
-          totalItems={allDevices.length}
-          filteredCount={devices.length}
-        />
+        <FilterBar filters={filterDefs} values={filters} onChange={setFilters} />
       }
     />
   );

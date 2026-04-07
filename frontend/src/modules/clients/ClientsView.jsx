@@ -59,7 +59,7 @@ const ClientsView = ({ config, data }) => {
   } = config;
 
   // Hooks deben estar antes de cualquier early return
-  const [filters, setFilters] = useState({ pais: [], ciudad: [], tipoDocumento: [] });
+  const [filters, setFilters] = useState({ pais: [], ciudad: [], tipoDocumento: [], fechaDesde: '', fechaHasta: '' });
 
   const clientes = useMemo(() => data.clientes || [], [data.clientes]);
 
@@ -94,9 +94,11 @@ const ClientsView = ({ config, data }) => {
   }, [clientes]);
 
   const filterDefs = [
-    { key: 'pais',           label: 'País',            options: paisOptions,           multi: true },
-    { key: 'ciudad',         label: 'Ciudad',          options: ciudadOptions,          multi: true, dependsOn: 'pais', dependsOnLabel: 'un país' },
-    { key: 'tipoDocumento',  label: 'Tipo Documento',  options: tipoDocumentoOptions,   multi: true },
+    { key: 'pais',          label: 'País',           options: paisOptions,          multi: true },
+    { key: 'ciudad',        label: 'Ciudad',         options: ciudadOptions,         multi: true, dependsOn: 'pais', dependsOnLabel: 'un país' },
+    { key: 'tipoDocumento', label: 'Tipo Documento', options: tipoDocumentoOptions,  multi: true },
+    { key: 'fechaDesde',    label: 'Fecha desde',    type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
+    { key: 'fechaHasta',    label: 'Fecha hasta',    type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
   ];
 
   const filteredClientes = useMemo(() => {
@@ -107,6 +109,10 @@ const ClientsView = ({ config, data }) => {
       list = list.filter(c => filters.ciudad.includes(c.ciudad || ''));
     if (filters.tipoDocumento.length > 0)
       list = list.filter(c => filters.tipoDocumento.includes(c.tipoDocumento || c.tipo_documento || ''));
+    if (filters.fechaDesde)
+      list = list.filter(c => c.created_at && c.created_at >= filters.fechaDesde);
+    if (filters.fechaHasta)
+      list = list.filter(c => c.created_at && c.created_at <= filters.fechaHasta + 'T23:59:59');
     return list;
   }, [clientes, filters]);
 
@@ -302,17 +308,14 @@ const ClientsView = ({ config, data }) => {
       onEdit={(item) => handleEdit(item, 'cliente')}
       onDelete={(item) => config.removeItem(item.id, 'clientes')}
       newButtonLabel="Nuevo Cliente"
-      searchPlaceholder="Buscar: NIT / Nombre"
+      searchPlaceholder="NIT / Nombre"
       filterFunction={filterFunction}
+      filteredCount={filteredClientes.length}
+      totalItems={clientes.length}
+      activeFiltersCount={filters.pais.length + filters.ciudad.length + filters.tipoDocumento.length + (filters.fechaDesde ? 1 : 0) + (filters.fechaHasta ? 1 : 0)}
+      onClearFilters={() => setFilters({ pais: [], ciudad: [], tipoDocumento: [], fechaDesde: '', fechaHasta: '' })}
       extraFilters={
-        <FilterBar
-          mode="inline"
-          filters={filterDefs}
-          values={filters}
-          onChange={setFilters}
-          totalItems={clientes.length}
-          filteredCount={filteredClientes.length}
-        />
+        <FilterBar filters={filterDefs} values={filters} onChange={setFilters} />
       }
     />
   );

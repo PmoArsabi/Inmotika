@@ -23,7 +23,7 @@ const ModuleHeader = ({
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full blur-2xl" />
         </div>
 
-        <div className="relative z-10 flex items-center justify-between gap-4">
+        <div className="relative z-10 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           {/* Left: icon + title + subtitle */}
           <div className="flex items-center gap-3 min-w-0">
             {Icon && (
@@ -32,17 +32,17 @@ const ModuleHeader = ({
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-white font-bold text-base leading-tight truncate drop-shadow-sm uppercase">
+              <p className="text-white font-bold text-base leading-tight drop-shadow-sm uppercase">
                 {title}
               </p>
               {subtitle && (
-                <p className="text-white/80 text-xs mt-0.5 truncate">{subtitle}</p>
+                <p className="text-white/80 text-xs mt-0.5">{subtitle}</p>
               )}
             </div>
           </div>
 
           {/* Right: Nuevo + Filtro (toggle) + extra */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             {onNewClick && (
               <button
                 type="button"

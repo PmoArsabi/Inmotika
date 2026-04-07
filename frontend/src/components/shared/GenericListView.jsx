@@ -44,6 +44,10 @@ const GenericListView = ({
   loading = false,
   loadingText = "Cargando...",
   renderMobileCard,
+  filteredCount,
+  totalItems,
+  activeFiltersCount = 0,
+  onClearFilters,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,26 +77,65 @@ const GenericListView = ({
         onNewClick={onNew}
         newButtonLabel={newButtonLabel}
         filterContent={
-          /*
-           * Contenedor flex wrap: buscador + items de FilterBar (mode="inline") comparten
-           * el mismo nivel del flex — todos con flex-1 basis-40 para distribuirse igual.
-           * Los chips/contador de FilterBar son w-full y wrappean solos a una nueva línea.
-           */
-          <div className="w-full flex flex-wrap gap-2">
-            <div className="relative min-w-44 flex-1">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder={searchPlaceholder}
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full h-[38px] pl-9 pr-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] text-sm bg-white transition-all"
-              />
-            </div>
-            {extraFilters}
+          <div className="space-y-2">
+            {/* Grid unificado: buscador (leadingSlot) + todos los filtros extra en un solo contenedor */}
+            {extraFilters
+              ? React.cloneElement(extraFilters, {
+                  leadingSlot: (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
+                        Buscar
+                      </span>
+                      <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder={searchPlaceholder}
+                          value={searchQuery}
+                          onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                          className="w-full h-10 pl-9 pr-3 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all text-gray-700 placeholder:text-gray-400"
+                        />
+                      </div>
+                    </div>
+                  ),
+                })
+              : (
+                <div className="grid gap-x-2 gap-y-3 items-end" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
+                      Buscar
+                    </span>
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder={searchPlaceholder}
+                        value={searchQuery}
+                        onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                        className="w-full h-10 pl-9 pr-3 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all text-gray-700 placeholder:text-gray-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+            {/* Footer: contador + limpiar — solo cuando hay filtros activos */}
+            {activeFiltersCount > 0 && (
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                <span className="text-[11px] text-gray-400">
+                  {filteredCount ?? '?'} de {totalItems ?? '?'} registros
+                </span>
+                {onClearFilters && (
+                  <button
+                    type="button"
+                    onClick={onClearFilters}
+                    className="text-[11px] text-[#D32F2F] underline underline-offset-2 hover:text-[#B71C1C] transition-colors"
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         }
       />

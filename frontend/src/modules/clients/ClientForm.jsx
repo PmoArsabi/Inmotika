@@ -1,7 +1,6 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { 
-  Building2, Camera, Hash, MapPin, FileSignature, FileText, Plus, Trash2, Globe, Map as MapIcon, Share2,
-  Phone, Mail, Briefcase, Edit2, Search, Calendar, Link2, Navigation, Eye
+import React, { useState, useRef, useMemo } from 'react';
+import {
+  Building2, Camera, Hash, MapPin, FileSignature, FileText, Plus, Briefcase, Edit2, Search, Calendar, Link2, Eye
 } from 'lucide-react';
 import SecureImage from '../../components/ui/SecureImage';
 import { Country } from 'country-state-city';
@@ -12,8 +11,6 @@ import NitInput from '../../components/ui/NitInput';
 import Switch from '../../components/ui/Switch';
 import Tabs from '../../components/ui/Tabs';
 import FileUploader from '../../components/ui/FileUploader';
-import PhoneInput from '../../components/ui/PhoneInput';
-import SchedulePicker from '../../components/ui/SchedulePicker';
 import { LocationPickerRows } from '../../components/forms/LocationPickerRows';
 import Card from '../../components/ui/Card';
 import { TextSmall, Subtitle, Label, TextTiny } from '../../components/ui/Typography';
@@ -33,6 +30,8 @@ const ClientForm = ({
   branches = [], onNewBranch, onEditBranch, onViewBranch,
   newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
   onAssociateContacts, onAssociateDevices, onAssociateDirectors,
+  onOpenClientContacts, onOpenClientDevices,
+  clientDevices = [], clientContacts = [],
   totalSucursales = 0, totalContactos = 0, totalDispositivos = 0,
   editingBranchId = null, onCancelEdit = null,
   viewBranchMode = null,
@@ -289,34 +288,39 @@ const ClientForm = ({
                   </div>
                 </div>
 
-                {/* Asociaciones Section */}
-                <div className="pt-6 border-t border-gray-100 space-y-4">
+                {/* Asociaciones — Directores / Contactos / Dispositivos */}
+                <div className="pt-6 border-t border-gray-100 space-y-3">
                   <Subtitle className="text-gray-700">Asociaciones</Subtitle>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button
-                      type="button"
-                      onClick={onAssociateDirectors}
-                      disabled={!isEditing && (!draft.associatedDirectorIds || draft.associatedDirectorIds.length === 0)}
-                      className={`flex items-center justify-between p-4 rounded-lg transition-all text-left w-full group
-                        ${isEditing ? "bg-gray-50 border border-gray-200 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer" : 
-                          ((draft.associatedDirectorIds && draft.associatedDirectorIds.length > 0) ? "bg-white border-0 cursor-pointer" : "bg-gray-50 opacity-70 border border-gray-100 cursor-not-allowed")}`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <TextSmall className={`font-semibold text-gray-900 transition-colors ${isEditing || (draft.associatedDirectorIds && draft.associatedDirectorIds.length > 0) ? "group-hover:text-[#D32F2F]" : ""}`}>Asociar Directores</TextSmall>
-                        <TextSmall className="text-gray-500 mt-0.5">
-                          {draft.associatedDirectorIds && draft.associatedDirectorIds.length > 0
-                            ? <span className="text-[#D32F2F] font-semibold">{draft.associatedDirectorIds.length} asociado{draft.associatedDirectorIds.length !== 1 ? 's' : ''}</span>
-                            : "Relaciona directores responsables a este cliente."
-                          }
-                        </TextSmall>
-                      </div>
-                      {(isEditing || (draft.associatedDirectorIds && draft.associatedDirectorIds.length > 0)) && (
-                        <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-[#D32F2F] transition-colors shadow-sm">
-                          {isEditing ? <><Link2 size={12} /> Asociar</> : <><Eye size={12} /> Ver</>}
-                        </div>
-                      )}
-                    </button>
-                  </div>
+
+                  {/* Directores */}
+                  <AssocButton
+                    label="Directores"
+                    count={draft.associatedDirectorIds?.length ?? 0}
+                    emptyHint="Relaciona directores responsables."
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
+                    isEditing={isEditing}
+                    onClick={onAssociateDirectors}
+                  />
+
+                  {/* Contactos */}
+                  <AssocButton
+                    label="Contactos"
+                    count={clientContacts.length}
+                    emptyHint="Contactos asociados al cliente."
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
+                    isEditing={isEditing}
+                    onClick={onOpenClientContacts}
+                  />
+
+                  {/* Dispositivos */}
+                  <AssocButton
+                    label="Dispositivos"
+                    count={clientDevices.length}
+                    emptyHint="Dispositivos registrados para este cliente."
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>}
+                    isEditing={isEditing}
+                    onClick={onOpenClientDevices}
+                  />
                 </div>
 
                 {/* Documentos */}
@@ -448,6 +452,47 @@ const ClientForm = ({
   );
 };
 
+
+// Sub-componente: botón de asociación compacto
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Botón compacto para abrir un popup de asociación.
+ * @param {Object} props
+ * @param {string} props.label - Etiqueta de la asociación
+ * @param {number} props.count - Cantidad de ítems asociados
+ * @param {string} props.emptyHint - Texto cuando no hay asociados
+ * @param {React.ReactNode} props.icon - Icono SVG
+ * @param {boolean} props.isEditing
+ * @param {Function} props.onClick
+ */
+const AssocButton = ({ label, count, emptyHint, icon, isEditing, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`flex items-center justify-between p-3 rounded-lg transition-all text-left w-full group
+      ${isEditing
+        ? 'bg-gray-50 border border-gray-200 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer'
+        : 'bg-gray-50 border border-gray-100 cursor-pointer hover:bg-white'
+      }`}
+  >
+    <div className="flex items-center gap-3 min-w-0">
+      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-gray-500 group-hover:bg-red-50 group-hover:text-[#D32F2F] transition-colors">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <TextSmall className="font-semibold text-gray-900 group-hover:text-[#D32F2F] transition-colors">{label}</TextSmall>
+        <TextSmall className="text-gray-400 mt-0.5 truncate">
+          {count > 0
+            ? <span className="text-[#D32F2F] font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
+            : emptyHint}
+        </TextSmall>
+      </div>
+    </div>
+    <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-[#D32F2F] transition-colors shadow-sm">
+      {isEditing ? <><Link2 size={11} /> Gestionar</> : <><Eye size={11} /> Ver</>}
+    </div>
+  </button>
+);
 
 // Sub-componente: tarjeta de sucursal en el listado
 // ─────────────────────────────────────────────────────────────────────────────
