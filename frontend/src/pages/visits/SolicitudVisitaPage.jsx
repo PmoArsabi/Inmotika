@@ -209,7 +209,7 @@ const SolicitudVisitaPage = () => {
   const [mode,         setMode]        = useState('list'); // 'list' | 'create' | 'edit' | 'view'
   const [selectedSol,  setSelectedSol] = useState(null);
   const [draft,        setDraft]       = useState(emptySolicitud());
-  const [filters,      setFilters]     = useState({ cliente: [], sucursal: [], estado: [], tipo: [] });
+  const [filters,      setFilters]     = useState({ cliente: [], sucursal: [], estado: [], tipo: [], fechaDesde: '', fechaHasta: '' });
   const [showModal,    setShowModal]   = useState(false);
   const [modalMsg,     setModalMsg]    = useState('');
   const [modalType,    setModalType]   = useState('error'); // 'error' | 'success'
@@ -318,10 +318,12 @@ const SolicitudVisitaPage = () => {
   }, [solicitudes]);
 
   const filterDefs = [
-    { key: 'cliente',  label: 'Cliente',  options: clienteFilterOptions,  multi: true },
-    { key: 'sucursal', label: 'Sucursal', options: sucursalFilterOptions,  multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
-    { key: 'estado',   label: 'Estado',   options: estadoFilterOptions,    multi: true },
-    { key: 'tipo',     label: 'Tipo',     options: tipoFilterOptions,      multi: true },
+    { key: 'cliente',    label: 'Cliente',      options: clienteFilterOptions,  multi: true },
+    { key: 'sucursal',   label: 'Sucursal',     options: sucursalFilterOptions,  multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
+    { key: 'estado',     label: 'Estado',       options: estadoFilterOptions,    multi: true },
+    { key: 'tipo',       label: 'Tipo',         options: tipoFilterOptions,      multi: true },
+    { key: 'fechaDesde', label: 'Fecha desde',  type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
+    { key: 'fechaHasta', label: 'Fecha hasta',  type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
   ];
 
   const filtered = useMemo(() => {
@@ -334,6 +336,10 @@ const SolicitudVisitaPage = () => {
       list = list.filter(s => filters.estado.includes(s.estadoCodigo || ''));
     if (filters.tipo.length > 0)
       list = list.filter(s => filters.tipo.includes(s.tipoVisitaCodigo || s.tipoVisitaLabel || ''));
+    if (filters.fechaDesde)
+      list = list.filter(s => s.fechaSugerida && s.fechaSugerida >= filters.fechaDesde);
+    if (filters.fechaHasta)
+      list = list.filter(s => s.fechaSugerida && s.fechaSugerida <= filters.fechaHasta + 'T23:59:59');
     return list;
   }, [solicitudes, filters]);
 
@@ -596,7 +602,7 @@ const SolicitudVisitaPage = () => {
                   { label: 'Cancelada',         active: sol.estadoCodigo === 'CANCELADA' || sol.estadoCodigo === 'CANCELADO', fecha: null },
                 ].map((step, i) => (
                   <li key={i} className="relative">
-                    <span className={`absolute -left-[30px] top-[4px] w-3 h-3 rounded-full border-2 ${
+                    <span className={`absolute -left-7.5 top-1 w-3 h-3 rounded-full border-2 ${
                       step.active ? 'bg-[#D32F2F] border-[#D32F2F]' : 'bg-white border-gray-300'
                     }`} />
                     <p className={`text-sm font-semibold ${step.active ? 'text-gray-900' : 'text-gray-400'}`}>
@@ -780,15 +786,12 @@ const SolicitudVisitaPage = () => {
           sol.motivo?.toLowerCase().includes(q)
         }
         renderMobileCard={renderMobileCard}
+        filteredCount={filtered.length}
+        totalItems={solicitudes.length}
+        activeFiltersCount={filters.cliente.length + filters.sucursal.length + filters.estado.length + filters.tipo.length + (filters.fechaDesde ? 1 : 0) + (filters.fechaHasta ? 1 : 0)}
+        onClearFilters={() => setFilters({ cliente: [], sucursal: [], estado: [], tipo: [], fechaDesde: '', fechaHasta: '' })}
         extraFilters={
-          <FilterBar
-            mode="inline"
-            filters={filterDefs}
-            values={filters}
-            onChange={setFilters}
-            totalItems={solicitudes.length}
-            filteredCount={filtered.length}
-          />
+          <FilterBar filters={filterDefs} values={filters} onChange={setFilters} />
         }
       />
 

@@ -730,7 +730,7 @@ const VisitsPage = ({ data, setData }) => {
                     <div className="w-20 border-r border-gray-200 bg-gray-50">
                       <div className="h-16 border-b border-gray-200"></div>
                       {hours.map((hour) => (
-                        <div key={hour} className="h-[60px] border-b border-gray-100 relative">
+                        <div key={hour} className="h-15 border-b border-gray-100 relative">
                           <div className="absolute -top-2.5 right-2 text-xs text-gray-500 font-medium">
                             {hour === 12 ? '12' : hour > 12 ? hour - 12 : hour}
                           </div>
@@ -753,7 +753,7 @@ const VisitsPage = ({ data, setData }) => {
                       {/* Time Slots */}
                       <div className="relative">
                         {hours.map((hour) => (
-                          <div key={hour} className="h-[60px] border-b border-gray-100 relative">
+                          <div key={hour} className="h-15 border-b border-gray-100 relative">
                             <div className="absolute top-0 left-0 right-0 h-px bg-gray-200"></div>
                           </div>
                         ))}
@@ -820,7 +820,7 @@ const VisitsPage = ({ data, setData }) => {
                     <div className="w-20 border-r border-gray-200 bg-gray-50">
                       <div className="h-16 border-b border-gray-200"></div>
                       {hours.map((hour) => (
-                        <div key={hour} className="h-[60px] border-b border-gray-100 relative">
+                        <div key={hour} className="h-15 border-b border-gray-100 relative">
                           <div className="absolute -top-2.5 right-2 text-xs text-gray-500 font-medium">
                             {hour === 12 ? '12' : hour > 12 ? hour - 12 : hour}
                           </div>
@@ -849,7 +849,7 @@ const VisitsPage = ({ data, setData }) => {
                             {/* Time Slots */}
                             <div className="relative">
                               {hours.map((hour) => (
-                                <div key={hour} className="h-[60px] border-b border-gray-100 relative">
+                                <div key={hour} className="h-15 border-b border-gray-100 relative">
                                   <div className="absolute top-0 left-0 right-0 h-px bg-gray-200"></div>
                                 </div>
                               ))}

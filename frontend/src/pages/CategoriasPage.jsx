@@ -5,10 +5,14 @@ import CategoriaForm from '../modules/devices/CategoriaForm';
 import GenericListView from '../components/shared/GenericListView';
 import FilterBar from '../components/shared/FilterBar';
 import { useMasterData } from '../context/MasterDataContext';
+import { useConfirm } from '../context/ConfirmContext';
+import { useNotify } from '../context/NotificationContext';
 import { deleteCategoria } from '../api/categoriaApi';
 
 const CategoriasPage = () => {
   const { data, refreshData } = useMasterData();
+  const confirm = useConfirm();
+  const notify = useNotify();
   const [selected, setSelected] = useState(null); // { categoria, mode }
 
   const allCategorias = useMemo(() => data?.categorias || [], [data?.categorias]);
@@ -30,14 +34,21 @@ const CategoriasPage = () => {
 
   // ─── Delete category ─────────────────────────────────────────────────────
   const handleDelete = async (cat) => {
-    if (!window.confirm(`¿Estás seguro de eliminar la categoría "${cat.nombre}"?`)) return;
-    
+    const confirmed = await confirm({
+      title: '¿Eliminar categoría?',
+      message: `¿Estás seguro de eliminar "${cat.nombre}"? Los dispositivos que ya tienen esta categoría asignada la conservarán, pero no podrá usarse en nuevos registros.`,
+      confirmText: 'Eliminar',
+      type: 'danger',
+    });
+    if (!confirmed) return;
+
     try {
       await deleteCategoria(cat.id);
       refreshData();
+      notify('success', `Categoría "${cat.nombre}" eliminada correctamente`);
     } catch (err) {
       console.error('Error deleting category:', err);
-      alert('Error al eliminar la categoría');
+      notify('error', 'Error al eliminar la categoría');
     }
   };
 

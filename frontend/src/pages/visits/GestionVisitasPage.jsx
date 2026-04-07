@@ -38,7 +38,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   const { visitas: visitasHook, loading: loadingVisitas, fetchVisitas } = useVisitas();
   const notify   = useNotify();
   const [activeVisita,         setActiveVisita]         = useState(null);
-  const [filters,              setFilters]              = useState({ cliente: [], sucursal: [], estado: [], tecnico: [] });
+  const [filters,              setFilters]              = useState({ cliente: [], sucursal: [], estado: [], tecnico: [], fechaDesde: '', fechaHasta: '' });
   const [ejecucionPasos,       setEjecucionPasos]       = useState({});
   const [ejecucionActividades, setEjecucionActividades] = useState({});
   const [deviceEvidencias,     setDeviceEvidencias]     = useState({});
@@ -109,10 +109,12 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   }, [baseList]);
 
   const filterDefs = [
-    { key: 'cliente',  label: 'Cliente',  options: clienteOptions,  multi: true },
-    { key: 'sucursal', label: 'Sucursal', options: sucursalOptions,  multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
-    { key: 'estado',   label: 'Estado',   options: estadoOptions,    multi: true },
-    { key: 'tecnico',  label: 'Técnico',  options: tecnicoOptions,   multi: true },
+    { key: 'cliente',    label: 'Cliente',      options: clienteOptions,  multi: true },
+    { key: 'sucursal',   label: 'Sucursal',     options: sucursalOptions,  multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
+    { key: 'estado',     label: 'Estado',       options: estadoOptions,    multi: true },
+    { key: 'tecnico',    label: 'Técnico',      options: tecnicoOptions,   multi: true },
+    { key: 'fechaDesde', label: 'Fecha desde',  type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
+    { key: 'fechaHasta', label: 'Fecha hasta',  type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
   ];
 
   // ── Filtered list (multi-select filters; text search handled by GenericListView) ──
@@ -126,6 +128,10 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
       list = list.filter(v => filters.estado.includes(v.estadoCodigo || ''));
     if (filters.tecnico.length > 0)
       list = list.filter(v => (v.tecnicoIds || []).some(id => filters.tecnico.includes(id)));
+    if (filters.fechaDesde)
+      list = list.filter(v => v.fechaProgramada && v.fechaProgramada >= filters.fechaDesde);
+    if (filters.fechaHasta)
+      list = list.filter(v => v.fechaProgramada && v.fechaProgramada <= filters.fechaHasta + 'T23:59:59');
     return list;
   }, [baseList, filters]);
 
@@ -522,7 +528,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
       render: visita => {
         const { total, completed } = getDeviceProgress(visita);
         return (
-          <div className="flex items-center gap-1.5 min-w-[80px]">
+          <div className="flex items-center gap-1.5 min-w-20">
             {total > 0 ? (
               <>
                 <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -576,15 +582,12 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
           setShowHelpModal(true);
         }}
         newButtonLabel="Ayuda Creación"
+        filteredCount={filtered.length}
+        totalItems={baseList.length}
+        activeFiltersCount={filters.cliente.length + filters.sucursal.length + filters.estado.length + filters.tecnico.length + (filters.fechaDesde ? 1 : 0) + (filters.fechaHasta ? 1 : 0)}
+        onClearFilters={() => setFilters({ cliente: [], sucursal: [], estado: [], tecnico: [], fechaDesde: '', fechaHasta: '' })}
         extraFilters={
-          <FilterBar
-            mode="inline"
-            filters={filterDefs}
-            values={filters}
-            onChange={setFilters}
-            totalItems={baseList.length}
-            filteredCount={filtered.length}
-          />
+          <FilterBar filters={filterDefs} values={filters} onChange={setFilters} />
         }
         renderMobileCard={visita => {
           const { total, completed } = getDeviceProgress(visita);

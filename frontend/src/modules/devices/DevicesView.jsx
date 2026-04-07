@@ -127,11 +127,11 @@ const DevicesView = ({ config, data: masterData }) => {
 
   const columns = [
     {
-      header: 'Nombre / Modelo',
+      header: 'Serial / Modelo',
       render: (dev) => (
         <>
           <Subtitle className="text-gray-900 normal-case tracking-normal">
-            {dev.nombre || dev.tipo || dev.modelo || 'Sin nombre'}
+            {dev.serial || '—'}
           </Subtitle>
           {dev.modelo && <TextSmall className="text-gray-500 mt-0.5">{dev.modelo}</TextSmall>}
         </>
@@ -150,8 +150,8 @@ const DevicesView = ({ config, data: masterData }) => {
       ),
     },
     {
-      header: 'Serial / Código',
-      render: (dev) => <TextSmall className="text-gray-600">{dev.serial || dev.codigoUnico || '—'}</TextSmall>,
+      header: 'ID Inmotika',
+      render: (dev) => <TextSmall className="text-gray-600">{dev.id_inmotika || dev.codigoUnico || '—'}</TextSmall>,
     },
     {
       header: 'Proveedor',

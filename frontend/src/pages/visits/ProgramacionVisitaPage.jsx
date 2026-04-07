@@ -107,7 +107,7 @@ const ProgramacionVisitaPage = () => {
   const [editingVisitaId, setEditingVisitaId] = useState(null); // null = creating
   const [solicitudOrigen, setSolicitudOrigen] = useState(null);
   const [draft, setDraft]               = useState(emptyDraft());
-  const [filters, setFilters]           = useState({ cliente: [], sucursal: [], estado: [], tecnico: [] });
+  const [filters, setFilters]           = useState({ cliente: [], sucursal: [], estado: [], tecnico: [], fechaDesde: '', fechaHasta: '' });
   const [viewingItem, setViewingItem]   = useState(null);
 
   const updateDraft = useCallback(patch => setDraft(prev => ({ ...prev, ...patch })), []);
@@ -168,10 +168,12 @@ const ProgramacionVisitaPage = () => {
   const tecnicoFilterOptions = useMemo(() => tecnicosOptions, [tecnicosOptions]);
 
   const filterDefs = [
-    { key: 'cliente',  label: 'Cliente',  options: clienteOptions,       multi: true },
-    { key: 'sucursal', label: 'Sucursal', options: sucursalOptions,       multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
-    { key: 'estado',   label: 'Estado',   options: estadoFilterOptions,   multi: true },
-    { key: 'tecnico',  label: 'Técnico',  options: tecnicoFilterOptions,  multi: true },
+    { key: 'cliente',    label: 'Cliente',      options: clienteOptions,       multi: true },
+    { key: 'sucursal',   label: 'Sucursal',     options: sucursalOptions,       multi: true, dependsOn: 'cliente', dependsOnLabel: 'un cliente' },
+    { key: 'estado',     label: 'Estado',       options: estadoFilterOptions,   multi: true },
+    { key: 'tecnico',    label: 'Técnico',      options: tecnicoFilterOptions,  multi: true },
+    { key: 'fechaDesde', label: 'Fecha desde',  type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
+    { key: 'fechaHasta', label: 'Fecha hasta',  type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
   ];
 
   const filtered = useMemo(() => {
@@ -186,6 +188,16 @@ const ProgramacionVisitaPage = () => {
       list = list.filter(item =>
         (item.tecnicoIds || []).some(id => filters.tecnico.includes(id))
       );
+    if (filters.fechaDesde)
+      list = list.filter(item => {
+        const fecha = item._type === 'visita' ? item.fechaProgramada : item.fechaSugerida;
+        return fecha && fecha >= filters.fechaDesde;
+      });
+    if (filters.fechaHasta)
+      list = list.filter(item => {
+        const fecha = item._type === 'visita' ? item.fechaProgramada : item.fechaSugerida;
+        return fecha && fecha <= filters.fechaHasta + 'T23:59:59';
+      });
     return list;
   }, [combinedList, filters]);
 
@@ -688,15 +700,12 @@ const ProgramacionVisitaPage = () => {
         loadingText="Cargando..."
         emptyText="No hay visitas o solicitudes pendientes con los filtros aplicados."
         emptyIcon={CalendarCheck}
+        filteredCount={filtered.length}
+        totalItems={combinedList.length}
+        activeFiltersCount={filters.cliente.length + filters.sucursal.length + filters.estado.length + filters.tecnico.length + (filters.fechaDesde ? 1 : 0) + (filters.fechaHasta ? 1 : 0)}
+        onClearFilters={() => setFilters({ cliente: [], sucursal: [], estado: [], tecnico: [], fechaDesde: '', fechaHasta: '' })}
         extraFilters={
-          <FilterBar
-            mode="inline"
-            filters={filterDefs}
-            values={filters}
-            onChange={setFilters}
-            totalItems={combinedList.length}
-            filteredCount={filtered.length}
-          />
+          <FilterBar filters={filterDefs} values={filters} onChange={setFilters} />
         }
         renderMobileCard={item => {
           const tipoCodigo   = item.tipoVisitaCodigo || '';
