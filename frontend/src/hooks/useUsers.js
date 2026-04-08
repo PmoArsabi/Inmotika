@@ -177,7 +177,12 @@ export const useUsers = () => {
           director!coordinador_director_id_fkey (usuario_id),
           sucursal_coordinador!sucursal_coordinador_coordinador_id_fkey (sucursal_id, activo)
         ),
-        director!director_usuario_id_fkey (id, activo)
+        director!director_usuario_id_fkey (id, activo),
+        contacto!contacto_usuario_id_fkey (
+          id,
+          cliente_id,
+          cliente:cliente_id (id, razon_social)
+        )
       `)
       .order('nombres');
 
@@ -228,6 +233,10 @@ export const useUsers = () => {
             cedula: tec?.documento_cedula_url || null,
             planillaSS: tec?.planilla_seg_social_url || null,
           },
+          /** Solo para rol CLIENTE: ID del cliente al que está vinculado como contacto. */
+          contactoClienteId: u.contacto?.cliente_id || null,
+          /** Nombre legible del cliente relacionado (para filtros y display). */
+          contactoClienteNombre: u.contacto?.cliente?.razon_social || '',
         };
       }));
     }

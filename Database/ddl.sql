@@ -2627,6 +2627,117 @@ CREATE TRIGGER trg_recalcular_mantenimiento
   FOR EACH ROW
   EXECUTE FUNCTION public.recalcular_proximo_mantenimiento();
 
+-- ═══════════════════════════════════════════════════════════════════
+-- CRON JOB 1: apply_pending_traslados
+-- Aplica traslados programados cuya fecha ya llegó, actualizando
+-- sucursal_id del dispositivo. Corre cada hora en punto (0 * * * *).
+-- ═══════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.apply_pending_traslados()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE dispositivo d
+  SET sucursal_id = t.sucursal_destino_id
+  FROM historial_traslado t
+  WHERE t.dispositivo_id     = d.id
+    AND t.fecha_traslado      <= now()
+    AND t.sucursal_origen_id   = d.sucursal_id
+    AND t.sucursal_destino_id <> d.sucursal_id
+    AND t.id = (
+      SELECT id FROM historial_traslado
+      WHERE dispositivo_id     = d.id
+        AND fecha_traslado      <= now()
+        AND sucursal_origen_id   = d.sucursal_id
+      ORDER BY fecha_traslado DESC
+      LIMIT 1
+    );
+END;
+$$;
+
+-- SELECT cron.schedule('apply-pending-traslados', '0 * * * *', 'SELECT apply_pending_traslados()');
+
+-- ═══════════════════════════════════════════════════════════════════
+-- CRON JOB 2: generate_preventive_visits
+-- Genera solicitudes de visita preventiva para dispositivos cuya
+-- fecha_proximo_mantenimiento está a 15 días o menos.
+-- creado_por = NULL indica que el autor es el sistema.
+-- Corre diariamente a las 6:00 AM UTC (0 6 * * *).
+-- ═══════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.generate_preventive_visits()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_tipo_visita_id   uuid;
+  v_estado_pendiente uuid;
+  v_dispositivo      RECORD;
+  v_solicitud_id     uuid;
+BEGIN
+  SELECT id INTO v_tipo_visita_id
+  FROM catalogo
+  WHERE tipo = 'TIPO_VISITA' AND codigo = 'PREVENTIVA'
+  LIMIT 1;
+
+  IF v_tipo_visita_id IS NULL THEN
+    RAISE WARNING 'generate_preventive_visits: No se encontró tipo_visita PREVENTIVA en catalogo. Abortando.';
+    RETURN;
+  END IF;
+
+  SELECT id INTO v_estado_pendiente
+  FROM catalogo
+  WHERE tipo = 'ESTADO_SOLICITUD' AND codigo = 'PENDIENTE'
+  LIMIT 1;
+
+  FOR v_dispositivo IN
+    SELECT
+      d.id    AS dispositivo_id,
+      d.cliente_id,
+      d.sucursal_id,
+      d.fecha_proximo_mantenimiento
+    FROM dispositivo d
+    WHERE d.fecha_proximo_mantenimiento IS NOT NULL
+      AND d.fecha_proximo_mantenimiento <= CURRENT_DATE + INTERVAL '15 days'
+      AND d.estado_id IN (
+        SELECT id FROM catalogo_estado_dispositivo WHERE nombre ILIKE '%activ%'
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM solicitud_dispositivo sd
+        JOIN solicitud_visita sv ON sv.id = sd.solicitud_id
+        WHERE sd.dispositivo_id = d.id
+          AND sv.tipo_visita_id  = v_tipo_visita_id
+          AND sv.creado_por IS NULL
+          AND sv.created_at >= CURRENT_DATE - INTERVAL '30 days'
+      )
+  LOOP
+    INSERT INTO solicitud_visita (
+      cliente_id, sucursal_id, creado_por, tipo_visita_id,
+      fecha_sugerida, motivo, prioridad, estado_id
+    ) VALUES (
+      v_dispositivo.cliente_id,
+      v_dispositivo.sucursal_id,
+      NULL,
+      v_tipo_visita_id,
+      v_dispositivo.fecha_proximo_mantenimiento::timestamp with time zone,
+      'Mantenimiento preventivo programado automáticamente por el sistema.',
+      'ALTA',
+      v_estado_pendiente
+    )
+    RETURNING id INTO v_solicitud_id;
+
+    INSERT INTO solicitud_dispositivo (solicitud_id, dispositivo_id)
+    VALUES (v_solicitud_id, v_dispositivo.dispositivo_id);
+  END LOOP;
+END;
+$$;
+
+-- SELECT cron.schedule('generate-preventive-visits', '0 6 * * *', 'SELECT generate_preventive_visits()');
+
   create policy "Acceso completo usuarios autenticados 69tnde_0"
   on "storage"."objects"
   as permissive

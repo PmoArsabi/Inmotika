@@ -399,7 +399,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
               return (
                 <div key={paso.id || paso.tempId} className="border border-gray-100 rounded-lg bg-white shadow-sm overflow-hidden">
                   {/* Paso header row */}
-                  <div className="flex items-center gap-2 px-3 min-h-[36px] py-2">
+                  <div className="flex items-center gap-2 px-3 min-h-9 py-2">
                     {/* Order controls */}
                     {isEditing ? (
                       <div className="flex flex-col items-center gap-0 shrink-0 w-5">

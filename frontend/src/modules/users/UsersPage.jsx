@@ -33,7 +33,7 @@ const UsersPage = ({ setData }) => {
   const [editingUser, setEditingUser] = useState(null);
   const [viewingUser, setViewingUser] = useState(null);
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({ rol: [], estado: [], fechaDesde: '', fechaHasta: '' });
+  const [filters, setFilters] = useState({ rol: [], estado: [], clienteContacto: [], fechaDesde: '', fechaHasta: '' });
   const [newUser, setNewUser] = useState(emptyUser());
   const [tecnicoDocumentos, setTecnicoDocumentos] = useState(emptyDocs());
   const [savingUser, setSavingUser] = useState(false);
@@ -54,7 +54,7 @@ const UsersPage = ({ setData }) => {
 
   // Filter options
   const rolOptions = useMemo(() =>
-    roles.filter(r => r.codigo !== 'CLIENTE').map(r => ({ value: r.codigo, label: r.nombre })),
+    roles.map(r => ({ value: r.codigo, label: r.nombre })),
   [roles]);
 
   const estadoOptions = [
@@ -62,12 +62,29 @@ const UsersPage = ({ setData }) => {
     { value: 'inactivo', label: 'Inactivo' },
   ];
 
-  const filterDefs = [
-    { key: 'rol',        label: 'Rol',         options: rolOptions,    multi: true },
-    { key: 'estado',     label: 'Estado',      options: estadoOptions, multi: true },
+  // Opciones de cliente relacionado: solo usuarios con rol CLIENTE que tengan cliente vinculado
+  const clienteContactoOptions = useMemo(() => {
+    const seen = new Map();
+    usuarios
+      .filter(u => u.rol === 'CLIENTE' && u.contactoClienteId)
+      .forEach(u => seen.set(u.contactoClienteId, u.contactoClienteNombre));
+    return [...seen.entries()]
+      .map(([value, label]) => ({ value, label: label || value }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [usuarios]);
+
+  // El filtro de cliente relacionado solo aparece cuando el rol seleccionado incluye CLIENTE o no hay filtro de rol
+  const showClienteFilter = filters.rol.length === 0 || filters.rol.includes('CLIENTE');
+
+  const filterDefs = useMemo(() => [
+    { key: 'rol',            label: 'Rol',               options: rolOptions,             multi: true },
+    { key: 'estado',         label: 'Estado',            options: estadoOptions,          multi: true },
+    ...(showClienteFilter ? [{
+      key: 'clienteContacto', label: 'Cliente relacionado', options: clienteContactoOptions, multi: true,
+    }] : []),
     { key: 'fechaDesde', label: 'Fecha desde', type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
     { key: 'fechaHasta', label: 'Fecha hasta', type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
-  ];
+  ], [rolOptions, clienteContactoOptions, showClienteFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter Logic (client-side sobre datos en memoria)
   const filteredUsers = useMemo(() => {
@@ -89,6 +106,8 @@ const UsersPage = ({ setData }) => {
                (filters.estado.includes('inactivo') && !isActivo);
       });
     }
+    if (filters.clienteContacto.length > 0)
+      list = list.filter(u => u.contactoClienteId && filters.clienteContacto.includes(u.contactoClienteId));
     if (filters.fechaDesde)
       list = list.filter(u => u.created_at && u.created_at >= filters.fechaDesde);
     if (filters.fechaHasta)

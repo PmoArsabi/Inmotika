@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Building2, MapPin, Hash, Monitor, User, Activity,
   ClipboardList, CheckCircle2, ChevronUp, ChevronDown,
@@ -16,19 +17,22 @@ import Select from '../../components/ui/Select';
 import Switch from '../../components/ui/Switch';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import Tabs from '../../components/ui/Tabs';
-import { Label, TextSmall } from '../../components/ui/Typography';
+import { Label, TextSmall, TextTiny, H3, Subtitle } from '../../components/ui/Typography';
 import Card from '../../components/ui/Card';
 import { Table, THead, TBody, Tr, Th, Td } from '../../components/ui/Table';
 import SecureImage from '../../components/ui/SecureImage';
 import CategoriaForm from './CategoriaForm';
 import { useActivoInactivo } from '../../hooks/useCatalog';
 import { useConfigurationContext } from '../../context/ConfigurationContext';
+import { useAuth } from '../../context/AuthContext';
+import { isManagementRole } from '../../utils/constants';
+import { getTrasladosByDevice, createTraslado, updateDeviceSucursal } from '../../api/deviceApi';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const FORM_TABS = [
-  { key: 'details',   label: 'Detalles del Dispositivo' },
-  { key: 'traslados', label: 'Historial de Traslados'   },
-  { key: 'visitas',   label: 'Historial de Visitas'     },
+  { key: 'details',   label: 'Detalles del Dispositivo', shortLabel: 'Detalles'   },
+  { key: 'traslados', label: 'Historial de Traslados',   shortLabel: 'Traslados'  },
+  { key: 'visitas',   label: 'Historial de Visitas',     shortLabel: 'Visitas'    },
 ];
 
 
@@ -77,36 +81,6 @@ const SummaryRow = ({ icon: Icon, label, value, sub }) => (
   </div>
 );
 
-// eslint-disable-next-line no-unused-vars
-const HistoryTable = ({ title, icon: Icon, headers, rows, emptyText }) => (
-  <div className="space-y-3">
-    <div className="flex items-center gap-2">
-      <Icon size={15} className="text-gray-400" />
-      <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">{title}</span>
-    </div>
-    <Card className="p-0 border border-gray-200 overflow-hidden shadow-sm">
-      <Table>
-        <THead variant="light">
-          <tr>{headers.map(h => <Th key={h}>{h}</Th>)}</tr>
-        </THead>
-        <TBody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={headers.length} className="py-10 text-center">
-                <Icon size={28} className="mx-auto mb-2 text-gray-200" />
-                <p className="text-xs italic text-gray-400">{emptyText}</p>
-              </td>
-            </tr>
-          ) : (
-            rows.map((row, i) => (
-              <Tr key={i}>{row.map((cell, j) => <Td key={j}><TextSmall>{cell}</TextSmall></Td>)}</Tr>
-            ))
-          )}
-        </TBody>
-      </Table>
-    </Card>
-  </div>
-);
 
 const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdateStep, onMoveStep, onRemoveStep }) => (
   <div className="pt-2 space-y-3">
@@ -347,6 +321,102 @@ const DeviceForm = ({
   const [activeTab, setActiveTab] = useState('details');
   const { activoId, inactivoId } = useActivoInactivo();
   const { visitas: visitaHistory, loading: loadingHistory } = useDeviceVisitHistory(draft.id);
+  const { user } = useAuth();
+  const canManageTraslados = isManagementRole(user?.role);
+
+  // ─── Historial de Traslados ───────────────────────────────────────────────
+  const [traslados, setTraslados] = useState([]);
+  const [loadingTraslados, setLoadingTraslados] = useState(false);
+  const [trasladoModal, setTrasladoModal] = useState(false);
+  const [trasladoForm, setTrasladoForm] = useState({ sucursalDestinoId: '', motivo: '', fechaTraslado: '' });
+  const [trasladoErrors, setTrasladoErrors] = useState({});
+  const [savingTraslado, setSavingTraslado] = useState(false);
+
+  // Sucursales disponibles para destino según dueño del dispositivo
+  const sucursalesDestino = useMemo(() => {
+    if (draft.esDeInmotika) {
+      // Todas las sucursales de todos los clientes
+      return (clients || []).flatMap(c =>
+        (c.sucursales || []).map(s => ({
+          value: s.id,
+          label: `${s.nombre} — ${c.nombre || c.razon_social || ''}`,
+        }))
+      );
+    }
+    // Solo sucursales del cliente propietario
+    const activeClient = (clients || []).find(c => String(c.id) === String(draft.clientId));
+    return (activeClient?.sucursales || []).map(s => ({ value: s.id, label: s.nombre }));
+  }, [draft.esDeInmotika, draft.clientId, clients]);
+
+  // Nombre de la sucursal actual (origen)
+  const sucursalOrigenNombre = useMemo(() => {
+    for (const c of (clients || [])) {
+      const s = (c.sucursales || []).find(s => String(s.id) === String(draft.branchId));
+      if (s) return s.nombre;
+    }
+    return '—';
+  }, [draft.branchId, clients]);
+
+  const fetchTraslados = useCallback(async () => {
+    if (!draft.id || String(draft.id).startsWith('new-')) return;
+    setLoadingTraslados(true);
+    try {
+      const data = await getTrasladosByDevice(draft.id);
+      setTraslados(data);
+    } catch (err) {
+      console.error('[DeviceForm] fetchTraslados:', err);
+    } finally {
+      setLoadingTraslados(false);
+    }
+  }, [draft.id]);
+
+  useEffect(() => {
+    if (activeTab === 'traslados') fetchTraslados();
+  }, [activeTab, fetchTraslados]);
+
+  const openTrasladoModal = () => {
+    setTrasladoForm({ sucursalDestinoId: '', motivo: '', fechaTraslado: '' });
+    setTrasladoErrors({});
+    setTrasladoModal(true);
+  };
+
+  const handleSaveTraslado = async () => {
+    const errs = {};
+    if (!trasladoForm.sucursalDestinoId) errs.sucursalDestinoId = 'Selecciona la sucursal destino.';
+    if (!trasladoForm.motivo.trim())      errs.motivo            = 'El motivo es obligatorio.';
+    if (!trasladoForm.fechaTraslado)      errs.fechaTraslado     = 'La fecha es obligatoria.';
+    if (trasladoForm.sucursalDestinoId && trasladoForm.sucursalDestinoId === draft.branchId)
+      errs.sucursalDestinoId = 'La sucursal destino debe ser distinta a la actual.';
+    if (Object.keys(errs).length > 0) { setTrasladoErrors(errs); return; }
+
+    setSavingTraslado(true);
+    try {
+      await createTraslado({
+        dispositivoId:     draft.id,
+        sucursalOrigenId:  draft.branchId,
+        sucursalDestinoId: trasladoForm.sucursalDestinoId,
+        fechaTraslado:     trasladoForm.fechaTraslado,
+        motivo:            trasladoForm.motivo.trim(),
+        usuarioId:         user?.id,
+      });
+
+      // Solo actualizar la ubicación actual si la fecha del traslado ya ocurrió (no es futura)
+      const trasladoDate = new Date(trasladoForm.fechaTraslado);
+      const isTrasladoEffective = trasladoDate <= new Date();
+      if (isTrasladoEffective) {
+        await updateDeviceSucursal(draft.id, trasladoForm.sucursalDestinoId);
+        updateDraft({ branchId: trasladoForm.sucursalDestinoId });
+      }
+
+      setTrasladoModal(false);
+      fetchTraslados();
+    } catch (err) {
+      console.error('[DeviceForm] createTraslado:', err);
+      setTrasladoErrors({ general: 'No se pudo registrar el traslado. Intenta nuevamente.' });
+    } finally {
+      setSavingTraslado(false);
+    }
+  };
 
   // ─── Filtros del historial de visitas ─────────────────────────────────────
   const [visitaTipoFilter, setVisitaTipoFilter] = useState('');
@@ -963,7 +1033,7 @@ const DeviceForm = ({
                   <Label>Observación</Label>
                   {isEditing ? (
                     <textarea
-                      className="w-full p-3 border border-gray-300 rounded-md text-sm font-semibold min-h-[80px] resize-y focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
+                      className="w-full p-3 border border-gray-300 rounded-md text-sm font-semibold min-h-20 resize-y focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
                       value={draft.notasTecnicas || ''}
                       onChange={e => updateDraft({ notasTecnicas: e.target.value })}
                       placeholder="Observaciones técnicas del equipo..."
@@ -993,15 +1063,254 @@ const DeviceForm = ({
 
           {/* ── Tab: Historial de Traslados ── */}
           {activeTab === 'traslados' && (
-            <div className="flex-1">
-              <HistoryTable
-                title="Historial de Traslados"
-                icon={ArrowRightLeft}
-                headers={['Fecha', 'Origen', 'Destino']}
-                rows={(draft.historialTraslados || []).map(h => [h.fecha, h.origen, h.destino])}
-                emptyText="Sin traslados registrados"
-              />
+            <div className="flex-1 space-y-4">
+              {/* Header con botón nuevo traslado */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <ArrowRightLeft size={15} className="text-gray-400" />
+                  <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Historial de Traslados</span>
+                </div>
+                {canManageTraslados && draft.id && !String(draft.id).startsWith('new-') && (
+                  <Button onClick={openTrasladoModal} className="flex items-center gap-1.5 text-xs">
+                    <Plus size={13} /> Nuevo Traslado
+                  </Button>
+                )}
+              </div>
+
+              {/* ── Desktop: tabla ── */}
+              <div className="hidden md:block">
+                <Card className="p-0 border border-gray-200 overflow-hidden shadow-sm">
+                  <Table>
+                    <THead variant="light">
+                      <tr>
+                        <Th>Fecha</Th>
+                        <Th>Origen</Th>
+                        <Th>Destino</Th>
+                        <Th>Motivo</Th>
+                        <Th>Registrado por</Th>
+                      </tr>
+                    </THead>
+                    <TBody>
+                      {loadingTraslados ? (
+                        <tr>
+                          <td colSpan={5} className="py-10 text-center">
+                            <Loader2 size={20} className="mx-auto animate-spin text-gray-300" />
+                          </td>
+                        </tr>
+                      ) : traslados.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-10 text-center">
+                            <ArrowRightLeft size={28} className="mx-auto mb-2 text-gray-200" />
+                            <p className="text-xs italic text-gray-400">Sin traslados registrados</p>
+                          </td>
+                        </tr>
+                      ) : traslados.map(t => {
+                        const fecha = t.fecha_traslado
+                          ? new Date(t.fecha_traslado).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
+                          : '—';
+                        const origen  = t.sucursal_origen  ? `${t.sucursal_origen.nombre}${t.sucursal_origen.cliente   ? ` — ${t.sucursal_origen.cliente.razon_social}`  : ''}` : '—';
+                        const destino = t.sucursal_destino ? `${t.sucursal_destino.nombre}${t.sucursal_destino.cliente ? ` — ${t.sucursal_destino.cliente.razon_social}` : ''}` : '—';
+                        const registradoPor = t.usuario ? `${t.usuario.nombres || ''} ${t.usuario.apellidos || ''}`.trim() : '—';
+                        return (
+                          <Tr key={t.id}>
+                            <Td><TextSmall className="whitespace-nowrap">{fecha}</TextSmall></Td>
+                            <Td><TextSmall>{origen}</TextSmall></Td>
+                            <Td><TextSmall>{destino}</TextSmall></Td>
+                            <Td><TextSmall className="max-w-xs truncate">{t.motivo || '—'}</TextSmall></Td>
+                            <Td><TextSmall>{registradoPor}</TextSmall></Td>
+                          </Tr>
+                        );
+                      })}
+                    </TBody>
+                  </Table>
+                </Card>
+              </div>
+
+              {/* ── Mobile: cards ── */}
+              <div className="flex flex-col gap-3 md:hidden">
+                {loadingTraslados ? (
+                  <div className="py-10 text-center">
+                    <Loader2 size={20} className="mx-auto animate-spin text-gray-300" />
+                  </div>
+                ) : traslados.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <ArrowRightLeft size={28} className="mx-auto mb-2 text-gray-200" />
+                    <p className="text-xs italic text-gray-400">Sin traslados registrados</p>
+                  </div>
+                ) : traslados.map(t => {
+                  const fecha = t.fecha_traslado
+                    ? new Date(t.fecha_traslado).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
+                    : '—';
+                  const origen  = t.sucursal_origen  ? `${t.sucursal_origen.nombre}${t.sucursal_origen.cliente   ? ` — ${t.sucursal_origen.cliente.razon_social}`  : ''}` : '—';
+                  const destino = t.sucursal_destino ? `${t.sucursal_destino.nombre}${t.sucursal_destino.cliente ? ` — ${t.sucursal_destino.cliente.razon_social}` : ''}` : '—';
+                  const registradoPor = t.usuario ? `${t.usuario.nombres || ''} ${t.usuario.apellidos || ''}`.trim() : '—';
+                  return (
+                    <Card key={t.id} className="p-4 border border-gray-200 shadow-sm rounded-2xl">
+                      <div className="divide-y divide-gray-50">
+                        <div className="flex items-start gap-3 pb-2.5">
+                          <div className="p-2 rounded-lg bg-[#D32F2F]/10 shrink-0">
+                            <ArrowRightLeft size={14} className="text-[#D32F2F]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <TextSmall className="font-bold text-gray-900 whitespace-nowrap">{fecha}</TextSmall>
+                            <TextTiny className="text-gray-400">{registradoPor}</TextTiny>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 py-2.5">
+                          <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-16 font-bold uppercase tracking-wide leading-tight">Origen</TextTiny>
+                          <TextTiny className="text-gray-700 font-semibold flex-1">{origen}</TextTiny>
+                        </div>
+                        <div className="flex items-start gap-3 py-2.5">
+                          <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-16 font-bold uppercase tracking-wide leading-tight">Destino</TextTiny>
+                          <TextTiny className="text-gray-700 font-semibold flex-1">{destino}</TextTiny>
+                        </div>
+                        <div className="flex items-start gap-3 pt-2.5">
+                          <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-16 font-bold uppercase tracking-wide leading-tight">Motivo</TextTiny>
+                          <TextTiny className="text-gray-600 flex-1">{t.motivo || '—'}</TextTiny>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+
             </div>
+          )}
+
+          {/* ── Portal: panel de nuevo traslado ── */}
+          {trasladoModal && typeof document !== 'undefined' && createPortal(
+            <div className="fixed inset-0 z-9990 flex items-center justify-center p-4">
+              {/* Backdrop */}
+              <div
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                onClick={() => !savingTraslado && setTrasladoModal(false)}
+              />
+
+              {/* Panel */}
+              <div className="relative z-10 bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-lg max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-linear-to-r from-[#D32F2F] via-[#B71C1C] to-[#8B0000] shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-lg border border-white/30">
+                      <ArrowRightLeft size={16} className="text-white" />
+                    </div>
+                    <div>
+                      <p className="text-white font-bold text-sm uppercase tracking-wide">Registrar Traslado</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <MapPin size={10} className="text-white/60" />
+                        <p className="text-white/70 text-xs">
+                          Origen: <span className="text-white font-semibold">{sucursalOrigenNombre}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => !savingTraslado && setTrasladoModal(false)}
+                    className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/20 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Body — scrolleable */}
+                <div className="flex-1 overflow-y-auto bg-gray-50 p-5 space-y-4">
+                  {trasladoErrors.general && (
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold">
+                      <AlertTriangle size={15} className="shrink-0" />
+                      {trasladoErrors.general}
+                    </div>
+                  )}
+
+                  {/* Sucursal destino */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-2 shadow-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Building2 size={14} className="text-[#D32F2F]" />
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                        Sucursal Destino <span className="text-red-500">*</span>
+                      </span>
+                    </div>
+                    <SearchableSelect
+                      options={sucursalesDestino}
+                      value={sucursalesDestino.find(o => o.value === trasladoForm.sucursalDestinoId) || null}
+                      onChange={opt => setTrasladoForm(f => ({ ...f, sucursalDestinoId: opt?.value || '' }))}
+                      placeholder="Buscar sucursal destino..."
+                    />
+                    {trasladoErrors.sucursalDestinoId && (
+                      <p className="text-xs text-red-500 font-semibold flex items-center gap-1 mt-1">
+                        <AlertTriangle size={11} /> {trasladoErrors.sucursalDestinoId}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Fecha */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar size={14} className="text-[#D32F2F]" />
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                        Fecha de Traslado <span className="text-red-500">*</span>
+                      </span>
+                    </div>
+                    <Input
+                      type="datetime-local"
+                      value={trasladoForm.fechaTraslado}
+                      onChange={e => setTrasladoForm(f => ({ ...f, fechaTraslado: e.target.value }))}
+                      error={trasladoErrors.fechaTraslado}
+                    />
+                    {trasladoForm.fechaTraslado && new Date(trasladoForm.fechaTraslado) > new Date() && (
+                      <p className="text-xs text-amber-600 font-semibold flex items-center gap-1 mt-2">
+                        <AlertTriangle size={11} />
+                        Traslado programado — la ubicación cambiará cuando llegue esa fecha.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Motivo */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ClipboardList size={14} className="text-[#D32F2F]" />
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                        Motivo <span className="text-red-500">*</span>
+                      </span>
+                    </div>
+                    <textarea
+                      value={trasladoForm.motivo}
+                      onChange={e => setTrasladoForm(f => ({ ...f, motivo: e.target.value }))}
+                      rows={3}
+                      placeholder="Describe el motivo del traslado..."
+                      className={`w-full px-3 py-2.5 border rounded-md text-sm font-semibold resize-none focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400 transition-all bg-white ${trasladoErrors.motivo ? 'border-red-400' : 'border-gray-300'}`}
+                    />
+                    {trasladoErrors.motivo && (
+                      <p className="text-xs text-red-500 font-semibold flex items-center gap-1 mt-1">
+                        <AlertTriangle size={11} /> {trasladoErrors.motivo}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white shrink-0">
+                  <button
+                    onClick={() => setTrasladoModal(false)}
+                    disabled={savingTraslado}
+                    className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <Button
+                    onClick={handleSaveTraslado}
+                    disabled={savingTraslado}
+                    className="flex items-center gap-2"
+                  >
+                    {savingTraslado
+                      ? <><Loader2 size={15} className="animate-spin" /> Registrando...</>
+                      : <><ArrowRightLeft size={15} /> Registrar Traslado</>
+                    }
+                  </Button>
+                </div>
+              </div>
+            </div>,
+            document.body
           )}
 
           {/* ── Tab: Historial de Visitas ── */}
