@@ -19,6 +19,8 @@ import { useMasterData } from '../../context/MasterDataContext';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useSolicitudesVisita } from '../../hooks/useSolicitudesVisita';
 import { useVisitas } from '../../hooks/useVisitas';
+import { useConfirm } from '../../context/ConfirmContext';
+import ActionResultModal from '../../components/ui/ActionResultModal';
 
 // ─── Local card-section label header (distinct from the page-level SectionHeader) ──
 /**
@@ -114,8 +116,8 @@ const ProgramacionVisitaPage = () => {
 
   // Modal de éxito post-acción
   const [successModal, setSuccessModal] = useState({ open: false, visitaId: null, isEdit: false });
-  // Modal de confirmación de cancelar visita
-  const [cancelModal, setCancelModal]   = useState({ open: false, item: null });
+  const confirm = useConfirm();
+  const [cancelResult, setCancelResult] = useState(null); // { error, message? }
 
   // ── Combined list: PENDIENTE solicitudes without visita + all visitas ────────
   const combinedList = useMemo(() => {
@@ -313,12 +315,21 @@ const ProgramacionVisitaPage = () => {
     createVisita, updateVisita, updateSolicitud, fetchSolicitudes,
   ]);
 
-  const handleConfirmCancel = useCallback(async () => {
-    const item = cancelModal.item;
-    if (!item) return;
+  const handleRequestCancel = useCallback(async (item) => {
+    const confirmed = await confirm({
+      title: '¿Cancelar visita?',
+      message: '¿Estás seguro de que deseas cancelar esta visita? Esta acción no se puede deshacer.',
+      confirmText: 'Sí, cancelar visita',
+      cancelText: 'Mantener visita',
+      type: 'danger',
+    });
+    if (!confirmed) return;
     const ok = await cancelVisita(item.id, estadoOptions);
-    if (ok) setCancelModal({ open: false, item: null });
-  }, [cancelModal.item, cancelVisita, estadoOptions]);
+    setCancelResult({
+      error: !ok,
+      message: ok ? null : 'No se pudo cancelar la visita. Intenta nuevamente.',
+    });
+  }, [confirm, cancelVisita, estadoOptions]);
 
   // ══════════════════════════════════════════════════════════════════════════
   // FORM VIEW — Programar / Editar
@@ -679,7 +690,7 @@ const ProgramacionVisitaPage = () => {
               </button>
             )}
             {item._type === 'visita' && item.esEditable && (
-              <button onClick={() => setCancelModal({ open: true, item })} className="p-2 hover:bg-red-50 rounded-md transition-colors" title="Cancelar">
+              <button onClick={() => handleRequestCancel(item)} className="p-2 hover:bg-red-50 rounded-md transition-colors" title="Cancelar">
                 <Trash2 size={15} className="text-red-500" />
               </button>
             )}
@@ -723,7 +734,7 @@ const ProgramacionVisitaPage = () => {
               actions={[
                 { label: 'Ver', icon: Eye, onClick: () => handleView(item), colorClass: 'bg-blue-50 text-blue-700 hover:bg-blue-100' },
                 ...(canEdit ? [{ label: item._type === 'solicitud' ? 'Programar' : 'Editar', icon: Edit, onClick: () => handleSchedule(item), colorClass: 'bg-green-50 text-green-700 hover:bg-green-100' }] : []),
-                ...(item._type === 'visita' && item.esEditable ? [{ label: 'Cancelar', icon: Trash2, onClick: () => setCancelModal({ open: true, item }), colorClass: 'bg-red-50 text-red-700 hover:bg-red-100' }] : []),
+                ...(item._type === 'visita' && item.esEditable ? [{ label: 'Cancelar', icon: Trash2, onClick: () => handleRequestCancel(item), colorClass: 'bg-red-50 text-red-700 hover:bg-red-100' }] : []),
               ]}
             />
           );
@@ -772,36 +783,20 @@ const ProgramacionVisitaPage = () => {
         </div>
       )}
 
-      {/* ── Modal confirmación cancelar ───────────────────────────────────── */}
-      {cancelModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
-            <div className="flex items-center gap-3 text-red-600 mb-4">
-              <Trash2 size={32} />
-              <H3 className="normal-case text-gray-900">Cancelar visita</H3>
-            </div>
-            <TextSmall className="text-gray-600 mb-6 leading-relaxed">
-              ¿Estás seguro de que deseas cancelar esta visita? Esta acción no se puede deshacer.
-            </TextSmall>
-            <div className="flex flex-col gap-3">
-              <Button
-                onClick={handleConfirmCancel}
-                disabled={saving}
-                className="w-full bg-red-600 hover:bg-red-700"
-              >
-                {saving ? 'Cancelando...' : 'Sí, cancelar visita'}
-              </Button>
-              <Button
-                onClick={() => setCancelModal({ open: false, item: null })}
-                variant="outline"
-                className="w-full"
-              >
-                Mantener visita
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Overlay modal resultado cancelación ──────────────────────────── */}
+      <ActionResultModal
+        open={!!cancelResult}
+        error={!!cancelResult?.error}
+        title={cancelResult?.error ? 'Error en la operación' : '¡Visita cancelada!'}
+        subtitle="La visita fue cancelada correctamente."
+        errorMessage={cancelResult?.message}
+        onBackdropClick={() => setCancelResult(null)}
+        actions={
+          cancelResult?.error
+            ? [{ label: 'Entendido', variant: 'danger', onClick: () => setCancelResult(null) }]
+            : [{ label: 'Volver a Programación de Visitas', variant: 'outline', onClick: () => setCancelResult(null) }]
+        }
+      />
     </div>
   );
 };

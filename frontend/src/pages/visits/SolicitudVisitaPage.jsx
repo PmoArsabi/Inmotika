@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   ArrowLeft, Eye, FileText, Edit2, Trash2,
-  Calendar, Building2, Cpu, Clock, AlertCircle, X, Tag, CheckCircle2,
+  Calendar, Building2, Cpu, Clock, AlertCircle, Tag,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -9,7 +9,8 @@ import ModuleHeader from '../../components/ui/ModuleHeader';
 import GenericListView from '../../components/shared/GenericListView';
 import FilterBar from '../../components/shared/FilterBar';
 import DevicePickerModal from '../../components/shared/DevicePickerModal';
-import { H2, H3, TextSmall, TextTiny, Label, Subtitle } from '../../components/ui/Typography';
+import { H2, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
+import ActionResultModal from '../../components/ui/ActionResultModal';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import Select from '../../components/ui/Select';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
@@ -554,85 +555,46 @@ const SolicitudVisitaPage = () => {
   };
 
   // ── Overlay modal resultado — se monta encima de cualquier vista ─────────────
-  const resultModal = solicitudResult ? (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
-      onClick={() => { setSolicitudResult(null); handleGoList(); }}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-300"
-        onClick={e => e.stopPropagation()}
-      >
-        {solicitudResult.error ? (
-          <>
-            <div className="bg-linear-to-br from-red-500 to-red-700 p-8 text-center relative overflow-hidden">
-              <div className="absolute inset-0 opacity-10">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
-              </div>
-              <div className="relative z-10 flex flex-col items-center">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-3 border-2 border-white/30">
-                  <X size={32} className="text-white" />
-                </div>
-                <H3 className="normal-case text-white font-black text-2xl tracking-tight">Error en la operación</H3>
-              </div>
-            </div>
-            <div className="p-6 space-y-4 text-center">
-              <TextSmall className="text-gray-600">{solicitudResult.message}</TextSmall>
-              <Button variant="danger" className="w-full" onClick={() => setSolicitudResult(null)}>
-                Entendido
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className={`p-8 text-center relative overflow-hidden ${solicitudResult.isUpdate || solicitudResult.isCancel ? 'bg-emerald-600' : 'bg-linear-to-br from-emerald-500 via-emerald-600 to-emerald-700'}`}>
-              <div className="absolute inset-0 opacity-10">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
-              </div>
-              <div className="relative z-10 flex flex-col items-center text-white">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-3 border-2 border-white/30 backdrop-blur-sm">
-                  <CheckCircle2 size={32} />
-                </div>
-                <H3 className="normal-case text-white font-black text-2xl tracking-tight">
-                  {solicitudResult.isCancel ? '¡Solicitud cancelada!' : solicitudResult.isUpdate ? '¡Cambios guardados!' : '¡Solicitud enviada!'}
-                </H3>
-                <Subtitle className="text-white/80 text-sm mt-1">
-                  {solicitudResult.isCancel
-                    ? 'La solicitud fue cancelada correctamente.'
-                    : solicitudResult.isUpdate
-                      ? 'Los datos de la solicitud fueron actualizados correctamente.'
-                      : 'El equipo de coordinación la revisará y asignará próximamente.'}
-                </Subtitle>
-              </div>
-            </div>
-            <div className="p-6 space-y-3">
-              {!solicitudResult.isCancel && (
-                <Button
-                  variant="success"
-                  className="w-full"
-                  onClick={() => {
-                    const sol = solicitudes.find(s => s.id === solicitudResult.id);
-                    setSolicitudResult(null);
-                    if (sol) handleView(sol);
-                    else handleGoList();
-                  }}
-                >
-                  Ver Solicitud
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => { setSolicitudResult(null); handleGoList(); }}
-              >
-                Volver a Solicitudes
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  ) : null;
+  const resultModal = (
+    <ActionResultModal
+      open={!!solicitudResult}
+      error={!!solicitudResult?.error}
+      title={
+        solicitudResult?.error ? 'Error en la operación'
+        : solicitudResult?.isCancel ? '¡Solicitud cancelada!'
+        : solicitudResult?.isUpdate ? '¡Cambios guardados!'
+        : '¡Solicitud enviada!'
+      }
+      subtitle={
+        solicitudResult?.isCancel ? 'La solicitud fue cancelada correctamente.'
+        : solicitudResult?.isUpdate ? 'Los datos de la solicitud fueron actualizados correctamente.'
+        : 'El equipo de coordinación la revisará y asignará próximamente.'
+      }
+      errorMessage={solicitudResult?.message}
+      onBackdropClick={() => { setSolicitudResult(null); handleGoList(); }}
+      actions={
+        solicitudResult?.error
+          ? [{ label: 'Entendido', variant: 'danger', onClick: () => setSolicitudResult(null) }]
+          : [
+              ...(!solicitudResult?.isCancel ? [{
+                label: 'Ver Solicitud',
+                variant: 'success',
+                onClick: () => {
+                  const sol = solicitudes.find(s => s.id === solicitudResult.id);
+                  setSolicitudResult(null);
+                  if (sol) handleView(sol);
+                  else handleGoList();
+                },
+              }] : []),
+              {
+                label: 'Volver a Solicitudes',
+                variant: 'outline',
+                onClick: () => { setSolicitudResult(null); handleGoList(); },
+              },
+            ]
+      }
+    />
+  );
 
   // ══════════════════════════════════════════════════════════════════════════
   // FORM (create / edit)

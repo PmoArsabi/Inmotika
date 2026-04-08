@@ -85,7 +85,7 @@ const mapRow = (row, tecnicoNameMap = new Map(), dispositivosBySolicitud = new M
     tecnicoIds,
     tecnicosNombres: tecnicoIds.map(id => tecnicoNameMap.get(id) || id),
     dispositivos,
-    esEditable: !row.fecha_inicio,
+    esEditable: !row.fecha_inicio && row.estado?.codigo !== 'CANCELADA',
   };
 };
 
@@ -612,20 +612,16 @@ export const useVisitas = () => {
   const cancelVisita = useCallback(async (visitaId, estadoOptions) => {
     setSaving(true);
     try {
-      const estadoCanceladoId = estadoOptions.find(o => o.codigo === 'CANCELADO')?.value;
-      if (!estadoCanceladoId) {
-        notify('error', 'Estado CANCELADO no encontrado en el catálogo.');
-        return false;
-      }
+      const estadoCanceladaId = estadoOptions.find(o => o.codigo === 'CANCELADA')?.value;
+      if (!estadoCanceladaId) throw new Error('Estado CANCELADA no encontrado en el catálogo.');
 
       const { error } = await supabase
         .from('visita')
-        .update({ estado_id: estadoCanceladoId })
+        .update({ estado_id: estadoCanceladaId })
         .eq('id', visitaId);
 
       if (error) throw error;
 
-      notify('success', 'Visita cancelada.');
       await fetchVisitas();
       return true;
     } catch (err) {
