@@ -256,7 +256,8 @@ alter table "public"."dispositivo" enable row level security;
     "id" uuid not null default gen_random_uuid(),
     "intervencion_id" uuid not null,
     "actividad_id" uuid not null,
-    "completada" boolean default false,
+    "estado" character varying(20) not null default 'pendiente' check (estado in ('pendiente','completada','omitida')),
+    "observacion" text,
     "created_at" timestamp with time zone default now()
       );
 
@@ -2785,6 +2786,27 @@ as permissive
 for select
 to authenticated
 using (
+  EXISTS (
+    SELECT 1 FROM public.visita_tecnico vt
+    WHERE vt.visita_id = visita.id
+    AND vt.tecnico_id = public.get_current_tecnico_id()
+  )
+);
+
+-- Técnicos asignados pueden actualizar fecha_inicio, fecha_fin y estado_id de sus visitas
+create policy "Tecnicos can update assigned visitas"
+on "public"."visita"
+as permissive
+for update
+to authenticated
+using (
+  EXISTS (
+    SELECT 1 FROM public.visita_tecnico vt
+    WHERE vt.visita_id = visita.id
+    AND vt.tecnico_id = public.get_current_tecnico_id()
+  )
+)
+with check (
   EXISTS (
     SELECT 1 FROM public.visita_tecnico vt
     WHERE vt.visita_id = visita.id

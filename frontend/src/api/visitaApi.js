@@ -64,6 +64,9 @@ export async function iniciarVisita(visitaId, actor = null) {
   if (error) {
     throw new Error(`No se pudo iniciar la visita: ${error.message}`);
   }
+  if (!visitaRow) {
+    throw new Error('No se pudo iniciar la visita: sin permisos o visita no encontrada.');
+  }
 
   // Sincronizar estado en intervenciones existentes (si las hay)
   await supabase
@@ -179,8 +182,8 @@ export async function uploadEvidencia(visitaId, dispositivoId, intervencionId, f
  *   Lista completa de pasos del protocolo para este dispositivo
  * @param {{ [pasoId: string]: { comentarios?: string } }} pasoData
  *   Mapa de paso_protocolo.id → datos del paso ejecutado (puede estar vacío si no hay comentarios)
- * @param {{ [actividadId: string]: { completada: boolean } }} actividadData
- *   Mapa de actividad_protocolo.id → estado de completitud
+ * @param {{ [actividadId: string]: { estado: 'pendiente'|'completada'|'omitida', observacion?: string } }} actividadData
+ *   Mapa de actividad_protocolo.id → estado de ejecución y observación opcional
  * @param {{ etiqueta: { file: File, preview: string }|null, fotos: Array<{ file: File, preview: string }> }} [evidencias]
  *   Evidencias fotográficas capturadas a nivel de dispositivo
  * @returns {Promise<void>}
@@ -251,9 +254,12 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
       throw new Error(`Error al buscar ejecucion_paso: ${fetchPasoErr.message}`);
     }
 
-    // Determinar si todas las actividades de este paso están completadas
+    // Paso cerrado cuando todas sus actividades están 'completada' u 'omitida' (ninguna pendiente)
     const pasoDone = (paso.actividades || []).length === 0 ||
-      (paso.actividades || []).every(a => actividadData[a.id]?.completada);
+      (paso.actividades || []).every(a => {
+        const est = actividadData[a.id]?.estado;
+        return est === 'completada' || est === 'omitida';
+      });
 
     if (existingPaso) {
       const updatePayload = {
@@ -289,12 +295,15 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
 
   // 3. Guardar estado de cada actividad (ejecucion_actividad)
   // Usa upsert con onConflict en el índice único (intervencion_id, actividad_id)
+  // estado: 'pendiente' | 'completada' | 'omitida'
+  // observacion: texto libre opcional (obligatorio cuando estado='omitida')
   const actividadIds = Object.keys(actividadData);
   if (actividadIds.length > 0) {
     const actividadRows = actividadIds.map(actividadId => ({
       intervencion_id: intervencionId,
-      actividad_id: actividadId,
-      completada: actividadData[actividadId].completada ?? false,
+      actividad_id:    actividadId,
+      estado:          actividadData[actividadId].estado ?? 'pendiente',
+      observacion:     actividadData[actividadId].observacion ?? null,
     }));
 
     const { error: upsertActErr } = await supabase

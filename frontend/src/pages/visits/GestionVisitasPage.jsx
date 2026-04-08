@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Play, Eye, Edit2,
   Calendar, Building2, AlertCircle, Clock,
-  Send, Cpu, ClipboardList, CheckCircle2, User,
+  Cpu, ClipboardList, CheckCircle2, User,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -53,6 +53,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   const [modalTitle,           setModalTitle]           = useState('');
   const [modalMessage,         setModalMessage]         = useState('');
   const [successModal,         setSuccessModal]         = useState({ open: false, deviceNombre: '' });
+  const [finalizadoModal,      setFinalizadoModal]      = useState({ open: false, clienteNombre: '', sucursalNombre: '' });
 
   const visitas = visitasHook;
 
@@ -155,6 +156,8 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     setEjecucionActividades({});
     setDeviceEvidencias({});
     setObservacionFinal('');
+    // Refrescar la lista para que al volver se vean los estados actualizados
+    fetchVisitas();
   };
 
   // ── Update device-level evidencias ───────────────────────────────────────
@@ -199,11 +202,12 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     }));
   };
 
-  // ── Update actividad-level completion ─────────────────────────────────────
-  const handleActividadChange = (actividadId, completada) => {
+  // ── Update actividad-level execution state ────────────────────────────────
+  // patch: { estado: 'completada'|'omitida'|'pendiente', observacion?: string|null }
+  const handleActividadChange = (actividadId, patch) => {
     setEjecucionActividades(prev => ({
       ...prev,
-      [actividadId]: { completada },
+      [actividadId]: { ...(prev[actividadId] || {}), ...patch },
     }));
   };
 
@@ -242,26 +246,20 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
 
       if (isFinalStep) {
         await finalizarVisita(activeVisita.id, observacionFinal);
-        await fetchVisitas();
-        handleCloseVisita();
+        setFinalizadoModal({
+          open: true,
+          clienteNombre: activeVisita.clienteNombre,
+          sucursalNombre: activeVisita.sucursalNombre,
+        });
+        fetchVisitas();
         return;
       }
 
       // Mostrar popup inmediatamente — sin esperar el refresco
       setSuccessModal({ open: true, deviceNombre: device?.label || 'dispositivo' });
 
-      // Refrescar en background para sincronizar ejecucionPasos, actividades y evidencias desde BD
-      const visitaId = activeVisita.id;
-      const refreshed = await fetchVisitas();
-      if (refreshed) {
-        const updated = refreshed.find(v => v.id === visitaId);
-        if (updated) {
-          setActiveVisita(prev => ({ ...prev, deviceEvidencias: updated.deviceEvidencias }));
-          setEjecucionPasos(updated.ejecucionPasos || {});
-          setEjecucionActividades(updated.ejecucionActividades || {});
-          setDeviceEvidencias(updated.deviceEvidencias || {});
-        }
-      }
+      // Refrescar la lista de visitas en segundo plano (no bloquea UI, no toca el state activo)
+      fetchVisitas();
     } catch (err) {
       console.error('[GestionVisitasPage] handleSaveAvance error:', err);
       notify('error', err.message || 'No se pudo guardar el avance. Intenta de nuevo.');
@@ -270,16 +268,21 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     }
   };
 
-  // ── All done: every device has all its mandatory actividades checked ──────
+  // ── All done: toda actividad resuelta (completada u omitida) ─────────────
+  const isActResuelta = (a) => {
+    const e = ejecucionActividades[a.id]?.estado;
+    return e === 'completada' || e === 'omitida';
+  };
   const allDevicesDone = useMemo(() => {
     if (!activeVisita?.dispositivos?.length) return false;
     return activeVisita.dispositivos.every(device =>
       (device.pasos || []).length > 0 &&
       (device.pasos || []).every(paso =>
         (paso.actividades || []).length === 0 ||
-        (paso.actividades || []).every(a => ejecucionActividades[a.id]?.completada)
+        (paso.actividades || []).every(isActResuelta)
       ),
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeVisita, ejecucionActividades]);
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -291,16 +294,16 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     const isFinalizado = activeVisita.estadoCodigo === 'COMPLETADA';
     const viewMode = isFinalizado;
 
-    // Per-device completion stats — done when all actividades are checked
+    // Per-device completion stats — resuelta = completada u omitida
     const deviceStats = (activeVisita.dispositivos || []).map(d => {
-      const allActs = (d.pasos || []).flatMap(p => p.actividades || []);
+      const allActs   = (d.pasos || []).flatMap(p => p.actividades || []);
       const totalActs = allActs.length;
-      const doneActs  = allActs.filter(a => ejecucionActividades[a.id]?.completada).length;
+      const doneActs  = allActs.filter(isActResuelta).length;
       const done = (d.pasos || []).length > 0 && (d.pasos || []).every(paso =>
         (paso.actividades || []).length === 0 ||
-        (paso.actividades || []).every(a => ejecucionActividades[a.id]?.completada)
+        (paso.actividades || []).every(isActResuelta)
       );
-      // started: al menos una actividad completada pero no terminado del todo
+      // started: al menos una actividad resuelta pero el dispositivo no está terminado del todo
       const started = doneActs > 0 && !done;
       return { ...d, totalActs, doneActs, done, started };
     });
@@ -447,6 +450,34 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
           </div>
         </div>
 
+        {/* Popup éxito — visita finalizada */}
+        {finalizadoModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
+              <div className="flex items-center gap-3 text-green-600 mb-3">
+                <CheckCircle2 size={36} className="shrink-0" />
+                <div>
+                  <H3 className="normal-case text-gray-900">¡Visita Finalizada!</H3>
+                  <p className="text-xs text-gray-400 mt-0.5">Informe enviado correctamente</p>
+                </div>
+              </div>
+              <div className="bg-green-50 border border-green-100 rounded-lg px-4 py-3 mb-5">
+                <p className="text-sm text-green-800 font-semibold">{finalizadoModal.clienteNombre}</p>
+                <p className="text-xs text-green-600">{finalizadoModal.sucursalNombre}</p>
+              </div>
+              <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+                El avance y la observación final fueron guardados. El coordinador recibirá el reporte de esta visita.
+              </p>
+              <Button
+                onClick={() => { setFinalizadoModal({ open: false, clienteNombre: '', sucursalNombre: '' }); handleCloseVisita(); }}
+                className="w-full bg-green-600 hover:bg-green-700 border-0 text-white"
+              >
+                Volver a visitas
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Popup éxito — avance guardado (mismo patrón que ConfigurationNavigator) */}
         {successModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -492,7 +523,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
       (d.pasos || []).length > 0 &&
       (d.pasos || []).every(paso =>
         (paso.actividades || []).length === 0 ||
-        (paso.actividades || []).every(a => visita.ejecucionActividades?.[a.id]?.completada)
+        (paso.actividades || []).every(a => { const e = visita.ejecucionActividades?.[a.id]?.estado; return e === 'completada' || e === 'omitida'; })
       )
     ).length || 0;
     return { total, completed };

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import {
-  ArrowLeft, Eye, FileText, Edit2, Trash2,
+  ArrowLeft, Eye, FileText, Edit2, Trash2, X,
   Calendar, Building2, Cpu, Clock, AlertCircle, Tag,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
@@ -9,7 +9,7 @@ import ModuleHeader from '../../components/ui/ModuleHeader';
 import GenericListView from '../../components/shared/GenericListView';
 import FilterBar from '../../components/shared/FilterBar';
 import DevicePickerModal from '../../components/shared/DevicePickerModal';
-import { H2, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
+import { H2, H3, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import ActionResultModal from '../../components/ui/ActionResultModal';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import Select from '../../components/ui/Select';

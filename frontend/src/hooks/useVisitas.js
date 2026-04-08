@@ -248,10 +248,9 @@ export const useVisitas = () => {
         dispositivosBySolicitud.set(sd.solicitud_id, list);
       });
 
-      // Paso 5: cargar estado de ejecución — solo para visitas que ya iniciaron o completaron
-      // (PROGRAMADA sin fecha_inicio no tiene intervenciones aún; omitirlas reduce queries)
-      const visitasConEjecucion = (rows || []).filter(r => r.fecha_inicio);
-      const visitaIds = visitasConEjecucion.map(r => r.id);
+      // Paso 5: cargar estado de ejecución — para todas las visitas (incluso PROGRAMADA
+      // puede tener intervenciones si el técnico guardó avance antes del cambio de estado)
+      const visitaIds = (rows || []).map(r => r.id);
       let ejecucionActividadMap = new Map(); // visitaId → { [actividadId]: { completada } }
       let ejecucionPasoMap = new Map();      // visitaId → { [pasoProtocoloId]: { comentarios, fechaInicio, fechaFin } }
       let evidenciasMap = new Map();         // visitaId → { [dispositivoId]: { etiqueta, fotos } }
@@ -280,17 +279,17 @@ export const useVisitas = () => {
         });
 
         if (intervencionIds.length > 0) {
-          // Actividades completadas
+          // Estado de actividades ejecutadas
           const { data: actRows } = await supabase
             .from('ejecucion_actividad')
-            .select('intervencion_id, actividad_id, completada')
+            .select('intervencion_id, actividad_id, estado, observacion')
             .in('intervencion_id', intervencionIds);
 
           (actRows || []).forEach(a => {
             const vId = intervencionByVisita.get(a.intervencion_id);
             if (!vId) return;
             const map = ejecucionActividadMap.get(vId) || {};
-            map[a.actividad_id] = { completada: a.completada };
+            map[a.actividad_id] = { estado: a.estado || 'pendiente', observacion: a.observacion || null };
             ejecucionActividadMap.set(vId, map);
           });
 
@@ -605,7 +604,9 @@ export const useVisitas = () => {
 
   // ── Cancel ─────────────────────────────────────────────────────────────────
   /**
-   * Cancela una visita estableciendo su estado a CANCELADO.
+   * Cancela una visita estableciendo su estado a CANCELADA.
+   * Si la visita tiene solicitud origen, la regresa a PENDIENTE para que pueda
+   * ser reprogramada por el coordinador.
    *
    * @param {string} visitaId
    * @param {EstadoOption[]} estadoOptions - opciones de catalogo tipo ESTADO_VISITA
@@ -617,12 +618,28 @@ export const useVisitas = () => {
       const estadoCanceladaId = estadoOptions.find(o => o.codigo === 'CANCELADA')?.value;
       if (!estadoCanceladaId) throw new Error('Estado CANCELADA no encontrado en el catálogo.');
 
+      const estadoPendienteId = estadoOptions.find(o => o.codigo === 'PENDIENTE')?.value;
+
+      // Cancelar la visita
       const { error } = await supabase
         .from('visita')
         .update({ estado_id: estadoCanceladaId })
         .eq('id', visitaId);
 
       if (error) throw error;
+
+      // Regresar la solicitud origen a PENDIENTE para que pueda ser reprogramada
+      const visitaLocal = visitas.find(v => v.id === visitaId);
+      if (visitaLocal?.solicitudId && estadoPendienteId) {
+        const { error: solError } = await supabase
+          .from('solicitud_visita')
+          .update({ estado_id: estadoPendienteId })
+          .eq('id', visitaLocal.solicitudId);
+        if (solError) {
+          // No bloqueante — la visita ya fue cancelada; solo avisar en consola
+          console.warn('[useVisitas] No se pudo regresar solicitud a PENDIENTE:', solError.message);
+        }
+      }
 
       await fetchVisitas();
       return true;
@@ -633,7 +650,7 @@ export const useVisitas = () => {
     } finally {
       setSaving(false);
     }
-  }, [fetchVisitas, notify]);
+  }, [visitas, fetchVisitas, notify]);
 
   return {
     visitas,

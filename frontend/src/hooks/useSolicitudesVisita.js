@@ -231,6 +231,7 @@ export const useSolicitudesVisita = () => {
         })
         .catch(emailErr => console.warn('[useSolicitudesVisita] email failed:', emailErr));
 
+      await fetchSolicitudes();
       return newId;
     } catch (err) {
       console.error('[useSolicitudesVisita] create error:', err);
@@ -239,7 +240,7 @@ export const useSolicitudesVisita = () => {
     } finally {
       setSaving(false);
     }
-  }, [user, notify]);
+  }, [user, notify, fetchSolicitudes]);
 
   // ── Update ─────────────────────────────────────────────────────────────────
   /**

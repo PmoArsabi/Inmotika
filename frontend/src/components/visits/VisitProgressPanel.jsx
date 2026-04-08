@@ -7,8 +7,9 @@ const PasoProgressRow = ({ paso, ejecucionActividades }) => {
   const [open, setOpen] = useState(false);
   const actividades = paso.actividades || [];
   const totalActs   = actividades.length;
-  const doneActs    = actividades.filter(a => ejecucionActividades[a.id]?.completada).length;
-  const pasoDone = actividades.length === 0 || actividades.every(a => ejecucionActividades[a.id]?.completada);
+  const isResuelta  = (a) => { const e = ejecucionActividades[a.id]?.estado; return e === 'completada' || e === 'omitida'; };
+  const doneActs    = actividades.filter(isResuelta).length;
+  const pasoDone = actividades.length === 0 || actividades.every(isResuelta);
 
   return (
     <div className="rounded-md border border-gray-100 overflow-hidden">
@@ -37,7 +38,8 @@ const PasoProgressRow = ({ paso, ejecucionActividades }) => {
       {open && actividades.length > 0 && (
         <div className="px-3 pb-2 pt-1 space-y-1 bg-gray-50 border-t border-gray-100">
           {actividades.map((act, idx) => {
-            const done = !!ejecucionActividades[act.id]?.completada;
+            const est = ejecucionActividades[act.id]?.estado;
+            const done = est === 'completada' || est === 'omitida';
             return (
               <div key={act.id || idx} className="flex items-start gap-1.5">
                 {done
@@ -60,14 +62,15 @@ const PasoProgressRow = ({ paso, ejecucionActividades }) => {
 const DeviceProgressCard = ({ device, ejecucionActividades, evidencias }) => {
   const [open, setOpen] = useState(false);
 
+  const isResuelta  = (a) => { const e = ejecucionActividades[a.id]?.estado; return e === 'completada' || e === 'omitida'; };
   const allActs  = (device.pasos || []).flatMap(p => p.actividades || []);
   const totalActs = allActs.length;
-  const doneActs  = allActs.filter(a => ejecucionActividades[a.id]?.completada).length;
+  const doneActs  = allActs.filter(isResuelta).length;
   const pct       = totalActs > 0 ? Math.round((doneActs / totalActs) * 100) : 0;
 
   const deviceDone = (device.pasos || []).length > 0 && (device.pasos || []).every(paso =>
     (paso.actividades || []).length === 0 ||
-    (paso.actividades || []).every(a => ejecucionActividades[a.id]?.completada)
+    (paso.actividades || []).every(isResuelta)
   );
 
   const estado = deviceDone ? 'COMPLETADO' : doneActs > 0 ? 'EN_PROCESO' : 'PENDIENTE';
@@ -156,18 +159,19 @@ const VisitProgressPanel = ({ dispositivos = [], ejecucionPasos = {}, ejecucionA
     );
   }
 
+  const isResueltaGlobal = (a) => { const e = ejecucionActividades[a.id]?.estado; return e === 'completada' || e === 'omitida'; };
   const isDeviceDone = (d) => {
     const pasos = d.pasos || [];
     return pasos.length > 0 && pasos.every(paso =>
       (paso.actividades || []).length === 0 ||
-      (paso.actividades || []).every(a => ejecucionActividades[a.id]?.completada)
+      (paso.actividades || []).every(isResueltaGlobal)
     );
   };
 
   const completados = dispositivos.filter(isDeviceDone).length;
   const pendientes = dispositivos.filter(d => {
     const allActs = (d.pasos || []).flatMap(p => p.actividades || []);
-    return !allActs.some(a => ejecucionActividades[a.id]?.completada);
+    return !allActs.some(isResueltaGlobal);
   }).length;
   const enProceso = dispositivos.length - completados - pendientes;
 

@@ -2,41 +2,173 @@ import { useState, useRef } from 'react';
 import {
   CheckCircle2, Circle, ChevronDown, ChevronRight,
   Save, Send, Lock, Camera, X, Plus, Tag,
+  AlertTriangle, MessageSquare, XCircle,
 } from 'lucide-react';
 import SecureImage from '../ui/SecureImage';
 
 // ─── Single activity row ──────────────────────────────────────────────────────
 /**
- * @param {object}  props
- * @param {object}  props.actividad  - Actividad del protocolo
- * @param {boolean} props.completada - Si la actividad está completada
- * @param {function} props.onChange  - (boolean) => void
- * @param {boolean} props.viewMode   - Modo solo lectura
- * @param {boolean} props.isBlocked  - true si una actividad previa obligatoria no está completada
+ * @param {object}   props
+ * @param {object}   props.actividad    - Actividad del protocolo
+ * @param {'pendiente'|'completada'|'omitida'} props.estado - Estado actual
+ * @param {string}   props.observacion  - Observación actual (obligatoria si omitida)
+ * @param {function} props.onChange     - ({ estado, observacion }) => void
+ * @param {boolean}  props.viewMode     - Modo solo lectura
+ * @param {boolean}  props.isBlocked    - true si una actividad previa no está resuelta
  */
-const ActividadRow = ({ actividad, completada, onChange, viewMode, isBlocked }) => {
-  const disabled = viewMode || isBlocked;
+const ActividadRow = ({ actividad, estado, observacion, onChange, viewMode, isBlocked }) => {
+  const [showObs, setShowObs]     = useState(estado === 'omitida' || (estado === 'completada' && !!observacion));
+  const [showOmitForm, setShowOmitForm] = useState(false);
+  const [obsLocal, setObsLocal]   = useState(observacion || '');
+
+  const isCompletada = estado === 'completada';
+  const isOmitida    = estado === 'omitida';
+  const isResuelta   = isCompletada || isOmitida;
+  const disabled     = viewMode || isBlocked;
+
+  const handleCompletar = () => {
+    if (disabled || isResuelta) return;
+    onChange({ estado: 'completada', observacion: obsLocal || null });
+    setShowOmitForm(false);
+  };
+
+  const handleOmitirClick = () => {
+    if (disabled || isResuelta) return;
+    setShowOmitForm(o => !o);
+  };
+
+  const handleConfirmOmitir = () => {
+    if (!obsLocal.trim()) return; // observación obligatoria
+    onChange({ estado: 'omitida', observacion: obsLocal.trim() });
+    setShowOmitForm(false);
+  };
+
+  const handleToggleObs = () => setShowObs(o => !o);
+
   return (
-    <div className={`flex items-start gap-2.5 py-1.5 px-2 rounded-md transition-all ${
-      completada ? 'bg-green-50' : isBlocked ? 'opacity-40' : 'hover:bg-gray-50'
+    <div className={`rounded-md transition-all ${
+      isOmitida    ? 'bg-amber-50 border border-amber-200' :
+      isCompletada ? 'bg-green-50' :
+      isBlocked    ? 'opacity-40' : 'hover:bg-gray-50'
     }`}>
-      <button
-        type="button"
-        disabled={disabled || completada}
-        onClick={() => !disabled && !completada && onChange(true)}
-        className={`mt-0.5 shrink-0 transition-colors ${isBlocked ? 'cursor-not-allowed' : ''}`}
-        title={isBlocked ? 'Completa la actividad anterior primero' : undefined}
-      >
-        {completada
-          ? <CheckCircle2 size={16} className="text-green-500" />
-          : isBlocked
-            ? <Lock size={16} className="text-gray-300" />
-            : <Circle size={16} className="text-gray-300 hover:text-gray-400" />
-        }
-      </button>
-      <span className={`text-xs leading-relaxed ${completada ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-        {actividad.descripcion}
-      </span>
+      {/* Fila principal */}
+      <div className="flex items-start gap-2.5 py-1.5 px-2">
+        {/* Ícono de estado */}
+        <button
+          type="button"
+          disabled={disabled || isResuelta}
+          onClick={handleCompletar}
+          className={`mt-0.5 shrink-0 transition-colors ${isBlocked ? 'cursor-not-allowed' : isResuelta ? 'cursor-default' : 'cursor-pointer'}`}
+          title={isBlocked ? 'Completa la actividad anterior primero' : isCompletada ? 'Completada' : isOmitida ? 'Omitida' : 'Marcar como completada'}
+        >
+          {isCompletada
+            ? <CheckCircle2 size={16} className="text-green-500" />
+            : isOmitida
+              ? <AlertTriangle size={16} className="text-amber-500" />
+              : isBlocked
+                ? <Lock size={16} className="text-gray-300" />
+                : <Circle size={16} className="text-gray-300 hover:text-gray-400" />
+          }
+        </button>
+
+        {/* Descripción */}
+        <span className={`flex-1 text-xs leading-relaxed ${
+          isCompletada ? 'text-gray-400 line-through' :
+          isOmitida    ? 'text-amber-700 font-medium' :
+                         'text-gray-700'
+        }`}>
+          {actividad.descripcion}
+          {isOmitida && <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-600">· Omitida</span>}
+        </span>
+
+        {/* Acciones secundarias (solo en modo edición, actividad no bloqueada) */}
+        {!viewMode && !isBlocked && (
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Botón comentario (solo completadas o pendientes) */}
+            {!isOmitida && (
+              <button
+                type="button"
+                onClick={handleToggleObs}
+                title="Agregar comentario"
+                className={`p-1 rounded transition-colors ${showObs ? 'text-[#D32F2F] bg-red-50' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'}`}
+              >
+                <MessageSquare size={13} />
+              </button>
+            )}
+            {/* Botón omitir (solo pendientes) */}
+            {!isResuelta && (
+              <button
+                type="button"
+                onClick={handleOmitirClick}
+                title="No se pudo realizar"
+                className={`p-1 rounded transition-colors ${showOmitForm ? 'text-amber-600 bg-amber-50' : 'text-gray-300 hover:text-amber-500 hover:bg-amber-50'}`}
+              >
+                <XCircle size={13} />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Formulario de omisión (inline, solo en modo edición) */}
+      {showOmitForm && !viewMode && (
+        <div className="px-3 pb-2 space-y-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">
+            ¿Por qué no se pudo realizar? <span className="text-red-500">*</span>
+          </p>
+          <textarea
+            autoFocus
+            value={obsLocal}
+            onChange={e => setObsLocal(e.target.value)}
+            rows={2}
+            placeholder="Describe el motivo (campo obligatorio)..."
+            className="w-full px-2 py-1.5 text-xs border border-amber-300 rounded-md bg-white resize-none focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleConfirmOmitir}
+              disabled={!obsLocal.trim()}
+              className="flex-1 py-1.5 text-[11px] font-bold bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-md transition-colors"
+            >
+              Confirmar omisión
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowOmitForm(false); setObsLocal(observacion || ''); }}
+              className="px-3 py-1.5 text-[11px] font-bold text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Comentario (opcional en completadas, obligatorio mostrado en omitidas) */}
+      {(showObs || isOmitida) && (
+        <div className="px-3 pb-2">
+          {viewMode || isOmitida ? (
+            /* Lectura */
+            observacion ? (
+              <p className={`text-[11px] px-2 py-1.5 rounded-md ${isOmitida ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>
+                {observacion}
+              </p>
+            ) : null
+          ) : (
+            /* Edición — comentario libre para completadas */
+            <textarea
+              value={obsLocal}
+              onChange={e => {
+                setObsLocal(e.target.value);
+                onChange({ estado, observacion: e.target.value || null });
+              }}
+              rows={1}
+              placeholder="Comentario opcional..."
+              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white resize-none focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all"
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -53,39 +185,55 @@ const ActividadRow = ({ actividad, completada, onChange, viewMode, isBlocked }) 
  * @param {boolean} props.isLocked             - Paso bloqueado por paso anterior incompleto
  */
 const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onActividadChange, viewMode, isLocked = false }) => {
-  const actividades = paso.actividades || [];
-  const totalActs   = actividades.length;
-  const doneActs    = actividades.filter(a => ejecucionActividades[a.id]?.completada).length;
-  const pasoCerrado = actividades.length === 0 || actividades.every(a => ejecucionActividades[a.id]?.completada);
+  const actividades  = paso.actividades || [];
+  const totalActs    = actividades.length;
+  // Resuelta = completada u omitida
+  const isResuelta   = (a) => { const e = ejecucionActividades[a.id]?.estado; return e === 'completada' || e === 'omitida'; };
+  const doneActs     = actividades.filter(isResuelta).length;
+  const omitidas     = actividades.filter(a => ejecucionActividades[a.id]?.estado === 'omitida').length;
+  const pasoCerrado  = actividades.length === 0 || actividades.every(isResuelta);
   const [open, setOpen] = useState(!isLocked);
+
+  const pasoConOmitidas = pasoCerrado && omitidas > 0;
 
   return (
     <div className={`border rounded-lg overflow-hidden transition-all bg-white ${
-      pasoCerrado ? 'border-green-300' : 'border-gray-200'
+      pasoConOmitidas ? 'border-amber-300' : pasoCerrado ? 'border-green-300' : 'border-gray-200'
     }`}>
       {/* Paso header */}
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         className={`w-full flex items-center justify-between px-4 py-3 text-left ${
-          isLocked ? 'bg-gray-50' : pasoCerrado ? 'bg-green-50' : 'bg-white'
+          isLocked       ? 'bg-gray-50'   :
+          pasoConOmitidas ? 'bg-amber-50' :
+          pasoCerrado    ? 'bg-green-50'  : 'bg-white'
         }`}
       >
         <div className="flex items-center gap-2.5 min-w-0">
           {isLocked
-            ? <Lock size={16} className="shrink-0 text-gray-200" />
-            : pasoCerrado
-              ? <CheckCircle2 size={16} className="shrink-0 text-green-500" />
-              : <Circle size={16} className="shrink-0 text-gray-300" />
+            ? <Lock         size={16} className="shrink-0 text-gray-200" />
+            : pasoConOmitidas
+              ? <AlertTriangle size={16} className="shrink-0 text-amber-500" />
+              : pasoCerrado
+                ? <CheckCircle2 size={16} className="shrink-0 text-green-500" />
+                : <Circle       size={16} className="shrink-0 text-gray-300" />
           }
           <div className="min-w-0">
             <p className={`text-xs font-bold uppercase tracking-wide ${
-              isLocked ? 'text-gray-500' : pasoCerrado ? 'text-green-700' : 'text-gray-700'
+              isLocked        ? 'text-gray-500'  :
+              pasoConOmitidas ? 'text-amber-700' :
+              pasoCerrado     ? 'text-green-700' : 'text-gray-700'
             }`}>
               {paso.orden}. {paso.descripcion}
             </p>
             <p className="text-[10px] text-gray-400 mt-0.5">
-              {isLocked ? 'Completa el paso anterior primero' : `${doneActs}/${totalActs} actividades`}
+              {isLocked
+                ? 'Completa el paso anterior primero'
+                : omitidas > 0
+                  ? `${doneActs}/${totalActs} · ${omitidas} omitida${omitidas !== 1 ? 's' : ''}`
+                  : `${doneActs}/${totalActs} actividades`
+              }
             </p>
           </div>
         </div>
@@ -97,7 +245,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
       {/* Progress bar */}
       <div className="h-1 bg-gray-100">
         <div
-          className={`h-full transition-all ${pasoCerrado ? 'bg-green-500' : 'bg-[#D32F2F]'}`}
+          className={`h-full transition-all ${pasoConOmitidas ? 'bg-amber-400' : pasoCerrado ? 'bg-green-500' : 'bg-[#D32F2F]'}`}
           style={{ width: totalActs > 0 ? `${(doneActs / totalActs) * 100}%` : '0%' }}
         />
       </div>
@@ -106,22 +254,28 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
       {open && (
         <div className="px-3 py-2 space-y-1 bg-gray-50">
           {actividades.map((act, actIdx) => {
+            // Bloqueada si alguna actividad anterior no está resuelta (completada u omitida)
             const isActBlocked = !viewMode && !isLocked && actividades
               .slice(0, actIdx)
-              .some(prev => !ejecucionActividades[prev.id]?.completada);
+              .some(prev => {
+                const e = ejecucionActividades[prev.id]?.estado;
+                return e !== 'completada' && e !== 'omitida';
+              });
+            const execAct = ejecucionActividades[act.id] || {};
             return (
               <ActividadRow
                 key={act.id}
                 actividad={act}
-                completada={!!ejecucionActividades[act.id]?.completada}
-                onChange={val => onActividadChange(act.id, val)}
+                estado={execAct.estado || 'pendiente'}
+                observacion={execAct.observacion || ''}
+                onChange={patch => onActividadChange(act.id, patch)}
                 viewMode={viewMode || isLocked}
                 isBlocked={isActBlocked}
               />
             );
           })}
 
-          {/* Observation textarea */}
+          {/* Observation textarea del paso */}
           <textarea
             disabled={viewMode || isLocked}
             value={execPaso?.comentarios || ''}
@@ -360,35 +514,43 @@ const DeviceChecklistCard = ({
   const [open, setOpen] = useState(!isLocked);
   const [codigoEtiqueta, setCodigoEtiqueta] = useState(codigoEtiquetaInicial);
 
-  // Compute overall device completion — only requires all mandatory activities done (no photo)
+  // Compute overall device completion — completada u omitida cuenta como resuelta
+  const isActResuelta  = (a) => { const e = ejecucionActividades[a.id]?.estado; return e === 'completada' || e === 'omitida'; };
   const allActividades = steps.flatMap(p => p.actividades || []);
   const totalActs      = allActividades.length;
-  const doneActs       = allActividades.filter(a => ejecucionActividades[a.id]?.completada).length;
+  const doneActs       = allActividades.filter(isActResuelta).length;
+  const omitadasTotal  = allActividades.filter(a => ejecucionActividades[a.id]?.estado === 'omitida').length;
   const pct            = totalActs > 0 ? Math.round((doneActs / totalActs) * 100) : 0;
 
   const allDone = steps.length > 0 && steps.every(paso =>
     (paso.actividades || []).length === 0 ||
-    (paso.actividades || []).every(a => ejecucionActividades[a.id]?.completada)
+    (paso.actividades || []).every(isActResuelta)
   );
+
+  const allDoneWithOmit = allDone && omitadasTotal > 0;
 
   return (
     <div className={`border rounded-lg overflow-hidden transition-all bg-white ${
-      allDone ? 'border-green-300' : 'border-gray-200'
+      allDoneWithOmit ? 'border-amber-300' : allDone ? 'border-green-300' : 'border-gray-200'
     }`}>
       {/* Card header */}
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         className={`w-full flex items-center justify-between p-4 text-left ${
-          isLocked ? 'bg-gray-50' : allDone ? 'bg-green-50' : 'bg-white'
+          isLocked        ? 'bg-gray-50'   :
+          allDoneWithOmit ? 'bg-amber-50'  :
+          allDone         ? 'bg-green-50'  : 'bg-white'
         }`}
       >
         <div className="flex items-center gap-3 min-w-0">
           {isLocked
-            ? <Lock size={18} className="shrink-0 text-gray-300" />
-            : allDone
-              ? <CheckCircle2 size={20} className="shrink-0 text-green-500" />
-              : <Circle       size={20} className="shrink-0 text-gray-300" />
+            ? <Lock          size={18} className="shrink-0 text-gray-300" />
+            : allDoneWithOmit
+              ? <AlertTriangle size={20} className="shrink-0 text-amber-500" />
+              : allDone
+                ? <CheckCircle2  size={20} className="shrink-0 text-green-500" />
+                : <Circle        size={20} className="shrink-0 text-gray-300" />
           }
           <div className="min-w-0">
             <p className="text-sm font-bold text-gray-900 truncate">{device.label || device.nombre || device.id}</p>
@@ -402,10 +564,12 @@ const DeviceChecklistCard = ({
             ? <span className="text-xs text-gray-400 italic">Completa el anterior primero</span>
             : <>
                 <div className="text-right">
-                  <span className={`text-xs font-bold ${allDone ? 'text-green-600' : 'text-gray-600'}`}>
+                  <span className={`text-xs font-bold ${allDoneWithOmit ? 'text-amber-600' : allDone ? 'text-green-600' : 'text-gray-600'}`}>
                     {doneActs}/{totalActs}
                   </span>
-                  <span className="text-xs text-gray-400 ml-1">actividades</span>
+                  <span className="text-xs text-gray-400 ml-1">
+                    {omitadasTotal > 0 ? `· ${omitadasTotal} omitida${omitadasTotal !== 1 ? 's' : ''}` : 'actividades'}
+                  </span>
                 </div>
                 {open ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
               </>
@@ -417,7 +581,7 @@ const DeviceChecklistCard = ({
       {!isLocked && (
         <div className="h-1.5 bg-gray-100">
           <div
-            className={`h-full transition-all ${allDone ? 'bg-green-500' : 'bg-[#D32F2F]'}`}
+            className={`h-full transition-all ${allDoneWithOmit ? 'bg-amber-400' : allDone ? 'bg-green-500' : 'bg-[#D32F2F]'}`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -431,7 +595,7 @@ const DeviceChecklistCard = ({
           )}
           {steps.map((paso, pasoIdx) => {
             const isPasoLocked = !viewMode && steps.slice(0, pasoIdx).some(prev =>
-              (prev.actividades || []).some(a => !ejecucionActividades[a.id]?.completada)
+              (prev.actividades || []).some(a => { const e = ejecucionActividades[a.id]?.estado; return e !== 'completada' && e !== 'omitida'; })
             );
             return (
               <PasoSection
