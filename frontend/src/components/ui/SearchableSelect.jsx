@@ -160,7 +160,7 @@ const SearchableSelect = ({
     return (
       <div className={`flex flex-col gap-1.5 w-full ${className}`}>
         {label && (
-          <div className="flex items-center justify-between h-[15px]">
+          <div className="flex items-center justify-between h-3.75">
             <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
               {label}
               {required && <span className="text-red-500 ml-0.5">*</span>}
@@ -189,7 +189,7 @@ const SearchableSelect = ({
   return (
     <div className={`flex flex-col gap-1.5 w-full ${className}`}>
       {label && (
-        <div className="flex items-center justify-between h-[15px]">
+        <div className="flex items-center justify-between h-3.75">
           <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
             {label}
             {required && <span className="text-red-500 ml-0.5">*</span>}

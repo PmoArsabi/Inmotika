@@ -188,9 +188,10 @@ export const useSolicitudesVisita = () => {
         if (devError) throw devError;
       }
 
-      notify('success', 'Solicitud enviada. El equipo de coordinación la revisará pronto.');
-
-      // Notificar a coordinadores, directores del cliente y admins (fire-and-forget)
+      // Email fire-and-forget — no bloquea el retorno
+      const newId = inserted.id;
+      const emailPayload = { ...payload };
+      const emailUser = { id: user?.id, role: user?.role };
       supabase
         .from('solicitud_visita')
         .select(`
@@ -201,22 +202,19 @@ export const useSolicitudesVisita = () => {
           tipo_visita:tipo_visita_id(nombre),
           creador:creado_por(nombres, apellidos, email)
         `)
-        .eq('id', inserted.id)
+        .eq('id', newId)
         .maybeSingle()
         .then(async ({ data: sol }) => {
           if (!sol) return;
-
           const allEmails = await getSolicitudVisitaEmailRecipients({
-            actorId: user?.id,
-            actorRole: user?.role,
-            clienteId: payload.clienteId,
+            actorId: emailUser.id,
+            actorRole: emailUser.role,
+            clienteId: emailPayload.clienteId,
           });
           if (!allEmails.length) return;
-
           const solicitante = sol.creador
             ? `${sol.creador.nombres || ''} ${sol.creador.apellidos || ''}`.trim() || sol.creador.email
             : '—';
-
           const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
           sendEmail('solicitud_visita', {
             destinatario,
@@ -230,10 +228,10 @@ export const useSolicitudesVisita = () => {
             solicitante,
             appUrl: window.location.origin,
           }, cc);
-        });
+        })
+        .catch(emailErr => console.warn('[useSolicitudesVisita] email failed:', emailErr));
 
-      await fetchSolicitudes();
-      return inserted.id;
+      return newId;
     } catch (err) {
       console.error('[useSolicitudesVisita] create error:', err);
       notify('error', `No se pudo crear la solicitud: ${err.message}`);
@@ -241,7 +239,7 @@ export const useSolicitudesVisita = () => {
     } finally {
       setSaving(false);
     }
-  }, [user, fetchSolicitudes, notify]);
+  }, [user, notify]);
 
   // ── Update ─────────────────────────────────────────────────────────────────
   /**
@@ -319,7 +317,6 @@ export const useSolicitudesVisita = () => {
         if (firstErr) throw firstErr;
       }
 
-      notify('success', 'Solicitud actualizada correctamente.');
       await fetchSolicitudes();
       return true;
     } catch (err) {
@@ -351,7 +348,6 @@ export const useSolicitudesVisita = () => {
 
       if (error) throw error;
 
-      notify('success', 'Solicitud cancelada.');
       await fetchSolicitudes();
       return true;
     } catch (err) {

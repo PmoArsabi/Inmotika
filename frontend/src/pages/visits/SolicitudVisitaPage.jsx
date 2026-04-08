@@ -1,18 +1,18 @@
 import { useState, useMemo } from 'react';
 import {
   ArrowLeft, Eye, FileText, Edit2, Trash2,
-  Calendar, Building2, Cpu, Clock, AlertCircle, Tag,
+  Calendar, Building2, Cpu, Clock, AlertCircle, X, Tag, CheckCircle2,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ModuleHeader from '../../components/ui/ModuleHeader';
 import GenericListView from '../../components/shared/GenericListView';
 import FilterBar from '../../components/shared/FilterBar';
+import DevicePickerModal from '../../components/shared/DevicePickerModal';
 import { H2, H3, TextSmall, TextTiny, Label, Subtitle } from '../../components/ui/Typography';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import Select from '../../components/ui/Select';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
-import Modal from '../../components/ui/Modal';
 import InfoRow from '../../components/ui/InfoRow';
 import SectionHeader from '../../components/ui/SectionHeader';
 import VisitProgressPanel from '../../components/visits/VisitProgressPanel';
@@ -22,6 +22,7 @@ import { useCatalog } from '../../hooks/useCatalog';
 import { useMasterData } from '../../context/MasterDataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useClienteData } from '../../hooks/useClienteData';
+import { useConfirm } from '../../context/ConfirmContext';
 import { ROLES } from '../../utils/constants';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -57,7 +58,10 @@ const SolicitudForm = ({
   draft, updateDraft, onSubmit, onCancel, saving,
   tipoVisitaSelectOptions, clienteOptions, sucursalOptions,
   dispositivoOptions, isEdit, isClienteLocked,
-}) => (
+}) => {
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  return (
   <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
     <header className="flex items-center justify-between bg-white p-4 rounded-md border border-gray-100 shadow-sm flex-wrap gap-3">
       <div className="flex items-center gap-4">
@@ -96,7 +100,7 @@ const SolicitudForm = ({
             />
 
             <div className="space-y-1">
-              <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Cliente</Label>
+              <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Cliente <span className="text-red-500">*</span></Label>
               {isClienteLocked ? (
                 <div className="flex items-center gap-2 h-10 px-3 bg-gray-50 border border-gray-200 rounded-md">
                   <Building2 size={14} className="text-gray-400 shrink-0" />
@@ -152,29 +156,99 @@ const SolicitudForm = ({
             </div>
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block">
-              Dispositivos a Revisar
-            </Label>
-            <SearchableSelect
-              options={dispositivoOptions}
-              value={draft.dispositivoIds.map(id => ({
-                value: id,
-                label: dispositivoOptions.find(o => o.value === id)?.label || id,
-              }))}
-              onChange={opts => updateDraft({
-                dispositivoIds: opts.map(o => o.value),
-                dispositivosNombres: opts.map(o => o.label),
-              })}
-              placeholder={draft.sucursalId ? 'Seleccionar dispositivos...' : 'Seleccione una sucursal primero'}
-              isMulti
-              isDisabled={!draft.sucursalId}
-            />
+          {/* ── Dispositivos a Revisar — Device Picker ── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                Dispositivos a Revisar <span className="text-red-500">*</span>
+              </Label>
+              {draft.dispositivoIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => updateDraft({ dispositivoIds: [], dispositivosNombres: [] })}
+                  className="text-[10px] text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                >
+                  <X size={10} /> Limpiar selección
+                </button>
+              )}
+            </div>
+
+            {/* Botón de apertura del picker */}
+            <button
+              type="button"
+              disabled={!draft.sucursalId}
+              onClick={() => setPickerOpen(true)}
+              className={`w-full flex items-center justify-between gap-3 h-10 px-3 border rounded-md text-sm transition-all ${
+                !draft.sucursalId
+                  ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+                  : draft.dispositivoIds.length > 0
+                    ? 'border-[#D32F2F] bg-white text-gray-700 hover:bg-red-50'
+                    : 'border-gray-300 bg-white text-gray-400 hover:border-gray-400'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Cpu size={14} className="shrink-0" />
+                {!draft.sucursalId
+                  ? 'Seleccione una sucursal primero'
+                  : draft.dispositivoIds.length > 0
+                    ? `${draft.dispositivoIds.length} dispositivo${draft.dispositivoIds.length !== 1 ? 's' : ''} seleccionado${draft.dispositivoIds.length !== 1 ? 's' : ''}`
+                    : 'Seleccionar dispositivos...'
+                }
+              </span>
+              {draft.dispositivoIds.length > 0 && (
+                <span className="shrink-0 px-2 py-0.5 rounded-full bg-[#D32F2F] text-white text-[10px] font-bold leading-none">
+                  {draft.dispositivoIds.length}
+                </span>
+              )}
+            </button>
+
+            {/* Listado de dispositivos seleccionados agrupados por categoría */}
+            {draft.dispositivoIds.length > 0 && (
+              <div className="mt-2 space-y-3">
+                {(() => {
+                  // Agrupar ids por categoría
+                  const groups = {};
+                  draft.dispositivoIds.forEach(id => {
+                    const dev = dispositivoOptions.find(o => o.value === id);
+                    const cat = dev?.categoria || 'Sin categoría';
+                    if (!groups[cat]) groups[cat] = [];
+                    groups[cat].push({ id, dev });
+                  });
+                  return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([cat, items]) => (
+                    <div key={cat}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1 flex items-center gap-1">
+                        <Tag size={9} /> {cat}
+                      </p>
+                      <ul className="space-y-1">
+                        {items.map(({ id, dev }) => (
+                          <li key={id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-gray-50 border border-gray-100 group">
+                            <span className="flex items-center gap-1.5 text-xs text-gray-700 font-medium min-w-0">
+                              <Cpu size={11} className="text-gray-400 shrink-0" />
+                              <span className="truncate">{dev?.label || id}</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateDraft({
+                                dispositivoIds:      draft.dispositivoIds.filter(x => x !== id),
+                                dispositivosNombres: draft.dispositivosNombres?.filter((_, i) => draft.dispositivoIds[i] !== id) || [],
+                              })}
+                              className="shrink-0 text-gray-300 hover:text-red-500 transition-colors"
+                            >
+                              <X size={12} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1">
             <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block">
-              Observación / Motivo
+              Observación / Motivo <span className="text-red-500">*</span>
             </Label>
             <textarea
               value={draft.motivo}
@@ -201,26 +275,35 @@ const SolicitudForm = ({
         </Card>
       </div>
     </div>
+
+    <DevicePickerModal
+      isOpen={pickerOpen}
+      onClose={() => setPickerOpen(false)}
+      devices={dispositivoOptions}
+      selected={draft.dispositivoIds}
+      onConfirm={ids => updateDraft({
+        dispositivoIds:      ids,
+        dispositivosNombres: ids.map(id => dispositivoOptions.find(o => o.value === id)?.label || id),
+      })}
+    />
   </div>
-);
+  );
+};
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const SolicitudVisitaPage = () => {
-  const [mode,         setMode]        = useState('list'); // 'list' | 'create' | 'edit' | 'view'
-  const [selectedSol,  setSelectedSol] = useState(null);
-  const [draft,        setDraft]       = useState(emptySolicitud());
-  const [filters,      setFilters]     = useState({ cliente: [], sucursal: [], estado: [], tipo: [], fechaDesde: '', fechaHasta: '' });
-  const [showModal,    setShowModal]   = useState(false);
-  const [modalMsg,     setModalMsg]    = useState('');
-  const [modalType,    setModalType]   = useState('error'); // 'error' | 'success'
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [cancelTarget, setCancelTarget] = useState(null);
-  const [lastCreatedId, setLastCreatedId] = useState(null);
+  const [mode,                setMode]               = useState('list'); // 'list' | 'create' | 'edit' | 'view'
+  const [selectedSol,         setSelectedSol]        = useState(null);
+  const [draft,               setDraft]              = useState(emptySolicitud());
+  const [filters,             setFilters]            = useState({ cliente: [], sucursal: [], estado: [], tipo: [], fechaDesde: '', fechaHasta: '' });
+  const [solicitudResult,    setSolicitudResult]    = useState(null); // { id, isUpdate, error?, message? } → modal resultado
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const { user } = useAuth();
   const userRole = user?.role;
   const isClienteRole = userRole === ROLES.CLIENTE;
+
+  const confirm = useConfirm();
 
   const { solicitudes, loading, saving, createSolicitud, updateSolicitud, cancelSolicitud } = useSolicitudesVisita();
   const { visitas } = useVisitas();
@@ -263,20 +346,34 @@ const SolicitudVisitaPage = () => {
 
   const dispositivoOptions = useMemo(() => {
     if (!draft.sucursalId) return [];
+    const getName = (val) => (typeof val === 'object' ? val?.nombre : val) || '';
     // Para CLIENTE: filtra de su propio conjunto de dispositivos
     if (isClienteRole) {
       return dispositivosContacto
         .filter(d => String(d.sucursal_id || d.branchId) === String(draft.sucursalId))
-        .map(d => ({ value: String(d.id), label: d.id_inmotika || d.idInmotika || d.codigo_unico || `Dispositivo ${d.id}` }));
+        .map(d => ({
+          value:      String(d.id),
+          label:      d.serial || d.id_inmotika || d.idInmotika || d.codigo_unico || `Dispositivo ${d.id}`,
+          serial:     d.serial || '',
+          idInmotika: d.id_inmotika || d.idInmotika || '',
+          modelo:     d.modelo || '',
+          categoria:  getName(d.categoria),
+          marca:      getName(d.marca),
+          proveedor:  getName(d.proveedor),
+        }));
     }
     return (data?.dispositivos || [])
       .filter(d => String(d.branchId) === String(draft.sucursalId))
-      .map(d => {
-        const label = d.idInmotika || d.codigoUnico
-          ? `${d.idInmotika || d.codigoUnico}${d.modelo ? ` — ${d.modelo}` : ''}`
-          : d.serial || d.modelo || d.id;
-        return { value: String(d.id), label };
-      });
+      .map(d => ({
+        value:      String(d.id),
+        label:      d.serial || d.idInmotika || d.codigoUnico || d.modelo || String(d.id),
+        serial:     d.serial || '',
+        idInmotika: d.id_inmotika || d.idInmotika || '',
+        modelo:     d.modelo || '',
+        categoria:  getName(d.categoria),
+        marca:      getName(d.marca),
+        proveedor:  getName(d.proveedor),
+      }));
   }, [isClienteRole, dispositivosContacto, data?.dispositivos, draft.sucursalId]);
 
   // Opciones para FilterBar
@@ -365,40 +462,63 @@ const SolicitudVisitaPage = () => {
   };
 
   const handleSaveCreate = async () => {
-    if (!draft.tipoVisitaCodigo || !draft.sucursalId || !draft.fechaSugerida) {
-      setModalMsg('Completa los campos obligatorios: Tipo de Mantenimiento, Sucursal y Fecha sugerida.');
-      setModalType('error');
-      setShowModal(true);
+    if (!draft.tipoVisitaCodigo || !draft.clienteId || !draft.sucursalId || !draft.fechaSugerida || draft.dispositivoIds.length === 0 || !draft.motivo?.trim()) {
+      await confirm({
+        title: 'Campos incompletos',
+        message: 'Para enviar la solicitud debes completar todos los campos: Tipo de Mantenimiento, Cliente, Sucursal, Fecha sugerida, al menos un Dispositivo y la Observación.',
+        confirmText: 'Entendido',
+        type: 'warning',
+        hideCancel: true,
+      });
       return;
     }
+    const ok = await confirm({
+      title: '¿Enviar solicitud?',
+      message: 'Revisa que todos los datos estén correctos antes de enviar. El equipo de coordinación recibirá la solicitud y la asignará próximamente.',
+      confirmText: 'Sí, enviar',
+      cancelText: 'Revisar',
+      type: 'primary',
+    });
+    if (!ok) return;
     const result = await createSolicitud(
       {
         clienteId: draft.clienteId || null,
         sucursalId: draft.sucursalId,
         tipoVisitaCodigo: draft.tipoVisitaCodigo,
         fechaSugerida: draft.fechaSugerida,
-        motivo: draft.motivo || 'Sin observaciones',
+        motivo: draft.motivo,
         dispositivoIds: draft.dispositivoIds,
       },
       tipoVisitaOptions,
       estadoVisitaOptions
     );
     if (result) {
-      setLastCreatedId(result);
-      setModalMsg('Solicitud creada exitosamente. ¿Qué deseas hacer ahora?');
-      setModalType('success');
-      setShowModal(true);
+      setSolicitudResult({ id: result, isUpdate: false });
+    } else {
+      setSolicitudResult({ id: null, isUpdate: false, error: true, message: 'No se pudo enviar la solicitud. Intenta nuevamente.' });
     }
   };
 
   const handleSaveEdit = async () => {
-    if (!draft.tipoVisitaCodigo || !draft.sucursalId || !draft.fechaSugerida) {
-      setModalMsg('Completa los campos obligatorios: Tipo de Mantenimiento, Sucursal y Fecha sugerida.');
-      setModalType('error');
-      setShowModal(true);
+    if (!draft.tipoVisitaCodigo || !draft.sucursalId || !draft.fechaSugerida || draft.dispositivoIds.length === 0 || !draft.motivo?.trim()) {
+      await confirm({
+        title: 'Campos incompletos',
+        message: 'Para guardar los cambios debes completar todos los campos: Tipo de Mantenimiento, Sucursal, Fecha sugerida, al menos un Dispositivo y la Observación.',
+        confirmText: 'Entendido',
+        type: 'warning',
+        hideCancel: true,
+      });
       return;
     }
-    const ok = await updateSolicitud(
+    const ok = await confirm({
+      title: '¿Guardar cambios?',
+      message: 'Se actualizarán los datos de la solicitud. ¿Deseas continuar?',
+      confirmText: 'Sí, guardar',
+      cancelText: 'Revisar',
+      type: 'primary',
+    });
+    if (!ok) return;
+    const saved = await updateSolicitud(
       selectedSol.id,
       {
         tipoVisitaCodigo: draft.tipoVisitaCodigo,
@@ -408,21 +528,111 @@ const SolicitudVisitaPage = () => {
       },
       tipoVisitaOptions
     );
-    if (ok) handleGoList();
+    if (saved) {
+      setSolicitudResult({ id: selectedSol.id, isUpdate: true });
+    } else {
+      setSolicitudResult({ id: selectedSol.id, isUpdate: true, error: true, message: 'No se pudieron guardar los cambios. Intenta nuevamente.' });
+    }
   };
 
-  const handleRequestCancel = (sol) => {
-    setCancelTarget(sol);
-    setShowCancelConfirm(true);
+  const handleRequestCancel = async (sol) => {
+    const confirmed = await confirm({
+      title: '¿Cancelar solicitud?',
+      message: `¿Estás seguro de cancelar esta solicitud? Esta acción no se puede deshacer.`,
+      confirmText: 'Cancelar solicitud',
+      type: 'danger',
+    });
+    if (!confirmed) return;
+    const ok = await cancelSolicitud(sol.id, estadoVisitaOptions);
+    // Mostrar modal inmediatamente — el fetch ya ocurrió dentro de cancelSolicitud
+    setSolicitudResult({
+      id: sol.id,
+      isCancel: true,
+      error: !ok,
+      message: ok ? null : 'No se pudo cancelar la solicitud. Intenta nuevamente.',
+    });
   };
 
-  const handleConfirmCancel = async () => {
-    if (!cancelTarget) return;
-    const ok = await cancelSolicitud(cancelTarget.id, estadoVisitaOptions);
-    setShowCancelConfirm(false);
-    setCancelTarget(null);
-    if (ok && mode === 'view') handleGoList();
-  };
+  // ── Overlay modal resultado — se monta encima de cualquier vista ─────────────
+  const resultModal = solicitudResult ? (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+      onClick={() => { setSolicitudResult(null); handleGoList(); }}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-300"
+        onClick={e => e.stopPropagation()}
+      >
+        {solicitudResult.error ? (
+          <>
+            <div className="bg-linear-to-br from-red-500 to-red-700 p-8 text-center relative overflow-hidden">
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
+              </div>
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-3 border-2 border-white/30">
+                  <X size={32} className="text-white" />
+                </div>
+                <H3 className="normal-case text-white font-black text-2xl tracking-tight">Error en la operación</H3>
+              </div>
+            </div>
+            <div className="p-6 space-y-4 text-center">
+              <TextSmall className="text-gray-600">{solicitudResult.message}</TextSmall>
+              <Button variant="danger" className="w-full" onClick={() => setSolicitudResult(null)}>
+                Entendido
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={`p-8 text-center relative overflow-hidden ${solicitudResult.isUpdate || solicitudResult.isCancel ? 'bg-emerald-600' : 'bg-linear-to-br from-emerald-500 via-emerald-600 to-emerald-700'}`}>
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
+              </div>
+              <div className="relative z-10 flex flex-col items-center text-white">
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-3 border-2 border-white/30 backdrop-blur-sm">
+                  <CheckCircle2 size={32} />
+                </div>
+                <H3 className="normal-case text-white font-black text-2xl tracking-tight">
+                  {solicitudResult.isCancel ? '¡Solicitud cancelada!' : solicitudResult.isUpdate ? '¡Cambios guardados!' : '¡Solicitud enviada!'}
+                </H3>
+                <Subtitle className="text-white/80 text-sm mt-1">
+                  {solicitudResult.isCancel
+                    ? 'La solicitud fue cancelada correctamente.'
+                    : solicitudResult.isUpdate
+                      ? 'Los datos de la solicitud fueron actualizados correctamente.'
+                      : 'El equipo de coordinación la revisará y asignará próximamente.'}
+                </Subtitle>
+              </div>
+            </div>
+            <div className="p-6 space-y-3">
+              {!solicitudResult.isCancel && (
+                <Button
+                  variant="success"
+                  className="w-full"
+                  onClick={() => {
+                    const sol = solicitudes.find(s => s.id === solicitudResult.id);
+                    setSolicitudResult(null);
+                    if (sol) handleView(sol);
+                    else handleGoList();
+                  }}
+                >
+                  Ver Solicitud
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => { setSolicitudResult(null); handleGoList(); }}
+              >
+                Volver a Solicitudes
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  ) : null;
 
   // ══════════════════════════════════════════════════════════════════════════
   // FORM (create / edit)
@@ -443,14 +653,7 @@ const SolicitudVisitaPage = () => {
           isEdit={mode === 'edit'}
           isClienteLocked={isClienteRole}
         />
-        <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Información Faltante" maxWidth="max-w-md">
-          <div className="space-y-4">
-            <TextSmall className="text-gray-600 leading-relaxed text-base normal-case">{modalMsg}</TextSmall>
-            <div className="flex justify-end pt-2">
-              <Button onClick={() => setShowModal(false)}>Aceptar</Button>
-            </div>
-          </div>
-        </Modal>
+        {resultModal}
       </>
     );
   }
@@ -461,11 +664,12 @@ const SolicitudVisitaPage = () => {
   if (mode === 'view' && selectedSol) {
     const sol = selectedSol;
     const canEdit   = sol.estadoCodigo === 'PENDIENTE';
-    const canCancel = sol.estadoCodigo === 'PENDIENTE';
+    const canCancel = sol.estadoCodigo === 'PENDIENTE' || sol.estadoCodigo === 'PROGRAMADA';
     // Visita vinculada a esta solicitud (si ya fue programada)
     const visitaVinculada = visitas.find(v => v.solicitudId === sol.id) || null;
 
     return (
+      <>
       <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
         <header className="flex items-center justify-between bg-white p-4 rounded-md border border-gray-100 shadow-sm flex-wrap gap-3">
           <div className="flex items-center gap-4">
@@ -620,6 +824,8 @@ const SolicitudVisitaPage = () => {
           </div>
         </div>
       </div>
+      {resultModal}
+      </>
     );
   }
 
@@ -688,22 +894,22 @@ const SolicitudVisitaPage = () => {
             <Eye size={15} />
           </button>
           {sol.estadoCodigo === 'PENDIENTE' && (
-            <>
-              <button
-                onClick={() => handleEdit(sol)}
-                title="Editar"
-                className="p-1.5 rounded-md text-yellow-600 hover:bg-yellow-50 transition-colors"
-              >
-                <Edit2 size={15} />
-              </button>
-              <button
-                onClick={() => handleRequestCancel(sol)}
-                title="Cancelar solicitud"
-                className="p-1.5 rounded-md text-red-600 hover:bg-red-50 transition-colors"
-              >
-                <Trash2 size={15} />
-              </button>
-            </>
+            <button
+              onClick={() => handleEdit(sol)}
+              title="Editar"
+              className="p-1.5 rounded-md text-yellow-600 hover:bg-yellow-50 transition-colors"
+            >
+              <Edit2 size={15} />
+            </button>
+          )}
+          {(sol.estadoCodigo === 'PENDIENTE' || sol.estadoCodigo === 'PROGRAMADA') && (
+            <button
+              onClick={() => handleRequestCancel(sol)}
+              title="Cancelar solicitud"
+              className="p-1.5 rounded-md text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <Trash2 size={15} />
+            </button>
           )}
         </div>
       ),
@@ -751,14 +957,14 @@ const SolicitudVisitaPage = () => {
           <Eye size={14} /> Ver
         </button>
         {sol.estadoCodigo === 'PENDIENTE' && (
-          <>
-            <button onClick={() => handleEdit(sol)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors text-xs font-semibold">
-              <Edit2 size={14} /> Editar
-            </button>
-            <button onClick={() => handleRequestCancel(sol)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition-colors text-xs font-semibold">
-              <Trash2 size={14} /> Cancelar
-            </button>
-          </>
+          <button onClick={() => handleEdit(sol)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors text-xs font-semibold">
+            <Edit2 size={14} /> Editar
+          </button>
+        )}
+        {(sol.estadoCodigo === 'PENDIENTE' || sol.estadoCodigo === 'PROGRAMADA') && (
+          <button onClick={() => handleRequestCancel(sol)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition-colors text-xs font-semibold">
+            <Trash2 size={14} /> Cancelar
+          </button>
         )}
       </div>
     </Card>
@@ -768,6 +974,7 @@ const SolicitudVisitaPage = () => {
   // LIST VIEW
   // ══════════════════════════════════════════════════════════════════════════
   return (
+    <>
     <div className="space-y-6 animate-in fade-in duration-700">
       <GenericListView
         icon={FileText}
@@ -795,77 +1002,9 @@ const SolicitudVisitaPage = () => {
         }
       />
 
-      {/* Modal cancelación */}
-      <Modal
-        isOpen={showCancelConfirm}
-        onClose={() => setShowCancelConfirm(false)}
-        title="Cancelar Solicitud"
-        maxWidth="max-w-md"
-      >
-        <div className="space-y-6">
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <TextSmall className="text-red-900 leading-relaxed text-base normal-case">
-              ¿Estás seguro que deseas cancelar esta solicitud? Esta acción no se puede deshacer.
-            </TextSmall>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setShowCancelConfirm(false)}>
-              Volver
-            </Button>
-            <Button variant="danger" onClick={handleConfirmCancel} disabled={saving}>
-              {saving ? 'Cancelando...' : 'Sí, cancelar'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Modal validación campos / éxito */}
-      <Modal
-        isOpen={showModal}
-        onClose={() => {
-          setShowModal(false);
-          setLastCreatedId(null);
-        }}
-        title={modalType === 'success' ? '¡Solicitud Enviada!' : 'Información Faltante'}
-        maxWidth="max-w-md"
-      >
-        <div className="space-y-4">
-          {modalType === 'success' ? (
-            <>
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <TextSmall className="text-green-900 leading-relaxed text-base normal-case">{modalMsg}</TextSmall>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={() => {
-                  setShowModal(false);
-                  handleGoList();
-                }}>
-                  Ir a Solicitudes
-                </Button>
-                <Button onClick={() => {
-                  setShowModal(false);
-                  if (lastCreatedId) {
-                    const created = solicitudes.find(s => s.id === lastCreatedId);
-                    if (created) handleView(created);
-                  }
-                }}>
-                  Ver Solicitud
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <TextSmall className="text-red-900 leading-relaxed text-base normal-case">{modalMsg}</TextSmall>
-              </div>
-              <div className="flex justify-end pt-2">
-                <Button onClick={() => setShowModal(false)}>Aceptar</Button>
-              </div>
-            </>
-          )}
-        </div>
-      </Modal>
     </div>
+    {resultModal}
+    </>
   );
 };
 

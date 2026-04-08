@@ -340,7 +340,7 @@ const ConfigurationNavigator = ({ onClose }) => {
                     onChange={(e) => setAssociateContactsSearch(e.target.value)}
                   />
                 </div>
-                <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-70 overflow-y-auto space-y-2 pr-1">
                   {filtered.length === 0 && (
                     <div className="text-center py-8">
                       <Users size={32} className="mx-auto text-gray-300 mb-2" />
@@ -442,7 +442,7 @@ const ConfigurationNavigator = ({ onClose }) => {
                     icon={Tag}
                   />
                 )}
-                <div className="max-h-[260px] overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-65 overflow-y-auto space-y-2 pr-1">
                   {filtered.length === 0 && (
                     <div className="text-center py-8">
                       <Monitor size={32} className="mx-auto text-gray-300 mb-2" />
@@ -553,7 +553,7 @@ const ConfigurationNavigator = ({ onClose }) => {
                     />
                   )}
                 </div>
-                <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
                   {filtered.length === 0 ? (
                     <div className="text-center py-10">
                       <UserCircle2 size={32} className="mx-auto text-gray-300 mb-2" />
@@ -656,7 +656,7 @@ const ConfigurationNavigator = ({ onClose }) => {
                     />
                   )}
                 </div>
-                <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
                   {filtered.length === 0 ? (
                     <div className="text-center py-10">
                       <Monitor size={32} className="mx-auto text-gray-300 mb-2" />
@@ -712,7 +712,7 @@ const ConfigurationNavigator = ({ onClose }) => {
                 />
               </div>
 
-              <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+              <div className="max-h-75 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                 {associateDirectorsModal.allDirectors
                   .filter(d => 
                     !associateDirectorsSearch || 

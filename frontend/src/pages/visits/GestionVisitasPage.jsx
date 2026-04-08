@@ -16,6 +16,8 @@ import Modal from '../../components/ui/Modal';
 import DeviceChecklistCard from '../../components/visits/DeviceChecklistCard';
 import { useVisitas } from '../../hooks/useVisitas';
 import { useNotify } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
+import { ROLES } from '../../utils/constants';
 import { iniciarVisita, guardarAvanceDispositivo, finalizarVisita } from '../../api/visitaApi';
 
 // ─── Info row helper ──────────────────────────────────────────────────────────
@@ -37,6 +39,8 @@ const InfoRow = ({ icon: Icon, label, value }) => (
 const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed }) => {
   const { visitas: visitasHook, loading: loadingVisitas, fetchVisitas } = useVisitas();
   const notify   = useNotify();
+  const { user } = useAuth();
+  const isTecnico = user?.role === ROLES.TECNICO;
   const [activeVisita,         setActiveVisita]         = useState(null);
   const [filters,              setFilters]              = useState({ cliente: [], sucursal: [], estado: [], tecnico: [], fechaDesde: '', fechaHasta: '' });
   const [ejecucionPasos,       setEjecucionPasos]       = useState({});
@@ -328,7 +332,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
           </div>
           <div className="flex items-center gap-3">
             <VisitStatusBadge status={activeVisita.estadoCodigo} />
-            {isProgramado && (
+            {isProgramado && isTecnico && (
               <Button
                 onClick={handleIniciar}
                 disabled={isSaving}
@@ -344,7 +348,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
           {/* Main checklist area */}
           <div className="lg:col-span-2 space-y-4">
             {/* Informativo */}
-            {isProgramado && (
+            {isProgramado && isTecnico && (
               <div className="flex items-center gap-3 p-4 rounded-lg border border-yellow-200 bg-yellow-50">
                 <Clock size={18} className="text-yellow-600 shrink-0" />
                 <TextSmall className="text-yellow-800">

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, AlertCircle, X } from 'lucide-react';
 import Button from '../components/ui/Button';
 
 const ConfirmContext = createContext(null);
@@ -11,7 +11,8 @@ export const ConfirmProvider = ({ children }) => {
     message: '',
     confirmText: 'Confirmar',
     cancelText: 'Cancelar',
-    type: 'danger'
+    type: 'danger',
+    hideCancel: false,
   });
 
   const resolveRef = useRef(null);
@@ -26,7 +27,8 @@ export const ConfirmProvider = ({ children }) => {
       message: options.message || '',
       confirmText: options.confirmText || 'Confirmar',
       cancelText: options.cancelText || 'Cancelar',
-      type: options.type || 'danger'
+      type: options.type || 'danger',
+      hideCancel: options.hideCancel || false,
     });
 
     setIsOpen(true);
@@ -55,11 +57,15 @@ export const ConfirmProvider = ({ children }) => {
             {/* Header / Icon */}
             <div className={`p-6 pb-2 flex flex-col items-center text-center`}>
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
-                config.type === 'danger' ? 'bg-red-50 text-red-500' : 
+                config.type === 'danger'  ? 'bg-red-50 text-red-500' :
+                config.type === 'warning' ? 'bg-amber-50 text-amber-500' :
                 config.type === 'success' ? 'bg-emerald-50 text-emerald-500' :
                 'bg-blue-50 text-blue-500'
               }`}>
-                <AlertTriangle size={32} />
+                {config.type === 'warning'
+                  ? <AlertCircle size={32} />
+                  : <AlertTriangle size={32} />
+                }
               </div>
               <h3 className="text-xl font-bold text-gray-900">{config.title}</h3>
             </div>
@@ -72,20 +78,22 @@ export const ConfirmProvider = ({ children }) => {
             </div>
 
             {/* Actions */}
-            <div className="p-6 pt-8 flex flex-col sm:flex-row-reverse gap-3">
-              <Button 
+            <div className={`p-6 pt-8 flex flex-col sm:flex-row-reverse gap-3 ${config.hideCancel ? 'justify-center' : ''}`}>
+              <Button
                 onClick={handleConfirm}
                 variant={config.type === 'danger' ? 'danger' : config.type === 'success' ? 'success' : 'primary'}
                 className="w-full sm:w-auto px-8"
               >
                 {config.confirmText}
               </Button>
-              <button 
-                onClick={handleCancel}
-                className="w-full sm:w-auto px-8 py-2.5 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors border border-transparent"
-              >
-                {config.cancelText}
-              </button>
+              {!config.hideCancel && (
+                <button
+                  onClick={handleCancel}
+                  className="w-full sm:w-auto px-8 py-2.5 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors border border-transparent"
+                >
+                  {config.cancelText}
+                </button>
+              )}
             </div>
 
             {/* Close button top-right */}

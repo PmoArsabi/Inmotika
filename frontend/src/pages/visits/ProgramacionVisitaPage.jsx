@@ -257,7 +257,7 @@ const ProgramacionVisitaPage = () => {
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!draft.fechaProgramada) {
+    if (!draft.fechaProgramada || draft.tecnicoIds.length === 0) {
       // Light inline validation — no modal
       return;
     }
@@ -357,7 +357,7 @@ const ProgramacionVisitaPage = () => {
           </div>
           <Button
             onClick={handleSave}
-            disabled={saving || !draft.fechaProgramada}
+            disabled={saving || !draft.fechaProgramada || draft.tecnicoIds.length === 0}
             className="flex items-center gap-2"
           >
             <Save size={16} />
@@ -383,10 +383,10 @@ const ProgramacionVisitaPage = () => {
                 isMulti
               />
               {draft.tecnicoIds.length === 0 && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200">
-                  <AlertCircle size={14} className="text-yellow-600 shrink-0" />
-                  <TextTiny className="text-yellow-700">
-                    Se recomienda asignar al menos un técnico antes de programar.
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
+                  <AlertCircle size={14} className="text-red-500 shrink-0" />
+                  <TextTiny className="text-red-700 font-semibold">
+                    Debes asignar al menos un técnico para poder programar la visita.
                   </TextTiny>
                 </div>
               )}
