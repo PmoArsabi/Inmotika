@@ -12,6 +12,7 @@ import { sendEmail, getVisitaEmailRecipients, buildRecipients } from './useEmail
  * @property {string} clienteNombre
  * @property {string} sucursalId
  * @property {string} sucursalNombre
+ * @property {string} sucursalCiudad
  * @property {string} tipoVisitaId
  * @property {string} tipoVisitaCodigo
  * @property {string} tipoVisitaLabel
@@ -72,6 +73,7 @@ const mapRow = (row, tecnicoNameMap = new Map(), dispositivosBySolicitud = new M
     clienteNombre: row.solicitud?.cliente?.razon_social || row.cliente?.razon_social || '',
     sucursalId: row.sucursal_id || row.solicitud?.sucursal_id || '',
     sucursalNombre: row.solicitud?.sucursal?.nombre || row.sucursal?.nombre || '',
+    sucursalCiudad: row.solicitud?.sucursal?.ciudad || row.sucursal?.ciudad || '',
     tipoVisitaId: row.tipo_visita_id || row.solicitud?.tipo_visita_id || '',
     tipoVisitaCodigo: row.solicitud?.tipo_visita?.codigo || row.tipo_visita?.codigo || '',
     tipoVisitaLabel: row.solicitud?.tipo_visita?.nombre || row.tipo_visita?.nombre || '',
@@ -132,7 +134,7 @@ export const useVisitas = () => {
           observaciones,
           estado_id,
           cliente:cliente_id(razon_social),
-          sucursal:sucursal_id(nombre),
+          sucursal:sucursal_id(nombre,ciudad),
           tipo_visita:tipo_visita_id(codigo,nombre),
           solicitud:solicitud_id(
             id,
@@ -143,7 +145,7 @@ export const useVisitas = () => {
             tipo_visita_id,
             estado_id,
             cliente:cliente_id(razon_social),
-            sucursal:sucursal_id(nombre),
+            sucursal:sucursal_id(nombre,ciudad),
             tipo_visita:tipo_visita_id(codigo,nombre)
           ),
           estado:estado_id(codigo,nombre),

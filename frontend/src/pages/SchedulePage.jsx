@@ -6,6 +6,7 @@ import {
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import StatCard from '../components/ui/StatCard';
+import FilterBar from '../components/shared/FilterBar';
 import VisitStatusBadge from '../components/visits/VisitStatusBadge';
 import { TechnicianChipList } from '../components/ui/TechnicianChip';
 import { H1, H2, Subtitle, TextSmall, Metric, Label } from '../components/ui/Typography';
@@ -57,16 +58,6 @@ const toDateOnly = (iso) => {
   if (!iso) return '';
   return iso.slice(0, 10);
 };
-
-// ─── Estado options for the select filter ─────────────────────────────────────
-
-/** @type {Array<{value: string, label: string}>} */
-const ESTADO_OPTIONS = [
-  { value: '',           label: 'Todos los estados' },
-  { value: 'PROGRAMADA', label: 'Programada'        },
-  { value: 'EN_PROGRESO', label: 'En progreso'      },
-  { value: 'COMPLETADA', label: 'Completada'        },
-];
 
 // ─── Tipo badge ────────────────────────────────────────────────────────────────
 
@@ -181,8 +172,7 @@ const SchedulePage = ({ onVisitClick }) => {
   const { user } = useAuth();
 
   const [filterClient, setFilterClient] = useState('');
-  const [filterDate,   setFilterDate]   = useState('');
-  const [filterEstado, setFilterEstado] = useState('');
+  const [filters, setFilters] = useState({ sede: [], ciudad: [], estado: [], fechaDesde: '', fechaHasta: '' });
 
   // ── Computed values ─────────────────────────────────────────────────────────
 
@@ -193,14 +183,34 @@ const SchedulePage = ({ onVisitClick }) => {
     enProgreso: visitas.filter(v => v.estadoCodigo === 'EN_PROGRESO').length,
   }), [visitas]);
 
+  const filterDefs = useMemo(() => {
+    const sedeOpts   = [...new Map(visitas.filter(v => v.sucursalId).map(v => [v.sucursalId, { value: v.sucursalId, label: v.sucursalNombre }])).values()].sort((a, b) => a.label.localeCompare(b.label));
+    const ciudadOpts = [...new Set(visitas.map(v => v.sucursalCiudad).filter(Boolean))].sort().map(c => ({ value: c, label: c }));
+    return [
+      { key: 'sede',      label: 'Sede',      multi: true, options: sedeOpts },
+      { key: 'ciudad',    label: 'Ciudad',    multi: true, options: ciudadOpts },
+      { key: 'estado',    label: 'Estado',    multi: true, options: [
+        { value: 'PROGRAMADA',  label: 'Programada'  },
+        { value: 'EN_PROGRESO', label: 'En Progreso' },
+        { value: 'COMPLETADA',  label: 'Completada'  },
+      ]},
+      { key: 'fechaDesde', label: 'Fecha desde', type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
+      { key: 'fechaHasta', label: 'Fecha hasta', type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
+    ];
+  }, [visitas]);
+
   const filteredVisits = useMemo(() => {
     return visitas.filter(v => {
-      const matchClient = !filterClient || (v.clienteNombre || '').toLowerCase().includes(filterClient.toLowerCase());
-      const matchDate   = !filterDate   || toDateOnly(v.fechaProgramada) === filterDate;
-      const matchEstado = !filterEstado || v.estadoCodigo === filterEstado;
-      return matchClient && matchDate && matchEstado;
+      const matchClient  = !filterClient || (v.clienteNombre || '').toLowerCase().includes(filterClient.toLowerCase());
+      const matchSede    = filters.sede.length === 0    || filters.sede.includes(v.sucursalId);
+      const matchCiudad  = filters.ciudad.length === 0  || filters.ciudad.includes(v.sucursalCiudad);
+      const matchEstado  = filters.estado.length === 0  || filters.estado.includes(v.estadoCodigo);
+      const fecha        = toDateOnly(v.fechaProgramada);
+      const matchDesde   = !filters.fechaDesde || fecha >= filters.fechaDesde;
+      const matchHasta   = !filters.fechaHasta || fecha <= filters.fechaHasta;
+      return matchClient && matchSede && matchCiudad && matchEstado && matchDesde && matchHasta;
     });
-  }, [visitas, filterClient, filterDate, filterEstado]);
+  }, [visitas, filterClient, filters]);
 
   const { dayMonth, weekYear } = formatHeaderDate(new Date());
   const firstName = user?.nombres || 'Técnico';
@@ -208,7 +218,7 @@ const SchedulePage = ({ onVisitClick }) => {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-[1200px] mx-auto space-y-6 animate-in fade-in duration-700 pb-20">
+    <div className="max-w-300 mx-auto space-y-6 animate-in fade-in duration-700 pb-20">
 
       {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-end bg-white p-6 rounded-md border border-gray-100 shadow-sm gap-4">
@@ -263,35 +273,20 @@ const SchedulePage = ({ onVisitClick }) => {
           <Filter size={14} className="text-gray-400" />
           <Subtitle>Filtros</Subtitle>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Input
-            label="Buscar cliente"
-            placeholder="Nombre del cliente..."
-            icon={Search}
-            value={filterClient}
-            onChange={e => setFilterClient(e.target.value)}
-          />
-          <Input
-            label="Fecha programada"
-            type="date"
-            icon={CalendarDays}
-            value={filterDate}
-            onChange={e => setFilterDate(e.target.value)}
-          />
-          {/* Estado native select styled consistently with Input */}
-          <div className="flex flex-col gap-1.5 w-full">
-            <Label className="ml-1">Estado</Label>
-            <select
-              value={filterEstado}
-              onChange={e => setFilterEstado(e.target.value)}
-              className="w-full h-10 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400 transition-all text-sm font-semibold text-gray-900 bg-white"
-            >
-              {ESTADO_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <FilterBar
+          filters={filterDefs}
+          values={filters}
+          onChange={setFilters}
+          leadingSlot={
+            <Input
+              label="Buscar cliente"
+              placeholder="Nombre del cliente..."
+              icon={Search}
+              value={filterClient}
+              onChange={e => setFilterClient(e.target.value)}
+            />
+          }
+        />
       </Card>
 
       {/* Visit list */}

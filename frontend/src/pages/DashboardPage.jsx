@@ -1,12 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
-  ClipboardList, CheckCircle2, Users, Clock, CalendarDays, UserCheck,
-  Smartphone, Target, Building2, Filter, Calendar,
-  Activity, MapPin, UserCircle2, TrendingUp, AlertTriangle, BarChart3,
+  ClipboardList, CheckCircle2, Users, CalendarDays, UserCheck,
+  Building2, Filter, Activity, TrendingUp,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
-import Input from '../components/ui/Input';
-import Select from '../components/ui/Select';
+import FilterBar from '../components/shared/FilterBar';
 import { ROLES } from '../utils/constants';
 import { H3, H2, Subtitle, TextSmall, Metric, Label, TextTiny } from '../components/ui/Typography';
 import { useDashboardKpis } from '../hooks/useDashboardKpis';
@@ -62,14 +60,54 @@ const CoordRow = ({ coord }) => (
 const DashboardPage = ({ data }) => {
   const { user } = useAuth();
   const kpis = useDashboardKpis();
-  const [filters, setFilters] = useState({ fecha: '', estado: '', cliente: '', ciudad: '', tecnico: '' });
+  const [filters, setFilters] = useState({ fecha: '', estado: [], cliente: [], ciudad: [], tecnico: [], coordinador: [] });
 
   const role = user?.role;
   const isAdmin = role === ROLES.ADMIN;
   const isDirector = role === ROLES.DIRECTOR;
   const isCoordinador = role === ROLES.COORDINADOR;
 
-  const ciudades = [...new Set((data.clientes || []).map(c => c.ciudad).filter(Boolean))];
+  const filterDefs = useMemo(() => {
+    const ciudades = [...new Set((data.clientes || []).map(c => c.ciudad).filter(Boolean))];
+    return [
+      {
+        key: 'estado',
+        label: 'Estado Operativo',
+        multi: true,
+        options: [
+          { value: 'PROGRAMADA',  label: 'Programada' },
+          { value: 'EN_PROGRESO', label: 'En Ejecución' },
+          { value: 'COMPLETADA',  label: 'Finalizada' },
+          { value: 'CANCELADA',   label: 'Cancelada' },
+        ],
+      },
+      {
+        key: 'cliente',
+        label: 'Cliente',
+        multi: true,
+        options: (data.clientes || []).map(c => ({ value: c.nombre, label: c.nombre })),
+      },
+      {
+        key: 'ciudad',
+        label: 'Ciudad / Zona',
+        multi: true,
+        options: ciudades.map(c => ({ value: c, label: c })),
+      },
+      {
+        key: 'tecnico',
+        label: 'Líder Técnico',
+        multi: true,
+        options: (data.tecnicos || []).map(t => ({ value: t.nombre, label: t.nombre })),
+      },
+      ...((isDirector || isAdmin) ? [{
+        key: 'coordinador',
+        label: 'Coordinador',
+        multi: true,
+        options: kpis.coordinadores.map(c => ({ value: c.id, label: c.nombre })),
+      }] : []),
+      { key: 'fecha', label: 'Fecha de Corte', type: 'date', dateRole: 'desde' },
+    ];
+  }, [data.clientes, data.tecnicos, isDirector, isAdmin, kpis.coordinadores]);
 
   // ── Stats de visitas (comunes a todos los roles) ──
   const visitaStats = [
@@ -94,13 +132,7 @@ const DashboardPage = ({ data }) => {
           <div className="p-3 bg-red-50 rounded-xl"><Filter size={20} /></div>
           <H3 className="text-xs">Panel de Filtros</H3>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Input label="Fecha de Corte" type="date" icon={Calendar} value={filters.fecha} onChange={e => setFilters({ ...filters, fecha: e.target.value })} />
-          <Select label="Estado Operativo" icon={Activity} options={[{ value: '', label: 'Todos' }, { value: 'PROGRAMADA', label: 'Programada' }, { value: 'EN_PROGRESO', label: 'En Ejecución' }, { value: 'COMPLETADA', label: 'Finalizada' }, { value: 'CANCELADA', label: 'Cancelada' }]} value={filters.estado} onChange={e => setFilters({ ...filters, estado: e.target.value })} />
-          <Select label="Cliente" icon={Building2} options={[{ value: '', label: 'Todos' }, ...(data.clientes || []).map(c => ({ value: c.nombre, label: c.nombre }))]} value={filters.cliente} onChange={e => setFilters({ ...filters, cliente: e.target.value })} />
-          <Select label="Ciudad / Zona" icon={MapPin} options={[{ value: '', label: 'Todas' }, ...ciudades.map(c => ({ value: c, label: c }))]} value={filters.ciudad} onChange={e => setFilters({ ...filters, ciudad: e.target.value })} />
-          <Select label="Líder Técnico" icon={UserCircle2} options={[{ value: '', label: 'Todos' }, ...(data.tecnicos || []).map(t => ({ value: t.nombre, label: t.nombre }))]} value={filters.tecnico} onChange={e => setFilters({ ...filters, tecnico: e.target.value })} />
-        </div>
+        <FilterBar filters={filterDefs} values={filters} onChange={setFilters} />
       </Card>
 
       {/* KPIs de visitas — comunes a todos los roles */}
@@ -143,9 +175,12 @@ const DashboardPage = ({ data }) => {
             </TextSmall>
           ) : (
             <div>
-              {kpis.coordinadores.map(coord => (
-                <CoordRow key={coord.id} coord={coord} />
-              ))}
+              {kpis.coordinadores
+                .filter(c => filters.coordinador.length === 0 || filters.coordinador.includes(c.id))
+                .map(coord => (
+                  <CoordRow key={coord.id} coord={coord} />
+                ))
+              }
             </div>
           )}
         </Card>
