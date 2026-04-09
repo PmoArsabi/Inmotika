@@ -381,16 +381,28 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
     throw new Error(`No se pudo finalizar la visita: ${visitaError.message}`);
   }
 
-  // 2. Sincronizar estado_id + observacion_final en todas las intervenciones activas
-  const { data: intervenciones } = await supabase
+  // 2. Leer intervenciones activas antes del update para calcular conteos reales
+  const { data: intervencionesAntes } = await supabase
+    .from('intervencion')
+    .select('id, estado_id')
+    .eq('visita_id', visitaId)
+    .eq('activo', true);
+
+  const totalDispositivos = (intervencionesAntes || []).length;
+  // Completadas: las que ya tenían estado COMPLETADA antes de este update final
+  const dispositivosCompletados = (intervencionesAntes || [])
+    .filter(i => i.estado_id === estadoId)
+    .length;
+
+  // Sincronizar estado_id + observacion_final en todas las intervenciones activas
+  await supabase
     .from('intervencion')
     .update({
       estado_id: estadoId,
       observacion_final: observacionFinal || null,
     })
     .eq('visita_id', visitaId)
-    .eq('activo', true)
-    .select('id');
+    .eq('activo', true);
 
   // 3. Actualizar el estado de la solicitud de origen a COMPLETADA
   if (visitaRow?.solicitud_id) {
@@ -441,8 +453,8 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
         fechaFin: fechaFinStr,
         tecnicos: tecnicos || '—',
         observacionFinal: observacionFinal || '',
-        dispositivosCompletados: String(intervenciones?.length ?? 0),
-        dispositivosTotal: String(intervenciones?.length ?? 0),
+        dispositivosCompletados: String(dispositivosCompletados),
+        dispositivosTotal: String(totalDispositivos),
         pdfUrl: informeResult?.pdfUrl || '',
         appUrl,
       }, cc);
