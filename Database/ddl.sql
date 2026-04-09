@@ -3209,3 +3209,47 @@ CREATE TRIGGER trg_validate_contacto_sucursal_coherencia
   FOR EACH ROW
   EXECUTE FUNCTION public.validate_contacto_sucursal_coherencia();
 
+
+-- ─── Storage: informes PDF ────────────────────────────────────────────────────
+--
+-- Los PDFs de informes se almacenan en el prefijo informes/{visita_id}/informe.pdf
+-- del bucket privado `inmotika`. El acceso se controla mediante tokens de descarga
+-- (tabla informe_descarga_token) servidos por la Edge Function `download-informe`.
+-- El bucket permanece completamente privado.
+
+-- ─── Tabla: informe_descarga_token ───────────────────────────────────────────
+--
+-- Almacena tokens de descarga de un solo uso para informes PDF.
+-- Cada token es un UUID aleatorio que authoriza el acceso a un informe específico
+-- sin requerir que el destinatario tenga cuenta en el sistema.
+--
+-- Modelo de seguridad:
+--   - Token UUID v4: 122 bits de entropía, imposible de adivinar.
+--   - revocado: permite invalidar un token sin borrar el registro (auditoría).
+--   - La Edge Function `download-informe` valida token + revocado antes de servir.
+--   - El PDF en Storage sigue siendo privado; solo la Edge Function lo accede
+--     usando la SERVICE_ROLE_KEY del servidor (nunca expuesta al cliente).
+
+CREATE TABLE public.informe_descarga_token (
+  id            uuid        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  visita_id     uuid        NOT NULL REFERENCES public.visita(id) ON DELETE CASCADE,
+  storage_path  text        NOT NULL,
+  revocado      boolean     NOT NULL DEFAULT false,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.informe_descarga_token ENABLE ROW LEVEL SECURITY;
+
+-- Solo usuarios autenticados con rol de gestión pueden ver/gestionar tokens.
+-- La Edge Function usa service_role (bypassa RLS) para validar desde el servidor.
+CREATE POLICY "informe_token_management"
+ON public.informe_descarga_token
+FOR ALL
+TO authenticated
+USING (public.is_management_staff())
+WITH CHECK (public.is_management_staff());
+
+CREATE INDEX idx_informe_token_visita ON public.informe_descarga_token(visita_id);
+
+-- Grants mínimos necesarios para que la Edge Function (service_role) opere
+GRANT SELECT, INSERT, UPDATE ON public.informe_descarga_token TO service_role;

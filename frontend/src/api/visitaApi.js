@@ -1,5 +1,6 @@
 import { supabase } from '../utils/supabase';
 import { sendEmail, getVisitaEmailRecipients, buildRecipients } from '../hooks/useEmail';
+import { generateInformeVisita } from '../utils/generateInforme';
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -399,7 +400,7 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
       .eq('id', visitaRow.solicitud_id);
   }
 
-  // 4. Notificar a contactos, coordinadores, directores y admins (fire-and-forget)
+  // 4. Generar informe PDF y notificar (fire-and-forget — no bloquea al técnico)
   if (visitaRow?.sucursal_id) {
     const tecnicos = (visitaRow?.visita_tecnico || [])
       .map(vt => {
@@ -409,26 +410,44 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
       .filter(Boolean)
       .join(', ');
 
-    getVisitaEmailRecipients({
-      actorId: actor?.actorId,
-      actorRole: actor?.actorRole,
-      clienteId: visitaRow.cliente_id,
-      sucursalId: visitaRow.sucursal_id,
-    }).then(allEmails => {
+    const clienteNombre = visitaRow?.cliente?.razon_social || visitaRow?.solicitud?.cliente?.razon_social || '';
+    const sucursalNombre = visitaRow?.sucursal?.nombre || visitaRow?.solicitud?.sucursal?.nombre || '';
+    const tipoVisita = visitaRow?.tipo_visita?.nombre || '';
+    const fechaFinStr = new Date(fechaFin).toLocaleString('es-ES');
+    const appUrl = window.location.origin;
+
+    // Pipeline: recipients + PDF en paralelo, luego email con ambos resultados
+    Promise.all([
+      getVisitaEmailRecipients({
+        actorId: actor?.actorId,
+        actorRole: actor?.actorRole,
+        clienteId: visitaRow.cliente_id,
+        sucursalId: visitaRow.sucursal_id,
+      }),
+      generateInformeVisita(visitaId).catch(err => {
+        // El PDF nunca debe bloquear el flujo; loguear y continuar sin URL
+        console.error('[finalizarVisita] Error generando informe PDF:', err);
+        return null;
+      }),
+    ]).then(([allEmails, informeResult]) => {
       if (!allEmails.length) return;
       const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
+
       sendEmail('visita_finalizada', {
         destinatario,
-        clienteNombre: visitaRow?.cliente?.razon_social || visitaRow?.solicitud?.cliente?.razon_social || '',
-        sucursalNombre: visitaRow?.sucursal?.nombre || visitaRow?.solicitud?.sucursal?.nombre || '',
-        tipoVisita: visitaRow?.tipo_visita?.nombre || '',
-        fechaFin: new Date(fechaFin).toLocaleString('es-ES'),
+        clienteNombre,
+        sucursalNombre,
+        tipoVisita,
+        fechaFin: fechaFinStr,
         tecnicos: tecnicos || '—',
         observacionFinal: observacionFinal || '',
         dispositivosCompletados: String(intervenciones?.length ?? 0),
         dispositivosTotal: String(intervenciones?.length ?? 0),
-        appUrl: window.location.origin,
+        pdfUrl: informeResult?.pdfUrl || '',
+        appUrl,
       }, cc);
+    }).catch(err => {
+      console.error('[finalizarVisita] Error en pipeline de notificación:', err);
     });
   }
 }

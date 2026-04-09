@@ -64,13 +64,13 @@ const DeviceReportCard = ({ device, onStatusChange, onObservationChange }) => {
             <Label>Evidencia Fotográfica</Label>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2">
-            <button className="flex-shrink-0 w-16 h-16 border-2 border-dashed border-gray-200 rounded-md flex flex-col items-center justify-center gap-1 text-gray-300 hover:border-[#D32F2F] hover:text-[#D32F2F] hover:bg-red-50 transition-all">
+            <button className="shrink-0 w-16 h-16 border-2 border-dashed border-gray-200 rounded-md flex flex-col items-center justify-center gap-1 text-gray-300 hover:border-[#D32F2F] hover:text-[#D32F2F] hover:bg-red-50 transition-all">
               <Camera size={16} />
               <TextTiny>Agregar</TextTiny>
             </button>
             {/* Mock de fotos */}
             {[1, 2].map(i => (
-              <div key={i} className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-md border border-gray-200 relative group cursor-pointer overflow-hidden">
+              <div key={i} className="shrink-0 w-16 h-16 bg-gray-100 rounded-md border border-gray-200 relative group cursor-pointer overflow-hidden">
                 <div className="absolute inset-0 flex items-center justify-center text-gray-400">
                    <TextTiny>Foto {i}</TextTiny>
                 </div>
