@@ -1,15 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  ArrowLeft, Edit, Eye, CalendarCheck,
-  Calendar, Building2, User, AlertCircle, Users, Save, Trash2, CheckCircle2, Cpu,
+  Eye, Edit, CalendarCheck,
+  Trash2, CheckCircle2,
 } from 'lucide-react';
-import { H2, H3, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
-import Card from '../../components/ui/Card';
+import { H3, TextSmall } from '../../components/ui/Typography';
 import Button from '../../components/ui/Button';
-import SearchableSelect from '../../components/ui/SearchableSelect';
-import InfoRow from '../../components/ui/InfoRow';
-import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import VisitaMobileCard from '../../components/visits/VisitaMobileCard';
+import { ProgramacionForm, ProgramacionDetalle } from '../../modules/visits/ProgramacionForm';
 import GenericListView from '../../components/shared/GenericListView';
 import FilterBar from '../../components/shared/FilterBar';
 import { TechnicianChipList } from '../../components/ui/TechnicianChip';
@@ -21,21 +18,6 @@ import { useSolicitudesVisita } from '../../hooks/useSolicitudesVisita';
 import { useVisitas } from '../../hooks/useVisitas';
 import { useConfirm } from '../../context/ConfirmContext';
 import ActionResultModal from '../../components/ui/ActionResultModal';
-
-// ─── Local card-section label header (distinct from the page-level SectionHeader) ──
-/**
- * Encabezado de sección dentro de un Card — icono + label pequeño en uppercase.
- * @param {{ icon: React.ElementType, title: string }} props
- */
-// eslint-disable-next-line no-unused-vars
-const CardSection = ({ icon: Icon, title }) => (
-  <div className="flex items-center gap-2 mb-3">
-    <div className="p-1.5 bg-gray-100 rounded-lg">
-      <Icon size={14} className="text-gray-600" />
-    </div>
-    <Label className="text-sm font-bold text-gray-700 uppercase tracking-wide">{title}</Label>
-  </div>
-);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 /**
@@ -53,14 +35,6 @@ const emptyDraft = (solicitud = null) => ({
   fechaProgramada: '',
   observaciones:   '',
 });
-
-/**
- * Formatea un ISO string a formato legible en español.
- * @param {string|null} iso
- * @returns {string}
- */
-const fmtDateTime = (iso) =>
-  iso ? new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 /**
@@ -335,198 +309,23 @@ const ProgramacionVisitaPage = () => {
   // FORM VIEW — Programar / Editar
   // ══════════════════════════════════════════════════════════════════════════
   if (view === 'form') {
-    const isEditing = !!editingVisitaId;
-    const tecnicosSeleccionados = draft.tecnicoIds.map(id => ({
-      value: id,
-      label: tecnicosOptions.find(o => o.value === id)?.label || id,
-    }));
-
-    // Dispositivos disponibles: todos los de la sucursal de la solicitud (branchId de toDeviceDraft)
     const allDispositivos = masterData?.dispositivos || [];
     const dispositivosDisponibles = draft.sucursalId
       ? allDispositivos.filter(d => d.branchId === draft.sucursalId)
       : allDispositivos;
 
     return (
-      <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
-        <header className="flex items-center justify-between bg-white p-4 rounded-md border border-gray-100 shadow-sm flex-wrap gap-3">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleCancel}
-              className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"
-            >
-              <ArrowLeft size={16} />
-            </button>
-            <div>
-              <H2>{isEditing ? 'Editar Programación' : 'Programar Visita'}</H2>
-              <TextSmall className="text-gray-500">
-                {solicitudOrigen
-                  ? `Origen: solicitud ${solicitudOrigen.id.slice(0, 8)}...`
-                  : 'Sin solicitud origen'}
-              </TextSmall>
-            </div>
-          </div>
-          <Button
-            onClick={handleSave}
-            disabled={saving || !draft.fechaProgramada || draft.tecnicoIds.length === 0}
-            className="flex items-center gap-2"
-          >
-            <Save size={16} />
-            {saving
-              ? 'Guardando...'
-              : isEditing
-                ? 'Guardar Cambios'
-                : 'Programar Visita'}
-          </Button>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ── Formulario principal ─────────────────────────────────── */}
-          <div className="lg:col-span-2 space-y-5">
-            {/* Técnicos */}
-            <Card className="p-5 space-y-4">
-              <CardSection icon={Users} title="Asignación de Técnicos" />
-              <SearchableSelect
-                options={tecnicosOptions}
-                value={tecnicosSeleccionados}
-                onChange={opts => updateDraft({ tecnicoIds: opts.map(o => o.value) })}
-                placeholder="Asignar técnicos..."
-                isMulti
-              />
-              {draft.tecnicoIds.length === 0 && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
-                  <AlertCircle size={14} className="text-red-500 shrink-0" />
-                  <TextTiny className="text-red-700 font-semibold">
-                    Debes asignar al menos un técnico para poder programar la visita.
-                  </TextTiny>
-                </div>
-              )}
-            </Card>
-
-            {/* Dispositivos */}
-            {solicitudOrigen && (
-              <Card className="p-5 space-y-3">
-                <CardSection icon={Cpu} title="Dispositivos a Revisar" />
-                {dispositivosDisponibles.length === 0 ? (
-                  <TextTiny className="text-gray-400 italic">
-                    No hay dispositivos registrados para esta sucursal.
-                  </TextTiny>
-                ) : (
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                    {dispositivosDisponibles.map(d => {
-                      const checked = draft.dispositivoIds.includes(d.id);
-                      return (
-                        <label
-                          key={d.id}
-                          className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              const next = checked
-                                ? draft.dispositivoIds.filter(x => x !== d.id)
-                                : [...draft.dispositivoIds, d.id];
-                              updateDraft({ dispositivoIds: next });
-                            }}
-                            className="accent-[#D32F2F] w-4 h-4 shrink-0"
-                          />
-                          <div className="min-w-0">
-                            <TextSmall className="font-semibold truncate">
-                              {d.idInmotika || d.id_inmotika || d.codigoUnico || d.codigo_unico || d.modelo || d.id}
-                            </TextSmall>
-                            {(d.modelo || d.serial) && (
-                              <TextTiny className="text-gray-400">{[d.modelo, d.serial].filter(Boolean).join(' · ')}</TextTiny>
-                            )}
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-                <TextTiny className="text-gray-400">
-                  {draft.dispositivoIds.length} dispositivo{draft.dispositivoIds.length !== 1 ? 's' : ''} seleccionado{draft.dispositivoIds.length !== 1 ? 's' : ''}
-                </TextTiny>
-              </Card>
-            )}
-
-            {/* Fecha programada */}
-            <Card className="p-5 space-y-4">
-              <CardSection icon={Calendar} title="Fecha Programada" />
-              <div>
-                <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
-                  Fecha y Hora <span className="text-red-500">*</span>
-                </Label>
-                <input
-                  type="datetime-local"
-                  value={draft.fechaProgramada}
-                  onChange={e => updateDraft({ fechaProgramada: e.target.value })}
-                  className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm font-semibold bg-white focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
-                />
-                {!draft.fechaProgramada && (
-                  <TextTiny className="text-red-500 mt-1">Este campo es obligatorio.</TextTiny>
-                )}
-              </div>
-            </Card>
-
-            {/* Observaciones */}
-            <Card className="p-5 space-y-2">
-              <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block">
-                Observaciones del Coordinador
-              </Label>
-              <textarea
-                value={draft.observaciones}
-                onChange={e => updateDraft({ observaciones: e.target.value })}
-                rows={3}
-                placeholder="Instrucciones adicionales, acceso al sitio, contacto en sitio..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-semibold resize-y focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
-              />
-            </Card>
-          </div>
-
-          {/* ── Panel lateral: datos de solicitud origen ─────────────── */}
-          <div className="space-y-4">
-            {solicitudOrigen && (
-              <Card className="p-5 bg-linear-to-br from-blue-50 to-indigo-50 border-blue-100 space-y-3">
-                <div className="flex items-center gap-2">
-                  <AlertCircle size={15} className="text-blue-600" />
-                  <Label className="text-sm font-bold text-blue-900">Solicitud Origen</Label>
-                </div>
-                <div className="space-y-2">
-                  <InfoRow icon={Building2} label="Cliente"        value={solicitudOrigen.clienteNombre}  />
-                  <InfoRow icon={Building2} label="Sucursal"       value={solicitudOrigen.sucursalNombre} />
-                  <InfoRow icon={AlertCircle} label="Tipo Visita"  value={solicitudOrigen.tipoVisitaLabel} />
-                  <InfoRow icon={Calendar}  label="Fecha sugerida"
-                    value={fmtDateTime(solicitudOrigen.fechaSugerida)} />
-                </div>
-                {solicitudOrigen.motivo && (
-                  <div className="p-2 rounded bg-white/60 border border-blue-100">
-                    <TextTiny className="text-blue-800 font-semibold mb-0.5">Motivo</TextTiny>
-                    <TextTiny className="text-blue-700 italic">{solicitudOrigen.motivo}</TextTiny>
-                  </div>
-                )}
-                <div className="pt-1">
-                  <VisitStatusBadge status={solicitudOrigen.estadoCodigo} />
-                </div>
-              </Card>
-            )}
-
-            {/* Resumen de programación */}
-            <Card className="p-5 bg-linear-to-br from-gray-50 to-gray-100 space-y-3">
-              <div className="flex items-center gap-2">
-                <CalendarCheck size={15} className="text-gray-600" />
-                <Label className="text-sm font-bold text-gray-900">Resumen</Label>
-              </div>
-              <div className="space-y-2">
-                <InfoRow icon={Users} label="Técnicos asignados"
-                  value={`${draft.tecnicoIds.length} asignado${draft.tecnicoIds.length !== 1 ? 's' : ''}`} />
-                <InfoRow icon={Calendar} label="Fecha programada"
-                  value={draft.fechaProgramada ? fmtDateTime(draft.fechaProgramada) : '—'} />
-              </div>
-            </Card>
-          </div>
-        </div>
-      </div>
+      <ProgramacionForm
+        draft={draft}
+        updateDraft={updateDraft}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        saving={saving}
+        isEditing={!!editingVisitaId}
+        solicitudOrigen={solicitudOrigen}
+        tecnicosOptions={tecnicosOptions}
+        dispositivosDisponibles={dispositivosDisponibles}
+      />
     );
   }
 
@@ -534,97 +333,13 @@ const ProgramacionVisitaPage = () => {
   // DETAIL / VIEW MODE
   // ══════════════════════════════════════════════════════════════════════════
   if (view === 'view' && viewingItem) {
-    const item = viewingItem;
-    const canEdit = item._type === 'visita'
-      ? item.esEditable
-      : item.estadoCodigo === 'PENDIENTE';
-
     return (
-      <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
-        <header className="flex items-center justify-between bg-white p-4 rounded-md border border-gray-100 shadow-sm flex-wrap gap-3">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleCancel}
-              className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"
-            >
-              <ArrowLeft size={16} />
-            </button>
-            <div>
-              <H2>Detalle · {item.id.slice(0, 8)}...</H2>
-              <TextSmall className="text-gray-500">
-                {item.clienteNombre} — {item.sucursalNombre}
-              </TextSmall>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <VisitStatusBadge status={item._type === 'visita' ? item.estadoCodigo : item.estadoCodigo} />
-            {canEdit && (
-              <Button onClick={() => handleSchedule(item)} className="flex items-center gap-2">
-                <Edit size={14} /> Editar
-              </Button>
-            )}
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-5">
-            <Card className="p-5 space-y-4">
-              <CardSection icon={CalendarCheck} title="Datos de la Visita" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InfoRow icon={AlertCircle} label="Tipo"
-                  value={item.tipoVisitaLabel || item.tipoVisitaCodigo || '—'} />
-                <InfoRow icon={Building2}   label="Sucursal"       value={item.sucursalNombre} />
-                {item._type === 'visita' && (
-                  <>
-                    <InfoRow icon={Calendar} label="Fecha Programada" value={fmtDateTime(item.fechaProgramada)} />
-                    <InfoRow icon={Calendar} label="Fecha Inicio"     value={fmtDateTime(item.fechaInicio)} />
-                    <InfoRow icon={Calendar} label="Fecha Fin"        value={fmtDateTime(item.fechaFin)} />
-                    <InfoRow icon={User}     label="Técnicos"
-                      value={item.tecnicosNombres?.join(', ') || '—'} />
-                  </>
-                )}
-                {item._type === 'solicitud' && (
-                  <InfoRow icon={Calendar} label="Fecha Sugerida" value={fmtDateTime(item.fechaSugerida)} />
-                )}
-              </div>
-              {item.observaciones && (
-                <div className="p-3 rounded-lg bg-gray-50 border border-gray-100">
-                  <TextTiny className="text-gray-400 mb-1">Observación</TextTiny>
-                  <TextSmall className="text-gray-700">{item.observaciones}</TextSmall>
-                </div>
-              )}
-              {item.motivo && (
-                <div className="p-3 rounded-lg bg-gray-50 border border-gray-100">
-                  <TextTiny className="text-gray-400 mb-1">Motivo</TextTiny>
-                  <TextSmall className="text-gray-700">{item.motivo}</TextSmall>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            {solicitudOrigen && item._type === 'visita' && (
-              <Card className="p-5 bg-linear-to-br from-blue-50 to-indigo-50 border-blue-100 space-y-3">
-                <div className="flex items-center gap-2">
-                  <AlertCircle size={14} className="text-blue-600" />
-                  <Label className="text-sm font-bold text-blue-900">Solicitud Origen</Label>
-                </div>
-                <InfoRow icon={Building2} label="Cliente"
-                  value={solicitudOrigen.clienteNombre} />
-                <InfoRow icon={Building2} label="Sucursal"
-                  value={solicitudOrigen.sucursalNombre} />
-                <InfoRow icon={Calendar} label="Solicitada el"
-                  value={solicitudOrigen.fechaSolicitud
-                    ? new Date(solicitudOrigen.fechaSolicitud).toLocaleDateString('es-ES')
-                    : '—'} />
-                <InfoRow icon={AlertCircle} label="Tipo Solicitado"
-                  value={solicitudOrigen.tipoVisitaLabel} />
-                <VisitStatusBadge status={solicitudOrigen.estadoCodigo} />
-              </Card>
-            )}
-          </div>
-        </div>
-      </div>
+      <ProgramacionDetalle
+        item={viewingItem}
+        solicitudOrigen={solicitudOrigen}
+        onBack={handleCancel}
+        onEdit={handleSchedule}
+      />
     );
   }
 

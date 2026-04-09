@@ -4,6 +4,7 @@
  */
 import { supabase } from '../utils/supabase';
 import { uploadAndSyncFile } from '../utils/storageUtils';
+import { getSupervisorCCs, buildRecipients, fireAndForgetEmail } from '../hooks/useEmail';
 
 export function isNewClientId(id) {
   if (id == null || id === '') return true;
@@ -30,40 +31,37 @@ export function buildClientePayload(draft, tipoPersonaId) {
 }
 
 /**
+ * Sube un archivo de cliente a Storage y sincroniza la columna en BD.
+ * Si el valor ya es string (URL existente), lo devuelve sin tocar.
+ *
+ * @param {string} clientId
+ * @param {File|string} file
+ * @param {{ fileName: string, column: string }} config
+ * @returns {Promise<string>}
+ */
+async function uploadClientFile(clientId, file, { fileName, column }) {
+  if (!(file instanceof File)) return typeof file === 'string' ? file : '';
+  return uploadAndSyncFile({
+    file,
+    fileName,
+    storageFolder: `clientes/${clientId}`,
+    dbTarget: { table: 'cliente', id: clientId, column },
+  });
+}
+
+/**
  * Sube y sincroniza logo, RUT y cert. bancaria. Acepta File o string.
  */
 export async function syncClientFiles(clientId, draft) {
-  let logoUrl = typeof draft.logoUrl === 'string' ? draft.logoUrl : '';
-  let rutUrl = typeof draft.rutUrl === 'string' ? draft.rutUrl : '';
-  let certBancariaUrl = typeof draft.certBancariaUrl === 'string' ? draft.certBancariaUrl : '';
+  const ext = draft.logoUrl instanceof File
+    ? (draft.logoUrl.name.split('.').pop() || 'jpg').toLowerCase()
+    : 'jpg';
 
-  if (draft.logoUrl instanceof File) {
-    const ext = (draft.logoUrl.name.split('.').pop() || 'jpg').toLowerCase();
-    logoUrl = await uploadAndSyncFile({
-      file: draft.logoUrl,
-      fileName: `logo.${ext}`,
-      storageFolder: `clientes/${clientId}`,
-      dbTarget: { table: 'cliente', id: clientId, column: 'logo_url' },
-    });
-  }
-
-  if (draft.rutUrl instanceof File) {
-    rutUrl = await uploadAndSyncFile({
-      file: draft.rutUrl,
-      fileName: 'rut.pdf',
-      storageFolder: `clientes/${clientId}`,
-      dbTarget: { table: 'cliente', id: clientId, column: 'rut_url' },
-    });
-  }
-
-  if (draft.certBancariaUrl instanceof File) {
-    certBancariaUrl = await uploadAndSyncFile({
-      file: draft.certBancariaUrl,
-      fileName: 'cert_bancaria.pdf',
-      storageFolder: `clientes/${clientId}`,
-      dbTarget: { table: 'cliente', id: clientId, column: 'cert_bancaria_url' },
-    });
-  }
+  const [logoUrl, rutUrl, certBancariaUrl] = await Promise.all([
+    uploadClientFile(clientId, draft.logoUrl, { fileName: `logo.${ext}`, column: 'logo_url' }),
+    uploadClientFile(clientId, draft.rutUrl, { fileName: 'rut.pdf', column: 'rut_url' }),
+    uploadClientFile(clientId, draft.certBancariaUrl, { fileName: 'cert_bancaria.pdf', column: 'cert_bancaria_url' }),
+  ]);
 
   return { logoUrl, rutUrl, certBancariaUrl };
 }
@@ -209,4 +207,27 @@ export async function syncClientDirectors(clientId, directorIds) {
     .upsert(entriesToUpsert, { onConflict: 'cliente_id, director_id' });
 
   if (upsertError) throw upsertError;
+}
+
+/**
+ * Envía el correo de bienvenida al crear un cliente nuevo (fire-and-forget).
+ * No bloquea el flujo de guardado; los errores solo se loguean.
+ *
+ * @param {Object} draft - { nombre, nit, dv, ciudad }
+ * @param {{ id: string, role: string, email: string }} actor - usuario que crea el cliente
+ */
+export function notificarClienteCreado(draft, actor) {
+  getSupervisorCCs({ actorId: actor.id, actorRole: actor.role })
+    .then(supervisorEmails => {
+      const { destinatario, cc } = buildRecipients(actor.email || '', supervisorEmails);
+      fireAndForgetEmail('cliente_creado', {
+        destinatario,
+        nombreCliente: draft.nombre || '',
+        ruc: draft.nit ? `${draft.nit}${draft.dv ? `-${draft.dv}` : ''}` : '—',
+        ciudad: draft.ciudad || '—',
+        responsable: actor.email || '',
+        appUrl: window.location.origin,
+      }, cc);
+    })
+    .catch(err => console.error('[clienteApi] notificarClienteCreado falló:', err));
 }

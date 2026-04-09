@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
-import { sendEmail, getVisitaEmailRecipients, buildRecipients } from './useEmail';
+import { notificarVisitaProgramada } from '../api/visitaApi';
 
 /**
  * @typedef {Object} Visita
@@ -449,48 +449,7 @@ export const useVisitas = () => {
 
       // Notificar a los contactos de la sucursal (fire-and-forget)
       if (payload.sucursalId) {
-        supabase
-          .from('visita')
-          .select(`
-            cliente:cliente_id(razon_social),
-            sucursal:sucursal_id(nombre),
-            tipo_visita:tipo_visita_id(nombre),
-            solicitud:solicitud_id(cliente:cliente_id(razon_social)),
-            visita_tecnico(tecnico:tecnico_id(perfil:usuario_id(nombres, apellidos)))
-          `)
-          .eq('id', inserted.id)
-          .maybeSingle()
-          .then(async ({ data: v }) => {
-            const tecnicos = (v?.visita_tecnico || [])
-              .map(vt => {
-                const p = vt.tecnico?.perfil;
-                return p ? `${p.nombres || ''} ${p.apellidos || ''}`.trim() : null;
-              })
-              .filter(Boolean)
-              .join(', ');
-
-            const allEmails = await getVisitaEmailRecipients({
-              actorId: user?.id,
-              actorRole: user?.role,
-              clienteId: payload.clienteId,
-              sucursalId: payload.sucursalId,
-            });
-            if (!allEmails.length) return;
-
-            const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
-            sendEmail('visita_programada', {
-              destinatario,
-              clienteNombre: v?.cliente?.razon_social || v?.solicitud?.cliente?.razon_social || '',
-              sucursalNombre: v?.sucursal?.nombre || '',
-              tipoVisita: v?.tipo_visita?.nombre || '',
-              fechaProgramada: payload.fechaProgramada
-                ? new Date(payload.fechaProgramada).toLocaleString('es-ES')
-                : '—',
-              tecnicos: tecnicos || '—',
-              coordinador: payload.coordinadorNombre || '',
-              appUrl: window.location.origin,
-            }, cc);
-          });
+        notificarVisitaProgramada(inserted.id, payload, { id: user?.id, role: user?.role });
       }
 
       await fetchVisitas();

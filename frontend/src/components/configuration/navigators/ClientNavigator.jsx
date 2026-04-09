@@ -13,11 +13,10 @@ import {
 import { validateClient, validateBranch } from '../../../utils/validators';
 import { useCatalog } from '../../../hooks/useCatalog';
 import { saveSucursal } from '../../../api/sucursalApi';
-import { saveCliente, syncClientDirectors } from '../../../api/clienteApi';
+import { saveCliente, syncClientDirectors, notificarClienteCreado } from '../../../api/clienteApi';
 import { useUsers } from '../../../hooks/useUsers';
 import { useNotify } from '../../../context/NotificationContext';
 import { useAuth } from '../../../context/AuthContext';
-import { sendEmail, getSupervisorCCs, buildRecipients } from '../../../hooks/useEmail';
 
 const ClientNavigator = ({
   setAssociateContactsModal,
@@ -98,17 +97,7 @@ const ClientNavigator = ({
 
       const isNew = key !== entityKey('cliente', realId);
       if (isNew) {
-        getSupervisorCCs({ actorId: user?.id, actorRole: user?.role }).then(supervisorEmails => {
-          const { destinatario, cc } = buildRecipients(user?.email || '', supervisorEmails);
-          sendEmail('cliente_creado', {
-            destinatario,
-            nombreCliente: draft.nombre || '',
-            ruc: draft.nit ? `${draft.nit}${draft.dv ? `-${draft.dv}` : ''}` : '—',
-            ciudad: draft.ciudad || '—',
-            responsable: user?.email || '',
-            appUrl: window.location.origin,
-          }, cc);
-        });
+        notificarClienteCreado(draft, { id: user?.id, role: user?.role, email: user?.email });
         setData(prev => ({ ...prev, clientes: [...(prev.clientes || []), savedData] }));
         const updatedDraft = toClientDraft({ ...savedData, razon_social: draft.nombre });
         setDrafts(prev => {

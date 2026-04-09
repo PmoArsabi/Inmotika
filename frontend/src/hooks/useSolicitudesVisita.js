@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
 import { sendEmail, getSolicitudVisitaEmailRecipients, buildRecipients } from './useEmail';
+import { syncSolicitudDispositivos } from '../api/solicitudDispositivoApi';
 
 /**
  * @typedef {Object} SolicitudVisita
@@ -79,6 +80,11 @@ export const useSolicitudesVisita = () => {
   const notify = useNotify();
 
   // ── Fetch (2 pasos para evitar ambigüedad PostgREST en joins anidados) ───────
+  // ── Fetch (2 pasos para evitar ambigüedad PostgREST en joins anidados) ───────
+  // PostgREST no puede resolver joins anidados con ambigüedad en claves foráneas
+  // cuando una junction table participa en el embed. El workaround estándar es:
+  //   Paso 1: query principal con los joins directos (sin subembeds en junction)
+  //   Paso 2: batch fetch manual de las relaciones del junction, cruzando por ID.
   const fetchSolicitudes = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -275,47 +281,9 @@ export const useSolicitudesVisita = () => {
         if (updateError) throw updateError;
       }
 
-      // Sincronizar dispositivos: desactivar los que no están en la nueva lista
+      // Sincronizar dispositivos vía API dedicada
       if (payload.dispositivoIds !== undefined) {
-        // Obtener registros actuales
-        const { data: existing } = await supabase
-          .from('solicitud_dispositivo')
-          .select('id,dispositivo_id,activo')
-          .eq('solicitud_id', solicitudId);
-
-        const existingMap = new Map((existing || []).map(e => [e.dispositivo_id, e]));
-        const newSet = new Set(payload.dispositivoIds);
-
-        const toDeactivate = [];
-        const toActivate = [];
-        const toInsert = [];
-
-        newSet.forEach(dId => {
-          const ex = existingMap.get(dId);
-          if (!ex) toInsert.push(dId);
-          else if (!ex.activo) toActivate.push(ex.id);
-        });
-
-        existingMap.forEach((ex, dId) => {
-          if (!newSet.has(dId) && ex.activo) toDeactivate.push(ex.id);
-        });
-
-        const ops = [];
-        if (toDeactivate.length > 0) {
-          ops.push(supabase.from('solicitud_dispositivo').update({ activo: false }).in('id', toDeactivate));
-        }
-        if (toActivate.length > 0) {
-          ops.push(supabase.from('solicitud_dispositivo').update({ activo: true }).in('id', toActivate));
-        }
-        if (toInsert.length > 0) {
-          ops.push(supabase.from('solicitud_dispositivo').insert(
-            toInsert.map(dId => ({ solicitud_id: solicitudId, dispositivo_id: dId, activo: true }))
-          ));
-        }
-
-        const results = await Promise.all(ops);
-        const firstErr = results.find(r => r.error)?.error;
-        if (firstErr) throw firstErr;
+        await syncSolicitudDispositivos(solicitudId, payload.dispositivoIds);
       }
 
       await fetchSolicitudes();

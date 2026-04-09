@@ -30,7 +30,7 @@ const COLOR_MAP = {
   green:  { bg: 'from-green-50 to-green-100/60',  icon: 'text-green-600',  ring: 'bg-green-50 to-green-100'  },
 };
 
-// eslint-disable-next-line no-unused-vars
+ 
 const RoleSection = ({ icon: Icon, label, color = 'blue', children }) => {
   const c = COLOR_MAP[color] || COLOR_MAP.blue;
   return (
@@ -114,7 +114,7 @@ const AvatarUpload = ({ userId, avatarUrl, nombres, isView, isCreating, onChange
       <div className="relative">
         <div
           onClick={handleClick}
-          className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-md border-2 border-gray-200 bg-gradient-to-br from-[#D32F2F] to-[#8B0000] ${canEdit ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+          className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-md border-2 border-gray-200 bg-linear-to-br from-[#D32F2F] to-[#8B0000] ${canEdit ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
         >
           {avatarUrl ? (
             <SecureImage path={avatarUrl} bucket="inmotika" alt="Avatar" className="w-full h-full object-cover" />
@@ -263,7 +263,7 @@ const UserForm = ({
           <Button
             onClick={onSave}
             disabled={isSaving}
-            className="flex items-center gap-2 min-w-[120px]"
+            className="flex items-center gap-2 min-w-30"
           >
             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             {isSaving ? 'Guardando...' : 'Guardar'}

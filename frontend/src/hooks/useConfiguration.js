@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useNotify } from '../context/NotificationContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { getEstadoInactivoId } from '../api/estadoApi';
 
 /**
  * Mapa de tipo de entidad → función de soft-delete en Supabase.
@@ -11,18 +12,6 @@ import { useConfirm } from '../context/ConfirmContext';
  * @param {string} id  - UUID del registro a desactivar
  * @param {string} type - 'clientes' | 'contactos' | 'sucursales' | 'dispositivos' | 'categorias'
  */
-/** Obtiene el UUID del estado INACTIVO del catálogo (código fijo). */
-async function getEstadoInactivoId() {
-  const { data, error } = await supabase
-    .from('catalogo_estado_general')
-    .select('id')
-    .eq('codigo', 'INACTIVO')
-    .maybeSingle();
-  if (error) throw error;
-  if (!data?.id) throw new Error('Estado INACTIVO no encontrado en catálogo_estado_general');
-  return data.id;
-}
-
 async function softDeleteInDB(id, type) {
   switch (type) {
     case 'clientes': {

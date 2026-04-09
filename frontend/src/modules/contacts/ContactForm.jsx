@@ -1,14 +1,14 @@
 import React, { useRef } from 'react';
 import {
   User, IdCard, Mail, Calendar, Briefcase, Heart, MessageSquare,
-  Building2, GitBranch, Shield, CheckCircle2, Camera,
+  Building2, Shield, CheckCircle2, Camera,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Switch from '../../components/ui/Switch';
 import PhoneInput from '../../components/ui/PhoneInput';
-import SearchableSelect from '../../components/ui/SearchableSelect';
+import MultiSelectDropdown from '../../components/ui/MultiSelectDropdown';
 import SecureImage from '../../components/ui/SecureImage';
 import { TextTiny } from '../../components/ui/Typography';
 import { useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
@@ -46,7 +46,7 @@ const ContactAvatarBlock = ({ hasAccess, usuarioId, avatarPreview, nombres, isEd
       <div className="relative">
         <div
           onClick={handleClick}
-          className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-md border-2 border-gray-200 bg-gradient-to-br from-[#D32F2F] to-[#8B0000] ${canEdit ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+          className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-md border-2 border-gray-200 bg-linear-to-br from-[#D32F2F] to-[#8B0000] ${canEdit ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
         >
           {hasAccess && avatarPath && !avatarPreview ? (
             <SecureImage path={avatarPath} bucket="inmotika" alt="Avatar" className="w-full h-full object-cover" fallback={<span className="text-white text-2xl font-black">{initials}</span>} />
@@ -117,7 +117,7 @@ const ContactForm = ({
           <Button
             onClick={onSave}
             disabled={isSaving}
-            className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0 min-w-[160px]"
+            className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0 min-w-40"
           >
             {isSaving ? (
               savingStep === 'inviting' ? 'Enviando invitación...' : 'Guardando...'
@@ -135,38 +135,34 @@ const ContactForm = ({
           <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Asignación</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Cliente: desplegable normal */}
-          <Select
+          {/* Cliente — single-select emulado con MultiSelectDropdown */}
+          <MultiSelectDropdown
             label="Cliente"
-            value={selectedClientId || ''}
-            onChange={(e) => {
+            options={clientOptions}
+            value={selectedClientId ? [String(selectedClientId)] : []}
+            onChange={(vals) => {
               if (!isEditing) return;
-              const value = e.target.value || '';
-              const opt = clientOptions.find(o => String(o.value) === String(value)) || null;
+              // Solo permite una selección: si ya había uno y se desmarca → null
+              const previous = selectedClientId ? String(selectedClientId) : null;
+              const next = vals.find(v => v !== previous) || (vals.includes(previous) ? previous : null);
+              const opt = next ? (clientOptions.find(o => String(o.value) === next) || null) : null;
               onClientChange(opt);
             }}
-            options={[{ value: '', label: 'Seleccionar cliente...' }, ...clientOptions]}
-            icon={Building2}
-            viewMode={!isEditing}
+            placeholder="Seleccionar cliente..."
+            disabled={!isEditing}
             error={clientError}
-            required
           />
 
-          {/* Sucursales: desplegable multi-select */}
-          {hasClient && (
-            <SearchableSelect
-              label="Sucursales"
-              value={selectedBranchValues}
-              onChange={onBranchesChange}
-              options={availableBranchOptions}
-              isMulti
-              error={branchError}
-              placeholder="Buscar sucursales..."
-              icon={GitBranch}
-              isDisabled={!isEditing}
-              viewMode={!isEditing}
-            />
-          )}
+          {/* Sucursales */}
+          <MultiSelectDropdown
+            label="Sucursales"
+            options={availableBranchOptions}
+            value={selectedBranchValues}
+            onChange={isEditing ? onBranchesChange : () => {}}
+            placeholder={hasClient ? 'Seleccionar sucursales...' : 'Selecciona un cliente primero'}
+            disabled={!isEditing || !hasClient}
+            error={branchError}
+          />
         </div>
       </div>
 

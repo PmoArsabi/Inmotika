@@ -32,42 +32,27 @@ export async function uploadAndSyncFile({
 
   const finalPath = `${storageFolder}/${fileName}`;
 
-  try {
-    // 1. Upload to Storage (deterministic path)
-    console.log(`[storageUtils] Uploading to ${bucket}/${finalPath}...`);
-    const { error: uploadError } = await supabase.storage
-      .from(bucket)
-      .upload(finalPath, file, { 
-        upsert: true,
-        cacheControl: '3600'
-      });
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(finalPath, file, { upsert: true, cacheControl: '3600' });
 
-    if (uploadError) throw uploadError;
-    console.log(`[storageUtils] Upload successful: ${finalPath}`);
+  if (uploadError) throw new Error(`[storageUtils] Upload failed (${finalPath}): ${uploadError.message}`);
 
-    // 2. Update Database Record if target provided
-    if (dbTarget) {
-      const { table, id, column } = dbTarget;
-      console.log(`[storageUtils] Syncing DB: ${table}.${column} for ID ${id}...`);
-      const { data: updateData, error: dbError } = await supabase
-        .from(table)
-        .update({ [column]: finalPath })
-        .eq('id', id)
-        .select();
+  if (dbTarget) {
+    const { table, id, column } = dbTarget;
+    const { data: updateData, error: dbError } = await supabase
+      .from(table)
+      .update({ [column]: finalPath })
+      .eq('id', id)
+      .select();
 
-      if (dbError) throw dbError;
-      if (!updateData || updateData.length === 0) {
-        console.warn(`[storageUtils] Warning: No rows updated in ${table} for ID ${id}. Record might not exist.`);
-      } else {
-        console.log(`[storageUtils] DB sync successful.`);
-      }
+    if (dbError) throw new Error(`[storageUtils] DB sync failed (${table}.${column}): ${dbError.message}`);
+    if (!updateData || updateData.length === 0) {
+      throw new Error(`[storageUtils] No rows updated in ${table} for ID ${id} — record may not exist.`);
     }
-
-    return finalPath;
-  } catch (error) {
-    console.error(`[storageUtils] Error uploading/syncing ${fileName}:`, error);
-    throw error;
   }
+
+  return finalPath;
 }
 
 /**

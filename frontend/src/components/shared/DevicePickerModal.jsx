@@ -353,7 +353,7 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
  * @param {Function} onClose
  * @param {Function} onChange   - (newSelected: string[]) => void
  */
-// eslint-disable-next-line no-unused-vars
+ 
 const PickerFilterSelect = ({ label, icon: Icon, options, selected, isOpen, onToggle, onClose, onChange }) => {
   const triggerRef  = useRef(null);
   const dropdownRef = useRef(null);
@@ -499,7 +499,7 @@ const PickerFilterSelect = ({ label, icon: Icon, options, selected, isOpen, onTo
 };
 
 // ─── Celda de detalle ──────────────────────────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
+ 
 const DetailCell = ({ icon: IconComp, label, value }) => (
   <div className="flex flex-col gap-0.5">
     <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-gray-400">

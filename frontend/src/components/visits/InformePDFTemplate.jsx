@@ -339,7 +339,7 @@ function InfoRow({ label, value }) {
 
 /**
  * Bloque de un paso con su tabla de actividades.
- * @param {{ paso: import('../hooks/useInformeVisita').PasoEjecucion }} props
+ * @param {{ paso: import('../api/informeApi').PasoEjecucion }} props
  */
 function PasoBlock({ paso }) {
   return (
@@ -387,7 +387,7 @@ function PasoBlock({ paso }) {
 
 /**
  * Sección completa de un dispositivo.
- * @param {{ dispositivo: import('../hooks/useInformeVisita').DispositivoInforme, index: number }} props
+ * @param {{ dispositivo: import('../api/informeApi').DispositivoInforme, index: number }} props
  */
 function DispositivoBlock({ dispositivo: d, index }) {
   return (
@@ -471,7 +471,7 @@ function DispositivoBlock({ dispositivo: d, index }) {
  * Template HTML del informe de mantenimiento preventivo.
  * Se renderiza en un div offscreen y luego html2canvas + jsPDF lo convierte a PDF.
  *
- * @param {{ informe: import('../hooks/useInformeVisita').InformeVisita }} props
+ * @param {{ informe: import('../api/informeApi').InformeVisita }} props
  */
 export default function InformePDFTemplate({ informe }) {
   const hoy = fmtFecha(new Date().toISOString());

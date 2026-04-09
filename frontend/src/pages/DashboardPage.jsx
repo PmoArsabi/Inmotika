@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 // ─── Sub-componentes locales ──────────────────────────────────────────────────
 
 /** Tarjeta de stat simple (visitas / totales). */
-// eslint-disable-next-line no-unused-vars
+ 
 const StatCard = ({ label, value, sub, icon: Icon, color }) => (
   <Card className="p-8">
     <div className="flex justify-between items-start">

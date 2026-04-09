@@ -1,7 +1,51 @@
-import { validatePhoneNumber } from '../components/ui/PhoneInput';
-
 export const isEmailValid = (e) => !e || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e).toLowerCase());
 export const isPhoneValid = (p) => !p || /^\+?[\d\s-]{7,}$/.test(p);
+
+/** Dígitos esperados por país ISO. */
+const PHONE_LENGTH = {
+  'CO': 10, 'US': 10, 'MX': 10, 'AR': 10, 'CL': 9,
+  'PE': 9,  'EC': 9,  'VE': 10, 'BO': 8,  'PY': 9,
+  'UY': 8,  'BR': 11, 'CR': 8,  'PA': 8,  'GT': 8,
+  'HN': 8,  'NI': 8,  'SV': 8,  'DO': 10, 'CU': 8,
+  'ES': 9,  'FR': 10, 'GB': 10, 'DE': 10, 'IT': 10,
+  'PT': 9,  'NL': 10, 'BE': 9,  'CH': 9,  'AT': 10,
+  'CA': 10, 'AU': 9,  'NZ': 9,  'JP': 10, 'CN': 11,
+  'IN': 10, 'KR': 10, 'SG': 8,  'MY': 9,  'TH': 9,
+};
+
+/**
+ * Valida un número de teléfono según el país ISO.
+ * Devuelve null si es válido, string de error si no lo es.
+ * @param {string} phoneNumber
+ * @param {string} countryIso - Código ISO del país (ej. 'CO')
+ * @returns {string|null}
+ */
+export const validatePhoneNumber = (phoneNumber, countryIso) => {
+  if (!phoneNumber) return null;
+  const digits = String(phoneNumber).replace(/\D/g, '');
+  if (!digits) return null;
+
+  const expectedLen = PHONE_LENGTH[countryIso];
+  if (expectedLen && digits.length !== expectedLen) {
+    return `Debe tener ${expectedLen} dígitos`;
+  }
+  if (/^(\d)\1+$/.test(digits)) return 'Número inválido';
+
+  if (digits.length >= 7) {
+    let asc = true;
+    for (let i = 1; i < digits.length; i++) {
+      if (+digits[i] !== +digits[i - 1] + 1) { asc = false; break; }
+    }
+    if (asc) return 'Número inválido';
+
+    let desc = true;
+    for (let i = 1; i < digits.length; i++) {
+      if (+digits[i] !== +digits[i - 1] - 1) { desc = false; break; }
+    }
+    if (desc) return 'Número inválido';
+  }
+  return null;
+};
 
 /**
  * Detecta secuencias de dígitos inválidas:

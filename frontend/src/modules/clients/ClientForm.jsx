@@ -405,7 +405,7 @@ const ClientForm = ({
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="relative flex-1 min-w-[200px] max-w-md">
+                    <div className="relative flex-1 min-w-50 max-w-md">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                       <input
                         type="text"

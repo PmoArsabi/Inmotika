@@ -21,7 +21,7 @@ import { ROLES } from '../../utils/constants';
 import { iniciarVisita, guardarAvanceDispositivo, finalizarVisita } from '../../api/visitaApi';
 
 // ─── Info row helper ──────────────────────────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
+ 
 const InfoRow = ({ icon: Icon, label, value }) => (
   <div className="flex items-start gap-2">
     <Icon size={14} className="text-gray-400 mt-0.5 shrink-0" />

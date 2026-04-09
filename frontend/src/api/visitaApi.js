@@ -26,6 +26,62 @@ async function getCatalogoId(tipo, codigo) {
   return data.id;
 }
 
+// ─── Notificaciones ──────────────────────────────────────────────────────────
+
+/**
+ * Envía el email `visita_programada` a los destinatarios de la visita.
+ * Fire-and-forget: nunca lanza; los errores se loguean.
+ *
+ * @param {string} visitaId
+ * @param {{ clienteId: string, sucursalId: string, fechaProgramada: string, coordinadorNombre?: string }} payload
+ * @param {{ id: string, role: string }} actor - usuario que programa la visita
+ */
+export function notificarVisitaProgramada(visitaId, payload, actor) {
+  supabase
+    .from('visita')
+    .select(`
+      cliente:cliente_id(razon_social),
+      sucursal:sucursal_id(nombre),
+      tipo_visita:tipo_visita_id(nombre),
+      solicitud:solicitud_id(cliente:cliente_id(razon_social)),
+      visita_tecnico(tecnico:tecnico_id(perfil:usuario_id(nombres, apellidos)))
+    `)
+    .eq('id', visitaId)
+    .maybeSingle()
+    .then(async ({ data: v }) => {
+      const tecnicos = (v?.visita_tecnico || [])
+        .map(vt => {
+          const p = vt.tecnico?.perfil;
+          return p ? `${p.nombres || ''} ${p.apellidos || ''}`.trim() : null;
+        })
+        .filter(Boolean)
+        .join(', ');
+
+      const allEmails = await getVisitaEmailRecipients({
+        actorId: actor?.id,
+        actorRole: actor?.role,
+        clienteId: payload.clienteId,
+        sucursalId: payload.sucursalId,
+      });
+      if (!allEmails.length) return;
+
+      const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
+      sendEmail('visita_programada', {
+        destinatario,
+        clienteNombre: v?.cliente?.razon_social || v?.solicitud?.cliente?.razon_social || '',
+        sucursalNombre: v?.sucursal?.nombre || '',
+        tipoVisita: v?.tipo_visita?.nombre || '',
+        fechaProgramada: payload.fechaProgramada
+          ? new Date(payload.fechaProgramada).toLocaleString('es-ES')
+          : '—',
+        tecnicos: tecnicos || '—',
+        coordinador: payload.coordinadorNombre || '',
+        appUrl: window.location.origin,
+      }, cc);
+    })
+    .catch(err => console.error('[visitaApi] notificarVisitaProgramada falló:', err));
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -191,71 +247,77 @@ export async function uploadEvidencia(visitaId, dispositivoId, intervencionId, f
  * @throws {Error} Si alguna operación de BD falla
  */
 export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos, pasoData, actividadData, evidencias = { etiqueta: null, fotos: [] }, codigoEtiqueta = null) {
-  // 1. Buscar intervención existente para este dispositivo en la visita
-  const { data: existingIntervencion, error: fetchIntErr } = await supabase
+  const intervencionId = await resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta);
+  const now = new Date().toISOString();
+  await savePasosEjecucion(intervencionId, allPasos, pasoData, actividadData, now);
+  await saveActividadStates(intervencionId, actividadData);
+  await uploadEvidenciasDispositivo(visitaId, dispositivoId, intervencionId, evidencias);
+}
+
+// ─── Helpers internos de guardarAvanceDispositivo ─────────────────────────────
+
+/**
+ * Busca o crea la intervención para este dispositivo en la visita.
+ * Si ya existe y se provee codigoEtiqueta, lo actualiza.
+ *
+ * @param {string} visitaId
+ * @param {string} dispositivoId
+ * @param {string|null} codigoEtiqueta
+ * @returns {Promise<string>} intervencionId
+ */
+async function resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta) {
+  const { data: existing, error: fetchErr } = await supabase
     .from('intervencion')
     .select('id')
     .eq('visita_id', visitaId)
     .eq('dispositivo_id', dispositivoId)
     .maybeSingle();
 
-  if (fetchIntErr) {
-    throw new Error(`Error al buscar intervención: ${fetchIntErr.message}`);
-  }
+  if (fetchErr) throw new Error(`Error al buscar intervención: ${fetchErr.message}`);
 
-  let intervencionId;
-
-  if (existingIntervencion) {
-    intervencionId = existingIntervencion.id;
+  if (existing) {
     if (codigoEtiqueta) {
-      await supabase
-        .from('intervencion')
-        .update({ codigo_etiqueta: codigoEtiqueta })
-        .eq('id', intervencionId);
+      await supabase.from('intervencion').update({ codigo_etiqueta: codigoEtiqueta }).eq('id', existing.id);
     }
-  } else {
-    // Heredar estado_id de la visita para mantener consistencia
-    const { data: visitaRow } = await supabase
-      .from('visita')
-      .select('estado_id')
-      .eq('id', visitaId)
-      .single();
-
-    const { data: newIntervencion, error: insertIntErr } = await supabase
-      .from('intervencion')
-      .insert({
-        visita_id: visitaId,
-        dispositivo_id: dispositivoId,
-        estado_id: visitaRow?.estado_id || null,
-        codigo_etiqueta: codigoEtiqueta || null,
-      })
-      .select('id')
-      .single();
-
-    if (insertIntErr) {
-      throw new Error(`No se pudo crear la intervención: ${insertIntErr.message}`);
-    }
-    intervencionId = newIntervencion.id;
+    return existing.id;
   }
 
-  // 2. Guardar todos los pasos del protocolo (ejecucion_paso) — comentarios + fecha_fin según actividades
-  const now = new Date().toISOString();
-  for (const paso of allPasos) {
-    const pasoProtocoloId = paso.id;
-    const { comentarios } = pasoData[pasoProtocoloId] || {};
+  // Heredar estado_id de la visita para mantener consistencia
+  const { data: visitaRow } = await supabase.from('visita').select('estado_id').eq('id', visitaId).single();
+  const { data: created, error: insertErr } = await supabase
+    .from('intervencion')
+    .insert({ visita_id: visitaId, dispositivo_id: dispositivoId, estado_id: visitaRow?.estado_id || null, codigo_etiqueta: codigoEtiqueta || null })
+    .select('id')
+    .single();
 
-    const { data: existingPaso, error: fetchPasoErr } = await supabase
+  if (insertErr) throw new Error(`No se pudo crear la intervención: ${insertErr.message}`);
+  return created.id;
+}
+
+/**
+ * Upsert de ejecucion_paso para cada paso del protocolo.
+ * Calcula fecha_fin cuando todas las actividades del paso están cerradas.
+ *
+ * @param {string} intervencionId
+ * @param {Array} allPasos
+ * @param {Object} pasoData      - pasoId → { comentarios }
+ * @param {Object} actividadData - actividadId → { estado }
+ * @param {string} now           - ISO timestamp de referencia
+ */
+async function savePasosEjecucion(intervencionId, allPasos, pasoData, actividadData, now) {
+  for (const paso of allPasos) {
+    const { comentarios } = pasoData[paso.id] || {};
+
+    const { data: existingPaso, error: fetchErr } = await supabase
       .from('ejecucion_paso')
       .select('id, fecha_fin')
       .eq('intervencion_id', intervencionId)
-      .eq('paso_protocolo_id', pasoProtocoloId)
+      .eq('paso_protocolo_id', paso.id)
       .maybeSingle();
 
-    if (fetchPasoErr) {
-      throw new Error(`Error al buscar ejecucion_paso: ${fetchPasoErr.message}`);
-    }
+    if (fetchErr) throw new Error(`Error al buscar ejecucion_paso: ${fetchErr.message}`);
 
-    // Paso cerrado cuando todas sus actividades están 'completada' u 'omitida' (ninguna pendiente)
+    // Cerrado cuando todas las actividades están completada u omitida
     const pasoDone = (paso.actividades || []).length === 0 ||
       (paso.actividades || []).every(a => {
         const est = actividadData[a.id]?.estado;
@@ -263,70 +325,65 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
       });
 
     if (existingPaso) {
-      const updatePayload = {
-        comentarios: comentarios ?? null,
-        // Preservar fecha_fin si ya estaba seteada; solo setear si recién se completó
-        fecha_fin: existingPaso.fecha_fin || (pasoDone ? now : null),
-        updated_at: now,
-      };
-      const { error: updatePasoErr } = await supabase
+      const { error: updateErr } = await supabase
         .from('ejecucion_paso')
-        .update(updatePayload)
-        .eq('id', existingPaso.id);
-
-      if (updatePasoErr) {
-        throw new Error(`No se pudo actualizar ejecucion_paso: ${updatePasoErr.message}`);
-      }
-    } else {
-      const { error: insertPasoErr } = await supabase
-        .from('ejecucion_paso')
-        .insert({
-          intervencion_id: intervencionId,
-          paso_protocolo_id: pasoProtocoloId,
-          fecha_inicio: now,
-          fecha_fin: pasoDone ? now : null,
+        .update({
           comentarios: comentarios ?? null,
-        });
-
-      if (insertPasoErr) {
-        throw new Error(`No se pudo crear ejecucion_paso: ${insertPasoErr.message}`);
-      }
+          fecha_fin: existingPaso.fecha_fin || (pasoDone ? now : null), // preservar si ya estaba cerrado
+          updated_at: now,
+        })
+        .eq('id', existingPaso.id);
+      if (updateErr) throw new Error(`No se pudo actualizar ejecucion_paso: ${updateErr.message}`);
+    } else {
+      const { error: insertErr } = await supabase
+        .from('ejecucion_paso')
+        .insert({ intervencion_id: intervencionId, paso_protocolo_id: paso.id, fecha_inicio: now, fecha_fin: pasoDone ? now : null, comentarios: comentarios ?? null });
+      if (insertErr) throw new Error(`No se pudo crear ejecucion_paso: ${insertErr.message}`);
     }
   }
+}
 
-  // 3. Guardar estado de cada actividad (ejecucion_actividad)
-  // Usa upsert con onConflict en el índice único (intervencion_id, actividad_id)
-  // estado: 'pendiente' | 'completada' | 'omitida'
-  // observacion: texto libre opcional (obligatorio cuando estado='omitida')
-  const actividadIds = Object.keys(actividadData);
-  if (actividadIds.length > 0) {
-    const actividadRows = actividadIds.map(actividadId => ({
-      intervencion_id: intervencionId,
-      actividad_id:    actividadId,
-      estado:          actividadData[actividadId].estado ?? 'pendiente',
-      observacion:     actividadData[actividadId].observacion ?? null,
-    }));
+/**
+ * Upsert masivo de ejecucion_actividad usando el índice único (intervencion_id, actividad_id).
+ *
+ * @param {string} intervencionId
+ * @param {Object} actividadData - actividadId → { estado, observacion }
+ */
+async function saveActividadStates(intervencionId, actividadData) {
+  const ids = Object.keys(actividadData);
+  if (!ids.length) return;
 
-    const { error: upsertActErr } = await supabase
-      .from('ejecucion_actividad')
-      .upsert(actividadRows, {
-        onConflict: 'intervencion_id,actividad_id',
-        ignoreDuplicates: false,
-      });
+  const rows = ids.map(actividadId => ({
+    intervencion_id: intervencionId,
+    actividad_id: actividadId,
+    estado: actividadData[actividadId].estado ?? 'pendiente',
+    observacion: actividadData[actividadId].observacion ?? null,
+  }));
 
-    if (upsertActErr) {
-      throw new Error(`No se pudo guardar el avance de actividades: ${upsertActErr.message}`);
-    }
-  }
+  const { error } = await supabase
+    .from('ejecucion_actividad')
+    .upsert(rows, { onConflict: 'intervencion_id,actividad_id', ignoreDuplicates: false });
 
-  // 4. Subir evidencias del dispositivo (etiqueta + fotos adicionales)
+  if (error) throw new Error(`No se pudo guardar el avance de actividades: ${error.message}`);
+}
+
+/**
+ * Sube la foto de etiqueta y las fotos adicionales del dispositivo.
+ * Los errores de upload se loguean pero no interrumpen el flujo.
+ *
+ * @param {string} visitaId
+ * @param {string} dispositivoId
+ * @param {string} intervencionId
+ * @param {{ etiqueta: { file: File }|null, fotos: Array<{ file: File }> }} evidencias
+ */
+async function uploadEvidenciasDispositivo(visitaId, dispositivoId, intervencionId, evidencias) {
   const { etiqueta, fotos = [] } = evidencias;
 
   if (etiqueta?.file instanceof File) {
     try {
       await uploadEvidencia(visitaId, dispositivoId, intervencionId, etiqueta.file, true, 0);
-    } catch (uploadErr) {
-      console.error('[visitaApi] uploadEvidencia (etiqueta) falló:', uploadErr);
+    } catch (err) {
+      console.error('[visitaApi] uploadEvidencia (etiqueta) falló:', err);
     }
   }
 
@@ -336,8 +393,8 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
       try {
         await uploadEvidencia(visitaId, dispositivoId, intervencionId, foto.file, false, fotoNumber);
         fotoNumber += 1;
-      } catch (uploadErr) {
-        console.error('[visitaApi] uploadEvidencia (foto', fotoNumber, ') falló:', uploadErr);
+      } catch (err) {
+        console.error('[visitaApi] uploadEvidencia (foto', fotoNumber, ') falló:', err);
       }
     }
   }

@@ -91,13 +91,12 @@ const ContactNavigator = () => {
     ));
   };
 
-  const handleBranchesChange = (selectedOptions) => {
-    const branchIds = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+  const handleBranchesChange = (branchIds) => {
     updateDraft(key, { associatedBranchIds: branchIds });
     if (branchIds.length > 0) {
-      setStack(prev => prev.map((s, idx) => 
-        idx === prev.length - 1 
-          ? { ...s, branchId: branchIds[0] } 
+      setStack(prev => prev.map((s, idx) =>
+        idx === prev.length - 1
+          ? { ...s, branchId: branchIds[0] }
           : s
       ));
     }
@@ -295,7 +294,7 @@ const ContactNavigator = () => {
         selectedClientId={route.clientId || ''}
         onClientChange={handleClientChange}
         availableBranchOptions={availableBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
-        selectedBranchValues={selectedBranches.map(b => ({ value: String(b.id), label: b.nombre }))}
+        selectedBranchValues={selectedBranches.map(b => String(b.id))}
         onBranchesChange={handleBranchesChange}
         clientError={showErrors ? errors.clienteId : null}
         branchError={null}

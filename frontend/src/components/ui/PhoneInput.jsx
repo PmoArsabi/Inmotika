@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Country } from 'country-state-city';
 import { Label } from './Typography';
 import { Phone, ChevronDown, Search } from 'lucide-react';
+import { validatePhoneNumber as _validatePhoneNumber } from '../../utils/validators';
 
 // ─── Phone codes ────────────────────────────────────────────────────────────
 const COUNTRY_PHONE_CODES = {
@@ -20,17 +21,6 @@ const COUNTRY_PHONE_CODES = {
   'GR': '+30', 'RO': '+40', 'HU': '+36', 'BG': '+359','HR': '+385',
 };
 
-// ─── Expected digit length per country ───────────────────────────────────────
-const PHONE_LENGTH = {
-  'CO': 10, 'US': 10, 'MX': 10, 'AR': 10, 'CL': 9,
-  'PE': 9,  'EC': 9,  'VE': 10, 'BO': 8,  'PY': 9,
-  'UY': 8,  'BR': 11, 'CR': 8,  'PA': 8,  'GT': 8,
-  'HN': 8,  'NI': 8,  'SV': 8,  'DO': 10, 'CU': 8,
-  'ES': 9,  'FR': 10, 'GB': 10, 'DE': 10, 'IT': 10,
-  'PT': 9,  'NL': 10, 'BE': 9,  'CH': 9,  'AT': 10,
-  'CA': 10, 'AU': 9,  'NZ': 9,  'JP': 10, 'CN': 11,
-  'IN': 10, 'KR': 10, 'SG': 8,  'MY': 9,  'TH': 9,
-};
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const getPhoneCode = (isoCode) => COUNTRY_PHONE_CODES[isoCode] || '+1';
@@ -42,34 +32,9 @@ export const formatFullPhone = (countryCode, phoneNumber) => {
   return `${countryCode}${code} ${phoneNumber}`;
 };
 
-/** Returns null if valid, error string if invalid. */
+// Re-exportado desde utils/validators para mantener compatibilidad con importadores directos.
 // eslint-disable-next-line react-refresh/only-export-components
-export const validatePhoneNumber = (phoneNumber, countryIso) => {
-  if (!phoneNumber) return null;
-  const digits = String(phoneNumber).replace(/\D/g, '');
-  if (!digits) return null;
-
-  const expectedLen = PHONE_LENGTH[countryIso];
-  if (expectedLen && digits.length !== expectedLen) {
-    return `Debe tener ${expectedLen} dígitos`;
-  }
-  if (/^(\d)\1+$/.test(digits)) return 'Número inválido';
-
-  if (digits.length >= 7) {
-    let asc = true;
-    for (let i = 1; i < digits.length; i++) {
-      if (+digits[i] !== +digits[i - 1] + 1) { asc = false; break; }
-    }
-    if (asc) return 'Número inválido';
-
-    let desc = true;
-    for (let i = 1; i < digits.length; i++) {
-      if (+digits[i] !== +digits[i - 1] - 1) { desc = false; break; }
-    }
-    if (desc) return 'Número inválido';
-  }
-  return null;
-};
+export const validatePhoneNumber = _validatePhoneNumber;
 
 const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
   value: c.isoCode,
@@ -227,7 +192,7 @@ const PhoneInput = ({
 
         {/* ── Dropdown ── */}
         {open && (
-          <div className={`absolute left-0 top-full mt-1.5 z-[60] w-72 rounded-xl shadow-2xl border overflow-hidden
+          <div className={`absolute left-0 top-full mt-1.5 z-60 w-72 rounded-xl shadow-2xl border overflow-hidden
             ${dark ? 'bg-[#2A2A2A] border-white/10' : 'bg-white border-gray-200'}`}
           >
             {/* Search box */}

@@ -66,8 +66,8 @@ export async function ensureTecnicoRecord(usuarioId, existingTechId) {
  */
 export async function syncTecnicoFiles(techId, files) {
   const base = { documentoCedulaUrl: '', planillaSegSocialUrl: '' };
-  const cedula = files.documentoCedulaUrl ?? files.cedula;
-  const planilla = files.planillaSegSocialUrl ?? files.planillaSS;
+  const cedula = files.documentoCedulaUrl;
+  const planilla = files.planillaSegSocialUrl;
 
   if (cedula instanceof File) {
     base.documentoCedulaUrl = await uploadAndSyncFile({
@@ -151,8 +151,8 @@ export async function syncTecnicoCertificados(techId, certificados) {
  * @param {Object} params
  * @param {string} params.usuarioId
  * @param {string|null} params.techId - id existente o null
- * @param {Object} params.draft - nombres, apellidos, telefono, tipoDocumento, identificacion, avatarUrl?, estadoId?, documentoCedulaUrl, planillaSegSocialUrl, certificados
- *   También puede recibir cedula/planillaSS (alias para uso desde useUsers).
+ * @param {Object} params.draft - nombres, apellidos, telefono, tipoDocumento, identificacion, avatarUrl?, estadoId?,
+ *   documentoCedulaUrl|cedula (File|string), planillaSegSocialUrl|planillaSS (File|string), certificados
  * @returns {Promise<{ techId: string, documentoCedulaUrl: string, planillaSegSocialUrl: string, certificados: Array }>}
  */
 export async function saveTecnico({ usuarioId, techId, draft }) {
@@ -162,10 +162,8 @@ export async function saveTecnico({ usuarioId, techId, draft }) {
   const resolvedTechId = await ensureTecnicoRecord(usuarioId, techId || draft.id);
 
   const files = await syncTecnicoFiles(resolvedTechId, {
-    documentoCedulaUrl: draft.documentoCedulaUrl,
-    planillaSegSocialUrl: draft.planillaSegSocialUrl,
-    cedula: draft.cedula,
-    planillaSS: draft.planillaSS,
+    documentoCedulaUrl: draft.documentoCedulaUrl ?? draft.cedula ?? null,
+    planillaSegSocialUrl: draft.planillaSegSocialUrl ?? draft.planillaSS ?? null,
   });
 
   const certificados = await syncTecnicoCertificados(resolvedTechId, draft.certificados || []);

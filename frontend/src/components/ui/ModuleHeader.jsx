@@ -7,7 +7,7 @@ const ModuleHeader = ({
   icon: Icon,
   onNewClick,
   newButtonLabel = 'Nuevo',
-  newButtonIcon: NewIcon = Plus, // eslint-disable-line no-unused-vars
+  newButtonIcon: NewIcon = Plus,  
   extraActions,
   filterContent,
 }) => {

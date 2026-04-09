@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase';
+import { clearCatalogCache } from '../hooks/useCatalog';
+import { clearEstadoCache } from '../api/estadoApi';
 
 const AuthContext = createContext({});
 
@@ -110,10 +112,15 @@ export const AuthProvider = ({ children }) => {
           }
         }
 
+        if (!roleCode) {
+          // rol_id existe pero no se pudo resolver → perfil incompleto, no asumimos rol
+          console.warn('[AuthContext] No se pudo resolver el rol del usuario:', userId);
+        }
+
         setUser({
           ...profile,
-          role: roleCode || 'CLIENTE',
-          roleName: roleName || 'Cliente',
+          role: roleCode ?? null,
+          roleName: roleName ?? null,
           status: statusCode,
           email: currentSession?.user?.email ?? profile.email ?? null,
           nombres: profile.nombres || '',
@@ -145,6 +152,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
+    clearCatalogCache();
+    clearEstadoCache();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };

@@ -64,7 +64,7 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
               return (
                 <div key={day.key} className="flex flex-row flex-wrap items-center justify-center gap-4 p-3.5 rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 group overflow-hidden">
                   {/* Day Label - Consistent 84px */}
-                  <div className="flex items-center gap-2.5 shrink-0 w-[84px]">
+                  <div className="flex items-center gap-2.5 shrink-0 w-21">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
                     <span className="text-[14px] font-bold text-gray-900 tracking-tight">
                       {day.full}
@@ -73,14 +73,14 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
 
                   {/* Centered Hours - Consistent with Input Style */}
                   <div className="flex flex-col min-[380px]:flex-row items-center justify-center gap-1.5 grow sm:grow-0">
-                    <div className="relative flex items-center justify-center h-10 w-[120px] px-2 bg-gray-50/50 border border-gray-100 rounded-xl">
+                    <div className="relative flex items-center justify-center h-10 w-30 px-2 bg-gray-50/50 border border-gray-100 rounded-xl">
                       <span className="text-[13.5px] font-bold text-gray-700 mr-auto">{formatTime(d.start)}</span>
                       <Clock size={14} className="text-gray-400 absolute right-2.5" />
                     </div>
                     
                     <span className="text-gray-300 font-bold select-none px-0.5 text-center leading-none">-</span>
 
-                    <div className="relative flex items-center justify-center h-10 w-[120px] px-2 bg-gray-50/50 border border-gray-100 rounded-xl">
+                    <div className="relative flex items-center justify-center h-10 w-30 px-2 bg-gray-50/50 border border-gray-100 rounded-xl">
                       <span className="text-[13.5px] font-bold text-gray-700 mr-auto">{formatTime(d.end)}</span>
                       <Clock size={14} className="text-gray-400 absolute right-2.5" />
                     </div>
@@ -154,7 +154,7 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
           return (
             <div key={day.key} className="flex flex-row flex-wrap items-center justify-center gap-4 p-3.5 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all duration-300 group overflow-hidden">
               {/* Day Label - Standardized 84px space centered within the card */}
-              <div className="flex items-center gap-2.5 shrink-0 w-[84px]">
+              <div className="flex items-center gap-2.5 shrink-0 w-21">
                 <div className="w-2 h-2 rounded-full bg-green-500 group-hover:animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
                 <span className="text-[14.5px] font-bold text-gray-900 tracking-tight truncate">
                   {day.full}
@@ -168,7 +168,7 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
                     type="time"
                     value={d.start}
                     onChange={(e) => handleTimeChange(day.key, 'start', e.target.value)}
-                    className="h-10 w-[120px] px-2 bg-gray-50/50 border border-gray-200 rounded-xl text-[13.5px] font-bold focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all"
+                    className="h-10 w-30 px-2 bg-gray-50/50 border border-gray-200 rounded-xl text-[13.5px] font-bold focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all"
                   />
                 </div>
                 
@@ -179,7 +179,7 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
                     type="time"
                     value={d.end}
                     onChange={(e) => handleTimeChange(day.key, 'end', e.target.value)}
-                    className="h-10 w-[120px] px-2 bg-gray-50/50 border border-gray-200 rounded-xl text-[13.5px] font-bold focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all"
+                    className="h-10 w-30 px-2 bg-gray-50/50 border border-gray-200 rounded-xl text-[13.5px] font-bold focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all"
                   />
                 </div>
               </div>

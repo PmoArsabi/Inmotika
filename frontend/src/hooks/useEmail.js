@@ -29,6 +29,19 @@ async function fetchAdminEmails() {
   return (data || []).map(a => a.perfil?.email).filter(Boolean);
 }
 
+/**
+ * Extrae emails de director desde un resultado de Supabase con el join
+ * `director:director_id(perfil:usuario_id(email))`.
+ * Acepta tanto un objeto único como un array.
+ * @param {object|object[]|null} data
+ * @returns {string[]}
+ */
+function extractDirectorEmails(data) {
+  if (!data) return [];
+  const rows = Array.isArray(data) ? data : [data];
+  return rows.map(r => r.director?.perfil?.email).filter(Boolean);
+}
+
 /** Email del director asignado a un coordinador (por perfil_usuario.id del coordinador). */
 async function fetchDirectorEmailByCoordinador(coordinadorUsuarioId) {
   if (!coordinadorUsuarioId) return [];
@@ -38,8 +51,7 @@ async function fetchDirectorEmailByCoordinador(coordinadorUsuarioId) {
     .eq('usuario_id', coordinadorUsuarioId)
     .eq('activo', true)
     .maybeSingle();
-  const email = data?.director?.perfil?.email;
-  return email ? [email] : [];
+  return extractDirectorEmails(data);
 }
 
 /** Emails de los directores activos asignados a un cliente. */
@@ -50,7 +62,7 @@ async function fetchDirectorEmailsByCliente(clienteId) {
     .select('director:director_id(perfil:usuario_id(email))')
     .eq('cliente_id', clienteId)
     .eq('activo', true);
-  return (data || []).map(r => r.director?.perfil?.email).filter(Boolean);
+  return extractDirectorEmails(data);
 }
 
 /** Emails de los coordinadores activos asignados a una sucursal. */
@@ -160,7 +172,6 @@ export function buildRecipients(destinatario, extraCCs = []) {
 
 /**
  * Envía un correo transaccional via la Edge Function send-email.
- * Fire-and-forget: los errores solo se loguean; nunca bloquean el flujo principal.
  *
  * @param {EmailType} type
  * @param {Record<string, string>} data - Debe incluir `destinatario`.
@@ -178,6 +189,21 @@ export async function sendEmail(type, data, cc = []) {
     console.error(`[sendEmail] Error enviando correo tipo "${type}":`, err);
     return { success: false, error: err?.message };
   }
+}
+
+/**
+ * Versión fire-and-forget de sendEmail para usar en flujos async donde el email
+ * no debe bloquear ni propagar errores al caller.
+ * Los errores se loguean pero nunca se lanzan.
+ *
+ * @param {EmailType} type
+ * @param {Record<string, string>} data
+ * @param {string[]} [cc]
+ */
+export function fireAndForgetEmail(type, data, cc = []) {
+  sendEmail(type, data, cc).catch(err =>
+    console.error(`[fireAndForgetEmail] Error enviando "${type}":`, err)
+  );
 }
 
 /**

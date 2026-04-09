@@ -3,7 +3,7 @@ import { createElement } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { supabase } from './supabase';
-import { fetchInformeData } from '../hooks/useInformeVisita';
+import { fetchInformeData } from '../api/informeApi';
 import InformePDFTemplate from '../components/visits/InformePDFTemplate';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
