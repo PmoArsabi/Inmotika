@@ -116,9 +116,10 @@ const UsersPage = ({ setData }) => {
   }, [usuarios, search, filters]);
 
   // Kept for legacy prop on UserTable
+  // CLIENTE se excluye: los contactos con acceso se crean desde la sección de Contactos.
   const roleOptions = useMemo(() => [
     { value: '', label: 'Seleccionar rol' },
-    ...rolOptions,
+    ...rolOptions.filter(r => r.value !== 'CLIENTE'),
   ], [rolOptions]);
 
   // Handlers
