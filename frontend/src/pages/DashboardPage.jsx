@@ -15,15 +15,15 @@ import { useAuth } from '../context/AuthContext';
 /** Tarjeta de stat simple (visitas / totales). */
  
 const StatCard = ({ label, value, sub, icon: Icon, color }) => (
-  <Card className="p-8">
-    <div className="flex justify-between items-start">
-      <div className="flex flex-col gap-3">
-        <Label className="block">{label}</Label>
-        <Metric className="block text-3xl text-gray-900">{value}</Metric>
-        <TextSmall className="text-[10px] uppercase text-gray-400">{sub}</TextSmall>
+  <Card className="p-4 sm:p-6 lg:p-8">
+    <div className="flex justify-between items-start gap-2">
+      <div className="flex flex-col gap-1.5 sm:gap-3 min-w-0">
+        <Label className="block text-[10px] sm:text-xs leading-tight">{label}</Label>
+        <Metric className="block text-2xl sm:text-3xl text-gray-900">{value}</Metric>
+        <TextSmall className="text-[9px] sm:text-[10px] uppercase text-gray-400 leading-tight">{sub}</TextSmall>
       </div>
-      <div className="p-4 bg-gray-50 rounded-4xl shadow-inner">
-        <Icon className={color} size={32} />
+      <div className="p-2.5 sm:p-4 bg-gray-50 rounded-2xl sm:rounded-4xl shadow-inner shrink-0">
+        <Icon className={color} size={20} strokeWidth={1.8} />
       </div>
     </div>
   </Card>
@@ -31,12 +31,12 @@ const StatCard = ({ label, value, sub, icon: Icon, color }) => (
 
 /** Fila de KPI de un coordinador (para Director y Admin). */
 const CoordRow = ({ coord }) => (
-  <div className="flex items-center justify-between gap-4 py-3 border-b border-gray-50 last:border-0">
-    <div className="flex-1 min-w-0">
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 py-3 border-b border-gray-50 last:border-0">
+    <div className="min-w-0">
       <TextSmall className="font-semibold text-gray-900 truncate">{coord.nombre}</TextSmall>
       <TextTiny className="text-gray-400">{coord.visitasTotal} visitas asignadas</TextTiny>
     </div>
-    <div className="flex items-center gap-6 shrink-0">
+    <div className="grid grid-cols-3 sm:flex sm:items-center sm:gap-6 gap-2">
       <div className="text-center">
         <TextTiny className="text-gray-400 uppercase tracking-wide">Completadas</TextTiny>
         <TextSmall className="font-bold text-green-600">{coord.visitasCompletadas}</TextSmall>
@@ -45,7 +45,7 @@ const CoordRow = ({ coord }) => (
         <TextTiny className="text-gray-400 uppercase tracking-wide">Pendientes</TextTiny>
         <TextSmall className="font-bold text-yellow-500">{coord.visitasPendientes}</TextSmall>
       </div>
-      <div className="text-center min-w-14">
+      <div className="text-center sm:min-w-14">
         <TextTiny className="text-gray-400 uppercase tracking-wide">Efectividad</TextTiny>
         <TextSmall className={`font-bold ${coord.efectividad >= 80 ? 'text-green-600' : coord.efectividad >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>
           {coord.efectividad}%
@@ -136,7 +136,7 @@ const DashboardPage = ({ data }) => {
       </Card>
 
       {/* KPIs de visitas — comunes a todos los roles */}
-      <div className={`grid grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-4'} gap-6`}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         {visitaStats.map((s, i) => (
           <StatCard key={i} {...s} />
         ))}
@@ -153,12 +153,12 @@ const DashboardPage = ({ data }) => {
 
       {/* KPIs por coordinador — DIRECTOR y ADMIN */}
       {(isDirector || isAdmin) && (
-        <Card className="p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-blue-50 rounded-xl text-blue-600"><Users size={20} /></div>
-            <div>
-              <H2>Rendimiento por Coordinador</H2>
-              <Subtitle>
+        <Card className="p-4 sm:p-6 lg:p-8">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <div className="p-2.5 sm:p-3 bg-blue-50 rounded-xl text-blue-600 shrink-0"><Users size={18} /></div>
+            <div className="min-w-0">
+              <H2 className="text-sm sm:text-base">Rendimiento por Coordinador</H2>
+              <Subtitle className="text-xs leading-tight">
                 {isDirector ? 'Coordinadores bajo tu supervisión' : 'Todos los coordinadores activos'}
               </Subtitle>
             </div>

@@ -1,57 +1,184 @@
-import React from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { Label } from './Typography';
 
-const Select = ({ label, icon: Icon, options = [], value, onChange, error, required, dark = false, viewMode = false, className = '', ...props }) => (
-  <div className={`flex flex-col gap-1.5 w-full ${className}`}>
-    {label && (
-      <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
-        {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
-      </Label>
-    )}
-    <div className="relative group">
-      {Icon && (
-        <Icon
-          size={16}
-          className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors pointer-events-none z-10 ${
-            dark ? 'text-gray-500 group-focus-within:text-white' : 'text-gray-400 group-focus-within:text-[#D32F2F]'
-          }`}
-        />
-      )}
-      {viewMode ? (
-        <div className={`w-full h-10 ${Icon ? 'pl-9' : 'px-1'} text-sm font-semibold text-gray-900 flex items-center`}>
-          {options.find(o => o.value === value)?.label || value || <span className="text-gray-400 italic">No especificado</span>}
+/**
+ * Select personalizado de selección única.
+ * Visualmente idéntico a MultiSelectDropdown pero sin checkboxes ni "Seleccionar todo".
+ * API compatible con el <select> nativo anterior:
+ *   value      — string con el value de la opción seleccionada
+ *   onChange   — (e) => void  donde e.target.value es el nuevo valor
+ *   options    — Array<{ value: string, label: string }>
+ */
+const Select = ({
+  label,
+  icon: Icon,
+  options = [],
+  value,
+  onChange,
+  error,
+  required,
+  dark = false,
+  viewMode = false,
+  className = '',
+  placeholder,
+  disabled = false,
+  ...props
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const triggerRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  const selectedOption = options.find(o => String(o.value) === String(value ?? '')) ?? null;
+  const displayText = selectedOption?.label ?? placeholder ?? '';
+  const isEmpty = !selectedOption || selectedOption.value === '';
+
+  const toggle = () => {
+    if (disabled) return;
+    setIsOpen(prev => !prev);
+  };
+
+  useEffect(() => {
+    if (!isOpen || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const dropHeight = Math.min(options.length * 36 + 8, 240);
+    const top = spaceBelow < dropHeight && rect.top > dropHeight
+      ? rect.top - dropHeight - 4
+      : rect.bottom + 4;
+    setDropPos({ top, left: rect.left, width: rect.width });
+  }, [isOpen, options.length]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e) => {
+      if (
+        !triggerRef.current?.contains(e.target) &&
+        !dropdownRef.current?.contains(e.target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isOpen]);
+
+  const handleSelect = (optValue) => {
+    onChange?.({ target: { value: optValue } });
+    setIsOpen(false);
+  };
+
+  if (viewMode) {
+    return (
+      <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+        {label && (
+          <Label className="ml-1">
+            {label}
+            {required && <span className="text-red-500 ml-0.5">*</span>}
+          </Label>
+        )}
+        <div className="relative">
+          {Icon && (
+            <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+          )}
+          <div className={`w-full h-10 ${Icon ? 'pl-9' : 'px-1'} text-sm font-semibold text-gray-900 flex items-center`}>
+            {selectedOption?.label || value || <span className="text-gray-400 italic">No especificado</span>}
+          </div>
         </div>
-      ) : (
-        <>
-          <select
-            className={`w-full h-10 ${Icon ? 'pl-9' : 'px-3'} pr-8 border rounded-md focus:outline-none focus:ring-4 transition-all text-sm font-semibold appearance-none cursor-pointer
-              ${dark
-                ? 'bg-[#2A2A2A] border-transparent text-white focus:ring-white/10'
-                : 'bg-white border-gray-300 text-gray-900 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400'
-              }`}
-            value={value}
-            onChange={onChange}
-            {...props}
-          >
-            {options.map((opt, i) => (
-              <option key={i} value={opt.value} className={dark ? 'bg-[#2A2A2A] text-white' : 'text-gray-900'}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            size={15}
-            className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
-              dark ? 'text-gray-500 group-hover:text-white' : 'text-gray-400 group-hover:text-[#D32F2F]'
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+      {label && (
+        <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
+          {label}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
+        </Label>
+      )}
+
+      <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        disabled={disabled}
+        onClick={toggle}
+        className={[
+          'flex items-center gap-2 w-full h-10 border rounded-md text-sm transition-all select-none text-left',
+          Icon ? 'pl-9' : 'pl-3',
+          'pr-3',
+          disabled
+            ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+            : isOpen
+              ? `border-[#D32F2F] ring-4 ring-[#D32F2F]/5 ${dark ? 'bg-[#2A2A2A] text-white' : 'bg-white text-gray-700'}`
+              : `${dark ? 'bg-[#2A2A2A] border-transparent text-white hover:border-white/10' : `bg-white ${isEmpty ? 'text-gray-400' : 'text-gray-900 font-semibold'} border-gray-300 hover:border-gray-400`}`,
+          error ? 'border-red-400' : '',
+        ].join(' ')}
+        {...props}
+      >
+        {Icon && (
+          <Icon
+            size={16}
+            className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
+              dark ? 'text-gray-500' : isOpen ? 'text-[#D32F2F]' : 'text-gray-400'
             }`}
           />
-        </>
+        )}
+        <span className="truncate flex-1">{displayText}</span>
+        <ChevronDown
+          size={14}
+          className={`shrink-0 transition-transform duration-150 ${isOpen ? 'rotate-180 text-[#D32F2F]' : 'text-gray-400'}`}
+        />
+      </button>
+      </div>
+
+      {error && <span className="text-xs text-red-500 font-bold ml-1">{error}</span>}
+
+      {isOpen && !disabled && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            top: dropPos.top,
+            left: dropPos.left,
+            width: Math.max(dropPos.width, 180),
+            zIndex: 9999,
+          }}
+          className="bg-white border border-gray-200 rounded-md shadow-xl overflow-hidden"
+        >
+          {options.length === 0 ? (
+            <p className="px-3 py-4 text-xs text-gray-400 text-center">Sin opciones disponibles</p>
+          ) : (
+            <ul className="max-h-60 overflow-y-auto py-1">
+              {options.map((opt) => {
+                const isSelected = String(opt.value) === String(value ?? '');
+                return (
+                  <li key={opt.value}>
+                    <button
+                      type="button"
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => handleSelect(opt.value)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
+                        ${isSelected
+                          ? 'bg-red-50 text-[#D32F2F] font-semibold'
+                          : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                      <span className="truncate">{opt.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>,
+        document.body
       )}
     </div>
-    {error && <span className="text-xs text-red-500 font-bold ml-1">{error}</span>}
-  </div>
-);
+  );
+};
 
 export default Select;
