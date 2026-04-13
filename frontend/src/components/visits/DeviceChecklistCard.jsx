@@ -488,10 +488,6 @@ const EvidenciasSection = ({ evidencias, onChange }) => {
  *   Evidencias actuales del dispositivo (gestionadas por el padre)
  * @param {function} props.onDeviceEvidenciasChange  - (patch) => void
  * @param {string}   [props.codigoEtiquetaInicial]   - Código de etiqueta existente (si ya fue guardado)
- * @param {boolean}  [props.isFinalDevice]           - true si es el último dispositivo de la visita (EN_PROGRESO)
- * @param {boolean}  [props.allDevicesDone]          - true si todos los dispositivos están completados
- * @param {string}   [props.observacionFinal]        - Valor del textarea de observación final
- * @param {function} [props.onObservacionChange]     - (string) => void
  */
 const DeviceChecklistCard = ({
   device,
@@ -500,16 +496,12 @@ const DeviceChecklistCard = ({
   ejecucionActividades = {},
   onPasoChange,
   onActividadChange,
-  onSaveAvance,
   viewMode = false,
   isLocked = false,
   deviceEvidencias = { etiqueta: null, fotos: [] },
   onDeviceEvidenciasChange,
   codigoEtiquetaInicial = '',
-  isFinalDevice = false,
-  allDevicesDone = false,
-  observacionFinal = '',
-  onObservacionChange,
+  onEtiquetaChange,
 }) => {
   const [open, setOpen] = useState(!isLocked);
   const [codigoEtiqueta, setCodigoEtiqueta] = useState(codigoEtiquetaInicial);
@@ -627,6 +619,7 @@ const DeviceChecklistCard = ({
                     const raw = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 8);
                     const formatted = raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw;
                     setCodigoEtiqueta(formatted);
+                    onEtiquetaChange?.(device.id, formatted);
                   }}
                   placeholder="XXXX-XXXX"
                   maxLength={9}
@@ -679,51 +672,6 @@ const DeviceChecklistCard = ({
             })()
           )}
 
-          {/* Observación final — en el último dispositivo: editable si allDevicesDone, solo lectura si ya hay valor */}
-          {isFinalDevice && (allDevicesDone || observacionFinal) && (
-            <div className="mt-4 pt-4 border-t border-green-200 space-y-2">
-              {allDevicesDone && (
-                <div className="flex items-center gap-2 text-green-700 mb-1">
-                  <CheckCircle2 size={15} className="shrink-0" />
-                  <span className="text-xs font-bold uppercase tracking-wide">¡Todos los dispositivos completados!</span>
-                </div>
-              )}
-              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block">
-                Observación Final {allDevicesDone && !viewMode && <span className="text-red-500">*</span>}
-              </label>
-              {viewMode || !allDevicesDone ? (
-                <p className="text-sm text-gray-700 px-3 py-2 bg-gray-50 rounded-md border border-gray-200 whitespace-pre-wrap">
-                  {observacionFinal || <span className="text-gray-400 italic">Sin observación final registrada.</span>}
-                </p>
-              ) : (
-                <textarea
-                  value={observacionFinal}
-                  onChange={e => onObservacionChange?.(e.target.value)}
-                  rows={3}
-                  placeholder="Resumen del trabajo realizado, hallazgos generales, recomendaciones..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-y focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all"
-                />
-              )}
-            </div>
-          )}
-
-          {/* Guardar / Finalizar */}
-          {!viewMode && (
-            <div className="pt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => onSaveAvance && onSaveAvance(device.id, deviceEvidencias, codigoEtiqueta || null)}
-                className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase rounded-md transition-all shadow-sm text-white ${
-                  isFinalDevice && allDevicesDone
-                    ? 'bg-green-600 hover:bg-green-700'
-                    : 'bg-[#1A1A1A] hover:bg-black'
-                }`}
-              >
-                {isFinalDevice && allDevicesDone ? <Send size={13} /> : <Save size={13} />}
-                {isFinalDevice && allDevicesDone ? 'Finalizar y Enviar Informe' : 'Guardar · Enviar Avance'}
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>

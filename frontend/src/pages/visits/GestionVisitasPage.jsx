@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Play, Eye, Edit2,
   Calendar, Building2, AlertCircle, Clock,
-  Cpu, ClipboardList, CheckCircle2, User,
+  Cpu, ClipboardList, CheckCircle2, User, Send, Save,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -46,7 +46,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   const [ejecucionPasos,       setEjecucionPasos]       = useState({});
   const [ejecucionActividades, setEjecucionActividades] = useState({});
   const [deviceEvidencias,     setDeviceEvidencias]     = useState({});
-  // Modal finalizar — captura observación final antes de confirmar
+  const [codigoEtiquetas,      setCodigoEtiquetas]      = useState({});
   const [observacionFinal,     setObservacionFinal]     = useState('');
   const [isSaving,             setIsSaving]             = useState(false);
   const [showHelpModal,        setShowHelpModal]        = useState(false);
@@ -168,6 +168,10 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     }));
   };
 
+  const handleEtiquetaChange = (deviceId, valor) => {
+    setCodigoEtiquetas(prev => ({ ...prev, [deviceId]: valor }));
+  };
+
   // ── Iniciar visita (PROGRAMADA → EN_PROCESO) ─────────────────────────────
   /**
    * Actualiza la visita en Supabase (fecha_inicio + estado EN_PROCESO) y
@@ -220,48 +224,42 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
    * @param {{ etiqueta: { file: File, preview: string }|null, fotos: Array<{ file: File, preview: string }> }} evidencias
    *   Evidencias fotográficas capturadas a nivel de dispositivo
    */
-  const handleSaveAvance = async (dispositivoId, evidencias, codigoEtiqueta) => {
-    if (!activeVisita || !dispositivoId || isSaving) return;
-
-    const device = (activeVisita.dispositivos || []).find(d => d.id === dispositivoId);
-    const allPasos = device?.pasos || [];
-    const isFinalStep = allDevicesDone;
-
-    if (isFinalStep && !observacionFinal.trim()) {
-      notify('warning', 'Agrega una observación final antes de finalizar la visita.');
-      return;
-    }
-
+  /**
+   * Guarda el avance de todos los dispositivos en paralelo.
+   * Si allDevicesDone y hay observación final, finaliza la visita.
+   */
+  const handleGuardarTodo = async () => {
+    if (!activeVisita || isSaving) return;
+    const dispositivos = activeVisita.dispositivos || [];
     setIsSaving(true);
     try {
-      await guardarAvanceDispositivo(
-        activeVisita.id,
-        dispositivoId,
-        allPasos,
-        ejecucionPasos,
-        ejecucionActividades,
-        evidencias || { etiqueta: null, fotos: [] },
-        codigoEtiqueta || null,
+      await Promise.all(
+        dispositivos.map(device =>
+          guardarAvanceDispositivo(
+            activeVisita.id,
+            device.id,
+            device.pasos || [],
+            ejecucionPasos,
+            ejecucionActividades,
+            deviceEvidencias[device.id] || { etiqueta: null, fotos: [] },
+            codigoEtiquetas[device.id] || null,
+          )
+        )
       );
 
-      if (isFinalStep) {
+      if (allDevicesDone) {
         await finalizarVisita(activeVisita.id, observacionFinal);
         setFinalizadoModal({
           open: true,
           clienteNombre: activeVisita.clienteNombre,
           sucursalNombre: activeVisita.sucursalNombre,
         });
-        fetchVisitas();
-        return;
+      } else {
+        notify('success', 'Avance guardado correctamente.');
       }
-
-      // Mostrar popup inmediatamente — sin esperar el refresco
-      setSuccessModal({ open: true, deviceNombre: device?.label || 'dispositivo' });
-
-      // Refrescar la lista de visitas en segundo plano (no bloquea UI, no toca el state activo)
       fetchVisitas();
     } catch (err) {
-      console.error('[GestionVisitasPage] handleSaveAvance error:', err);
+      console.error('[GestionVisitasPage] handleGuardarTodo error:', err);
       notify('error', err.message || 'No se pudo guardar el avance. Intenta de nuevo.');
     } finally {
       setIsSaving(false);
@@ -364,11 +362,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
             {activeVisita.dispositivos?.length > 0
               ? activeVisita.dispositivos.map((device, idx) => {
                   const stat = deviceStats[idx];
-                  // Bloqueado si hay un dispositivo en progreso Y este dispositivo no es ese, ni está ya terminado
                   const isLocked = !!(inProgressDevice && inProgressDevice.id !== device.id && !stat.done);
-                  const isLastDevice = idx === activeVisita.dispositivos.length - 1;
-                  // isFinalDevice: último dispositivo, tanto en ejecución como en lectura (para mostrar observacion_final)
-                  const isFinalDevice = isLastDevice && (isEnCurso || viewMode);
                   return (
                     <DeviceChecklistCard
                       key={device.id}
@@ -378,16 +372,12 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
                       ejecucionActividades={ejecucionActividades}
                       onPasoChange={handlePasoChange}
                       onActividadChange={handleActividadChange}
-                      onSaveAvance={handleSaveAvance}
                       viewMode={viewMode || isProgramado}
                       isLocked={isLocked}
                       deviceEvidencias={deviceEvidencias[device.id] || { etiqueta: null, fotos: [] }}
                       onDeviceEvidenciasChange={(patch) => handleDeviceEvidenciasChange(device.id, patch)}
                       codigoEtiquetaInicial={activeVisita.codigoEtiquetaByDevice?.[device.id] || ''}
-                      isFinalDevice={isFinalDevice}
-                      allDevicesDone={allDevicesDone}
-                      observacionFinal={observacionFinal}
-                      onObservacionChange={setObservacionFinal}
+                      onEtiquetaChange={handleEtiquetaChange}
                     />
                   );
                 })
@@ -398,6 +388,53 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
                 </Card>
               )
             }
+
+            {/* Observación final — visible solo cuando todos los dispositivos están completos */}
+            {isEnCurso && !viewMode && allDevicesDone && (
+              <Card className="p-5 space-y-3 border-green-300 bg-green-50/40">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+                  <Label className="text-sm font-bold uppercase tracking-wide text-gray-700">
+                    Observación Final <span className="text-red-500">*</span>
+                  </Label>
+                </div>
+                <TextTiny className="text-gray-500">
+                  Resumen general del trabajo realizado, hallazgos y recomendaciones.
+                </TextTiny>
+                <textarea
+                  value={observacionFinal}
+                  onChange={e => setObservacionFinal(e.target.value)}
+                  rows={4}
+                  placeholder="Ej: Se realizó mantenimiento preventivo completo. Se detectó desgaste en sensor X, se recomienda reemplazo en próxima visita..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-y focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all bg-white"
+                />
+              </Card>
+            )}
+
+            {/* Observación final en modo lectura */}
+            {viewMode && observacionFinal && (
+              <Card className="p-5 space-y-2 border-gray-200">
+                <Label className="text-sm font-bold uppercase tracking-wide text-gray-700">Observación Final</Label>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{observacionFinal}</p>
+              </Card>
+            )}
+
+            {/* Botón global — siempre visible en ejecución */}
+            {isEnCurso && !viewMode && (
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  disabled={isSaving || (allDevicesDone && !observacionFinal.trim())}
+                  onClick={handleGuardarTodo}
+                  className={`flex items-center gap-2 px-6 py-2.5 text-xs font-bold uppercase rounded-md transition-all shadow-sm text-white disabled:opacity-40 disabled:cursor-not-allowed ${
+                    allDevicesDone ? 'bg-green-600 hover:bg-green-700' : 'bg-[#1A1A1A] hover:bg-black'
+                  }`}
+                >
+                  {allDevicesDone ? <Send size={13} /> : <Save size={13} />}
+                  {isSaving ? 'Guardando...' : allDevicesDone ? 'Finalizar y Enviar Informe' : 'Guardar Avance'}
+                </button>
+              </div>
+            )}
 
           </div>
 
