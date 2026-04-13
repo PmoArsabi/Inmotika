@@ -7,7 +7,7 @@ import { supabase } from '../utils/supabase';
 export function isNewContactId(id) {
   if (id == null || id === '') return true;
   const s = String(id);
-  return s.startsWith('C-') || s.length < 20;
+  return s.startsWith('C-') || s.startsWith('NEW-') || s.startsWith('new-') || s.length < 20;
 }
 
 /**
