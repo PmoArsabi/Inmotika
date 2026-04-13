@@ -297,7 +297,8 @@ export const useUsers = () => {
       }
       if (inviteData?.error) throw new Error(inviteData.error);
 
-      setSuccessInfo({ email: user.email, nombres: user.nombres, rol: user.rol, isResend: true });
+      const isRecovery = inviteData?.data?.isRecovery === true;
+      setSuccessInfo({ email: user.email, nombres: user.nombres, rol: user.rol, isResend: true, isRecovery });
     } catch (err) {
       setSuccessInfo({ error: true, message: err.message || 'No se pudo reenviar la invitación' });
     } finally {

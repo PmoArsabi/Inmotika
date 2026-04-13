@@ -60,10 +60,10 @@ const UserSuccessModal = ({ successInfo, onClose }) => {
                     {successInfo.isResend ? <RefreshCw size={28} /> : <Send size={28} />}
                   </div>
                   <h2 className="font-black text-2xl tracking-tight">
-                    {successInfo.isResend ? '¡Invitación Reenviada!' : '¡Invitación Enviada!'}
+                    {successInfo.isRecovery ? '¡Enlace de Acceso Enviado!' : successInfo.isResend ? '¡Invitación Reenviada!' : '¡Invitación Enviada!'}
                   </h2>
                   <p className="text-white/80 text-sm mt-1">
-                    {successInfo.isResend ? 'Se volvió a enviar el correo de activación.' : 'El correo de activación fue enviado con éxito.'}
+                    {successInfo.isRecovery ? 'Se envió un enlace de acceso al correo del usuario.' : successInfo.isResend ? 'Se volvió a enviar el correo de activación.' : 'El correo de activación fue enviado con éxito.'}
                   </p>
                 </div>
               </div>
