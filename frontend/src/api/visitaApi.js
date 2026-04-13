@@ -62,6 +62,7 @@ export function notificarVisitaProgramada(visitaId, payload, actor) {
         actorRole: actor?.role,
         clienteId: payload.clienteId,
         sucursalId: payload.sucursalId,
+        visitaId,
       });
       if (!allEmails.length) return;
 
@@ -146,6 +147,7 @@ export async function iniciarVisita(visitaId, actor = null) {
       actorRole: actor?.actorRole,
       clienteId: visitaRow.cliente_id,
       sucursalId: visitaRow.sucursal_id,
+      visitaId,
     }).then(allEmails => {
       if (!allEmails.length) return;
       const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
@@ -492,6 +494,7 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
         actorRole: actor?.actorRole,
         clienteId: visitaRow.cliente_id,
         sucursalId: visitaRow.sucursal_id,
+        visitaId,
       }),
       generateInformeVisita(visitaId).catch(err => {
         // El PDF nunca debe bloquear el flujo; loguear y continuar sin URL

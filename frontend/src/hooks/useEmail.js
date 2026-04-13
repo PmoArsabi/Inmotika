@@ -75,6 +75,16 @@ async function fetchCoordinadorEmailsBySucursal(sucursalId) {
   return (data || []).map(r => r.coordinador?.perfil?.email).filter(Boolean);
 }
 
+/** Emails de los técnicos asignados a una visita. */
+async function fetchTecnicoEmailsByVisita(visitaId) {
+  if (!visitaId) return [];
+  const { data } = await supabase
+    .from('visita_tecnico')
+    .select('tecnico:tecnico_id(perfil:usuario_id(email))')
+    .eq('visita_id', visitaId);
+  return (data || []).map(r => r.tecnico?.perfil?.email).filter(Boolean);
+}
+
 /** Emails de los contactos activos de una sucursal. */
 async function fetchContactoEmailsBySucursal(sucursalId) {
   if (!sucursalId) return [];
@@ -121,13 +131,14 @@ export async function getSupervisorCCs(actor) {
  * @returns {Promise<string[]>}
  */
 export async function getVisitaEmailRecipients(actor) {
-  const [contactEmails, coordEmails, directorEmails, supervisorEmails] = await Promise.all([
+  const [contactEmails, coordEmails, directorEmails, supervisorEmails, tecnicoEmails] = await Promise.all([
     fetchContactoEmailsBySucursal(actor.sucursalId),
     fetchCoordinadorEmailsBySucursal(actor.sucursalId),
     fetchDirectorEmailsByCliente(actor.clienteId),
     getSupervisorCCs(actor),
+    fetchTecnicoEmailsByVisita(actor.visitaId),
   ]);
-  return [...contactEmails, ...coordEmails, ...directorEmails, ...supervisorEmails];
+  return [...contactEmails, ...coordEmails, ...directorEmails, ...supervisorEmails, ...tecnicoEmails];
 }
 
 /**
