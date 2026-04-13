@@ -55,8 +55,20 @@ const DeviceNavigator = () => {
       openDeviceSuccess({ isNew: isEditing && !currentDevice, deviceId: mapped.id });
     } catch (err) {
       console.error('Error saving device:', err);
-      notify('error', 'Error al guardar el dispositivo');
       setSaveState({ isSaving: false, savedAt: null });
+
+      if (err?.code === '23505') {
+        const constraint = err?.message || '';
+        if (constraint.includes('id_inmotika')) {
+          notify('error', `Ya existe un dispositivo con el ID Inmotika "${draft.idInmotika}". Usa un identificador diferente.`);
+        } else if (constraint.includes('codigo_unico')) {
+          notify('error', `Ya existe un dispositivo con el código único "${draft.codigoUnico}". Usa un código diferente.`);
+        } else {
+          notify('error', 'Ya existe un dispositivo con uno de los campos únicos ingresados. Revisa el ID Inmotika o el Código Único.');
+        }
+      } else {
+        notify('error', 'Error al guardar el dispositivo');
+      }
     }
   };
 

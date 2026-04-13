@@ -479,9 +479,9 @@ CREATE UNIQUE INDEX director_pkey ON public.director USING btree (id);
 
 CREATE UNIQUE INDEX disponibilidad_tecnico_pkey ON public.disponibilidad_tecnico USING btree (id);
 
-CREATE UNIQUE INDEX dispositivo_codigo_unico_key ON public.dispositivo USING btree (codigo_unico);
+CREATE UNIQUE INDEX dispositivo_codigo_unico_key ON public.dispositivo USING btree (codigo_unico) WHERE (codigo_unico IS NOT NULL AND codigo_unico <> '');
 
-CREATE UNIQUE INDEX dispositivo_id_inmotika_key ON public.dispositivo USING btree (id_inmotika);
+CREATE UNIQUE INDEX dispositivo_id_inmotika_key ON public.dispositivo USING btree (id_inmotika) WHERE (id_inmotika IS NOT NULL AND id_inmotika <> '');
 
 CREATE UNIQUE INDEX dispositivo_pkey ON public.dispositivo USING btree (id);
 
@@ -681,13 +681,12 @@ alter table "public"."dispositivo" add constraint "dispositivo_cliente_id_fkey" 
 
 alter table "public"."dispositivo" validate constraint "dispositivo_cliente_id_fkey";
 
-alter table "public"."dispositivo" add constraint "dispositivo_codigo_unico_key" UNIQUE using index "dispositivo_codigo_unico_key";
+-- dispositivo_codigo_unico_key y dispositivo_id_inmotika_key son partial unique indexes
+-- (WHERE IS NOT NULL AND <> ''), no constraints, para permitir múltiples NULLs.
 
 alter table "public"."dispositivo" add constraint "dispositivo_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id) not valid;
 
 alter table "public"."dispositivo" validate constraint "dispositivo_estado_id_fkey";
-
-alter table "public"."dispositivo" add constraint "dispositivo_id_inmotika_key" UNIQUE using index "dispositivo_id_inmotika_key";
 
 alter table "public"."dispositivo" add constraint "dispositivo_sucursal_id_fkey" FOREIGN KEY (sucursal_id) REFERENCES public.sucursal(id) ON DELETE SET NULL not valid;
 
