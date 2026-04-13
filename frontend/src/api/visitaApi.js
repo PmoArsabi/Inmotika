@@ -267,7 +267,13 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
  * @param {string|null} codigoEtiqueta
  * @returns {Promise<string>} intervencionId
  */
+const ETIQUETA_RE = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+
 async function resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta) {
+  const raw = codigoEtiqueta?.trim().toUpperCase() || '';
+  if (!raw) throw new Error('El código de etiqueta es obligatorio.');
+  if (!ETIQUETA_RE.test(raw)) throw new Error(`Formato de etiqueta inválido "${codigoEtiqueta}". Debe ser XXXX-XXXX (letras y números).`);
+  const etiqueta = raw;
   const { data: existing, error: fetchErr } = await supabase
     .from('intervencion')
     .select('id')
@@ -278,8 +284,8 @@ async function resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta) {
   if (fetchErr) throw new Error(`Error al buscar intervención: ${fetchErr.message}`);
 
   if (existing) {
-    if (codigoEtiqueta) {
-      await supabase.from('intervencion').update({ codigo_etiqueta: codigoEtiqueta }).eq('id', existing.id);
+    if (etiqueta) {
+      await supabase.from('intervencion').update({ codigo_etiqueta: etiqueta }).eq('id', existing.id);
     }
     return existing.id;
   }
@@ -288,7 +294,7 @@ async function resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta) {
   const { data: visitaRow } = await supabase.from('visita').select('estado_id').eq('id', visitaId).single();
   const { data: created, error: insertErr } = await supabase
     .from('intervencion')
-    .insert({ visita_id: visitaId, dispositivo_id: dispositivoId, estado_id: visitaRow?.estado_id || null, codigo_etiqueta: codigoEtiqueta || null })
+    .insert({ visita_id: visitaId, dispositivo_id: dispositivoId, estado_id: visitaRow?.estado_id || null, codigo_etiqueta: etiqueta })
     .select('id')
     .single();
 
@@ -440,28 +446,16 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
     throw new Error(`No se pudo finalizar la visita: ${visitaError.message}`);
   }
 
-  // 2. Leer intervenciones activas antes del update para calcular conteos reales
-  const { data: intervencionesAntes } = await supabase
+  // 2. Actualizar estado + observacion_final en todas las intervenciones activas
+  const { data: intervencionesActualizadas } = await supabase
     .from('intervencion')
-    .select('id, estado_id')
+    .update({ estado_id: estadoId, observacion_final: observacionFinal || null })
     .eq('visita_id', visitaId)
-    .eq('activo', true);
+    .eq('activo', true)
+    .select('id');
 
-  const totalDispositivos = (intervencionesAntes || []).length;
-  // Completadas: las que ya tenían estado COMPLETADA antes de este update final
-  const dispositivosCompletados = (intervencionesAntes || [])
-    .filter(i => i.estado_id === estadoId)
-    .length;
-
-  // Sincronizar estado_id + observacion_final en todas las intervenciones activas
-  await supabase
-    .from('intervencion')
-    .update({
-      estado_id: estadoId,
-      observacion_final: observacionFinal || null,
-    })
-    .eq('visita_id', visitaId)
-    .eq('activo', true);
+  const totalDispositivos = (intervencionesActualizadas || []).length;
+  const dispositivosCompletados = totalDispositivos;
 
   // 3. Actualizar el estado de la solicitud de origen a COMPLETADA
   if (visitaRow?.solicitud_id) {
@@ -487,24 +481,18 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
     const fechaFinStr = new Date(fechaFin).toLocaleString('es-ES');
     const appUrl = window.location.origin;
 
-    // Pipeline: recipients + PDF en paralelo, luego email con ambos resultados
-    Promise.all([
-      getVisitaEmailRecipients({
-        actorId: actor?.actorId,
-        actorRole: actor?.actorRole,
-        clienteId: visitaRow.cliente_id,
-        sucursalId: visitaRow.sucursal_id,
-        visitaId,
-      }),
-      generateInformeVisita(visitaId).catch(err => {
-        // El PDF nunca debe bloquear el flujo; loguear y continuar sin URL
-        console.error('[finalizarVisita] Error generando informe PDF:', err);
-        return null;
-      }),
-    ]).then(([allEmails, informeResult]) => {
+    // 1. Obtener destinatarios y enviar correo de finalización inmediatamente
+    getVisitaEmailRecipients({
+      actorId: actor?.actorId,
+      actorRole: actor?.actorRole,
+      clienteId: visitaRow.cliente_id,
+      sucursalId: visitaRow.sucursal_id,
+      visitaId,
+    }).then(allEmails => {
       if (!allEmails.length) return;
       const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
 
+      // Correo de finalización — sin esperar el PDF
       sendEmail('visita_finalizada', {
         destinatario,
         clienteNombre,
@@ -515,9 +503,26 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
         observacionFinal: observacionFinal || '',
         dispositivosCompletados: String(dispositivosCompletados),
         dispositivosTotal: String(totalDispositivos),
-        pdfUrl: informeResult?.pdfUrl || '',
+        pdfUrl: '',
         appUrl,
       }, cc);
+
+      // 2. Generar PDF y enviar correo de informe por separado cuando esté listo
+      generateInformeVisita(visitaId)
+        .then(informeResult => {
+          if (!informeResult?.pdfUrl) return;
+          sendEmail('visita_informe', {
+            destinatario,
+            clienteNombre,
+            sucursalNombre,
+            tipoVisita,
+            fechaFin: fechaFinStr,
+            tecnicos: tecnicos || '—',
+            pdfUrl: informeResult.pdfUrl,
+            appUrl,
+          }, cc);
+        })
+        .catch(err => console.error('[finalizarVisita] Error generando informe PDF:', err));
     }).catch(err => {
       console.error('[finalizarVisita] Error en pipeline de notificación:', err);
     });

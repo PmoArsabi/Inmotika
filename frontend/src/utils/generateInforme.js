@@ -22,22 +22,26 @@ const IMG_LOAD_TIMEOUT_MS = 8000;
  */
 async function renderOffscreen(informe) {
   const container = document.createElement('div');
-  // Fuera de viewport pero renderizable con dimensiones reales
+  // visibility:hidden mantiene el elemento en el flujo de render (necesario en mobile)
+  // overflow:hidden evita scrollbars o desplazamientos visuales
   container.style.cssText = `
     position: fixed;
-    top: -9999px;
-    left: -9999px;
+    top: 0;
+    left: 0;
     width: 794px;
     background: #ffffff;
-    z-index: -1;
+    visibility: hidden;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: -9999;
   `;
   document.body.appendChild(container);
 
   const root = createRoot(container);
   root.render(createElement(InformePDFTemplate, { informe }));
 
-  // Esperar un tick para que React termine el render inicial
-  await new Promise(r => setTimeout(r, 100));
+  // Esperar suficiente para que React y fuentes terminen el render
+  await new Promise(r => setTimeout(r, 600));
 
   // Esperar a que carguen todas las imágenes (con timeout de seguridad)
   const imgs = Array.from(container.querySelectorAll('img'));

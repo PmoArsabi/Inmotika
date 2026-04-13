@@ -212,12 +212,12 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
       >
         <div className="flex items-center gap-2.5 min-w-0">
           {isLocked
-            ? <Lock         size={16} className="shrink-0 text-gray-200" />
+            ? <Lock          size={16} className="shrink-0 text-gray-300" />
             : pasoConOmitidas
               ? <AlertTriangle size={16} className="shrink-0 text-amber-500" />
-              : pasoCerrado
-                ? <CheckCircle2 size={16} className="shrink-0 text-green-500" />
-                : <Circle       size={16} className="shrink-0 text-gray-300" />
+              : <span className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
+                  pasoCerrado ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
+                }`}>{paso.orden}</span>
           }
           <div className="min-w-0">
             <p className={`text-xs font-bold uppercase tracking-wide ${
