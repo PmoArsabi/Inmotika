@@ -3,7 +3,7 @@ import {
   Eye, Edit, CalendarCheck,
   Trash2, CheckCircle2,
 } from 'lucide-react';
-import { H3, TextSmall } from '../../components/ui/Typography';
+import { H3, TextSmall, TextTiny } from '../../components/ui/Typography';
 import Button from '../../components/ui/Button';
 import VisitaMobileCard from '../../components/visits/VisitaMobileCard';
 import { ProgramacionForm, ProgramacionDetalle } from '../../modules/visits/ProgramacionForm';
