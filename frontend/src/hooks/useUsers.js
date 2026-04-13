@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { supabase } from '../utils/supabase';
+import { supabase, invokeFunction } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -271,18 +271,15 @@ export const useUsers = () => {
     if (resendingIds.has(user.id)) return;
     setResendingIds(prev => new Set([...prev, user.id]));
     try {
-      const { data: inviteData, error: inviteError } = await supabase.functions.invoke(
-        'invite-user',
-        {
-          body: {
-            email: user.email,
-            nombres: user.nombres,
-            apellidos: user.apellidos,
-            role_code: user.rol,
-            redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
-          },
-        }
-      );
+      const { data: inviteData, error: inviteError } = await invokeFunction('invite-user', {
+        body: {
+          email: user.email,
+          nombres: user.nombres,
+          apellidos: user.apellidos,
+          role_code: user.rol,
+          redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
+        },
+      });
 
       if (inviteError) {
         let mensaje = inviteError.message;
@@ -478,7 +475,7 @@ export const useUsers = () => {
         inviteInFlightRef.current = true;
 
         try {
-          const invitePromise = supabase.functions.invoke('invite-user', {
+          const invitePromise = invokeFunction('invite-user', {
             body: {
               email: newUser.email,
               nombres: newUser.nombres,

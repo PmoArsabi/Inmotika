@@ -59,6 +59,22 @@ export const AuthProvider = ({ children }) => {
 
     // 2. Escuchar cambios en la autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // PASSWORD_RECOVERY e invitaciones (SIGNED_IN desde link de invite/recovery)
+      // deben mostrar el formulario de nueva contraseña, no la app.
+      if (event === 'PASSWORD_RECOVERY' || (
+        (event === 'SIGNED_IN') &&
+        (sessionStorage.getItem('inmotika_recovery_flow') === 'true' ||
+         window.location.hash.includes('type=recovery') ||
+         window.location.hash.includes('type=invite'))
+      )) {
+        setSession(session);
+        setIsRecoveryFlow(true);
+        sessionStorage.setItem('inmotika_recovery_flow', 'true');
+        setLoading(false);
+        clearTimeout(timer);
+        return;
+      }
+
       setSession(session);
       if (session) {
         // No llamamos a setLoading(true) aquí para evitar que la app se desmonte al loguear

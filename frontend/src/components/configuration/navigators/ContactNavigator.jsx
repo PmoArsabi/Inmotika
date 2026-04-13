@@ -5,7 +5,7 @@ import { useConfigurationContext } from '../../../context/ConfigurationContext';
 import { useMasterData } from '../../../context/MasterDataContext';
 import { emptyContactDraft, toContactDraft, applyContactUpsert } from '../../../utils/entityMappers';
 import { validateContact } from '../../../utils/validators';
-import { supabase } from '../../../utils/supabase';
+import { supabase, invokeFunction } from '../../../utils/supabase';
 import { saveContacto, updatePerfilUsuarioEstado } from '../../../api/contactoApi';
 import { useActivoInactivo } from '../../../hooks/useCatalog';
 import { sendEmail } from '../../../hooks/useEmail';
@@ -133,7 +133,7 @@ const ContactNavigator = () => {
         setSavingStep('inviting');
 
         try {
-          const { error: inviteError } = await supabase.functions.invoke('invite-user', {
+          const { error: inviteError } = await invokeFunction('invite-user', {
             body: {
               email: currentDraft.email,
               nombres: currentDraft.nombres,

@@ -266,7 +266,7 @@ function App() {
         />
         
         {/* THE REAL SLEEK GAUSS TOGGLE - v19.0 (Mathematical Gauss Bell) */}
-        <div className="absolute top-[50%] -translate-y-1/2 right-0 translate-x-[15px] z-50 pointer-events-none 
+        <div className="absolute top-[50%] -translate-y-1/2 right-0 translate-x-3.75 z-50 pointer-events-none 
                         opacity-0 group-hover/sidebarwrap:opacity-100 transition-opacity duration-200">
            <div className="relative">
               {/* Protrusion: High-Precision Gauss Bell Shape */}
@@ -274,7 +274,7 @@ function App() {
                 onClick={handleToggleSidebar}
                 title={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
                 className="relative pointer-events-auto
-                           w-[16px] h-20 flex items-center justify-center
+                           w-4 h-20 flex items-center justify-center
                            bg-[#1A1A1A] outline-none group z-10"
                 style={{
                   // v19: Mathematical Normal Distribution Approximation
@@ -293,8 +293,8 @@ function App() {
               </button>
 
               {/* Concave Joins - Matched to h-20 */}
-              <div className="absolute -top-4 left-0 w-4 h-4 bg-transparent rounded-br-[16px] shadow-[4px_4px_0_0_#f9fafb] pointer-events-none" />
-              <div className="absolute -bottom-4 left-0 w-4 h-4 bg-transparent rounded-tr-[16px] shadow-[4px_-4px_0_0_#f9fafb] pointer-events-none" />
+              <div className="absolute -top-4 left-0 w-4 h-4 bg-transparent rounded-br-2xl shadow-[4px_4px_0_0_#f9fafb] pointer-events-none" />
+              <div className="absolute -bottom-4 left-0 w-4 h-4 bg-transparent rounded-tr-2xl shadow-[4px_-4px_0_0_#f9fafb] pointer-events-none" />
            </div>
         </div>
       </div>
