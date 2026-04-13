@@ -18,6 +18,7 @@ import { useSolicitudesVisita } from '../../hooks/useSolicitudesVisita';
 import { useVisitas } from '../../hooks/useVisitas';
 import { useConfirm } from '../../context/ConfirmContext';
 import ActionResultModal from '../../components/ui/ActionResultModal';
+import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 /**
