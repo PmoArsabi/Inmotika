@@ -286,12 +286,9 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
                       {isExpanded && (
                         <tr key={`${d.value}-detail`} className="bg-gray-50/80">
                           <td colSpan={6} className="px-6 py-4">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                               <DetailCell icon={Hash}     label="ID Inmotika" value={d.idInmotika} />
                               <DetailCell icon={Hash}     label="Serial"      value={d.serial} />
-                              <DetailCell icon={Cpu}      label="Modelo"      value={d.modelo} />
-                              <DetailCell icon={Tag}      label="Categoría"   value={d.categoria} />
-                              <DetailCell icon={Layers}   label="Marca"       value={d.marca} />
                               <DetailCell icon={Truck}    label="Proveedor"   value={d.proveedor} />
                             </div>
                           </td>

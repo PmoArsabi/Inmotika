@@ -3,9 +3,10 @@
  *   - ProgramacionForm   — formulario de programar / editar visita
  *   - ProgramacionDetalle — vista de detalle de visita/solicitud
  */
+import { useState } from 'react';
 import {
   ArrowLeft, Save, Edit,
-  Calendar, Building2, User, AlertCircle, Users, Cpu, CalendarCheck,
+  Calendar, Building2, User, AlertCircle, Users, Cpu, CalendarCheck, Plus, Tag,
 } from 'lucide-react';
 import { H2, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import Card from '../../components/ui/Card';
@@ -13,6 +14,7 @@ import Button from '../../components/ui/Button';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import InfoRow from '../../components/ui/InfoRow';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
+import DevicePickerModal from '../../components/shared/DevicePickerModal';
 
 // ─── Helpers internos ─────────────────────────────────────────────────────────
 
@@ -57,6 +59,7 @@ export const ProgramacionForm = ({
   draft, updateDraft, onSave, onCancel, saving,
   isEditing, solicitudOrigen, tecnicosOptions, dispositivosDisponibles,
 }) => {
+  const [devicePickerOpen, setDevicePickerOpen] = useState(false);
   const tecnicosSeleccionados = draft.tecnicoIds.map(id => ({
     value: id,
     label: tecnicosOptions.find(o => o.value === id)?.label || id,
@@ -116,47 +119,73 @@ export const ProgramacionForm = ({
           {/* Dispositivos */}
           {solicitudOrigen && (
             <Card className="p-5 space-y-3">
-              <CardSection icon={Cpu} title="Dispositivos a Revisar" />
-              {dispositivosDisponibles.length === 0 ? (
+              <div className="flex items-center justify-between">
+                <CardSection icon={Cpu} title="Dispositivos a Revisar" />
+                <button
+                  type="button"
+                  onClick={() => setDevicePickerOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#D32F2F] border border-[#D32F2F]/30 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  <Plus size={12} /> Seleccionar
+                </button>
+              </div>
+
+              {draft.dispositivoIds.length === 0 ? (
                 <TextTiny className="text-gray-400 italic">
-                  No hay dispositivos registrados para esta sucursal.
+                  {dispositivosDisponibles.length === 0
+                    ? 'No hay dispositivos registrados para esta sucursal.'
+                    : 'Ningún dispositivo seleccionado. Haz clic en "Seleccionar".'}
                 </TextTiny>
               ) : (
-                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                  {dispositivosDisponibles.map(d => {
-                    const checked = draft.dispositivoIds.includes(d.id);
-                    return (
-                      <label
-                        key={d.id}
-                        className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            const next = checked
-                              ? draft.dispositivoIds.filter(x => x !== d.id)
-                              : [...draft.dispositivoIds, d.id];
-                            updateDraft({ dispositivoIds: next });
-                          }}
-                          className="accent-[#D32F2F] w-4 h-4 shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <TextSmall className="font-semibold truncate">
-                            {d.idInmotika || d.id_inmotika || d.codigoUnico || d.codigo_unico || d.modelo || d.id}
-                          </TextSmall>
-                          {(d.modelo || d.serial) && (
-                            <TextTiny className="text-gray-400">{[d.modelo, d.serial].filter(Boolean).join(' · ')}</TextTiny>
-                          )}
+                /* Seleccionados agrupados por categoría */
+                (() => {
+                  const seleccionados = dispositivosDisponibles.filter(d =>
+                    draft.dispositivoIds.includes(d.value)
+                  );
+                  const porCategoria = seleccionados.reduce((acc, d) => {
+                    const cat = d.categoria || 'Sin categoría';
+                    if (!acc[cat]) acc[cat] = [];
+                    acc[cat].push(d);
+                    return acc;
+                  }, {});
+                  return (
+                    <div className="space-y-3">
+                      {Object.entries(porCategoria).map(([cat, devs]) => (
+                        <div key={cat}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <Tag size={10} className="text-blue-500" />
+                            <TextTiny className="font-bold text-blue-600 uppercase tracking-wide">{cat}</TextTiny>
+                          </div>
+                          <div className="space-y-1 pl-3">
+                            {devs.map(d => (
+                              <div key={d.value} className="flex items-center justify-between py-1 border-b border-gray-50">
+                                <div className="min-w-0">
+                                  <TextSmall className="font-semibold truncate">{d.label}</TextSmall>
+                                  {(d.marca || d.modelo) && (
+                                    <TextTiny className="text-gray-400">{[d.marca, d.modelo].filter(Boolean).join(' · ')}</TextTiny>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </label>
-                    );
-                  })}
-                </div>
+                      ))}
+                    </div>
+                  );
+                })()
               )}
+
               <TextTiny className="text-gray-400">
                 {draft.dispositivoIds.length} dispositivo{draft.dispositivoIds.length !== 1 ? 's' : ''} seleccionado{draft.dispositivoIds.length !== 1 ? 's' : ''}
               </TextTiny>
+
+              <DevicePickerModal
+                isOpen={devicePickerOpen}
+                onClose={() => setDevicePickerOpen(false)}
+                devices={dispositivosDisponibles}
+                selected={draft.dispositivoIds}
+                onConfirm={ids => updateDraft({ dispositivoIds: ids })}
+              />
             </Card>
           )}
 

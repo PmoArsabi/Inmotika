@@ -311,9 +311,20 @@ const ProgramacionVisitaPage = () => {
   // ══════════════════════════════════════════════════════════════════════════
   if (view === 'form') {
     const allDispositivos = masterData?.dispositivos || [];
-    const dispositivosDisponibles = draft.sucursalId
+    const getName = (val) => (typeof val === 'object' ? val?.nombre : val) || '';
+    const dispositivosDisponibles = (draft.sucursalId
       ? allDispositivos.filter(d => d.branchId === draft.sucursalId)
-      : allDispositivos;
+      : allDispositivos
+    ).map(d => ({
+      value:      String(d.id),
+      label:      d.serial || d.idInmotika || d.id_inmotika || d.codigoUnico || d.modelo || String(d.id),
+      serial:     d.serial || '',
+      idInmotika: d.id_inmotika || d.idInmotika || '',
+      modelo:     d.modelo || '',
+      categoria:  getName(d.categoria),
+      marca:      getName(d.marca),
+      proveedor:  getName(d.proveedor),
+    }));
 
     return (
       <ProgramacionForm
