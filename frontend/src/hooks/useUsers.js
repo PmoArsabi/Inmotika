@@ -426,9 +426,9 @@ export const useUsers = () => {
       }
     }
 
-    // Para coordinadores nuevos, sincronizar sucursales una vez que el trigger
-    // haya creado la fila en la tabla `coordinador`.
-    if (payloadUser.rol === ROLES.COORDINADOR && (payloadUser.sucursalesACargo || []).length > 0 && !cancelToken.cancelled) {
+    // Para coordinadores nuevos, sincronizar sucursales y director asignado
+    // una vez que el trigger haya creado la fila en la tabla `coordinador`.
+    if (payloadUser.rol === ROLES.COORDINADOR && !cancelToken.cancelled) {
       try {
         const { data: cooRow } = await supabase
           .from('coordinador')
@@ -438,10 +438,18 @@ export const useUsers = () => {
           .maybeSingle();
 
         if (cooRow?.id) {
-          await syncCoordinadorSucursales(cooRow.id, payloadUser.sucursalesACargo);
+          if ((payloadUser.sucursalesACargo || []).length > 0) {
+            await syncCoordinadorSucursales(cooRow.id, payloadUser.sucursalesACargo);
+          }
+          if (payloadUser.directorId) {
+            await supabase
+              .from('coordinador')
+              .update({ director_id: payloadUser.directorId })
+              .eq('id', cooRow.id);
+          }
         }
       } catch (err) {
-        console.error('[useUsers] Error sincronizando sucursales de coordinador:', err);
+        console.error('[useUsers] Error sincronizando datos de coordinador:', err);
       }
     }
 
@@ -596,12 +604,18 @@ export const useUsers = () => {
           });
         }
 
-        // Para coordinadores, sincronizar sucursales asignadas.
+        // Para coordinadores, sincronizar sucursales y director asignado.
         if (newUser.rol === ROLES.COORDINADOR && editingUser.coordinadorId) {
           await syncCoordinadorSucursales(
             editingUser.coordinadorId,
             newUser.sucursalesACargo || []
           );
+          if (newUser.directorId !== undefined) {
+            await supabase
+              .from('coordinador')
+              .update({ director_id: newUser.directorId || null })
+              .eq('id', editingUser.coordinadorId);
+          }
         }
 
         await fetchUsers();

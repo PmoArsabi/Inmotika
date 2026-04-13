@@ -74,7 +74,7 @@ const PersonalInfoSection = ({
             onClick={handleAvatarClick}
             className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-md border-2 border-gray-200 ${
               isEditing && avatarPath ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
-            } bg-gradient-to-br from-[#D32F2F] to-[#8B0000]`}
+            } bg-linear-to-br from-[#D32F2F] to-[#8B0000]`}
           >
             {getAvatarSrc() ? (
               <img src={getAvatarSrc()} alt="Avatar" className="w-full h-full object-cover" />

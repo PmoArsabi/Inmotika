@@ -3241,6 +3241,16 @@ ALTER TABLE public.informe_descarga_token ENABLE ROW LEVEL SECURITY;
 
 -- Solo usuarios autenticados con rol de gestión pueden ver/gestionar tokens.
 -- La Edge Function usa service_role (bypassa RLS) para validar desde el servidor.
+-- Políticas RLS para perfil_usuario
+-- (Admin access ALL, Users can read own profile y Users can read own profile (active)
+--  ya existen en Supabase; solo se documenta aquí la que falta)
+CREATE POLICY "Usuario puede actualizar su propio perfil"
+ON public.perfil_usuario
+FOR UPDATE
+TO authenticated
+USING (id = auth.uid() AND is_user_active())
+WITH CHECK (id = auth.uid());
+
 CREATE POLICY "informe_token_management"
 ON public.informe_descarga_token
 FOR ALL

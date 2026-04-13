@@ -169,7 +169,7 @@ const UsersPage = ({ setData }) => {
       rol: user.rol || '',
       activo: user.activo !== undefined ? user.activo : true,
       certificados: Array.isArray(user.certificados) ? user.certificados : [],
-      directorId: user.assignedDirectorProfileId || '',
+      directorId: user.directorAsignadoId || '',
       sucursalesACargo: Array.isArray(user.sucursalesACargo) ? user.sucursalesACargo : [],
       avatarUrl: user.avatar_url || '',
     });
