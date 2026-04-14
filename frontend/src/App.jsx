@@ -232,7 +232,7 @@ function App() {
         case 'client-visits':
           return (
             <ProtectedRoute roles={[ROLES.CLIENTE]} userRole={userRole}>
-              <ClientVisitsPage data={data} />
+              <ClientVisitsPage />
             </ProtectedRoute>
           );
 

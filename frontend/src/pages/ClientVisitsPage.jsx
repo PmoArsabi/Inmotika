@@ -1,79 +1,140 @@
+import { useMemo } from 'react';
+import { CalendarDays, User, Tag, Calendar } from 'lucide-react';
 import Card from '../components/ui/Card';
 import SectionHeader from '../components/ui/SectionHeader';
 import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
 import { Subtitle, TextSmall, TextTiny } from '../components/ui/Typography';
 import StatusBadge from '../components/ui/StatusBadge';
-import { CalendarDays, User, Tag } from 'lucide-react';
+import { useClienteData } from '../hooks/useClienteData';
+import { useVisitasCliente } from '../hooks/useVisitasCliente';
 
-const ClientVisitsPage = ({ data }) => {
-  const currentClientName = "Residencial Horizonte";
-  const myVisits = data.visitas.filter(v => v.cliente === currentClientName);
+/**
+ * Vista de visitas/intervenciones para el usuario con rol CLIENTE.
+ * Obtiene las visitas de las sucursales asociadas al contacto autenticado.
+ */
+const ClientVisitsPage = () => {
+  const { sucursales, loading: loadingData } = useClienteData();
+  const sucursalIds = useMemo(() => sucursales.map(s => s.id), [sucursales]);
+  const { visitas, loading: loadingVisitas } = useVisitasCliente(sucursalIds);
+
+  const loading = loadingData || loadingVisitas;
+
+  /** Formatea fecha ISO a dd/mm/aaaa */
+  const fmt = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-1/3" />
+        <div className="h-64 bg-gray-100 rounded" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 animate-in slide-in-from-right-12 duration-500">
-      <SectionHeader title="Control de Visitas" subtitle="Historial de intervenciones de mantenimiento" />
+      <SectionHeader
+        title="Control de Visitas"
+        subtitle="Historial de intervenciones de mantenimiento"
+      />
 
-      {/* ── Desktop: tabla (oculta en mobile) ── */}
+      {/* ── Desktop: tabla ── */}
       <Card className="hidden md:block p-0 overflow-hidden rounded-md border-none shadow-xl">
         <Table>
           <THead variant="light">
             <tr>
-              <Th>ID</Th>
-              <Th>Fecha</Th>
-              <Th>Técnico</Th>
+              <Th>Fecha Programada</Th>
+              <Th>Sucursal</Th>
+              <Th>Técnico(s)</Th>
               <Th>Tipo</Th>
               <Th>Estado</Th>
             </tr>
           </THead>
           <TBody>
-            {myVisits.map((v, i) => (
-              <Tr key={i}>
-                <Td><Subtitle className="text-gray-900 normal-case tracking-normal">{v.id}</Subtitle></Td>
-                <Td><Subtitle className="text-gray-600 normal-case tracking-normal">{v.fecha}</Subtitle></Td>
-                <Td><Subtitle className="text-gray-600 normal-case tracking-normal">{v.tecnico_asignado}</Subtitle></Td>
-                <Td>
-                  <TextSmall className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md font-bold inline-block">
-                    {v.tipoMantenimiento}
-                  </TextSmall>
+            {visitas.length > 0 ? (
+              visitas.map((v) => (
+                <Tr key={v.id}>
+                  <Td>
+                    <Subtitle className="text-gray-900 normal-case tracking-normal">
+                      {fmt(v.fechaProgramada)}
+                    </Subtitle>
+                  </Td>
+                  <Td>
+                    <TextSmall className="text-gray-700 font-semibold">{v.sucursalNombre || '—'}</TextSmall>
+                  </Td>
+                  <Td>
+                    <TextSmall className="text-gray-600">
+                      {v.tecnicosNombres.length > 0 ? v.tecnicosNombres.join(', ') : '—'}
+                    </TextSmall>
+                  </Td>
+                  <Td>
+                    <TextSmall className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md font-bold inline-block">
+                      {v.tipoVisitaLabel || '—'}
+                    </TextSmall>
+                  </Td>
+                  <Td><StatusBadge status={v.estadoLabel || v.estadoCodigo} /></Td>
+                </Tr>
+              ))
+            ) : (
+              <Tr>
+                <Td colSpan={5} className="text-center py-10">
+                  <TextSmall className="text-gray-400 italic">No hay visitas registradas para sus sucursales</TextSmall>
                 </Td>
-                <Td><StatusBadge status={v.estado} /></Td>
               </Tr>
-            ))}
+            )}
           </TBody>
         </Table>
       </Card>
 
-      {/* ── Mobile: cards (oculto en md+) ── */}
-      <div className="flex flex-col gap-4 md:hidden">
-        {myVisits.map((v, i) => (
-          <Card key={i} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
-            <div className="divide-y divide-gray-50">
-              <div className="flex items-start gap-3 py-2.5 first:pt-0">
-                <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Tipo</TextTiny>
-                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[10px] font-bold inline-block">{v.tipoMantenimiento}</span>
-              </div>
-              <div className="flex items-start gap-3 py-2.5">
-                <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Estado</TextTiny>
-                <div className="flex-1"><StatusBadge status={v.estado} /></div>
-              </div>
-              <div className="flex items-start gap-3 py-2.5">
-                <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Fecha</TextTiny>
-                <div className="flex items-center gap-1.5 flex-1">
-                  <CalendarDays size={13} className="text-gray-300 shrink-0" />
-                  <TextTiny className="text-gray-600 font-semibold">{v.fecha}</TextTiny>
+      {/* ── Mobile: cards ── */}
+      {visitas.length > 0 ? (
+        <div className="flex flex-col gap-4 md:hidden">
+          {visitas.map((v) => (
+            <Card key={v.id} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
+              <div className="divide-y divide-gray-50">
+                <div className="flex items-start gap-3 py-2.5 first:pt-0">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Tipo</TextTiny>
+                  <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[10px] font-bold inline-block">
+                    {v.tipoVisitaLabel || '—'}
+                  </span>
+                </div>
+                <div className="flex items-start gap-3 py-2.5">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Estado</TextTiny>
+                  <div className="flex-1"><StatusBadge status={v.estadoLabel || v.estadoCodigo} /></div>
+                </div>
+                <div className="flex items-start gap-3 py-2.5">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Fecha</TextTiny>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <CalendarDays size={13} className="text-gray-300 shrink-0" />
+                    <TextTiny className="text-gray-600 font-semibold">{fmt(v.fechaProgramada)}</TextTiny>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 py-2.5">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Sucursal</TextTiny>
+                  <TextTiny className="text-gray-700 font-semibold flex-1">{v.sucursalNombre || '—'}</TextTiny>
+                </div>
+                <div className="flex items-start gap-3 py-2.5 last:pb-0">
+                  <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Técnico</TextTiny>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <User size={13} className="text-gray-300 shrink-0" />
+                    <TextTiny className="text-gray-600">
+                      {v.tecnicosNombres.length > 0 ? v.tecnicosNombres.join(', ') : '—'}
+                    </TextTiny>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-start gap-3 py-2.5 last:pb-0">
-                <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Técnico</TextTiny>
-                <div className="flex items-center gap-1.5 flex-1">
-                  <User size={13} className="text-gray-300 shrink-0" />
-                  <TextTiny className="text-gray-600">{v.tecnico_asignado}</TextTiny>
-                </div>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="md:hidden text-center py-10">
+          <TextSmall className="text-gray-400 italic">No hay visitas registradas para sus sucursales</TextSmall>
+        </div>
+      )}
     </div>
   );
 };

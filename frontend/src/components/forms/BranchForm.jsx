@@ -17,7 +17,6 @@ import { Subtitle, TextSmall, Label } from '../ui/Typography';
  * Extraído de ClientForm para mejorar la modularidad.
  */
 export const BranchForm = (props) => {
-  console.log('BranchForm render props:', { editingBranchId: props.editingBranchId, hasDraft: !!props.newBranchDraft, viewBranchMode: props.viewBranchMode });
   const {
     newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
     isEditing, isSaving, editingBranchId, onCancelEdit,
@@ -27,11 +26,16 @@ export const BranchForm = (props) => {
 
   if (!newBranchDraft) return null;
 
+  // En view mode, el título muestra el nombre de la sucursal si está disponible
+  const title = isEditing
+    ? (editingBranchId ? 'Editar Sucursal' : 'Nueva Sucursal')
+    : (newBranchDraft.nombre || 'Detalle Sucursal');
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <Subtitle className="text-gray-700">
-          {editingBranchId ? 'Editar Sucursal' : 'Nueva Sucursal'}
+          {title}
         </Subtitle>
         <div className="flex gap-2">
           {editingBranchId && onCancelEdit && (

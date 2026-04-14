@@ -9,7 +9,7 @@ import {
   Building2, MapPin, Hash, Monitor, User, Activity,
   ArrowRightLeft, Calendar, Plus, Loader2,
   Tag, Wrench, Navigation2, Layers, Barcode,
-  ShoppingCart, AlertTriangle,
+  ShoppingCart, AlertTriangle, ArrowLeft,
 } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
 import Button from '../../components/ui/Button';
@@ -53,7 +53,7 @@ const calcProximaFecha = (meses) => {
 
 const DeviceForm = ({
   draft, updateDraft, errors = {}, showErrors = false, isEditing = false,
-  onSave, isSaving = false, clients = [],
+  onSave, isSaving = false, clients = [], onBack,
 }) => {
   const [activeTab, setActiveTab] = useState('details');
   const { activoId, inactivoId } = useActivoInactivo();
@@ -262,6 +262,15 @@ const DeviceForm = ({
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <>
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#D32F2F] transition-colors mb-4"
+        >
+          <ArrowLeft size={16} />
+          Volver a Dispositivos
+        </button>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
 
         {/* ── Columna izquierda: Resumen ── */}

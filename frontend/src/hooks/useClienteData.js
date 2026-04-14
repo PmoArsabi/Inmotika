@@ -56,7 +56,7 @@ export function useClienteData() {
         const [sucursalRes, dispositivoRes, clienteRes] = await Promise.all([
           supabase
             .from('sucursal')
-            .select('*, contrato(*), contacto_sucursal(contacto_id, contacto(id, nombres, apellidos, telefono_movil, email, cargo_id))')
+            .select('*, contrato(*), horarios_atencion, contacto_sucursal(contacto_id, contacto(id, nombres, apellidos, telefono_movil, email, cargo_id))')
             .in('id', branchIds),
           supabase
             .from('dispositivo')

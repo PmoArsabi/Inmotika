@@ -28,8 +28,10 @@ const Select = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const [focusedIndex, setFocusedIndex] = useState(-1);
   const triggerRef = useRef(null);
   const dropdownRef = useRef(null);
+  const listRef = useRef(null);
 
   const selectedOption = options.find(o => String(o.value) === String(value ?? '')) ?? null;
   const displayText = selectedOption?.label ?? placeholder ?? '';
@@ -37,6 +39,10 @@ const Select = ({
 
   const toggle = () => {
     if (disabled) return;
+    if (!isOpen) {
+      const currentIndex = options.findIndex(o => String(o.value) === String(value ?? ''));
+      setFocusedIndex(currentIndex >= 0 ? currentIndex : 0);
+    }
     setIsOpen(prev => !prev);
   };
 
@@ -65,9 +71,54 @@ const Select = ({
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen]);
 
+  // Scroll automático al ítem enfocado
+  useEffect(() => {
+    if (!isOpen || focusedIndex < 0 || !listRef.current) return;
+    const item = listRef.current.children[focusedIndex];
+    item?.scrollIntoView({ block: 'nearest' });
+  }, [focusedIndex, isOpen]);
+
+  const handleKeyDown = (e) => {
+    if (disabled) return;
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        if (!isOpen) {
+          setFocusedIndex(0);
+          setIsOpen(true);
+        } else {
+          setFocusedIndex(prev => Math.min(prev + 1, options.length - 1));
+        }
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (isOpen) setFocusedIndex(prev => Math.max(prev - 1, 0));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (isOpen && focusedIndex >= 0 && options[focusedIndex]) {
+          handleSelect(options[focusedIndex].value);
+        } else {
+          setIsOpen(true);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        triggerRef.current?.focus();
+        break;
+      case 'Tab':
+        setIsOpen(false);
+        break;
+      default:
+        break;
+    }
+  };
+
   const handleSelect = (optValue) => {
     onChange?.({ target: { value: optValue } });
     setIsOpen(false);
+    triggerRef.current?.focus();
   };
 
   if (viewMode) {
@@ -106,6 +157,7 @@ const Select = ({
         type="button"
         disabled={disabled}
         onClick={toggle}
+        onKeyDown={handleKeyDown}
         className={[
           'flex items-center gap-2 w-full h-10 border rounded-md text-sm transition-all select-none text-left',
           Icon ? 'pl-9' : 'pl-3',
@@ -152,19 +204,23 @@ const Select = ({
           {options.length === 0 ? (
             <p className="px-3 py-4 text-xs text-gray-400 text-center">Sin opciones disponibles</p>
           ) : (
-            <ul className="max-h-60 overflow-y-auto py-1">
-              {options.map((opt) => {
+            <ul ref={listRef} className="max-h-60 overflow-y-auto py-1">
+              {options.map((opt, idx) => {
                 const isSelected = String(opt.value) === String(value ?? '');
+                const isFocused = idx === focusedIndex;
                 return (
                   <li key={opt.value}>
                     <button
                       type="button"
                       onMouseDown={e => e.preventDefault()}
                       onClick={() => handleSelect(opt.value)}
+                      onMouseEnter={() => setFocusedIndex(idx)}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
                         ${isSelected
                           ? 'bg-red-50 text-[#D32F2F] font-semibold'
-                          : 'text-gray-700 hover:bg-gray-50'
+                          : isFocused
+                            ? 'bg-gray-100 text-gray-900'
+                            : 'text-gray-700 hover:bg-gray-50'
                         }`}
                     >
                       <span className="truncate">{opt.label}</span>

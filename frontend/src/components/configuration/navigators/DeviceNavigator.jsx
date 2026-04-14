@@ -7,7 +7,7 @@ import { useConfigurationContext } from '../../../context/ConfigurationContext';
 import { useMasterData } from '../../../context/MasterDataContext';
 import DeviceForm from '../../../modules/devices/DeviceForm';
 
-const DeviceNavigator = () => {
+const DeviceNavigator = ({ onBack }) => {
   const { route, drafts, setDrafts, updateDraft, openDeviceSuccess } = useConfigurationContext();
   const { data, setData } = useMasterData();
   const notify = useNotify();
@@ -83,6 +83,7 @@ const DeviceNavigator = () => {
       isSaving={saveState.isSaving}
       clients={data?.clientes}
       devices={data?.dispositivos || []}
+      onBack={onBack}
     />
   );
 };

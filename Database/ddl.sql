@@ -2479,7 +2479,26 @@ on "public"."solicitud_visita"
 as permissive
 for select
 to authenticated
-using (creado_por = auth.uid());
+using (
+  -- 1. Solicitudes que el contacto creó directamente
+  creado_por = auth.uid()
+  -- 2. Solicitudes de sucursales a las que el contacto está vinculado
+  OR EXISTS (
+    SELECT 1
+    FROM public.contacto_sucursal cs
+    JOIN public.contacto c ON c.id = cs.contacto_id
+    WHERE cs.sucursal_id = solicitud_visita.sucursal_id
+      AND c.usuario_id = auth.uid()
+  )
+  -- 3. Cualquier solicitud del cliente al que pertenece el contacto
+  --    (cubre sucursales del cliente aunque el contacto no esté en contacto_sucursal)
+  OR EXISTS (
+    SELECT 1
+    FROM public.contacto co
+    WHERE co.usuario_id = auth.uid()
+      AND co.cliente_id = solicitud_visita.cliente_id
+  )
+);
 
    create policy "Access for admins and assigned directors"
    on "public"."sucursal"
@@ -3008,10 +3027,26 @@ as permissive
 for select
 to authenticated
 using (
+  -- Puede ver los dispositivos de solicitudes de sus sucursales o que él creó
   EXISTS (
     SELECT 1 FROM public.solicitud_visita sv
-    WHERE sv.id = solicitud_id
-    AND sv.creado_por = auth.uid()
+    WHERE sv.id = solicitud_dispositivo.solicitud_id
+    AND (
+      sv.creado_por = auth.uid()
+      OR EXISTS (
+        SELECT 1
+        FROM public.contacto_sucursal cs
+        JOIN public.contacto c ON c.id = cs.contacto_id
+        WHERE cs.sucursal_id = sv.sucursal_id
+          AND c.usuario_id = auth.uid()
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.contacto co
+        WHERE co.usuario_id = auth.uid()
+          AND co.cliente_id = sv.cliente_id
+      )
+    )
   )
 );
 
