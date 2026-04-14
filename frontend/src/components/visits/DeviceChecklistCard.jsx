@@ -312,7 +312,7 @@ const EvidenciaCard = ({ label, isEtiqueta, value, onAdd, onRemove, inputRef, on
 
   return (
     <div className="flex flex-col items-center">
-      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
       {value ? (
         <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
           <SecureImage path={value.preview} alt={label} className="object-cover w-full h-full" />
@@ -431,6 +431,7 @@ const EvidenciasSection = ({ evidencias, onChange }) => {
               ref={el => { fotosInputRefs.current[idx] = el; }}
               type="file"
               accept="image/*"
+              capture="environment"
               className="hidden"
               onChange={(e) => {
                 const selected = e.target.files?.[0];
