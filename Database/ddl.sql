@@ -868,7 +868,7 @@ DECLARE
     contacto_row    RECORD;
 BEGIN
     -- 1. Leer código de rol desde los metadatos de la invitación
-    role_code_meta := COALESCE(NEW.raw_user_meta_data->>'role_code', 'ADMIN');
+    role_code_meta := COALESCE(NEW.raw_user_meta_data->>'role_code', 'COORDINADOR');
 
     -- 2. Buscar el ID del rol en el catálogo
     SELECT id INTO target_role_id
@@ -876,13 +876,13 @@ BEGIN
     WHERE codigo = role_code_meta
     LIMIT 1;
 
-    -- Fallback a ADMIN si el código no existe
+    -- Fallback a COORDINADOR si el código no existe
     IF target_role_id IS NULL THEN
         SELECT id INTO target_role_id
         FROM public.catalogo_rol
-        WHERE codigo = 'ADMIN'
+        WHERE codigo = 'COORDINADOR'
         LIMIT 1;
-        role_code_meta := 'ADMIN';
+        role_code_meta := 'COORDINADOR';
     END IF;
 
     -- 3. Estado activo por defecto
@@ -935,8 +935,6 @@ BEGIN
             INSERT INTO public.coordinador (usuario_id, activo) VALUES (NEW.id, true) ON CONFLICT DO NOTHING;
         WHEN 'DIRECTOR' THEN
             INSERT INTO public.director (usuario_id, activo) VALUES (NEW.id, true) ON CONFLICT DO NOTHING;
-        WHEN 'ADMIN' THEN
-            INSERT INTO public.administrador (usuario_id, activo) VALUES (NEW.id, true) ON CONFLICT DO NOTHING;
         ELSE
             NULL; -- CLIENTE no tiene tabla especializada
     END CASE;
@@ -956,7 +954,7 @@ BEGIN
     SELECT 1 FROM perfil_usuario p
     JOIN catalogo_rol r ON p.rol_id = r.id
     WHERE p.id = auth.uid() 
-    AND r.codigo IN ('ADMIN', 'DIRECTOR', 'COORDINADOR')
+    AND r.codigo IN ('DIRECTOR', 'COORDINADOR')
   );
 END;
 $function$
@@ -988,7 +986,7 @@ BEGIN
     SELECT 1 FROM public.perfil_usuario p
     JOIN public.catalogo_rol r ON p.rol_id = r.id
     WHERE p.id = auth.uid() 
-    AND r.codigo IN ('ADMIN', 'DIRECTOR', 'COORDINADOR')
+    AND r.codigo IN ('DIRECTOR', 'COORDINADOR')
   );
 END;
 $function$
@@ -1101,8 +1099,6 @@ BEGIN
             UPDATE public.coordinador SET activo = false WHERE usuario_id = NEW.id AND activo = true;
         WHEN 'DIRECTOR' THEN
             UPDATE public.director SET activo = false WHERE usuario_id = NEW.id AND activo = true;
-        WHEN 'ADMIN' THEN
-            UPDATE public.administrador SET activo = false WHERE usuario_id = NEW.id AND activo = true;
         ELSE NULL;
     END CASE;
 
@@ -1117,9 +1113,6 @@ BEGIN
         WHEN 'DIRECTOR' THEN
             UPDATE public.director SET activo = true WHERE usuario_id = NEW.id;
             IF NOT FOUND THEN INSERT INTO public.director (usuario_id, activo) VALUES (NEW.id, true); END IF;
-        WHEN 'ADMIN' THEN
-            UPDATE public.administrador SET activo = true WHERE usuario_id = NEW.id;
-            IF NOT FOUND THEN INSERT INTO public.administrador (usuario_id, activo) VALUES (NEW.id, true); END IF;
         ELSE NULL;
     END CASE;
 

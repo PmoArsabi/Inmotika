@@ -70,6 +70,7 @@ Antes de escribir código, haz un **Chain of Thought de máx. 5 pasos**. Luego, 
 - **Tailwind 4 nativo:** Usa `@theme` para variables CSS nativas, minimiza `@apply`, sin configuración JS innecesaria.
 - **React 19 patterns:** Prefiere `use()` para promises, evita Prop Drilling, Lazy Load rutas pesadas.
 - **Sin generación de docs:** NO crees ni actualices archivos en `frontend/docs/` (son ruido).
+- **PROHIBIDO usar `notify()` (Toast pequeño) para confirmaciones de acciones CRUD.** Siempre usa el modal grande de éxito/error (`setSuccessInfo(...)`) para informar al usuario del resultado de crear, editar, eliminar o cualquier operación relevante. Los toasts (`notify`) solo se permiten para mensajes secundarios o informativos no críticos.
 
 ### Styling
 - **Glassmorphism & gradientes:** Efectos de `backdrop-blur`, gradientes armónicos (no colores planos).

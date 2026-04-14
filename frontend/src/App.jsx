@@ -143,7 +143,7 @@ function App() {
 
       if (visitsSubTab === 'solicitudes') {
         return (
-          <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.CLIENTE]} userRole={userRole}>
+          <ProtectedRoute roles={[ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.CLIENTE]} userRole={userRole}>
             <SolicitudVisitaPage />
           </ProtectedRoute>
         );
@@ -151,7 +151,7 @@ function App() {
 
       if (visitsSubTab === 'programacion') {
         return (
-          <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
+          <ProtectedRoute roles={[ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
             <ProgramacionVisitaPage />
           </ProtectedRoute>
         );
@@ -159,7 +159,7 @@ function App() {
 
       if (visitsSubTab === 'gestion') {
         return (
-          <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.TECNICO]} userRole={userRole}>
+          <ProtectedRoute roles={[ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.TECNICO]} userRole={userRole}>
             <GestionVisitasPage
               data={data}
               setData={setData}
@@ -175,20 +175,20 @@ function App() {
       if (configSubTab) {
         if (configSubTab === 'usuarios') {
           return (
-            <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
+            <ProtectedRoute roles={[ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
               <UsersPage data={data} setData={setData} />
             </ProtectedRoute>
           );
         }
         if (configSubTab === 'categorias') {
           return (
-            <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
+            <ProtectedRoute roles={[ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
               <CategoriasPage />
             </ProtectedRoute>
           );
         }
         return (
-          <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
+          <ProtectedRoute roles={[ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
             <ConfigurationPage key={activeTab} data={data} setData={setData} initialSubTab={configSubTab} isSingleTabView={true} />
           </ProtectedRoute>
         );
@@ -197,7 +197,7 @@ function App() {
       switch (activeTab) {
         case 'dashboard':
           return (
-            <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
+            <ProtectedRoute roles={[ROLES.DIRECTOR, ROLES.COORDINADOR]} userRole={userRole}>
               <DashboardPage data={data} />
             </ProtectedRoute>
           );
@@ -205,7 +205,7 @@ function App() {
           return <VisitsPage data={data} setData={setData} />;
         case 'schedule':
           return (
-            <ProtectedRoute roles={[ROLES.ADMIN, ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.TECNICO]} userRole={userRole}>
+            <ProtectedRoute roles={[ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.TECNICO]} userRole={userRole}>
               <SchedulePage data={data} setData={setData} onVisitClick={handleNavigateToVisit} />
             </ProtectedRoute>
           );

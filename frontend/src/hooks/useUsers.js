@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase, invokeFunction } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
-import { useNotify } from '../context/NotificationContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { ROLES } from '../utils/constants';
 import { saveTecnico } from '../api/tecnicoApi';
 import { syncCoordinadorSucursales } from '../api/coordinadorSucursalApi';
 import { sendEmail, getSupervisorCCs, buildRecipients } from './useEmail';
+import { getEstadoInactivoId } from '../api/estadoApi';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -75,7 +75,6 @@ export const useUsers = () => {
   const inviteInFlightRef = useRef(false);
 
   const { user } = useAuth();
-  const notify = useNotify();
   const confirm = useConfirm();
 
   // ---------------------------------------------------------------------------
@@ -321,24 +320,29 @@ export const useUsers = () => {
   const handleDelete = async (userId) => {
     const user = usuarios.find(u => u.id === userId);
     const confirmed = await confirm({
-      title: '¿Eliminar usuario?',
-      message: `¿Estás seguro de que deseas eliminar a ${user?.nombres || 'este usuario'}? Esta acción no se puede deshacer.`,
-      confirmText: 'Eliminar',
-      cancelText: 'Descartar',
+      title: '¿Desactivar usuario?',
+      message: `¿Estás seguro de que deseas desactivar a ${user?.nombres || 'este usuario'}? El usuario quedará inactivo y no podrá acceder a la plataforma.`,
+      confirmText: 'Desactivar',
+      cancelText: 'Cancelar',
       type: 'danger',
     });
 
     if (confirmed) {
-      const { error } = await supabase
-        .from('perfil_usuario')
-        .delete()
-        .eq('id', userId);
+      try {
+        const estadoInactivoId = await getEstadoInactivoId();
+        const { error } = await supabase
+          .from('perfil_usuario')
+          .update({ estado_id: estadoInactivoId })
+          .eq('id', userId);
 
-      if (error) {
-        notify('error', 'No se pudo eliminar el usuario');
-      } else {
-        setUsuarios(prev => prev.filter(u => u.id !== userId));
-        notify('success', 'Usuario eliminado correctamente');
+        if (error) throw error;
+
+        setUsuarios(prev => prev.map(u =>
+          u.id === userId ? { ...u, activo: false, estado: 'INACTIVO' } : u
+        ));
+        setSuccessInfo({ isDelete: true, nombres: user?.nombres || 'el usuario' });
+      } catch {
+        setSuccessInfo({ error: true, message: 'No se pudo desactivar el usuario. Intente de nuevo.' });
       }
     }
   };
@@ -480,6 +484,19 @@ export const useUsers = () => {
       // ----- CREAR usuario -----
       if (isCreating) {
         if (inviteInFlightRef.current) return false;
+
+        // Validar que el email no esté ya registrado en perfil_usuario
+        const { data: existing } = await supabase
+          .from('perfil_usuario')
+          .select('id')
+          .eq('email', newUser.email.trim().toLowerCase())
+          .maybeSingle();
+
+        if (existing?.id) {
+          setSuccessInfo({ error: true, message: `El correo "${newUser.email}" ya está registrado en el sistema. Usa un correo diferente.` });
+          return false;
+        }
+
         inviteInFlightRef.current = true;
 
         try {

@@ -59,6 +59,13 @@ export const AuthProvider = ({ children }) => {
 
     // 2. Escuchar cambios en la autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Sesión expirada: token de refresco inválido → cerrar sesión limpiamente
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        setUser(null);
+        setSession(null);
+        setLoading(false);
+        return;
+      }
       // PASSWORD_RECOVERY e invitaciones (SIGNED_IN desde link de invite/recovery)
       // deben mostrar el formulario de nueva contraseña, no la app.
       if (event === 'PASSWORD_RECOVERY' || (

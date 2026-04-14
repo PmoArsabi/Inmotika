@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useMasterData } from '../../context/MasterDataContext';
+import { useAuth } from '../../context/AuthContext';
+import { ROLE_HIERARCHY } from '../../utils/constants';
 import { Plus, UserPlus } from 'lucide-react';
 import ModuleHeader from '../../components/ui/ModuleHeader';
 import Card from '../../components/ui/Card';
@@ -28,6 +30,7 @@ const emptyDocs = () => ({ cedula: null, planillaSS: null });
 
 const UsersPage = ({ setData }) => {
   const { data: masterData } = useMasterData();
+  const { user: currentUser } = useAuth();
   // UI State
   const [isCreating, setIsCreating] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -115,12 +118,21 @@ const UsersPage = ({ setData }) => {
     return list;
   }, [usuarios, search, filters]);
 
-  // Kept for legacy prop on UserTable
-  // CLIENTE se excluye: los contactos con acceso se crean desde la sección de Contactos.
-  const roleOptions = useMemo(() => [
-    { value: '', label: 'Seleccionar rol' },
-    ...rolOptions.filter(r => r.value !== 'CLIENTE'),
-  ], [rolOptions]);
+  // Roles que el usuario actual puede asignar:
+  // - Solo roles de nivel INFERIOR en la jerarquía (DIRECTOR > COORDINADOR > TECNICO).
+  // - CLIENTE se gestiona desde Contactos, nunca aparece aquí.
+  const roleOptions = useMemo(() => {
+    const myRole = currentUser?.role;
+    const myIndex = ROLE_HIERARCHY.indexOf(myRole);
+    // Si el rol no está en la jerarquía (ej. TECNICO) no puede crear nadie → lista vacía.
+    const allowedCodes = myIndex >= 0
+      ? ROLE_HIERARCHY.slice(myIndex + 1)   // solo roles por debajo del propio
+      : [];
+    // DIRECTOR es el tope: puede crear COORDINADOR y TECNICO.
+    // Si myIndex === -1 (rol desconocido) no se permite crear ninguno.
+    const filtered = rolOptions.filter(r => allowedCodes.includes(r.value));
+    return [{ value: '', label: 'Seleccionar rol' }, ...filtered];
+  }, [rolOptions, currentUser?.role]);
 
   // Handlers
   const handleCreate = () => {

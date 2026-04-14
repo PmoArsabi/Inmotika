@@ -7,7 +7,7 @@ import { supabase } from '../utils/supabase';
 /**
  * @typedef {Object} ActorContext
  * @property {string} actorId       - perfil_usuario.id del usuario que ejecuta la acción
- * @property {string} actorRole     - código del rol: 'COORDINADOR' | 'DIRECTOR' | 'ADMIN' | etc.
+ * @property {string} actorRole     - código del rol: 'COORDINADOR' | 'DIRECTOR'
  * @property {string} [clienteId]   - UUID del cliente relacionado a la acción (opcional)
  * @property {string} [sucursalId]  - UUID de la sucursal relacionada a la acción (opcional)
  */
@@ -20,13 +20,13 @@ import { supabase } from '../utils/supabase';
 
 // ─── Queries primitivas ───────────────────────────────────────────────────────
 
-/** Emails de todos los admins activos. */
-async function fetchAdminEmails() {
+/** Emails de todos los directores activos (supervisión global). */
+async function fetchDirectorEmails() {
   const { data } = await supabase
-    .from('administrador')
+    .from('director')
     .select('perfil:usuario_id(email)')
     .eq('activo', true);
-  return (data || []).map(a => a.perfil?.email).filter(Boolean);
+  return (data || []).map(d => d.perfil?.email).filter(Boolean);
 }
 
 /**
@@ -102,9 +102,9 @@ async function fetchContactoEmailsBySucursal(sucursalId) {
  * Dado el contexto del actor, devuelve los emails que deben ir en CC
  * por razones de supervisión y auditoría:
  *
- * - Siempre: todos los admins activos
- * - Si el actor es COORDINADOR: también el director asignado a ese coordinador
- * - Si el actor es DIRECTOR o ADMIN: solo admins (él mismo ya es parte de la cadena)
+ * - Siempre: todos los directores activos
+ * - Si el actor es COORDINADOR: también el director asignado a ese coordinador específico
+ * - Si el actor es DIRECTOR: solo directores globales (él mismo ya es parte de la cadena)
  *
  * Los emails del propio actor y del destinatario principal se deduplicarán
  * al llamar a buildRecipients().
@@ -113,13 +113,13 @@ async function fetchContactoEmailsBySucursal(sucursalId) {
  * @returns {Promise<string[]>}
  */
 export async function getSupervisorCCs(actor) {
-  const [adminEmails, directorEmails] = await Promise.all([
-    fetchAdminEmails(),
+  const [globalDirectorEmails, assignedDirectorEmails] = await Promise.all([
+    fetchDirectorEmails(),
     actor.actorRole === 'COORDINADOR'
       ? fetchDirectorEmailByCoordinador(actor.actorId)
       : Promise.resolve([]),
   ]);
-  return [...adminEmails, ...directorEmails];
+  return [...new Set([...globalDirectorEmails, ...assignedDirectorEmails])];
 }
 
 /**

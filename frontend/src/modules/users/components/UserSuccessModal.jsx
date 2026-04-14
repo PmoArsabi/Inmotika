@@ -35,7 +35,21 @@ const UserSuccessModal = ({ successInfo, onClose }) => {
         ) : (
           /* ── Éxito ── */
           <>
-            {successInfo.isUpdate ? (
+            {successInfo.isDelete ? (
+            <div className="bg-emerald-600 p-8 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 blur-2xl" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -translate-x-12 translate-y-12 blur-xl" />
+              <div className="relative flex flex-col items-center text-center">
+                <div className="bg-white/20 p-3 rounded-full mb-4 backdrop-blur-sm">
+                  <CheckCircle size={32} />
+                </div>
+                <H2 className="text-white font-black text-2xl tracking-tight">¡Usuario Desactivado!</H2>
+                <p className="text-white/80 text-sm mt-1">
+                  {successInfo.nombres} ha sido desactivado correctamente.
+                </p>
+              </div>
+            </div>
+          ) : successInfo.isUpdate ? (
               <div className="bg-emerald-600 p-8 text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 blur-2xl" />
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -translate-x-12 translate-y-12 blur-xl" />
@@ -70,27 +84,31 @@ const UserSuccessModal = ({ successInfo, onClose }) => {
             )}
 
             <div className="p-6 space-y-4">
-              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <User size={15} className="text-gray-400 shrink-0" />
-                  <span className="text-gray-500">Usuario:</span>
-                  <span className="font-semibold text-gray-800">{successInfo.nombres}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail size={15} className="text-gray-400 shrink-0" />
-                  <span className="text-gray-500">Correo:</span>
-                  <span className="font-semibold text-gray-800 break-all">{successInfo.email}</span>
-                </div>
-                {!successInfo.isUpdate && successInfo.rol && (
+              {!successInfo.isDelete && (
+                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
-                    <Shield size={15} className="text-gray-400 shrink-0" />
-                    <span className="text-gray-500">Rol asignado:</span>
-                    <span className="font-semibold text-gray-800">{successInfo.rol}</span>
+                    <User size={15} className="text-gray-400 shrink-0" />
+                    <span className="text-gray-500">Usuario:</span>
+                    <span className="font-semibold text-gray-800">{successInfo.nombres}</span>
                   </div>
-                )}
-              </div>
+                  {successInfo.email && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail size={15} className="text-gray-400 shrink-0" />
+                      <span className="text-gray-500">Correo:</span>
+                      <span className="font-semibold text-gray-800 break-all">{successInfo.email}</span>
+                    </div>
+                  )}
+                  {!successInfo.isUpdate && successInfo.rol && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Shield size={15} className="text-gray-400 shrink-0" />
+                      <span className="text-gray-500">Rol asignado:</span>
+                      <span className="font-semibold text-gray-800">{successInfo.rol}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
-              {!successInfo.isUpdate && (
+              {!successInfo.isUpdate && !successInfo.isDelete && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
                   <p className="text-amber-700 text-xs leading-relaxed">
                     <strong>Próximo paso:</strong> El usuario recibirá un correo con un enlace para configurar su contraseña y acceder a la plataforma.
@@ -102,7 +120,7 @@ const UserSuccessModal = ({ successInfo, onClose }) => {
                 onClick={onClose}
                 className="w-full py-2.5 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-colors"
               >
-                Perfecto
+                Entendido
               </button>
             </div>
           </>

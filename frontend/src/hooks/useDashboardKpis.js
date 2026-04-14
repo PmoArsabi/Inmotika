@@ -35,8 +35,7 @@ import { ROLES } from '../utils/constants';
 /**
  * Devuelve los KPIs del dashboard según el rol del usuario autenticado:
  *
- * - ADMIN:        visitas globales + todos los coordinadores + totales de clientes y técnicos
- * - DIRECTOR:     visitas de sus coordinadores + KPI por coordinador asignado
+ * - DIRECTOR:     visitas globales + todos los coordinadores + totales de clientes y técnicos
  * - COORDINADOR:  solo sus propias visitas (sin KPI de otros)
  */
 export function useDashboardKpis() {
@@ -144,14 +143,13 @@ const VISITA_SELECT = `
 
 async function fetchByRole(user) {
   switch (user.role) {
-    case ROLES.ADMIN:   return fetchAdmin();
-    case ROLES.DIRECTOR: return fetchDirector(user.id);
+    case ROLES.DIRECTOR:    return fetchDirector();
     case ROLES.COORDINADOR: return fetchCoordinador(user.id);
-    default: return fetchCoordinador(user.id);
+    default:                return fetchCoordinador(user.id);
   }
 }
 
-async function fetchAdmin() {
+async function fetchDirector() {
   const [visitasRes, coordRes, clientesRes, tecnicosRes] = await Promise.all([
     supabase.from('visita').select(VISITA_SELECT),
     supabase.from('coordinador').select('id, usuario_id, perfil:usuario_id(nombres, apellidos)').eq('activo', true),
@@ -168,62 +166,6 @@ async function fetchAdmin() {
     totalClientes: clientesRes.count ?? 0,
     totalTecnicos: tecnicosRes.count ?? 0,
     tendenciaMeses: calcTendencia(visitas),
-  };
-}
-
-async function fetchDirector(directorUsuarioId) {
-  // 1. Obtener el id de la tabla director a partir del usuario_id
-  const { data: dirRow } = await supabase
-    .from('director')
-    .select('id')
-    .eq('usuario_id', directorUsuarioId)
-    .eq('activo', true)
-    .maybeSingle();
-
-  if (!dirRow?.id) {
-    return {
-      visitas: summarizeVisitas([]),
-      coordinadores: [],
-      totalClientes: 0,
-      totalTecnicos: 0,
-      tendenciaMeses: Array(12).fill(0),
-    };
-  }
-
-  // 2. Coordinadores asignados a este director
-  const { data: coordRows } = await supabase
-    .from('coordinador')
-    .select('id, usuario_id, perfil:usuario_id(nombres, apellidos)')
-    .eq('director_id', dirRow.id)
-    .eq('activo', true);
-
-  const coordinadores = coordRows || [];
-  const coordUsuarioIds = coordinadores.map(c => c.usuario_id).filter(Boolean);
-
-  if (coordUsuarioIds.length === 0) {
-    return {
-      visitas: summarizeVisitas([]),
-      coordinadores: [],
-      totalClientes: 0,
-      totalTecnicos: 0,
-      tendenciaMeses: Array(12).fill(0),
-    };
-  }
-
-  // 3. Visitas de esos coordinadores
-  const { data: visitas } = await supabase
-    .from('visita')
-    .select(VISITA_SELECT)
-    .in('coordinador_usuario_id', coordUsuarioIds);
-
-  const visitasArr = visitas || [];
-
-  return {
-    visitas: summarizeVisitas(visitasArr),
-    coordinadores: buildCoordinadorKpis(visitasArr, coordinadores),
-    totalClientes: 0,
-    totalTecnicos: 0,
-    tendenciaMeses: calcTendencia(visitasArr),
   };
 }
 

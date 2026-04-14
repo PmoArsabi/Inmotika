@@ -63,7 +63,6 @@ const DashboardPage = ({ data }) => {
   const [filters, setFilters] = useState({ fecha: '', estado: [], cliente: [], ciudad: [], tecnico: [], coordinador: [] });
 
   const role = user?.role;
-  const isAdmin = role === ROLES.ADMIN;
   const isDirector = role === ROLES.DIRECTOR;
   const isCoordinador = role === ROLES.COORDINADOR;
 
@@ -99,7 +98,7 @@ const DashboardPage = ({ data }) => {
         multi: true,
         options: (data.tecnicos || []).map(t => ({ value: t.nombre, label: t.nombre })),
       },
-      ...((isDirector || isAdmin) ? [{
+      ...(isDirector ? [{
         key: 'coordinador',
         label: 'Coordinador',
         multi: true,
@@ -107,7 +106,7 @@ const DashboardPage = ({ data }) => {
       }] : []),
       { key: 'fecha', label: 'Fecha de Corte', type: 'date', dateRole: 'desde' },
     ];
-  }, [data.clientes, data.tecnicos, isDirector, isAdmin, kpis.coordinadores]);
+  }, [data.clientes, data.tecnicos, isDirector, kpis.coordinadores]);
 
   // ── Stats de visitas (comunes a todos los roles) ──
   const visitaStats = [
@@ -117,8 +116,8 @@ const DashboardPage = ({ data }) => {
     { label: 'Programadas', value: kpis.visitas.programadas, sub: 'Por ejecutar', icon: CalendarDays, color: 'text-yellow-500' },
   ];
 
-  // ── Stats extra solo para ADMIN ──
-  const adminStats = [
+  // ── Stats extra para DIRECTOR (visión global) ──
+  const directorStats = [
     { label: 'Clientes', value: kpis.totalClientes, sub: 'Registrados', icon: Building2, color: 'text-orange-500' },
     { label: 'Técnicos', value: kpis.totalTecnicos, sub: 'En planta', icon: UserCheck, color: 'text-primary' },
   ];
@@ -142,25 +141,23 @@ const DashboardPage = ({ data }) => {
         ))}
       </div>
 
-      {/* KPIs globales extra — solo ADMIN */}
-      {isAdmin && (
+      {/* KPIs globales extra — solo DIRECTOR */}
+      {isDirector && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {adminStats.map((s, i) => (
+          {directorStats.map((s, i) => (
             <StatCard key={i} {...s} />
           ))}
         </div>
       )}
 
-      {/* KPIs por coordinador — DIRECTOR y ADMIN */}
-      {(isDirector || isAdmin) && (
+      {/* KPIs por coordinador — solo DIRECTOR */}
+      {isDirector && (
         <Card className="p-4 sm:p-6 lg:p-8">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
             <div className="p-2.5 sm:p-3 bg-blue-50 rounded-xl text-blue-600 shrink-0"><Users size={18} /></div>
             <div className="min-w-0">
               <H2 className="text-sm sm:text-base">Rendimiento por Coordinador</H2>
-              <Subtitle className="text-xs leading-tight">
-                {isDirector ? 'Coordinadores bajo tu supervisión' : 'Todos los coordinadores activos'}
-              </Subtitle>
+              <Subtitle className="text-xs leading-tight">Coordinadores bajo tu supervisión</Subtitle>
             </div>
           </div>
           {kpis.loading ? (
