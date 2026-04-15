@@ -282,14 +282,19 @@ export const useVisitas = () => {
           // Estado de actividades ejecutadas
           const { data: actRows } = await supabase
             .from('ejecucion_actividad')
-            .select('intervencion_id, actividad_id, estado, observacion')
+            .select('intervencion_id, actividad_id, estado_id, catalogo:estado_id(codigo), observacion')
             .in('intervencion_id', intervencionIds);
 
           (actRows || []).forEach(a => {
             const vId = intervencionByVisita.get(a.intervencion_id);
             if (!vId) return;
+            // Mapear codigo de catálogo al texto interno del frontend
+            const catalogoCodigo = a.catalogo?.codigo || 'PENDIENTE';
+            const estadoInterno =
+              catalogoCodigo === 'COMPLETADA' ? 'completada' :
+              catalogoCodigo === 'INCOMPLETA' ? 'omitida'    : 'pendiente';
             const map = ejecucionActividadMap.get(vId) || {};
-            map[a.actividad_id] = { estado: a.estado || 'pendiente', observacion: a.observacion || null };
+            map[a.actividad_id] = { estado: estadoInterno, observacion: a.observacion || null };
             ejecucionActividadMap.set(vId, map);
           });
 

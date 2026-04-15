@@ -5,7 +5,7 @@ import { useMasterData } from '../../../context/MasterDataContext';
 import { emptyTecnicoDraft, applyTecnicoUpsert, toTecnicoDraft } from '../../../utils/entityMappers';
 import { validateTecnico } from '../../../utils/validators';
 import { useNotify } from '../../../context/NotificationContext';
-import { saveTecnico } from '../../../api/tecnicoApi';
+import { updatePerfilForTecnico, ensureTecnicoRecord } from '../../../api/tecnicoApi';
 
 const TechnicalNavigator = () => {
   const { route, drafts, updateDraft, setStack } = useConfigurationContext();
@@ -18,11 +18,11 @@ const TechnicalNavigator = () => {
   const key = entityKey('tecnico', route.clientId);
   const existingDraft = drafts[key];
   const isDraftValid = !!existingDraft;
-  
+
   const currentTech = (data?.tecnicos || []).find(t => String(t.id) === String(route.clientId));
 
   const draft = isDraftValid
-    ? existingDraft 
+    ? existingDraft
     : (currentTech ? toTecnicoDraft(currentTech, currentTech) : emptyTecnicoDraft());
   const errors = validateTecnico(draft);
   const hasErrors = Object.keys(errors).length > 0;
@@ -32,34 +32,15 @@ const TechnicalNavigator = () => {
     setShowErrors(true);
     if (hasErrors) return;
 
-    for (const cert of (draft.certificados || [])) {
-      if (!cert.nombre?.trim()) {
-        notify('error', `El certificado con ID ${cert.id} no tiene nombre.`);
-        return;
-      }
-    }
-
     setSaveState({ isSaving: true, savedAt: null });
 
     try {
-      const { techId, documentoCedulaUrl, planillaSegSocialUrl, certificados } = await saveTecnico({
-        usuarioId: draft.usuarioId,
-        techId: draft.id,
-        draft: {
-          ...draft,
-          certificados: draft.certificados?.map(c => ({ ...c, url: c.url })) ?? [],
-        },
-      });
+      // Documentos se gestionan en tiempo real desde DocumentUploadManager.
+      // Aquí solo persistimos perfil y la fila base de tecnico.
+      await updatePerfilForTecnico(draft.usuarioId, draft);
+      const techId = await ensureTecnicoRecord(draft.usuarioId, draft.id);
 
-      const finalDraft = {
-        ...draft,
-        id: techId,
-        documentoCedulaUrl,
-        planillaSegSocialUrl,
-        certificados,
-      };
-
-      setData(prev => applyTecnicoUpsert(prev, techId, finalDraft));
+      setData(prev => applyTecnicoUpsert(prev, techId, { ...draft, id: techId }));
       setSaveState({ isSaving: false, savedAt: Date.now() });
       setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view' } : s));
       notify('success', 'Técnico guardado con éxito');

@@ -38,24 +38,7 @@ alter table "public"."administrador" enable row level security;
 
 alter table "public"."catalogo" enable row level security;
 
-  create table "public"."catalogo_estado_general" (
-    "id" uuid not null default gen_random_uuid(),
-    "codigo" character varying(50) not null,
-    "nombre" character varying(100) not null,
-    "descripcion" text,
-    "activo" boolean default true
-      );
-
-alter table "public"."catalogo_estado_general" enable row level security;
-
-  create table "public"."catalogo_estado_dispositivo" (
-    "id" uuid not null default gen_random_uuid(),
-    "nombre" character varying(100) not null,
-    "descripcion" text,
-    "activo" boolean default true
-  );
-
-  alter table "public"."catalogo_estado_dispositivo" enable row level security;
+-- catalogo_estado_general y catalogo_estado_dispositivo eliminadas (migradas a catalogo con tipos ESTADO_ENTIDAD y ESTADO_GESTION_DISPOSITIVO)
 
   create table "public"."catalogo_rol" (
     "id" uuid not null default gen_random_uuid(),
@@ -256,7 +239,7 @@ alter table "public"."dispositivo" enable row level security;
     "id" uuid not null default gen_random_uuid(),
     "intervencion_id" uuid not null,
     "actividad_id" uuid not null,
-    "estado" character varying(20) not null default 'pendiente' check (estado in ('pendiente','completada','omitida')),
+    "estado_id" uuid not null references public.catalogo(id),
     "observacion" text,
     "created_at" timestamp with time zone default now()
       );
@@ -443,10 +426,6 @@ CREATE UNIQUE INDEX administrador_pkey ON public.administrador USING btree (id);
 
 CREATE UNIQUE INDEX administrador_usuario_id_key ON public.administrador USING btree (usuario_id);
 
-CREATE UNIQUE INDEX catalogo_estado_general_codigo_key ON public.catalogo_estado_general USING btree (codigo);
-
-CREATE UNIQUE INDEX catalogo_estado_general_pkey ON public.catalogo_estado_general USING btree (id);
-
 CREATE UNIQUE INDEX catalogo_pkey ON public.catalogo USING btree (id);
 
 CREATE UNIQUE INDEX catalogo_rol_codigo_key ON public.catalogo_rol USING btree (codigo);
@@ -531,8 +510,6 @@ alter table "public"."administrador" add constraint "administrador_pkey" PRIMARY
 
 alter table "public"."catalogo" add constraint "catalogo_pkey" PRIMARY KEY using index "catalogo_pkey";
 
-alter table "public"."catalogo_estado_general" add constraint "catalogo_estado_general_pkey" PRIMARY KEY using index "catalogo_estado_general_pkey";
-
 alter table "public"."catalogo_rol" add constraint "catalogo_rol_pkey" PRIMARY KEY using index "catalogo_rol_pkey";
 
 alter table "public"."categoria_dispositivo" add constraint "categoria_dispositivo_pkey" PRIMARY KEY using index "categoria_dispositivo_pkey";
@@ -593,13 +570,11 @@ alter table "public"."catalogo" add constraint "catalogo_tipo_codigo_key" UNIQUE
 
 alter table "public"."catalogo" add constraint "catalogo_tipo_codigo_unique" UNIQUE using index "catalogo_tipo_codigo_unique";
 
-alter table "public"."catalogo_estado_general" add constraint "catalogo_estado_general_codigo_key" UNIQUE using index "catalogo_estado_general_codigo_key";
-
 alter table "public"."catalogo_rol" add constraint "catalogo_rol_codigo_key" UNIQUE using index "catalogo_rol_codigo_key";
 
 alter table "public"."categoria_dispositivo" add constraint "categoria_dispositivo_nombre_marca_modelo_key" UNIQUE using index "categoria_dispositivo_nombre_marca_modelo_key";
 
-alter table "public"."cliente" add constraint "cliente_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id) not valid;
+alter table "public"."cliente" add constraint "cliente_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo(id) not valid;
 
 alter table "public"."cliente" validate constraint "cliente_estado_id_fkey";
 
@@ -621,7 +596,7 @@ alter table "public"."contacto" add constraint "contacto_cliente_id_fkey" FOREIG
 
 alter table "public"."contacto" validate constraint "contacto_cliente_id_fkey";
 
-alter table "public"."contacto" add constraint "contacto_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id) not valid;
+alter table "public"."contacto" add constraint "contacto_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo(id) not valid;
 
 alter table "public"."contacto" validate constraint "contacto_estado_id_fkey";
 
@@ -649,9 +624,7 @@ alter table "public"."contrato" add constraint "contrato_cliente_id_fkey" FOREIG
 
 alter table "public"."contrato" validate constraint "contrato_cliente_id_fkey";
 
-alter table "public"."contrato" add constraint "contrato_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id) not valid;
-
-alter table "public"."contrato" validate constraint "contrato_estado_id_fkey";
+-- contrato no tiene columna estado_id (eliminada); estados de contrato viven en catalogo tipo ESTADO_CONTRATO
 
 alter table "public"."contrato" add constraint "contrato_sucursal_id_fkey" FOREIGN KEY (sucursal_id) REFERENCES public.sucursal(id) ON DELETE CASCADE not valid;
 
@@ -684,7 +657,7 @@ alter table "public"."dispositivo" validate constraint "dispositivo_cliente_id_f
 -- dispositivo_codigo_unico_key y dispositivo_id_inmotika_key son partial unique indexes
 -- (WHERE IS NOT NULL AND <> ''), no constraints, para permitir múltiples NULLs.
 
-alter table "public"."dispositivo" add constraint "dispositivo_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id) not valid;
+alter table "public"."dispositivo" add constraint "dispositivo_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo(id) not valid;
 
 alter table "public"."dispositivo" validate constraint "dispositivo_estado_id_fkey";
 
@@ -692,7 +665,7 @@ alter table "public"."dispositivo" add constraint "dispositivo_sucursal_id_fkey"
 
 alter table "public"."dispositivo" validate constraint "dispositivo_sucursal_id_fkey";
 
-alter table "public"."dispositivo" add constraint "dispositivo_estado_gestion_fkey" FOREIGN KEY (estado_gestion_id) REFERENCES public.catalogo_estado_dispositivo(id) not valid;
+alter table "public"."dispositivo" add constraint "dispositivo_estado_gestion_id_fkey" FOREIGN KEY (estado_gestion_id) REFERENCES public.catalogo(id) not valid;
 
 alter table "public"."dispositivo" validate constraint "dispositivo_estado_gestion_fkey";
 
@@ -707,6 +680,10 @@ alter table "public"."dispositivo" validate constraint "dispositivo_marca_id_fke
 alter table "public"."marca" add constraint "marca_proveedor_id_fkey" FOREIGN KEY (proveedor_id) REFERENCES public.proveedor(id) ON DELETE CASCADE not valid;
 
 alter table "public"."marca" validate constraint "marca_proveedor_id_fkey";
+
+alter table "public"."ejecucion_actividad" add constraint "ejecucion_actividad_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo(id) not valid;
+
+alter table "public"."ejecucion_actividad" validate constraint "ejecucion_actividad_estado_id_fkey";
 
 alter table "public"."ejecucion_actividad" add constraint "ejecucion_actividad_actividad_id_fkey" FOREIGN KEY (actividad_id) REFERENCES public.actividad_protocolo(id) ON DELETE CASCADE not valid;
 
@@ -764,7 +741,7 @@ alter table "public"."paso_protocolo" validate constraint "paso_protocolo_catego
 
 alter table "public"."paso_protocolo" add constraint "paso_protocolo_categoria_id_orden_key" UNIQUE using index "paso_protocolo_categoria_id_orden_key";
 
-alter table "public"."perfil_usuario" add constraint "perfil_usuario_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id) not valid;
+alter table "public"."perfil_usuario" add constraint "perfil_usuario_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo(id) not valid;
 
 alter table "public"."perfil_usuario" validate constraint "perfil_usuario_estado_id_fkey";
 
@@ -808,7 +785,7 @@ alter table "public"."sucursal" add constraint "sucursal_cliente_id_fkey" FOREIG
 
 alter table "public"."sucursal" validate constraint "sucursal_cliente_id_fkey";
 
-alter table "public"."sucursal" add constraint "sucursal_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo_estado_general(id) not valid;
+alter table "public"."sucursal" add constraint "sucursal_estado_id_fkey" FOREIGN KEY (estado_id) REFERENCES public.catalogo(id) not valid;
 
 alter table "public"."sucursal" validate constraint "sucursal_estado_id_fkey";
 
@@ -887,8 +864,8 @@ BEGIN
 
     -- 3. Estado activo por defecto
     SELECT id INTO default_estado
-    FROM public.catalogo_estado_general
-    WHERE activo = true
+    FROM public.catalogo
+    WHERE tipo = 'ESTADO_ENTIDAD' AND codigo = 'ACTIVO'
     LIMIT 1;
 
     -- 4. Si es CLIENTE, buscar contacto existente por email para copiar sus datos
@@ -968,7 +945,7 @@ AS $function$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM public.perfil_usuario p
-    JOIN public.catalogo_estado_general e ON p.estado_id = e.id
+    JOIN public.catalogo e ON p.estado_id = e.id
     WHERE p.id = auth.uid()
     AND e.activo = true
   );
@@ -1247,47 +1224,6 @@ grant truncate on table "public"."catalogo" to "service_role";
 
 grant update on table "public"."catalogo" to "service_role";
 
-grant delete on table "public"."catalogo_estado_general" to "anon";
-
-grant insert on table "public"."catalogo_estado_general" to "anon";
-
-grant references on table "public"."catalogo_estado_general" to "anon";
-
-grant select on table "public"."catalogo_estado_general" to "anon";
-
-grant trigger on table "public"."catalogo_estado_general" to "anon";
-
-grant truncate on table "public"."catalogo_estado_general" to "anon";
-
-grant update on table "public"."catalogo_estado_general" to "anon";
-
-grant delete on table "public"."catalogo_estado_general" to "authenticated";
-
-grant insert on table "public"."catalogo_estado_general" to "authenticated";
-
-grant references on table "public"."catalogo_estado_general" to "authenticated";
-
-grant select on table "public"."catalogo_estado_general" to "authenticated";
-
-grant trigger on table "public"."catalogo_estado_general" to "authenticated";
-
-grant truncate on table "public"."catalogo_estado_general" to "authenticated";
-
-grant update on table "public"."catalogo_estado_general" to "authenticated";
-
-grant delete on table "public"."catalogo_estado_general" to "service_role";
-
-grant insert on table "public"."catalogo_estado_general" to "service_role";
-
-grant references on table "public"."catalogo_estado_general" to "service_role";
-
-grant select on table "public"."catalogo_estado_general" to "service_role";
-
-grant trigger on table "public"."catalogo_estado_general" to "service_role";
-
-grant truncate on table "public"."catalogo_estado_general" to "service_role";
-
-grant update on table "public"."catalogo_estado_general" to "service_role";
 
 grant delete on table "public"."catalogo_rol" to "anon";
 
@@ -2303,13 +2239,6 @@ using ((activo = true));
   to authenticated
 using (true);
 
-  create policy "catalogo_estado_read_authenticated"
-  on "public"."catalogo_estado_general"
-  as permissive
-  for select
-  to authenticated
-using (true);
-
   create policy "catalogo_rol_read_authenticated"
   on "public"."catalogo_rol"
   as permissive
@@ -3290,3 +3219,167 @@ CREATE INDEX idx_informe_token_visita ON public.informe_descarga_token(visita_id
 
 -- Grants mínimos necesarios para que la Edge Function (service_role) opere
 GRANT SELECT, INSERT, UPDATE ON public.informe_descarga_token TO service_role;
+
+-- ─── Tabla: usuario_documento ────────────────────────────────────────────────
+--
+-- Almacena documentos genéricos asociados a cualquier usuario del sistema
+-- (técnico, coordinador, director, administrador). Reemplaza las columnas
+-- fijas de `tecnico` (documento_cedula_url, planilla_seg_social_url) y
+-- generaliza `tecnico_certificado` para todos los roles.
+--
+-- Tipos predefinidos (campo `tipo`):
+--   CEDULA          — Documento de identidad
+--   PLANILLA_SS     — Planilla de seguridad social
+--   CERTIFICADO     — Certificado adicional (alturas, electricidad, etc.)
+--   OTRO            — Cualquier otro documento
+--
+-- Modelo de seguridad:
+--   - El propio usuario puede leer sus documentos (perfil propio).
+--   - Staff de gestión (admin/director/coordinador) puede leer y gestionar todos.
+--   - Contactos (clientes) pueden leer documentos de técnicos asignados a visitas
+--     de sus sucursales, vía la función `get_documentos_tecnicos_visita`.
+--   - Nadie más tiene acceso.
+
+CREATE TABLE public.usuario_documento (
+  id          uuid        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  usuario_id  uuid        NOT NULL REFERENCES public.perfil_usuario(id) ON DELETE CASCADE,
+  nombre      varchar     NOT NULL,
+  tipo        varchar     NOT NULL DEFAULT 'OTRO',
+  url         text,
+  activo      boolean     NOT NULL DEFAULT true,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.usuario_documento ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_usuario_documento_usuario ON public.usuario_documento(usuario_id);
+CREATE INDEX idx_usuario_documento_activo  ON public.usuario_documento(usuario_id, activo);
+
+-- Trigger updated_at
+CREATE TRIGGER set_updated_at_usuario_documento
+  BEFORE UPDATE ON public.usuario_documento
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- ── RLS Policies ─────────────────────────────────────────────────────────────
+
+-- El propio usuario puede ver sus documentos activos
+CREATE POLICY "usuario_ve_sus_documentos"
+ON public.usuario_documento
+FOR SELECT
+TO authenticated
+USING (usuario_id = auth.uid() AND activo = true);
+
+-- Staff de gestión puede leer y gestionar todos los documentos
+CREATE POLICY "staff_gestiona_documentos"
+ON public.usuario_documento
+FOR ALL
+TO authenticated
+USING (public.is_management_staff())
+WITH CHECK (public.is_management_staff());
+
+-- ── Función para que un contacto autenticado lea documentos de técnicos ──────
+--
+-- Devuelve los documentos activos de los técnicos asignados a visitas de las
+-- sucursales del contacto. Usa SECURITY DEFINER para bypasear RLS de forma
+-- controlada: el contacto NO tiene acceso directo a usuario_documento.
+--
+-- Parámetro: p_visita_id — limita el resultado a los técnicos de esa visita.
+
+DROP FUNCTION IF EXISTS public.get_documentos_tecnicos_visita(uuid);
+
+CREATE OR REPLACE FUNCTION public.get_documentos_tecnicos_visita(p_visita_id uuid)
+RETURNS TABLE (
+  doc_id      uuid,
+  usuario_id  uuid,
+  nombre      varchar,
+  tipo        varchar,
+  url         text,
+  tecnico_nombres   text,
+  tecnico_apellidos text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_contacto_id uuid;
+BEGIN
+  -- Verificar que el caller es un contacto autenticado
+  SELECT c.id INTO v_contacto_id
+  FROM public.contacto c
+  WHERE c.usuario_id = auth.uid()
+  LIMIT 1;
+
+  IF v_contacto_id IS NULL THEN
+    RETURN; -- No es contacto: devuelve vacío
+  END IF;
+
+  -- Verificar que la visita pertenece a una sucursal del contacto
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.visita v
+    JOIN public.contacto_sucursal cs ON cs.sucursal_id = v.sucursal_id
+    WHERE v.id = p_visita_id
+      AND cs.contacto_id = v_contacto_id
+  ) THEN
+    RETURN; -- La visita no es de una sucursal del contacto
+  END IF;
+
+  -- Devolver documentos activos de los técnicos asignados
+  RETURN QUERY
+  SELECT
+    ud.id,
+    ud.usuario_id,
+    ud.nombre,
+    ud.tipo,
+    ud.url,
+    pu.nombres::text,
+    pu.apellidos::text
+  FROM public.visita_tecnico vt
+  JOIN public.tecnico t        ON t.id = vt.tecnico_id
+  JOIN public.perfil_usuario pu ON pu.id = t.usuario_id
+  JOIN public.usuario_documento ud ON ud.usuario_id = pu.id
+  WHERE vt.visita_id = p_visita_id
+    AND ud.activo = true
+  ORDER BY pu.nombres, ud.tipo, ud.nombre;
+END;
+$$;
+
+-- Grants
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.usuario_documento TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_documentos_tecnicos_visita(uuid) TO authenticated;
+
+-- ─── Limpieza legacy: columnas fijas de documentos en `tecnico` y tabla `tecnico_certificado` ───
+--
+-- Prerequisito: haber ejecutado el bloque de migración hacia `usuario_documento`.
+-- El código del frontend ya no lee ni escribe estas columnas/tabla.
+
+ALTER TABLE public.tecnico
+  DROP COLUMN IF EXISTS documento_cedula_url,
+  DROP COLUMN IF EXISTS planilla_seg_social_url;
+
+-- ============================================================
+-- SEED: Registros canónicos de catalogo (tipos consolidados)
+-- ============================================================
+-- ESTADO_ENTIDAD: estados de perfil_usuario, cliente, sucursal, contacto, dispositivo
+INSERT INTO public.catalogo (tipo, codigo, nombre, activo) VALUES
+  ('ESTADO_ENTIDAD', 'ACTIVO',   'Activo',   true),
+  ('ESTADO_ENTIDAD', 'INACTIVO', 'Inactivo', true),
+  ('ESTADO_ENTIDAD', 'RETIRADO', 'Retirado', true)
+ON CONFLICT (tipo, codigo) DO NOTHING;
+
+-- ESTADO_CONTRATO: estados del ciclo de vida de un contrato
+INSERT INTO public.catalogo (tipo, codigo, nombre, activo) VALUES
+  ('ESTADO_CONTRATO', 'VIGENTE', 'Vigente', true),
+  ('ESTADO_CONTRATO', 'VENCIDO', 'Vencido', true)
+ON CONFLICT (tipo, codigo) DO NOTHING;
+
+-- ESTADO_GESTION_DISPOSITIVO: estados de gestión de dispositivos en visitas
+INSERT INTO public.catalogo (tipo, codigo, nombre, activo) VALUES
+  ('ESTADO_GESTION_DISPOSITIVO', 'ACTIVO',     'Activo',         true),
+  ('ESTADO_GESTION_DISPOSITIVO', 'RECUPERAR',  'Para recuperar', true),
+  ('ESTADO_GESTION_DISPOSITIVO', 'RECOMPRADO', 'Recomprado',     true)
+ON CONFLICT (tipo, codigo) DO NOTHING;
+
+DROP TABLE IF EXISTS public.tecnico_certificado;

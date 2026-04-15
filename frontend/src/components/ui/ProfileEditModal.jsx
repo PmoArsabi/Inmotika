@@ -1,10 +1,12 @@
 import { useState, useRef } from 'react';
-import { Camera, Lock, CheckCircle, Loader2, AlertCircle, Mail } from 'lucide-react';
+import { Camera, Lock, CheckCircle, Loader2, AlertCircle, Mail, FileText } from 'lucide-react';
 import Modal from './Modal';
 import Button from './Button';
 import SecureImage from './SecureImage';
+import DocumentUploadManager from './DocumentUploadManager';
 import { useUpdateProfile } from '../../hooks/useUpdateProfile';
 import { useAuth } from '../../context/AuthContext';
+import { isManagementRole } from '../../utils/constants';
 
 /**
  * Modal para que el usuario actualice su foto de perfil y/o contraseña.
@@ -87,6 +89,10 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
     setPwError(null);
     onClose();
   };
+
+  // Gestión de documentos propia: solo roles que no son CLIENTE
+  // canManage: el propio usuario puede subir sus documentos (o el staff sobre otro)
+  const canManage = user?.role && user.role !== 'CLIENTE';
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Mi Perfil" maxWidth="max-w-sm">
@@ -190,6 +196,23 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
             </Button>
           )}
         </div>
+
+        {/* ── Documentos (solo roles internos) ── */}
+        {canManage && user?.id && (
+          <>
+            <div className="border-t border-gray-100" />
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <FileText size={15} className="text-[#D32F2F]" />
+                <span className="text-xs font-black uppercase tracking-widest text-gray-700">Mis Documentos</span>
+              </div>
+              <DocumentUploadManager
+                usuarioId={user.id}
+                canManage={isManagementRole(user.role) || user.role === 'TECNICO'}
+              />
+            </div>
+          </>
+        )}
 
       </div>
     </Modal>

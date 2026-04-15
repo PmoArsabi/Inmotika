@@ -77,7 +77,7 @@ export const emptyContactDraft = () => ({
   telefonoMovilPais: 'CO',
   fechaNacimiento: '',
   fechaMatrimonio: '',    // fecha boda — solo visible si esMarido=true
-  estadoId: '',           // UUID → catalogo_estado_general (oculto en creación)
+  estadoId: '',           // UUID → catalogo (ESTADO_ENTIDAD) (oculto en creación)
   darAcceso: false,       // true = invitar al sistema al guardar
   associatedBranchIds: [],
 });
@@ -95,8 +95,8 @@ export const emptyDeviceDraft = () => ({
   modelo: '',
   imac: '',                 // dirección MAC / IMAC
   esDeInmotika: false,      // true = el equipo pertenece a Inmotika, false = es del cliente
-  estadoId: '',             // UUID → catalogo_estado_general (Activo/Inactivo)
-  estadoGestionId: '',      // UUID → catalogo_estado_dispositivo (Activo, Recuperar, Recomprado)
+  estadoId: '',             // UUID → catalogo (ESTADO_ENTIDAD) (Activo/Inactivo)
+  estadoGestionId: '',      // UUID → catalogo (ESTADO_GESTION_DISPOSITIVO)
   frecuenciaMantenimientoMeses: '',
   fechaProximoMantenimiento: '',
   notasTecnicas: '',
@@ -117,10 +117,7 @@ export const emptyTecnicoDraft = () => ({
   // tecnico
   tipoDocumento: '',
   identificacion: '',
-  documentoCedulaUrl: '',
-  planillaSegSocialUrl: '',
-  certificados: [],        // [{id, nombre, url}]
-  estadoId: '',            // UUID → catalogo_estado_general
+  estadoId: '',            // UUID → catalogo (ESTADO_ENTIDAD)
   usuarioId: '',           // UUID → perfil_usuario.id
 });
 
@@ -246,7 +243,7 @@ export const toContactDraft = (contact) => {
     // Estado del perfil_usuario (controla acceso al sistema via RLS is_user_active())
     // true = puede loguearse, false = bloqueado, null = no tiene cuenta vinculada
     perfilAccesoActivo: contact.perfil_usuario
-      ? (contact.perfil_usuario.catalogo_estado_general?.activo ?? true)
+      ? (contact.perfil_usuario.catalogo?.activo ?? true)
       : (contact.perfilAccesoActivo ?? null),
     darAcceso: contact.darAcceso ?? contact.dar_acceso ?? false,
     associatedBranchIds: contact.associatedBranchIds && contact.associatedBranchIds.length
@@ -298,11 +295,6 @@ export const toTecnicoDraft = (tecnico, perfil) => ({
   avatarUrl: perfil?.avatar_url || perfil?.avatarUrl || '',
   tipoDocumento: perfil?.tipo_documento || tecnico?.tipo_documento || perfil?.tipoDocumento || '',
   identificacion: perfil?.identificacion || tecnico?.identificacion || '',
-  documentoCedulaUrl: tecnico?.documento_cedula_url || tecnico?.documentoCedulaUrl || '',
-  planillaSegSocialUrl: tecnico?.planilla_seg_social_url || tecnico?.planillaSegSocialUrl || '',
-  certificados: Array.isArray(tecnico?.tecnico_certificado) 
-    ? tecnico.tecnico_certificado.filter(c => c.activo) 
-    : (Array.isArray(tecnico?.certificados) ? tecnico.certificados : []),
   estadoId: tecnico?.estado_id || tecnico?.estadoId || perfil?.estado_id || '',
   usuarioId: perfil?.id || tecnico?.usuario_id || tecnico?.usuarioId || '',
 });

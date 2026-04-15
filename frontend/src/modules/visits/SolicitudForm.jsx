@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   ArrowLeft, FileText, Edit2, Trash2, X,
-  Calendar, Building2, Cpu, Clock, AlertCircle, Tag,
+  Calendar, Building2, Cpu, Clock, AlertCircle, Tag, Users,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -12,6 +12,9 @@ import SectionHeader from '../../components/ui/SectionHeader';
 import VisitProgressPanel from '../../components/visits/VisitProgressPanel';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import DevicePickerModal from '../../components/shared/DevicePickerModal';
+import DocumentList from '../../components/ui/DocumentList';
+import { useDocumentosTecnicosVisita } from '../../hooks/useUserDocuments';
+import { useAuth } from '../../context/AuthContext';
 import { H2, H3, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 
 // ─── Form compartido (crear / editar) ─────────────────────────────────────────
@@ -265,6 +268,13 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
   const canEdit   = sol.estadoCodigo === 'PENDIENTE';
   const canCancel = sol.estadoCodigo === 'PENDIENTE' || sol.estadoCodigo === 'PROGRAMADA';
   const visitaVinculada = visitas.find(v => v.solicitudId === sol.id) || null;
+  const { user } = useAuth();
+  const isCliente = user?.role === 'CLIENTE';
+
+  // Documentos de técnicos — solo se cargan si hay visita asignada y el viewer es CLIENTE
+  const { documentos: docsTecnicos, loading: loadingDocs } = useDocumentosTecnicosVisita(
+    isCliente && visitaVinculada ? visitaVinculada.id : null
+  );
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
@@ -376,6 +386,25 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                 <Clock size={18} />
                 <p className="text-sm">La solicitud aún no tiene una visita asignada. El coordinador la programará próximamente.</p>
               </div>
+            </Card>
+          )}
+
+          {/* Panel de documentos del personal — visible solo para CLIENTE con visita asignada */}
+          {isCliente && visitaVinculada && (
+            <Card className="p-5 space-y-4">
+              <SectionHeader icon={Users} title="Documentación del Personal Asignado" />
+              {loadingDocs || docsTecnicos.length > 0 ? (
+                <DocumentList
+                  documentos={docsTecnicos}
+                  loading={loadingDocs}
+                  groupByUser={true}
+                  emptyText="Los técnicos asignados aún no tienen documentos disponibles."
+                />
+              ) : (
+                <p className="text-xs text-gray-400 italic">
+                  Los técnicos asignados aún no tienen documentos disponibles.
+                </p>
+              )}
             </Card>
           )}
         </div>

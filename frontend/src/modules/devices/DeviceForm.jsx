@@ -172,8 +172,9 @@ const DeviceForm = ({
     setLoadingGest(true);
     try {
       const { data, error } = await supabase
-        .from('catalogo_estado_dispositivo')
+        .from('catalogo')
         .select('id, nombre')
+        .eq('tipo', 'ESTADO_GESTION_DISPOSITIVO')
         .eq('activo', true)
         .order('nombre');
       if (error) throw error;

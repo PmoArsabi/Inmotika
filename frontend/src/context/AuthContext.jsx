@@ -109,7 +109,7 @@ export const AuthProvider = ({ children }) => {
         .select(`
           id, rol_id, estado_id, nombres, apellidos, email, telefono, avatar_url,
           catalogo_rol (codigo, nombre),
-          catalogo_estado_general (codigo)
+          catalogo:estado_id (codigo)
         `)
         .eq('id', userId)
         .maybeSingle();
@@ -121,7 +121,7 @@ export const AuthProvider = ({ children }) => {
       if (profile) {
         let roleCode = profile.catalogo_rol?.codigo ?? null;
         let roleName = profile.catalogo_rol?.nombre ?? null;
-        let statusCode = profile.catalogo_estado_general?.codigo ?? 'ACTIVO';
+        let statusCode = profile.catalogo?.codigo ?? 'ACTIVO';
         // Si el join no trajo el rol (p. ej. RLS puntual), fallback con una consulta extra
         if (!roleCode && profile.rol_id) {
           const { data: rol } = await supabase

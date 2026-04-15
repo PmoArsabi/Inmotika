@@ -16,10 +16,10 @@ export function isNewContactId(id) {
 async function resolveEstadoId(draft) {
   if (draft.estadoId) return draft.estadoId;
   const { data } = await supabase
-    .from('catalogo_estado_general')
+    .from('catalogo')
     .select('id')
-    .eq('activo', true)
-    .limit(1)
+    .eq('tipo', 'ESTADO_ENTIDAD')
+    .eq('codigo', 'ACTIVO')
     .maybeSingle();
   return data?.id || null;
 }

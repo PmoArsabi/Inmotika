@@ -184,7 +184,8 @@ export async function fetchInformeData(visitaId) {
     .from('ejecucion_actividad')
     .select(`
       intervencion_id,
-      estado,
+      estado_id,
+      catalogo:estado_id(codigo),
       observacion,
       actividad:actividad_id(id, descripcion, orden, paso_id)
     `)
@@ -211,8 +212,12 @@ export async function fetchInformeData(visitaId) {
   /** @type {Map<string, { intervencion_id: string, estado: string, observacion: string|null, actividad: { id: string, descripcion: string, orden: number, paso_id: string } }[]>} */
   const actividadesByIntervencion = new Map();
   for (const ea of (ejecActividades || [])) {
+    const catalogoCodigo = ea.catalogo?.codigo || 'PENDIENTE';
+    const estadoInterno =
+      catalogoCodigo === 'COMPLETADA' ? 'completada' :
+      catalogoCodigo === 'INCOMPLETA' ? 'omitida'    : 'pendiente';
     const list = actividadesByIntervencion.get(ea.intervencion_id) || [];
-    list.push(ea);
+    list.push({ ...ea, estado: estadoInterno });
     actividadesByIntervencion.set(ea.intervencion_id, list);
   }
 

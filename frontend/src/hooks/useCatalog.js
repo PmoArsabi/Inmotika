@@ -40,40 +40,13 @@ export const useCatalog = (tipo) => {
 };
 
 /**
- * Hook para cargar todos los estados de `catalogo_estado_general`.
+ * Hook para cargar todos los estados de entidad desde `catalogo` (tipo ESTADO_ENTIDAD).
  * Retorna { options: [{value: id, label: nombre, codigo}], loading }
  */
-export const useEstados = () => {
-  const key = 'estados_general';
-  const [options, setOptions] = useState(_cache[key] || []);
-  const [loading, setLoading] = useState(!_cache[key]);
-
-  useEffect(() => {
-    if (key in _cache) return;
-    let active = true;
-    supabase
-      .from('catalogo_estado_general')
-      .select('id, codigo, nombre')
-      .order('nombre')
-      .then(({ data }) => {
-        if (!active) return;
-        const opts = (data || []).map(r => ({
-          value: r.id,
-          label: r.nombre,
-          codigo: r.codigo,
-        }));
-        _cache[key] = opts;
-        setOptions(opts);
-        setLoading(false);
-      });
-    return () => { active = false; };
-  }, []);
-
-  return { options, loading };
-};
+export const useEstados = () => useCatalog('ESTADO_ENTIDAD');
 
 /**
- * Devuelve los UUIDs de los estados ACTIVO e INACTIVO de catalogo_estado_general.
+ * Devuelve los UUIDs de los estados ACTIVO e INACTIVO desde catalogo (tipo ESTADO_ENTIDAD).
  * Úsalo en cualquier formulario que necesite un Switch de Activo/Inactivo
  * para mantener consistencia con la FK de la base de datos.
  */

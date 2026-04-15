@@ -3,7 +3,6 @@ import { supabase, invokeFunction } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { ROLES } from '../utils/constants';
-import { saveTecnico } from '../api/tecnicoApi';
 import { syncCoordinadorSucursales } from '../api/coordinadorSucursalApi';
 import { sendEmail, getSupervisorCCs, buildRecipients } from './useEmail';
 import { getEstadoInactivoId } from '../api/estadoApi';
@@ -163,12 +162,8 @@ export const useUsers = () => {
       .select(`
         id, nombres, apellidos, email, telefono, tipo_documento, identificacion, avatar_url,
         catalogo_rol (id, codigo, nombre),
-        catalogo_estado_general (id, codigo, nombre, activo),
-        tecnico!tecnico_usuario_id_fkey (
-          id,
-          documento_cedula_url, planilla_seg_social_url,
-          tecnico_certificado (id, nombre, url, activo)
-        ),
+        catalogo:estado_id (id, codigo, nombre, activo),
+        tecnico!tecnico_usuario_id_fkey (id, activo),
         coordinador!coordinador_usuario_id_fkey (
           id,
           director_id,
@@ -206,17 +201,13 @@ export const useUsers = () => {
           : u.director ? [u.director] : [];
         const dir = dirArr.find(d => d.activo) || dirArr[0] || null;
 
-        const certs = tec?.tecnico_certificado
-          ? tec.tecnico_certificado.filter(c => c.activo)
-          : [];
-
         return {
           ...u,
           rol: u.catalogo_rol?.codigo || '',
           rolNombre: u.catalogo_rol?.nombre || '',
-          activo: u.catalogo_estado_general?.activo ?? true,
-          estado: u.catalogo_estado_general?.codigo || '',
-          estadoNombre: u.catalogo_estado_general?.nombre || '',
+          activo: u.catalogo?.activo ?? true,
+          estado: u.catalogo?.codigo || '',
+          estadoNombre: u.catalogo?.nombre || '',
           tecnicoId: tec?.id || null,
           coordinadorId: coo?.id || null,
           /** ID interno del registro en la tabla `director` para este usuario. */
@@ -227,11 +218,6 @@ export const useUsers = () => {
           sucursalesACargo: (coo?.sucursal_coordinador || [])
             .filter(sc => sc.activo)
             .map(sc => sc.sucursal_id),
-          certificados: certs,
-          documentos: {
-            cedula: tec?.documento_cedula_url || null,
-            planillaSS: tec?.planilla_seg_social_url || null,
-          },
           /** Solo para rol CLIENTE: ID del cliente al que está vinculado como contacto. */
           contactoClienteId: u.contacto?.cliente_id || null,
           /** Nombre legible del cliente relacionado (para filtros y display). */
@@ -359,12 +345,11 @@ export const useUsers = () => {
    *
    * @param {string}  email        - Correo del usuario invitado.
    * @param {object}  payloadUser  - Datos del formulario del nuevo usuario.
-   * @param {object}  payloadDocs  - Documentos de técnico (si aplica).
    * @param {Array}   payloadRoles - Catálogo de roles en el momento de la invitación.
    * @param {{ cancelled: boolean }} cancelToken - Objeto compartido para cancelar el polling.
    * @returns {Promise<void>}
    */
-  const pollAndUpdateNewUser = async (email, payloadUser, payloadDocs, payloadRoles, cancelToken) => {
+  const pollAndUpdateNewUser = async (email, payloadUser, payloadRoles, cancelToken) => {
     let perfilId = null;
 
     for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
@@ -405,30 +390,6 @@ export const useUsers = () => {
       identificacion: payloadUser.identificacion || null,
       ...(selectedRole?.id && { rol_id: selectedRole.id }),
     }).eq('id', perfilId);
-
-    // Para técnicos, guardar documentos y certificados.
-    // El trigger sync_specialized_role_tables habrá creado la fila en `tecnico`;
-    // saveTecnico solo actualiza campos de documentación/certificados.
-    if (payloadUser.rol === ROLES.TECNICO && !cancelToken.cancelled) {
-      try {
-        await saveTecnico({
-          usuarioId: perfilId,
-          techId: null,
-          draft: {
-            nombres: payloadUser.nombres,
-            apellidos: payloadUser.apellidos,
-            telefono: payloadUser.telefono,
-            tipoDocumento: payloadUser.tipoDocumento,
-            identificacion: payloadUser.identificacion,
-            cedula: payloadDocs?.cedula ?? null,
-            planillaSS: payloadDocs?.planillaSS ?? null,
-            certificados: payloadUser.certificados || [],
-          },
-        });
-      } catch (err) {
-        console.error('[useUsers] Error guardando datos de técnico (documentos/certificados):', err);
-      }
-    }
 
     // Para coordinadores nuevos, sincronizar sucursales y director asignado
     // una vez que el trigger haya creado la fila en la tabla `coordinador`.
@@ -476,10 +437,9 @@ export const useUsers = () => {
    * @param {boolean} isCreating        - `true` si se está creando un usuario nuevo.
    * @param {object|null} editingUser   - Objeto del usuario que se está editando (null si isCreating).
    * @param {object} newUser            - Datos del formulario (nombres, apellidos, email, rol, etc.).
-   * @param {object} tecnicoDocumentos  - URLs de documentos de técnico { cedula, planillaSS }.
    * @returns {Promise<boolean>}        - `true` si la operación fue exitosa.
    */
-  const saveUser = async (isCreating, editingUser, newUser, tecnicoDocumentos) => {
+  const saveUser = async (isCreating, editingUser, newUser) => {
     try {
       // ----- CREAR usuario -----
       if (isCreating) {
@@ -567,14 +527,13 @@ export const useUsers = () => {
 
         // Polling cancelable: capturamos los valores actuales antes del cierre async.
         const payloadUser = newUser;
-        const payloadDocs = tecnicoDocumentos;
         const payloadRoles = roles;
 
         // cancelToken permite detener el polling si el componente se desmonta.
         // El caller puede guardar el token y llamar `cancelToken.cancelled = true`
         // desde un cleanup de useEffect si lo necesita.
         const cancelToken = { cancelled: false };
-        pollAndUpdateNewUser(newUser.email, payloadUser, payloadDocs, payloadRoles, cancelToken);
+        pollAndUpdateNewUser(newUser.email, payloadUser, payloadRoles, cancelToken);
 
         // Retornamos inmediatamente; el polling corre en segundo plano.
         return true;
@@ -601,25 +560,6 @@ export const useUsers = () => {
           .eq('id', editingUser.id);
 
         if (updateError) throw updateError;
-
-        // Para técnicos, actualizar documentos y certificados adicionales que
-        // el trigger no gestiona (solo crea la fila base, no sube documentos).
-        if (newUser.rol === ROLES.TECNICO) {
-          await saveTecnico({
-            usuarioId: editingUser.id,
-            techId: editingUser.tecnicoId || null,
-            draft: {
-              nombres: newUser.nombres,
-              apellidos: newUser.apellidos,
-              telefono: newUser.telefono,
-              tipoDocumento: newUser.tipoDocumento,
-              identificacion: newUser.identificacion,
-              cedula: tecnicoDocumentos.cedula,
-              planillaSS: tecnicoDocumentos.planillaSS,
-              certificados: newUser.certificados || [],
-            },
-          });
-        }
 
         // Para coordinadores, sincronizar sucursales y director asignado.
         if (newUser.rol === ROLES.COORDINADOR && editingUser.coordinadorId) {

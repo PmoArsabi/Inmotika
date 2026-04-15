@@ -4,7 +4,6 @@ import { generateInformeVisita } from '../utils/generateInforme';
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-
 /**
  * Busca el UUID de un estado en el catálogo por su tipo y código.
  * @param {string} tipo - Tipo del catálogo (ej. 'ESTADO_VISITA')
@@ -25,6 +24,38 @@ async function getCatalogoId(tipo, codigo) {
   }
   return data.id;
 }
+
+/**
+ * Cache de UUIDs para ESTADO_INTERVENCION.
+ * Evita N+1 queries al guardar múltiples actividades.
+ * Mapa: código ('pendiente'|'completada'|'omitida') → UUID en catalogo
+ * @type {Map<string, string>|null}
+ */
+let _estadoIntervencionCache = null;
+
+/**
+ * Devuelve el mapa código→UUID de ESTADO_INTERVENCION, cacheado por sesión.
+ * @returns {Promise<Map<string, string>>}
+ */
+async function getEstadoIntervencionMap() {
+  if (_estadoIntervencionCache) return _estadoIntervencionCache;
+  const { data, error } = await supabase
+    .from('catalogo')
+    .select('id, codigo')
+    .eq('tipo', 'ESTADO_INTERVENCION');
+  if (error) throw new Error(`Error cargando ESTADO_INTERVENCION: ${error.message}`);
+  // Mapear código de catálogo al texto interno del frontend
+  // COMPLETADA → 'completada', INCOMPLETA → 'omitida', PENDIENTE → 'pendiente'
+  const map = new Map();
+  for (const row of (data || [])) {
+    if (row.codigo === 'COMPLETADA') map.set('completada', row.id);
+    if (row.codigo === 'INCOMPLETA') map.set('omitida',    row.id);
+    if (row.codigo === 'PENDIENTE')  map.set('pendiente',  row.id);
+  }
+  _estadoIntervencionCache = map;
+  return map;
+}
+
 
 // ─── Notificaciones ──────────────────────────────────────────────────────────
 
@@ -353,6 +384,7 @@ async function savePasosEjecucion(intervencionId, allPasos, pasoData, actividadD
 
 /**
  * Upsert masivo de ejecucion_actividad usando el índice único (intervencion_id, actividad_id).
+ * Convierte el código interno ('completada'|'omitida'|'pendiente') al UUID de ESTADO_INTERVENCION.
  *
  * @param {string} intervencionId
  * @param {Object} actividadData - actividadId → { estado, observacion }
@@ -361,12 +393,19 @@ async function saveActividadStates(intervencionId, actividadData) {
   const ids = Object.keys(actividadData);
   if (!ids.length) return;
 
-  const rows = ids.map(actividadId => ({
-    intervencion_id: intervencionId,
-    actividad_id: actividadId,
-    estado: actividadData[actividadId].estado ?? 'pendiente',
-    observacion: actividadData[actividadId].observacion ?? null,
-  }));
+  const estadoMap = await getEstadoIntervencionMap();
+
+  const rows = ids.map(actividadId => {
+    const codigo = actividadData[actividadId].estado ?? 'pendiente';
+    const estadoId = estadoMap.get(codigo);
+    if (!estadoId) throw new Error(`Estado de actividad "${codigo}" no encontrado en catálogo ESTADO_INTERVENCION.`);
+    return {
+      intervencion_id: intervencionId,
+      actividad_id: actividadId,
+      estado_id: estadoId,
+      observacion: actividadData[actividadId].observacion ?? null,
+    };
+  });
 
   const { error } = await supabase
     .from('ejecucion_actividad')

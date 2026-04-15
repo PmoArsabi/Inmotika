@@ -17,7 +17,6 @@ const STATUS_CONFIG = {
   // Estados del módulo de solicitudes de visita
   PENDIENTE:    { label: 'Pendiente',    classes: 'bg-yellow-100 text-yellow-700' },
   PROGRAMADA:   { label: 'Programada',   classes: 'bg-purple-100 text-purple-700' },
-  EN_CAMINO:    { label: 'En camino',    classes: 'bg-indigo-100 text-indigo-700' },
   EN_PROGRESO:  { label: 'En progreso',  classes: 'bg-blue-100 text-blue-700'    },
   COMPLETADA:   { label: 'Completada',   classes: 'bg-green-100 text-green-700'  },
   CANCELADA:    { label: 'Cancelada',    classes: 'bg-red-100 text-red-700'      },

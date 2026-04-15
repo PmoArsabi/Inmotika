@@ -26,8 +26,6 @@ const emptyUser = () => ({
   sucursalesACargo: [],
 });
 
-const emptyDocs = () => ({ cedula: null, planillaSS: null });
-
 const UsersPage = ({ setData }) => {
   const { data: masterData } = useMasterData();
   const { user: currentUser } = useAuth();
@@ -38,7 +36,6 @@ const UsersPage = ({ setData }) => {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ rol: [], estado: [], clienteContacto: [], fechaDesde: '', fechaHasta: '' });
   const [newUser, setNewUser] = useState(emptyUser());
-  const [tecnicoDocumentos, setTecnicoDocumentos] = useState(emptyDocs());
   const [savingUser, setSavingUser] = useState(false);
 
   // Data & Logic Hook
@@ -140,7 +137,6 @@ const UsersPage = ({ setData }) => {
     setEditingUser(null);
     setViewingUser(null);
     setNewUser(emptyUser());
-    setTecnicoDocumentos(emptyDocs());
   };
 
   const handleEdit = (user) => {
@@ -157,14 +153,9 @@ const UsersPage = ({ setData }) => {
       identificacion: user.identificacion || '',
       rol: user.rol || '',
       activo: user.activo !== undefined ? user.activo : true,
-      certificados: Array.isArray(user.certificados) ? user.certificados : [],
       directorId: user.directorAsignadoId || '',
       sucursalesACargo: Array.isArray(user.sucursalesACargo) ? user.sucursalesACargo : [],
       avatarUrl: user.avatar_url || '',
-    });
-    setTecnicoDocumentos({
-      cedula: user.documentos?.cedula || null,
-      planillaSS: user.documentos?.planillaSS || null,
     });
   };
 
@@ -180,14 +171,9 @@ const UsersPage = ({ setData }) => {
       identificacion: user.identificacion || '',
       rol: user.rol || '',
       activo: user.activo !== undefined ? user.activo : true,
-      certificados: Array.isArray(user.certificados) ? user.certificados : [],
       directorId: user.directorAsignadoId || '',
       sucursalesACargo: Array.isArray(user.sucursalesACargo) ? user.sucursalesACargo : [],
       avatarUrl: user.avatar_url || '',
-    });
-    setTecnicoDocumentos({
-      cedula: user.documentos?.cedula || null,
-      planillaSS: user.documentos?.planillaSS || null,
     });
     setViewingUser(user);
     setIsCreating(false);
@@ -199,7 +185,7 @@ const UsersPage = ({ setData }) => {
     setSavingUser(true);
     setSuccessInfo(null);
     try {
-      const success = await saveUser(isCreating, editingUser, newUser, tecnicoDocumentos);
+      const success = await saveUser(isCreating, editingUser, newUser);
       if (success) {
         setIsCreating(false);
         setEditingUser(null);
@@ -239,8 +225,6 @@ const UsersPage = ({ setData }) => {
         <UserForm
           newUser={newUser}
           setNewUser={setNewUser}
-          tecnicoDocumentos={tecnicoDocumentos}
-          setTecnicoDocumentos={setTecnicoDocumentos}
           isCreating={isCreating}
           editingUser={editingUser}
           viewingUser={viewingUser}

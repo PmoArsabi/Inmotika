@@ -25,9 +25,10 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
    */
   const loadEstadosInactivos = useCallback(async () => {
     const { data, error } = await supabase
-      .from('catalogo_estado_general')
+      .from('catalogo')
       .select('id, codigo')
-      .in('codigo', ['INACTIVO', 'RETIRADO']);
+      .eq('tipo', 'ESTADO_ENTIDAD')
+      .eq('codigo', 'INACTIVO');
     if (error) throw error;
     return new Set((data || []).map(e => e.id));
   }, []);
@@ -40,7 +41,7 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
     const [{ data: contactRows, error: contactError }, inactivos] = await Promise.all([
       supabase
         .from('contacto')
-        .select('*, contacto_sucursal(sucursal_id, activo), perfil_usuario(id, estado_id, catalogo_estado_general(codigo, activo))'),
+        .select('*, contacto_sucursal(sucursal_id, activo), perfil_usuario(id, estado_id, catalogo:estado_id(codigo, activo))'),
       estadosInactivos ?? loadEstadosInactivos(),
     ]);
     if (contactError) throw contactError;

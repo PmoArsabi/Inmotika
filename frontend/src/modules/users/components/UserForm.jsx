@@ -9,11 +9,10 @@ import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import Switch from '../../../components/ui/Switch';
 import PhoneInput from '../../../components/ui/PhoneInput';
-import FileUploader from '../../../components/ui/FileUploader';
 import SearchableSelect from '../../../components/ui/SearchableSelect';
+import DocumentUploadManager from '../../../components/ui/DocumentUploadManager';
 import { Subtitle, TextSmall, H2, TextTiny, Label } from '../../../components/ui/Typography';
 import { ROLES } from '../../../utils/constants';
-import CertificadosList from './CertificadosList';
 
 const TIPO_DOCUMENTO_OPTIONS = [
   { value: '',    label: 'Seleccionar...' },
@@ -146,8 +145,6 @@ const AvatarUpload = ({ userId, avatarUrl, nombres, isView, isCreating, onChange
 const UserForm = ({
   newUser,
   setNewUser,
-  tecnicoDocumentos,
-  setTecnicoDocumentos,
   isCreating,
   editingUser,
   viewingUser,
@@ -362,7 +359,6 @@ const UserForm = ({
                   onChange={e => {
                     const nuevoRol = e.target.value;
                     setNewUser({ ...newUser, rol: nuevoRol, directorId: '' });
-                    if (nuevoRol !== ROLES.TECNICO) setTecnicoDocumentos({ cedula: null, planillaSS: null });
                   }}
                   viewMode={isView}
                   required
@@ -556,32 +552,11 @@ const UserForm = ({
               </>
             )}
 
-            {newUser.rol === ROLES.TECNICO && (
-              <RoleSection icon={FileText} label="Datos del Técnico" color="orange">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FileUploader
-                    label="Cédula / Documento de Identidad"
-                    bucket="inmotika"
-                    value={tecnicoDocumentos.cedula}
-                    viewMode={isView}
-                    deferred={true}
-                    onChange={(file) => setTecnicoDocumentos(prev => ({ ...prev, cedula: file }))}
-                  />
-                  <FileUploader
-                    label="Planilla de Seguridad Social"
-                    bucket="inmotika"
-                    value={tecnicoDocumentos.planillaSS}
-                    viewMode={isView}
-                    deferred={true}
-                    onChange={(file) => setTecnicoDocumentos(prev => ({ ...prev, planillaSS: file }))}
-                  />
-                </div>
-
-                <CertificadosList
-                  userId={(editingUser || viewingUser)?.id}
-                  items={newUser.certificados || []}
-                  viewMode={isView}
-                  onChange={certs => setNewUser(prev => ({ ...prev, certificados: certs }))}
+            {newUser.rol === ROLES.TECNICO && (editingUser || viewingUser) && (
+              <RoleSection icon={FileText} label="Documentos del Técnico" color="orange">
+                <DocumentUploadManager
+                  usuarioId={(editingUser || viewingUser).id}
+                  canManage={!isView}
                 />
               </RoleSection>
             )}

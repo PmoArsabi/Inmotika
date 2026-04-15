@@ -1,6 +1,6 @@
 /**
  * Helpers compartidos para consultar estados del catálogo.
- * Centraliza el acceso a `catalogo_estado_general` para evitar queries duplicadas.
+ * Centraliza el acceso a `catalogo` (tipo ESTADO_ENTIDAD) para evitar queries duplicadas.
  */
 import { supabase } from '../utils/supabase';
 
@@ -21,15 +21,16 @@ let _estadoInactivoPromise = null;
 export function getEstadoInactivoId() {
   if (!_estadoInactivoPromise) {
     _estadoInactivoPromise = supabase
-      .from('catalogo_estado_general')
+      .from('catalogo')
       .select('id')
+      .eq('tipo', 'ESTADO_ENTIDAD')
       .eq('codigo', 'INACTIVO')
       .maybeSingle()
       .then(({ data, error }) => {
         if (error) { _estadoInactivoPromise = null; throw error; }
         if (!data?.id) {
           _estadoInactivoPromise = null;
-          throw new Error('Estado INACTIVO no encontrado en catalogo_estado_general');
+          throw new Error('Estado INACTIVO no encontrado en catalogo (tipo ESTADO_ENTIDAD)');
         }
         return data.id;
       });
