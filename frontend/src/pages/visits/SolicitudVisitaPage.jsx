@@ -33,13 +33,14 @@ const SolicitudVisitaPage = () => {
   const confirm = useConfirm();
 
   const { solicitudes, loading, saving, createSolicitud, updateSolicitud, cancelSolicitud } = useSolicitudesVisita();
-  const { visitas } = useVisitas();
   const { data } = useMasterData();
   const { options: tipoVisitaOptions } = useCatalog('TIPO_VISITA');
   const { options: estadoVisitaOptions } = useCatalog('ESTADO_VISITA');
 
   // Para rol CLIENTE: datos del contacto autenticado
   const { cliente: clienteContacto, sucursales: sucursalesContacto, dispositivos: dispositivosContacto } = useClienteData();
+
+  const { visitas } = useVisitas();
 
   // Auto-populate draft con el cliente del contacto al abrir el formulario de creación.
   // Se hace durante el render (no en effect) para evitar setState-in-effect.

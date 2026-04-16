@@ -127,10 +127,10 @@ export const useSolicitudesVisita = () => {
       if (allDeviceIds.length > 0) {
         const { data: devices } = await supabase
           .from('dispositivo')
-          .select('id,id_inmotika,codigo_unico,modelo')
+          .select('id,serial,id_inmotika,codigo_unico,modelo')
           .in('id', allDeviceIds);
         (devices || []).forEach(d => {
-          const label = d.id_inmotika || d.codigo_unico || d.modelo || d.id;
+          const label = d.serial || d.id_inmotika || d.codigo_unico || d.modelo || d.id;
           deviceInfoMap.set(d.id, label);
         });
       }

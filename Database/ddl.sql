@@ -2386,6 +2386,37 @@ using (public.is_admin_or_coordinator());
   to authenticated
 using ((id = auth.uid() AND public.is_user_active()));
 
+-- Función SECURITY DEFINER: evita recursión al verificar si auth.uid() es contacto
+-- de alguna visita asignada al técnico cuyo perfil se quiere leer.
+CREATE OR REPLACE FUNCTION public.is_contacto_of_tecnico(p_usuario_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.tecnico t
+    JOIN public.visita_tecnico vt ON vt.tecnico_id = t.id
+    JOIN public.visita v ON v.id = vt.visita_id
+    JOIN public.contacto_sucursal cs ON cs.sucursal_id = v.sucursal_id
+    JOIN public.contacto c ON c.id = cs.contacto_id
+    WHERE t.usuario_id = p_usuario_id
+      AND c.usuario_id = auth.uid()
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_contacto_of_tecnico(uuid) TO authenticated;
+
+create policy "Contactos can read profiles of assigned tecnicos"
+on "public"."perfil_usuario"
+as permissive
+for select
+to authenticated
+using (public.is_contacto_of_tecnico(id));
+
   create policy "Admin access"
   on "public"."solicitud_visita"
   as permissive
@@ -2475,6 +2506,20 @@ using ((EXISTS ( SELECT 1
   for all
   to public
 using ((public.is_management_staff() OR (usuario_id = auth.uid())));
+
+  create policy "Contactos can view tecnicos assigned to their visitas"
+  on "public"."tecnico"
+  as permissive
+  for select
+  to authenticated
+  using (
+    EXISTS (
+      SELECT 1
+      FROM public.visita_tecnico vt
+      WHERE vt.tecnico_id = tecnico.id
+        AND public.is_contacto_of_visita(vt.visita_id)
+    )
+  );
 
   create policy "Admins can manage all technician certificates"
   on "public"."tecnico_certificado"
@@ -2754,6 +2799,54 @@ with check (
   )
 );
 
+-- Función SECURITY DEFINER: verifica si auth.uid() es contacto de la sucursal de una visita.
+-- SECURITY DEFINER bypasea RLS en tablas internas → evita dependencia circular con visita_tecnico.
+CREATE OR REPLACE FUNCTION public.is_contacto_of_visita(p_visita_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.visita v
+    JOIN public.contacto_sucursal cs ON cs.sucursal_id = v.sucursal_id
+    JOIN public.contacto c ON c.id = cs.contacto_id
+    WHERE v.id = p_visita_id
+      AND c.usuario_id = auth.uid()
+  );
+END;
+$$;
+
+-- Función SECURITY DEFINER: verifica si auth.uid() es contacto de una sucursal dada.
+CREATE OR REPLACE FUNCTION public.is_contacto_of_sucursal(p_sucursal_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.contacto_sucursal cs
+    JOIN public.contacto c ON c.id = cs.contacto_id
+    WHERE cs.sucursal_id = p_sucursal_id
+      AND c.usuario_id = auth.uid()
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_contacto_of_visita(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_contacto_of_sucursal(uuid) TO authenticated;
+
+create policy "Contactos can view visitas of their sucursales"
+on "public"."visita"
+as permissive
+for select
+to authenticated
+using (public.is_contacto_of_sucursal(sucursal_id));
+
 -- --- visita_tecnico ---
 create policy "Admin manage visita_tecnico"
 on "public"."visita_tecnico"
@@ -2769,6 +2862,13 @@ as permissive
 for select
 to authenticated
 using (tecnico_id = public.get_current_tecnico_id());
+
+create policy "Contactos can view visita_tecnico of their sucursales"
+on "public"."visita_tecnico"
+as permissive
+for select
+to authenticated
+using (public.is_contacto_of_visita(visita_id));
 
 -- --- intervencion ---
 create policy "Admin manage intervencion"
@@ -2801,6 +2901,13 @@ to authenticated
 using (public.is_tecnico_asignado_visita(visita_id))
 with check (public.is_tecnico_asignado_visita(visita_id));
 
+create policy "Contactos can view intervenciones of their visitas"
+on "public"."intervencion"
+as permissive
+for select
+to authenticated
+using (public.is_contacto_of_visita(visita_id));
+
 -- --- ejecucion_paso ---
 create policy "Admin manage ejecucion_paso"
 on "public"."ejecucion_paso"
@@ -2827,6 +2934,19 @@ with check (
     SELECT 1 FROM public.intervencion i
     WHERE i.id = intervencion_id
     AND public.is_tecnico_asignado_visita(i.visita_id)
+  )
+);
+
+create policy "Contactos can view ejecucion_paso of their visitas"
+on "public"."ejecucion_paso"
+as permissive
+for select
+to authenticated
+using (
+  EXISTS (
+    SELECT 1 FROM public.intervencion i
+    WHERE i.id = ejecucion_paso.intervencion_id
+      AND public.is_contacto_of_visita(i.visita_id)
   )
 );
 
@@ -2859,29 +2979,16 @@ with check (
   )
 );
 
+create policy "Contactos can view ejecucion_actividad of their visitas"
+on "public"."ejecucion_actividad"
 as permissive
-for all
-to authenticated
-using (public.is_admin_or_coordinator())
-with check (public.is_admin_or_coordinator());
-
-as permissive
-for all
+for select
 to authenticated
 using (
   EXISTS (
-    SELECT 1 FROM public.ejecucion_paso ep
-    JOIN public.intervencion i ON i.id = ep.intervencion_id
-    WHERE ep.id = ejecucion_paso_id
-    AND public.is_tecnico_asignado_visita(i.visita_id)
-  )
-)
-with check (
-  EXISTS (
-    SELECT 1 FROM public.ejecucion_paso ep
-    JOIN public.intervencion i ON i.id = ep.intervencion_id
-    WHERE ep.id = ejecucion_paso_id
-    AND public.is_tecnico_asignado_visita(i.visita_id)
+    SELECT 1 FROM public.intervencion i
+    WHERE i.id = ejecucion_actividad.intervencion_id
+      AND public.is_contacto_of_visita(i.visita_id)
   )
 );
 

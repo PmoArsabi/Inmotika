@@ -62,7 +62,7 @@ import { notificarVisitaProgramada } from '../api/visitaApi';
  * @param {Map<string,string>} tecnicoNameMap - tecnico_id (perfil_usuario.id) → nombre completo
  * @returns {Visita}
  */
-const mapRow = (row, tecnicoNameMap = new Map(), dispositivosBySolicitud = new Map()) => {
+const mapRow = (row, tecnicoNameMap = new Map(), dispositivosBySolicitud = new Map(), tecnicoProfileMap = new Map()) => {
   const tecnicoIds = (row.visita_tecnico || []).map(vt => vt.tecnico_id).filter(Boolean);
   const dispositivos = dispositivosBySolicitud.get(row.solicitud_id) || [];
   return {
@@ -86,6 +86,7 @@ const mapRow = (row, tecnicoNameMap = new Map(), dispositivosBySolicitud = new M
     estadoLabel: row.estado?.nombre || '',
     tecnicoIds,
     tecnicosNombres: tecnicoIds.map(id => tecnicoNameMap.get(id) || id),
+    tecnicos: tecnicoIds.map(id => tecnicoProfileMap.get(id)).filter(Boolean),
     dispositivos,
     esEditable: !row.fecha_inicio && row.estado?.codigo !== 'CANCELADA',
   };
@@ -165,20 +166,52 @@ export const useVisitas = () => {
         ),
       ];
 
-      let tecnicoNameMap = new Map();
+      // Paso 2a: obtener usuario_id de cada tecnico (sin join a perfil_usuario — evita
+      // que RLS bloquee el join cuando el caller es un contacto/cliente)
+      /** @type {Map<string,string>} tecnico.id → perfil_usuario.id */
+      const tecnicoUsuarioMap = new Map();
       if (allTecnicoIds.length > 0) {
-        const { data: tecnicos } = await supabase
+        const { data: tecRows } = await supabase
           .from('tecnico')
-          .select('id,perfil_usuario:usuario_id(nombres,apellidos,email)')
+          .select('id, usuario_id')
           .in('id', allTecnicoIds);
-        (tecnicos || []).forEach(t => {
-          const p = t.perfil_usuario;
-          const nombre = p
-            ? `${p.nombres || ''} ${p.apellidos || ''}`.trim() || p.email || t.id
-            : t.id;
-          tecnicoNameMap.set(t.id, nombre);
+        (tecRows || []).forEach(t => {
+          if (t.usuario_id) tecnicoUsuarioMap.set(t.id, t.usuario_id);
         });
       }
+
+      // Paso 2b: obtener perfiles por usuario_id — perfil_usuario tiene using(true),
+      // cualquier usuario autenticado puede leer cualquier perfil
+      /** @type {Map<string,{nombres:string,apellidos:string,email:string,telefono:string|null,avatarUrl:string|null}>} */
+      const perfilMap = new Map();
+      const allUsuarioIds = [...new Set(tecnicoUsuarioMap.values())];
+      if (allUsuarioIds.length > 0) {
+        const { data: perfiles } = await supabase
+          .from('perfil_usuario')
+          .select('id, nombres, apellidos, email, telefono, avatar_url')
+          .in('id', allUsuarioIds);
+        (perfiles || []).forEach(p => perfilMap.set(p.id, p));
+      }
+
+      /** @type {Map<string,{tecnicoId:string,usuarioId:string,nombres:string,apellidos:string,telefono:string|null,avatarUrl:string|null}>} */
+      let tecnicoProfileMap = new Map();
+      let tecnicoNameMap = new Map();
+      allTecnicoIds.forEach(tecId => {
+        const usuarioId = tecnicoUsuarioMap.get(tecId);
+        const p = usuarioId ? perfilMap.get(usuarioId) : null;
+        const nombre = p
+          ? `${p.nombres || ''} ${p.apellidos || ''}`.trim() || p.email || tecId
+          : tecId;
+        tecnicoNameMap.set(tecId, nombre);
+        tecnicoProfileMap.set(tecId, {
+          tecnicoId: tecId,
+          usuarioId: usuarioId || null,
+          nombres: p?.nombres || '',
+          apellidos: p?.apellidos || '',
+          telefono: p?.telefono || null,
+          avatarUrl: p?.avatar_url || null,
+        });
+      });
 
       // Paso 3: batch fetch de dispositivos por solicitud_id (con categoria_id)
       const allSolicitudIds = [
@@ -359,7 +392,7 @@ export const useVisitas = () => {
       }
 
       const mapped = (rows || []).map(r => ({
-        ...mapRow(r, tecnicoNameMap, dispositivosBySolicitud),
+        ...mapRow(r, tecnicoNameMap, dispositivosBySolicitud, tecnicoProfileMap),
         ejecucionActividades: ejecucionActividadMap.get(r.id) || {},
         ejecucionPasos: ejecucionPasoMap.get(r.id) || {},
         deviceEvidencias: evidenciasMap.get(r.id) || {},

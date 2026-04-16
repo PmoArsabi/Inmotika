@@ -1,10 +1,11 @@
-import React from 'react';
+import { useState } from 'react';
 import { Hash, IdCard, ShieldCheck, FileText } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import Card from '../../../components/ui/Card';
 import DocumentUploadManager from '../../../components/ui/DocumentUploadManager';
+import UserSuccessModal from './UserSuccessModal';
 import { H2, Label, TextTiny } from '../../../components/ui/Typography';
 import PersonalInfoSection from '../../../components/shared/PersonalInfoSection';
 import { useCatalog, useEstados } from '../../../hooks/useCatalog';
@@ -21,6 +22,7 @@ const TechnicianForm = ({
   const { options: tipoDocOptions, loading: loadingTipoDoc } = useCatalog('TIPO_DOCUMENTO');
   const { options: estadoOptions, loading: loadingEstados } = useEstados();
 
+  const [docSuccessInfo, setDocSuccessInfo] = useState(null);
   const tecnicoId = draft.id || '';
 
   const tipoDocSelectOptions = loadingTipoDoc
@@ -125,9 +127,23 @@ const TechnicianForm = ({
           <DocumentUploadManager
             usuarioId={draft.usuarioId}
             canManage={isEditing}
+            onSaved={(doc, isReplace) => setDocSuccessInfo({
+              isUpdate: true,
+              hideDetails: true,
+              title: isReplace ? '¡Documento reemplazado!' : '¡Documento guardado!',
+              message: isReplace
+                ? `"${doc.nombre}" fue reemplazado correctamente.`
+                : `"${doc.nombre}" fue guardado correctamente.`,
+            })}
+            onError={(msg) => setDocSuccessInfo({ error: true, message: msg })}
           />
         </Card>
       )}
+
+      <UserSuccessModal
+        successInfo={docSuccessInfo}
+        onClose={() => setDocSuccessInfo(null)}
+      />
     </div>
   );
 };

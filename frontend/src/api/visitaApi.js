@@ -61,10 +61,13 @@ async function getEstadoIntervencionMap() {
 
 /**
  * Envía el email `visita_programada` a los destinatarios de la visita.
+ * Resuelve el nombre del responsable desde la BD:
+ *   - Si la visita tiene coordinador_usuario_id → usa ese perfil.
+ *   - Si no (p.ej. programó un Director) → consulta el perfil del actor.
  * Fire-and-forget: nunca lanza; los errores se loguean.
  *
  * @param {string} visitaId
- * @param {{ clienteId: string, sucursalId: string, fechaProgramada: string, coordinadorNombre?: string }} payload
+ * @param {{ clienteId: string, sucursalId: string, fechaProgramada: string }} payload
  * @param {{ id: string, role: string }} actor - usuario que programa la visita
  */
 export function notificarVisitaProgramada(visitaId, payload, actor) {
@@ -75,7 +78,8 @@ export function notificarVisitaProgramada(visitaId, payload, actor) {
       sucursal:sucursal_id(nombre),
       tipo_visita:tipo_visita_id(nombre),
       solicitud:solicitud_id(cliente:cliente_id(razon_social)),
-      visita_tecnico(tecnico:tecnico_id(perfil:usuario_id(nombres, apellidos)))
+      visita_tecnico(tecnico:tecnico_id(perfil:usuario_id(nombres, apellidos))),
+      coordinador_perfil:coordinador_usuario_id(nombres, apellidos)
     `)
     .eq('id', visitaId)
     .maybeSingle()
@@ -87,6 +91,22 @@ export function notificarVisitaProgramada(visitaId, payload, actor) {
         })
         .filter(Boolean)
         .join(', ');
+
+      // Resolver nombre del responsable: coordinador asignado o, si no hay, el actor
+      let responsableNombre = '';
+      if (v?.coordinador_perfil) {
+        const cp = v.coordinador_perfil;
+        responsableNombre = `${cp.nombres || ''} ${cp.apellidos || ''}`.trim();
+      } else if (actor?.id) {
+        const { data: actorPerfil } = await supabase
+          .from('perfil_usuario')
+          .select('nombres, apellidos')
+          .eq('id', actor.id)
+          .maybeSingle();
+        if (actorPerfil) {
+          responsableNombre = `${actorPerfil.nombres || ''} ${actorPerfil.apellidos || ''}`.trim();
+        }
+      }
 
       const allEmails = await getVisitaEmailRecipients({
         actorId: actor?.id,
@@ -107,7 +127,7 @@ export function notificarVisitaProgramada(visitaId, payload, actor) {
           ? new Date(payload.fechaProgramada).toLocaleString('es-ES')
           : '—',
         tecnicos: tecnicos || '—',
-        coordinador: payload.coordinadorNombre || '',
+        responsable: responsableNombre || '—',
         appUrl: window.location.origin,
       }, cc);
     })

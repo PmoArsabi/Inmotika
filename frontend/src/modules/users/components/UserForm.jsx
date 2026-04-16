@@ -11,6 +11,7 @@ import Switch from '../../../components/ui/Switch';
 import PhoneInput from '../../../components/ui/PhoneInput';
 import SearchableSelect from '../../../components/ui/SearchableSelect';
 import DocumentUploadManager from '../../../components/ui/DocumentUploadManager';
+import UserSuccessModal from './UserSuccessModal';
 import { Subtitle, TextSmall, H2, TextTiny, Label } from '../../../components/ui/Typography';
 import { ROLES } from '../../../utils/constants';
 
@@ -159,6 +160,7 @@ const UserForm = ({
 }) => {
   const isView = !!viewingUser;
   const isCliente = newUser.rol === ROLES.CLIENTE;
+  const [docSuccessInfo, setDocSuccessInfo] = useState(null);
   const [showResendModal, setShowResendModal] = useState(false);
   const [expandedClientes, setExpandedClientes] = useState(/** @type {Set<string>} */(new Set()));
   const [busquedaCliente, setBusquedaCliente] = useState('');
@@ -557,6 +559,15 @@ const UserForm = ({
                 <DocumentUploadManager
                   usuarioId={(editingUser || viewingUser).id}
                   canManage={!isView}
+                  onSaved={(doc, isReplace) => setDocSuccessInfo({
+                    isUpdate: true,
+                    hideDetails: true,
+                    title: isReplace ? '¡Documento reemplazado!' : '¡Documento guardado!',
+                    message: isReplace
+                      ? `"${doc.nombre}" fue reemplazado correctamente.`
+                      : `"${doc.nombre}" fue guardado correctamente.`,
+                  })}
+                  onError={(msg) => setDocSuccessInfo({ error: true, message: msg })}
                 />
               </RoleSection>
             )}
@@ -657,6 +668,11 @@ const UserForm = ({
           </div>
         </div>
       </Modal>
+
+      <UserSuccessModal
+        successInfo={docSuccessInfo}
+        onClose={() => setDocSuccessInfo(null)}
+      />
     </div>
   );
 };

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import {
   ArrowLeft, FileText, Edit2, Trash2, X,
-  Calendar, Building2, Cpu, Clock, AlertCircle, Tag, Users,
+  Calendar, Building2, Cpu, Clock, AlertCircle, Tag, Users, Phone, ChevronDown, ChevronUp,
 } from 'lucide-react';
+import SecureImage from '../../components/ui/SecureImage';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import SearchableSelect from '../../components/ui/SearchableSelect';
@@ -271,6 +272,9 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
   const { user } = useAuth();
   const isCliente = user?.role === 'CLIENTE';
 
+  // Panel de técnicos expandido (tecnicoId seleccionado o null)
+  const [selectedTecnico, setSelectedTecnico] = useState(null);
+
   // Documentos de técnicos — solo se cargan si hay visita asignada y el viewer es CLIENTE
   const { documentos: docsTecnicos, loading: loadingDocs } = useDocumentosTecnicosVisita(
     isCliente && visitaVinculada ? visitaVinculada.id : null
@@ -349,10 +353,6 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                     : '—'} />
                 <InfoRow icon={Clock} label="Estado de la Visita"
                   value={<VisitStatusBadge status={visitaVinculada.estadoCodigo} />} />
-                {visitaVinculada.tecnicosNombres?.length > 0 && (
-                  <InfoRow icon={Tag} label="Técnico(s)"
-                    value={visitaVinculada.tecnicosNombres.join(', ')} />
-                )}
                 {visitaVinculada.fechaInicio && (
                   <InfoRow icon={Clock} label="Iniciada"
                     value={new Date(visitaVinculada.fechaInicio).toLocaleString('es-ES')} />
@@ -362,6 +362,76 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                     value={new Date(visitaVinculada.fechaFin).toLocaleString('es-ES')} />
                 )}
               </div>
+
+              {/* Técnicos asignados — misma vista para todos los roles */}
+              {visitaVinculada.tecnicosNombres?.length > 0 && (
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-1.5">
+                    <Users size={11} /> Técnicos asignados
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {visitaVinculada.tecnicosNombres.map((nombre, idx) => {
+                      const tec = visitaVinculada.tecnicos?.[idx];
+                      const fullName = nombre;
+                      const initial = fullName.charAt(0).toUpperCase();
+                      const tecnicoId = tec?.tecnicoId || idx;
+                      const isOpen = selectedTecnico === tecnicoId;
+                      const tecDocs = docsTecnicos.filter(d => d.usuario_id === tec?.usuarioId);
+                      return (
+                        <div key={tecnicoId} className="rounded-xl border border-gray-100 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTecnico(isOpen ? null : tecnicoId)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                          >
+                            <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 shadow-sm">
+                              {tec?.avatarUrl ? (
+                                <SecureImage
+                                  path={tec.avatarUrl}
+                                  bucket="inmotika"
+                                  alt={fullName}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-[#D32F2F] text-white flex items-center justify-center text-sm font-black">
+                                  {initial}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-gray-900 truncate">{fullName}</p>
+                              {tec?.telefono && (
+                                <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
+                                  <Phone size={9} /> {tec.telefono}
+                                </p>
+                              )}
+                            </div>
+                            {isOpen
+                              ? <ChevronUp size={13} className="text-gray-400 shrink-0" />
+                              : <ChevronDown size={13} className="text-gray-400 shrink-0" />
+                            }
+                          </button>
+                          {isOpen && (
+                            <div className="px-3 py-2.5 border-t border-gray-100 bg-white">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Documentos</p>
+                              {loadingDocs ? (
+                                <div className="space-y-1.5">
+                                  {[1, 2].map(i => <div key={i} className="h-7 bg-gray-100 rounded animate-pulse" />)}
+                                </div>
+                              ) : tecDocs.length > 0 ? (
+                                <DocumentList documentos={tecDocs} loading={false} groupByUser={false} emptyText="Sin documentos." />
+                              ) : (
+                                <p className="text-xs text-gray-400 italic">Sin documentos disponibles.</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {visitaVinculada.dispositivos?.length > 0 && (
                 <div className="pt-2 border-t border-gray-100">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Avance de dispositivos</p>
@@ -389,24 +459,6 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
             </Card>
           )}
 
-          {/* Panel de documentos del personal — visible solo para CLIENTE con visita asignada */}
-          {isCliente && visitaVinculada && (
-            <Card className="p-5 space-y-4">
-              <SectionHeader icon={Users} title="Documentación del Personal Asignado" />
-              {loadingDocs || docsTecnicos.length > 0 ? (
-                <DocumentList
-                  documentos={docsTecnicos}
-                  loading={loadingDocs}
-                  groupByUser={true}
-                  emptyText="Los técnicos asignados aún no tienen documentos disponibles."
-                />
-              ) : (
-                <p className="text-xs text-gray-400 italic">
-                  Los técnicos asignados aún no tienen documentos disponibles.
-                </p>
-              )}
-            </Card>
-          )}
         </div>
 
         <div className="space-y-4">
