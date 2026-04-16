@@ -142,6 +142,21 @@ export async function getVisitaEmailRecipients(actor) {
 }
 
 /**
+ * Devuelve los emails para notificaciones de avance por dispositivo:
+ * solo contactos de la sucursal + responsable de la visita (coordinador o director).
+ * No incluye técnicos ni supervisores globales para no saturar.
+ *
+ * @param {{ sucursalId: string, responsableEmail: string|null }} opts
+ * @returns {Promise<string[]>}
+ */
+export async function getAvanceDispositivoRecipients({ sucursalId, responsableEmail }) {
+  const contactEmails = await fetchContactoEmailsBySucursal(sucursalId);
+  const all = [...contactEmails];
+  if (responsableEmail) all.push(responsableEmail);
+  return [...new Set(all.filter(Boolean))];
+}
+
+/**
  * Devuelve todos los emails relevantes para eventos de solicitud de visita
  * (coordinadores activos + directores del cliente + supervisores del actor).
  *

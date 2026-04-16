@@ -18,7 +18,8 @@ import { useVisitas } from '../../hooks/useVisitas';
 import { useNotify } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../utils/constants';
-import { iniciarVisita, guardarAvanceDispositivo, finalizarVisita } from '../../api/visitaApi';
+import { iniciarVisita, guardarAvanceDispositivo, finalizarVisita, notificarAvanceDispositivo } from '../../api/visitaApi';
+import { supabase } from '../../utils/supabase';
 
 // ─── Info row helper ──────────────────────────────────────────────────────────
  
@@ -49,6 +50,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   const [codigoEtiquetas,      setCodigoEtiquetas]      = useState({});
   const [observacionFinal,     setObservacionFinal]     = useState('');
   const [isSaving,             setIsSaving]             = useState(false);
+  const [savingDeviceId,       setSavingDeviceId]       = useState(null);
   const [showHelpModal,        setShowHelpModal]        = useState(false);
   const [modalTitle,           setModalTitle]           = useState('');
   const [modalMessage,         setModalMessage]         = useState('');
@@ -56,6 +58,89 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   const [finalizadoModal,      setFinalizadoModal]      = useState({ open: false, clienteNombre: '', sucursalNombre: '' });
 
   const visitas = visitasHook;
+
+  /**
+   * Guarda los IDs de actividades/pasos que el técnico local ha modificado
+   * manualmente, para no pisarlos con merges remotos.
+   * @type {React.MutableRefObject<{ actividades: Set<string>, pasos: Set<string> }>}
+   */
+  const localChangesRef = useRef({ actividades: new Set(), pasos: new Set() });
+
+  // ── Realtime: sincronizar avance entre técnicos de la misma visita ──────────
+  useEffect(() => {
+    if (!activeVisita?.id || activeVisita.estadoCodigo !== 'EN_PROGRESO') return;
+
+    const visitaId = activeVisita.id;
+
+    // Función que recarga las ejecuciones de la visita activa desde Supabase
+    // y hace merge sin pisar los cambios locales no guardados del técnico.
+    const syncRemoteChanges = async () => {
+      // 1. Obtener IDs de intervenciones de esta visita
+      const { data: intervenciones } = await supabase
+        .from('intervencion')
+        .select('id')
+        .eq('visita_id', visitaId);
+      const intervencionIds = (intervenciones || []).map(i => i.id);
+      if (!intervencionIds.length) return;
+
+      // 2. Fetch fresco de actividades y pasos
+      const [{ data: actRows }, { data: pasoRows }] = await Promise.all([
+        supabase
+          .from('ejecucion_actividad')
+          .select('actividad_id, estado_id, catalogo:estado_id(codigo), observacion')
+          .in('intervencion_id', intervencionIds),
+        supabase
+          .from('ejecucion_paso')
+          .select('paso_protocolo_id, comentarios, fecha_inicio, fecha_fin')
+          .in('intervencion_id', intervencionIds),
+      ]);
+
+      // 3. Merge actividades: solo actualizar las que el técnico local NO ha tocado
+      if (actRows?.length) {
+        setEjecucionActividades(prev => {
+          const next = { ...prev };
+          for (const a of actRows) {
+            if (localChangesRef.current.actividades.has(a.actividad_id)) continue;
+            const catalogoCodigo = a.catalogo?.codigo || 'PENDIENTE';
+            const estadoInterno =
+              catalogoCodigo === 'COMPLETADA' ? 'completada' :
+              catalogoCodigo === 'INCOMPLETA' ? 'omitida' : 'pendiente';
+            next[a.actividad_id] = { estado: estadoInterno, observacion: a.observacion || null };
+          }
+          return next;
+        });
+      }
+
+      // 4. Merge pasos: solo actualizar los que el técnico local NO ha tocado
+      if (pasoRows?.length) {
+        setEjecucionPasos(prev => {
+          const next = { ...prev };
+          for (const p of pasoRows) {
+            if (localChangesRef.current.pasos.has(p.paso_protocolo_id)) continue;
+            next[p.paso_protocolo_id] = {
+              comentarios: p.comentarios || '',
+              fechaInicio: p.fecha_inicio,
+              fechaFin: p.fecha_fin,
+            };
+          }
+          return next;
+        });
+      }
+    };
+
+    // Suscribirse a cambios en ejecucion_actividad y ejecucion_paso
+    // No hay filtro nativo por visita_id (es a través de intervencion), así que
+    // filtramos en el callback después de recibir el evento.
+    const channel = supabase
+      .channel(`visita-avance-${visitaId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ejecucion_actividad' }, syncRemoteChanges)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ejecucion_paso' }, syncRemoteChanges)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeVisita?.id, activeVisita?.estadoCodigo]);
 
   // Auto-abrir la visita indicada desde el dashboard del técnico.
   // consumedRef guarda el último ID procesado para evitar doble apertura
@@ -151,6 +236,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   };
 
   const handleCloseVisita = () => {
+    localChangesRef.current = { actividades: new Set(), pasos: new Set() };
     setActiveVisita(null);
     setEjecucionPasos({});
     setEjecucionActividades({});
@@ -200,6 +286,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
 
   // ── Update paso-level execution (comments, photo) ─────────────────────────
   const handlePasoChange = (pasoId, patch) => {
+    localChangesRef.current.pasos.add(pasoId);
     setEjecucionPasos(prev => ({
       ...prev,
       [pasoId]: { ...(prev[pasoId] || {}), ...patch },
@@ -209,6 +296,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   // ── Update actividad-level execution state ────────────────────────────────
   // patch: { estado: 'completada'|'omitida'|'pendiente', observacion?: string|null }
   const handleActividadChange = (actividadId, patch) => {
+    localChangesRef.current.actividades.add(actividadId);
     setEjecucionActividades(prev => ({
       ...prev,
       [actividadId]: { ...(prev[actividadId] || {}), ...patch },
@@ -247,6 +335,9 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
         )
       );
 
+      // Limpiar cambios locales para que el realtime pueda refrescar desde BD
+      localChangesRef.current = { actividades: new Set(), pasos: new Set() };
+
       if (allDevicesDone) {
         await finalizarVisita(activeVisita.id, observacionFinal);
         setFinalizadoModal({
@@ -263,6 +354,54 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
       notify('error', err.message || 'No se pudo guardar el avance. Intenta de nuevo.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  /**
+   * Guarda el avance de UN dispositivo específico y envía email de notificación.
+   * Solo disponible cuando el dispositivo tiene todos sus pasos/actividades resueltos.
+   *
+   * @param {Object} device - Objeto dispositivo completo (con pasos y actividades)
+   * @param {number} completados - Cantidad de dispositivos completados hasta ahora (incluye este)
+   * @param {number} total - Total de dispositivos de la visita
+   */
+  const handleGuardarDispositivo = async (device, completados, total) => {
+    if (!activeVisita || savingDeviceId) return;
+    setSavingDeviceId(device.id);
+    try {
+      await guardarAvanceDispositivo(
+        activeVisita.id,
+        device.id,
+        device.pasos || [],
+        ejecucionPasos,
+        ejecucionActividades,
+        deviceEvidencias[device.id] || { etiqueta: null, fotos: [] },
+        codigoEtiquetas[device.id] || null,
+      );
+      notificarAvanceDispositivo(
+        activeVisita.id,
+        device.id,
+        { completados, total },
+        ejecucionActividades,
+        device,
+      );
+      // Limpiar cambios locales del dispositivo guardado para que realtime pueda refrescar
+      const deviceActIds = new Set(
+        (device.pasos || []).flatMap(p => (p.actividades || []).map(a => a.id))
+      );
+      const devicePasoIds = new Set((device.pasos || []).map(p => p.id));
+      localChangesRef.current.actividades = new Set(
+        [...localChangesRef.current.actividades].filter(id => !deviceActIds.has(id))
+      );
+      localChangesRef.current.pasos = new Set(
+        [...localChangesRef.current.pasos].filter(id => !devicePasoIds.has(id))
+      );
+      fetchVisitas();
+    } catch (err) {
+      console.error('[GestionVisitasPage] handleGuardarDispositivo error:', err);
+      notify('error', err.message || 'No se pudo guardar el avance del dispositivo.');
+    } finally {
+      setSavingDeviceId(null);
     }
   };
 
@@ -363,22 +502,39 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
               ? activeVisita.dispositivos.map((device, idx) => {
                   const stat = deviceStats[idx];
                   const isLocked = !!(inProgressDevice && inProgressDevice.id !== device.id && !stat.done);
+                  const isSavingThis = savingDeviceId === device.id;
+                  // Completados hasta este punto: dispositivos anteriores done + este si done
+                  const completadosHastaAqui = deviceStats.filter((d, i) => i <= idx && d.done).length;
                   return (
-                    <DeviceChecklistCard
-                      key={device.id}
-                      device={device}
-                      steps={device.pasos || []}
-                      ejecucionPasos={ejecucionPasos}
-                      ejecucionActividades={ejecucionActividades}
-                      onPasoChange={handlePasoChange}
-                      onActividadChange={handleActividadChange}
-                      viewMode={viewMode || isProgramado}
-                      isLocked={isLocked}
-                      deviceEvidencias={deviceEvidencias[device.id] || { etiqueta: null, fotos: [] }}
-                      onDeviceEvidenciasChange={(patch) => handleDeviceEvidenciasChange(device.id, patch)}
-                      codigoEtiquetaInicial={activeVisita.codigoEtiquetaByDevice?.[device.id] || ''}
-                      onEtiquetaChange={handleEtiquetaChange}
-                    />
+                    <div key={device.id} className="space-y-2">
+                      <DeviceChecklistCard
+                        device={device}
+                        steps={device.pasos || []}
+                        ejecucionPasos={ejecucionPasos}
+                        ejecucionActividades={ejecucionActividades}
+                        onPasoChange={handlePasoChange}
+                        onActividadChange={handleActividadChange}
+                        viewMode={viewMode || isProgramado}
+                        isLocked={isLocked}
+                        deviceEvidencias={deviceEvidencias[device.id] || { etiqueta: null, fotos: [] }}
+                        onDeviceEvidenciasChange={(patch) => handleDeviceEvidenciasChange(device.id, patch)}
+                        codigoEtiquetaInicial={activeVisita.codigoEtiquetaByDevice?.[device.id] || ''}
+                        onEtiquetaChange={handleEtiquetaChange}
+                      />
+                      {isEnCurso && !viewMode && stat.done && (
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            disabled={!!savingDeviceId}
+                            onClick={() => handleGuardarDispositivo(device, completadosHastaAqui, totalDevices)}
+                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase rounded-md transition-all shadow-sm text-white bg-[#1A1A1A] hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Save size={12} />
+                            {isSavingThis ? 'Guardando...' : 'Guardar avance'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })
               : (

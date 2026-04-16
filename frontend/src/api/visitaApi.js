@@ -1,5 +1,5 @@
 import { supabase } from '../utils/supabase';
-import { sendEmail, getVisitaEmailRecipients, buildRecipients } from '../hooks/useEmail';
+import { sendEmail, getVisitaEmailRecipients, getAvanceDispositivoRecipients, buildRecipients } from '../hooks/useEmail';
 import { generateInformeVisita } from '../utils/generateInforme';
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -132,6 +132,113 @@ export function notificarVisitaProgramada(visitaId, payload, actor) {
       }, cc);
     })
     .catch(err => console.error('[visitaApi] notificarVisitaProgramada falló:', err));
+}
+
+/**
+ * Envía el email `avance_dispositivo` al contacto de la sucursal y al responsable
+ * de la visita (quien asignó los técnicos).
+ * Fire-and-forget: nunca lanza; los errores se loguean.
+ *
+ * @param {string} visitaId
+ * @param {string} dispositivoId - UUID del dispositivo recién guardado
+ * @param {{ completados: number, total: number }} progreso - Progreso general de dispositivos
+ * @param {Object} actividadData - actividadId → { estado, observacion } (para armar resumen)
+ * @param {Object} device        - Objeto dispositivo con { label, idInmotika, pasos }
+ */
+export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, actividadData, device) {
+  supabase
+    .from('visita')
+    .select(`
+      cliente_id,
+      sucursal_id,
+      coordinador_usuario_id,
+      cliente:cliente_id(razon_social),
+      sucursal:sucursal_id(nombre),
+      tipo_visita:tipo_visita_id(nombre),
+      solicitud:solicitud_id(cliente:cliente_id(razon_social)),
+      coordinador_perfil:coordinador_usuario_id(nombres, apellidos, email),
+      intervencion!inner(
+        id,
+        codigo_etiqueta,
+        dispositivo_id
+      )
+    `)
+    .eq('id', visitaId)
+    .eq('intervencion.dispositivo_id', dispositivoId)
+    .maybeSingle()
+    .then(async ({ data: v }) => {
+      if (!v) return;
+
+      // Resolver responsable: coordinador asignado o, si no, buscar director asignado
+      let responsableNombre = '';
+      let responsableEmail  = null;
+
+      if (v?.coordinador_perfil) {
+        const cp = v.coordinador_perfil;
+        responsableNombre = `${cp.nombres || ''} ${cp.apellidos || ''}`.trim();
+        responsableEmail  = cp.email || null;
+      } else if (v?.coordinador_usuario_id === null) {
+        // Programado por un Director — buscar director asignado al cliente
+        const { data: dirs } = await supabase
+          .from('cliente_director')
+          .select('director:director_id(perfil:usuario_id(nombres, apellidos, email))')
+          .eq('cliente_id', v.cliente_id)
+          .eq('activo', true)
+          .limit(1)
+          .maybeSingle();
+        const p = dirs?.director?.perfil;
+        if (p) {
+          responsableNombre = `${p.nombres || ''} ${p.apellidos || ''}`.trim();
+          responsableEmail  = p.email || null;
+        }
+      }
+
+      // Resumen de observaciones de actividades del dispositivo
+      const allActs = (device?.pasos || []).flatMap(p => p.actividades || []);
+      const observacionLines = allActs
+        .map(a => {
+          const ej = actividadData[a.id];
+          const obs = ej?.observacion?.trim();
+          if (!obs) return null;
+          return `• ${a.nombre || 'Actividad'}: ${obs}`;
+        })
+        .filter(Boolean);
+
+      const observaciones = observacionLines.length > 0 ? observacionLines.join('\n') : null;
+
+      // Código de etiqueta del dispositivo (primera intervención encontrada)
+      const intervencion = Array.isArray(v.intervencion) ? v.intervencion[0] : v.intervencion;
+      const dispositivoSerial = intervencion?.codigo_etiqueta || device?.idInmotika || '—';
+
+      const horaFinalizacion = new Date().toLocaleString('es-ES');
+      const clienteNombre    = v.cliente?.razon_social || v.solicitud?.cliente?.razon_social || '';
+      const sucursalNombre   = v.sucursal?.nombre || '';
+      const tipoVisita       = v.tipo_visita?.nombre || '';
+      const appUrl           = window.location.origin;
+
+      const allEmails = await getAvanceDispositivoRecipients({
+        sucursalId: v.sucursal_id,
+        responsableEmail,
+      });
+      if (!allEmails.length) return;
+
+      const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
+      sendEmail('avance_dispositivo', {
+        destinatario,
+        clienteNombre,
+        sucursalNombre,
+        tipoVisita,
+        dispositivoNombre: device?.label || device?.idInmotika || '—',
+        dispositivoSerial,
+        dispositivosCompletados: String(progreso.completados),
+        dispositivosTotal:       String(progreso.total),
+        horaFinalizacion,
+        observaciones:   observaciones || '',
+        responsable:     responsableNombre || '—',
+        appUrl,
+      }, cc);
+    })
+    .catch(err => console.error('[visitaApi] notificarAvanceDispositivo falló:', err));
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

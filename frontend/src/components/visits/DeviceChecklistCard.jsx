@@ -546,7 +546,7 @@ const DeviceChecklistCard = ({
                 : <Circle        size={20} className="shrink-0 text-gray-300" />
           }
           <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900 truncate">{device.label || device.nombre || device.id}</p>
+            <p className="text-sm font-bold text-gray-900 truncate">{device.label || device.id}</p>
             <p className="text-xs text-gray-500">
               {[device.categoria, device.serial ? `Serie: ${device.serial}` : null].filter(Boolean).join(' · ') || 'Dispositivo'}
             </p>

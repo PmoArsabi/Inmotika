@@ -93,7 +93,7 @@ const DeviceProgressCard = ({ device, ejecucionActividades, evidencias }) => {
         <div className="flex items-center gap-3 min-w-0">
           <StatusIcon size={18} className={`shrink-0 ${estadoConfig.color}`} />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">{device.nombre}</p>
+            <p className="text-sm font-semibold text-gray-900 truncate">{device.label || device.serial || device.id}</p>
             <p className="text-xs text-gray-500 truncate">{device.serial}</p>
           </div>
         </div>

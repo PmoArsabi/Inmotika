@@ -3490,3 +3490,9 @@ INSERT INTO public.catalogo (tipo, codigo, nombre, activo) VALUES
 ON CONFLICT (tipo, codigo) DO NOTHING;
 
 DROP TABLE IF EXISTS public.tecnico_certificado;
+
+-- ─── Realtime ─────────────────────────────────────────────────────────────────
+-- Habilita Supabase Realtime para las tablas de ejecución de visita.
+-- Permite que múltiples técnicos vean el avance en tiempo real.
+ALTER PUBLICATION supabase_realtime ADD TABLE public.ejecucion_actividad;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.ejecucion_paso;
