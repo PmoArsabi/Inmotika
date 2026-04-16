@@ -53,14 +53,15 @@ const UserSuccessModal = ({ successInfo, onClose }) => {
               <div className="bg-emerald-600 p-8 text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 blur-2xl" />
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -translate-x-12 translate-y-12 blur-xl" />
-                
                 <div className="relative flex flex-col items-center text-center">
                   <div className="bg-white/20 p-3 rounded-full mb-4 backdrop-blur-sm">
                     <CheckCircle size={32} />
                   </div>
-                  <H2 className="text-white font-black text-2xl tracking-tight">¡Actualizado!</H2>
+                  <H2 className="text-white font-black text-2xl tracking-tight">
+                    {successInfo.title || '¡Actualizado!'}
+                  </H2>
                   <p className="text-white/80 text-sm mt-1">
-                    Los datos han sido guardados exitosamente.
+                    {successInfo.message || 'Los datos han sido guardados exitosamente.'}
                   </p>
                 </div>
               </div>
@@ -84,7 +85,7 @@ const UserSuccessModal = ({ successInfo, onClose }) => {
             )}
 
             <div className="p-6 space-y-4">
-              {!successInfo.isDelete && (
+              {!successInfo.isDelete && !successInfo.hideDetails && (
                 <div className="bg-gray-50 rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <User size={15} className="text-gray-400 shrink-0" />

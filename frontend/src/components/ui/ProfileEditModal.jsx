@@ -4,6 +4,7 @@ import Modal from './Modal';
 import Button from './Button';
 import SecureImage from './SecureImage';
 import DocumentUploadManager from './DocumentUploadManager';
+import UserSuccessModal from '../../modules/users/components/UserSuccessModal';
 import { useUpdateProfile } from '../../hooks/useUpdateProfile';
 import { useAuth } from '../../context/AuthContext';
 import { isManagementRole } from '../../utils/constants';
@@ -31,6 +32,9 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
   const [pwSending, setPwSending] = useState(false);
   const [pwSuccess, setPwSuccess] = useState(false);
   const [pwError, setPwError] = useState(null);
+
+  // ── Documentos ────────────────────────────────────────────────────
+  const [docSuccessInfo, setDocSuccessInfo] = useState(null);
 
   const displayName = `${user?.nombres || ''} ${user?.apellidos || ''}`.trim() || 'Usuario';
   const initial = displayName.charAt(0).toUpperCase();
@@ -95,6 +99,7 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
   const canManage = user?.role && user.role !== 'CLIENTE';
 
   return (
+    <>
     <Modal isOpen={isOpen} onClose={handleClose} title="Mi Perfil" maxWidth="max-w-sm">
       <div className="flex flex-col gap-8">
 
@@ -209,6 +214,15 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
               <DocumentUploadManager
                 usuarioId={user.id}
                 canManage={isManagementRole(user.role) || user.role === 'TECNICO'}
+                onSaved={(doc, isReplace) => setDocSuccessInfo({
+                  isUpdate: true,
+                  hideDetails: true,
+                  title: isReplace ? '¡Documento reemplazado!' : '¡Documento guardado!',
+                  message: isReplace
+                    ? `"${doc.nombre}" fue reemplazado correctamente.`
+                    : `"${doc.nombre}" fue guardado correctamente.`,
+                })}
+                onError={(msg) => setDocSuccessInfo({ error: true, message: msg })}
               />
             </div>
           </>
@@ -216,6 +230,12 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
 
       </div>
     </Modal>
+
+    <UserSuccessModal
+      successInfo={docSuccessInfo}
+      onClose={() => setDocSuccessInfo(null)}
+    />
+    </>
   );
 };
 
