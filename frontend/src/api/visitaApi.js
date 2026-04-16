@@ -1,6 +1,5 @@
 import { supabase } from '../utils/supabase';
 import { sendEmail, getVisitaEmailRecipients, getAvanceDispositivoRecipients, buildRecipients } from '../hooks/useEmail';
-import { generateInformeVisita } from '../utils/generateInforme';
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -382,6 +381,25 @@ export async function uploadEvidencia(visitaId, dispositivoId, intervencionId, f
 }
 
 /**
+ * Marca un dispositivo como EN_MANTENIMIENTO de forma fire-and-forget.
+ * Se llama cuando el técnico toca la primera actividad del dispositivo.
+ * Nunca lanza; los errores se loguean en consola.
+ *
+ * @param {string} dispositivoId
+ */
+export async function marcarDispositivoEnMantenimiento(dispositivoId) {
+  try {
+    const estadoId = await getCatalogoId('ESTADO_GESTION_DISPOSITIVO', 'EN_MANTENIMIENTO');
+    await supabase
+      .from('dispositivo')
+      .update({ estado_gestion_id: estadoId })
+      .eq('id', dispositivoId);
+  } catch (err) {
+    console.warn('[marcarDispositivoEnMantenimiento] No se pudo actualizar estado:', err.message);
+  }
+}
+
+/**
  * Guarda el avance de un dispositivo dentro de una visita.
  *
  * Flujo:
@@ -403,15 +421,41 @@ export async function uploadEvidencia(visitaId, dispositivoId, intervencionId, f
  *   Mapa de actividad_protocolo.id → estado de ejecución y observación opcional
  * @param {{ etiqueta: { file: File, preview: string }|null, fotos: Array<{ file: File, preview: string }> }} [evidencias]
  *   Evidencias fotográficas capturadas a nivel de dispositivo
+ * @param {string|null} [observacionFinalDevice]
+ *   Observación final del dispositivo → se guarda en intervencion.observacion_final.
+ *   Obligatoria cuando el dispositivo queda en estado FUERA_DE_SERVICIO.
+ * @param {string|null} [observacionFinalDevice]
+ *   Observación final del dispositivo → se guarda en intervencion.observacion_final.
+ *   Obligatoria cuando el dispositivo queda en estado FUERA_DE_SERVICIO.
+ * @param {'OPERATIVO'|'FUERA_DE_SERVICIO'|null} [estadoGestionCodigo]
+ *   Código del nuevo estado_gestion del dispositivo.
+ *   Si es null no se actualiza el estado del dispositivo.
  * @returns {Promise<void>}
  * @throws {Error} Si alguna operación de BD falla
  */
-export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos, pasoData, actividadData, evidencias = { etiqueta: null, fotos: [] }, codigoEtiqueta = null) {
+export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos, pasoData, actividadData, evidencias = { etiqueta: null, fotos: [] }, codigoEtiqueta = null, observacionFinalDevice = null, estadoGestionCodigo = null) {
   const intervencionId = await resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta);
   const now = new Date().toISOString();
   await savePasosEjecucion(intervencionId, allPasos, pasoData, actividadData, now);
   await saveActividadStates(intervencionId, actividadData);
   await uploadEvidenciasDispositivo(visitaId, dispositivoId, intervencionId, evidencias);
+
+  // Actualizar observacion_final en la intervencion si se provee
+  if (observacionFinalDevice !== null) {
+    await supabase
+      .from('intervencion')
+      .update({ observacion_final: observacionFinalDevice || null })
+      .eq('id', intervencionId);
+  }
+
+  // Actualizar estado_gestion del dispositivo si se provee
+  if (estadoGestionCodigo) {
+    const estadoGestionId = await getCatalogoId('ESTADO_GESTION_DISPOSITIVO', estadoGestionCodigo);
+    await supabase
+      .from('dispositivo')
+      .update({ estado_gestion_id: estadoGestionId })
+      .eq('id', dispositivoId);
+  }
 }
 
 // ─── Helpers internos de guardarAvanceDispositivo ─────────────────────────────
@@ -576,11 +620,13 @@ async function uploadEvidenciasDispositivo(visitaId, dispositivoId, intervencion
 
 /**
  * Finaliza una visita: establece fecha_fin = now(), cambia el estado a COMPLETADA,
- * sincroniza el estado_id de todas sus intervenciones, y guarda la observación final
- * en cada intervención activa (no en visita.observaciones, que ya se usa para instrucciones).
+ * sincroniza el estado_id de todas sus intervenciones, guarda la observación final,
+ * crea el registro `informe` en estado EN_REVISION y envía email de cierre al cliente.
+ * El PDF se genera más adelante, cuando el director apruebe el informe.
  *
  * @param {string} visitaId - UUID de la visita a finalizar
  * @param {string} observacionFinal - Resumen del trabajo realizado por el técnico
+ * @param {{ actorId: string, actorRole: string }|null} actor
  * @returns {Promise<void>}
  * @throws {Error} Si el catálogo no contiene COMPLETADA o la actualización falla
  */
@@ -621,7 +667,6 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
     .select('id');
 
   const totalDispositivos = (intervencionesActualizadas || []).length;
-  const dispositivosCompletados = totalDispositivos;
 
   // 3. Actualizar el estado de la solicitud de origen a COMPLETADA
   if (visitaRow?.solicitud_id) {
@@ -631,7 +676,8 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
       .eq('id', visitaRow.solicitud_id);
   }
 
-  // 4. Generar informe PDF y notificar (fire-and-forget — no bloquea al técnico)
+  // 4. Crear registro informe en EN_REVISION (fire-and-forget)
+  // El PDF se genera más adelante cuando el director apruebe.
   if (visitaRow?.sucursal_id) {
     const tecnicos = (visitaRow?.visita_tecnico || [])
       .map(vt => {
@@ -647,7 +693,15 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
     const fechaFinStr = new Date(fechaFin).toLocaleString('es-ES');
     const appUrl = window.location.origin;
 
-    // 1. Obtener destinatarios y enviar correo de finalización inmediatamente
+    // Crear registro informe
+    supabase
+      .from('informe')
+      .insert({ visita_id: visitaId, estado: 'EN_REVISION' })
+      .then(({ error }) => {
+        if (error) console.error('[finalizarVisita] No se pudo crear informe:', error.message);
+      });
+
+    // Enviar email de cierre al cliente: "informe listo en 24h"
     getVisitaEmailRecipients({
       actorId: actor?.actorId,
       actorRole: actor?.actorRole,
@@ -657,8 +711,6 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
     }).then(allEmails => {
       if (!allEmails.length) return;
       const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
-
-      // Correo de finalización — sin esperar el PDF
       sendEmail('visita_finalizada', {
         destinatario,
         clienteNombre,
@@ -667,30 +719,11 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
         fechaFin: fechaFinStr,
         tecnicos: tecnicos || '—',
         observacionFinal: observacionFinal || '',
-        dispositivosCompletados: String(dispositivosCompletados),
+        dispositivosCompletados: String(totalDispositivos),
         dispositivosTotal: String(totalDispositivos),
         pdfUrl: '',
         appUrl,
       }, cc);
-
-      // 2. Generar PDF y enviar correo de informe por separado cuando esté listo
-      generateInformeVisita(visitaId)
-        .then(informeResult => {
-          if (!informeResult?.pdfUrl) return;
-          sendEmail('visita_informe', {
-            destinatario,
-            clienteNombre,
-            sucursalNombre,
-            tipoVisita,
-            fechaFin: fechaFinStr,
-            tecnicos: tecnicos || '—',
-            pdfUrl: informeResult.pdfUrl,
-            appUrl,
-          }, cc);
-        })
-        .catch(err => console.error('[finalizarVisita] Error generando informe PDF:', err));
-    }).catch(err => {
-      console.error('[finalizarVisita] Error en pipeline de notificación:', err);
-    });
+    }).catch(err => console.error('[finalizarVisita] Error enviando email cierre:', err));
   }
 }

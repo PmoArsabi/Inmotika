@@ -79,6 +79,21 @@ export function useVisitasCliente(sucursalIds) {
           });
         }
 
+        // Paso 3: informes aprobados para estas visitas
+        const visitaIds = (rows || []).map(r => r.id);
+        /** @type {Map<string, {informeId:string, storagePath:string|null}>} */
+        const informeMap = new Map();
+        if (visitaIds.length > 0) {
+          const { data: informes } = await supabase
+            .from('informe')
+            .select('id, visita_id, estado, storage_path')
+            .in('visita_id', visitaIds)
+            .eq('estado', 'APROBADO');
+          (informes || []).forEach(inf => {
+            informeMap.set(inf.visita_id, { informeId: inf.id, storagePath: inf.storage_path });
+          });
+        }
+
         const visitas = (rows || []).map(row => {
           const tecnicoIds = (row.visita_tecnico || [])
             .map(vt => vt.tecnico_id)
@@ -87,6 +102,8 @@ export function useVisitasCliente(sucursalIds) {
           const tecnicos = tecnicoIds
             .map(id => tecnicoMap.get(id))
             .filter(Boolean);
+
+          const inf = informeMap.get(row.id) || null;
 
           return {
             id: row.id,
@@ -101,6 +118,8 @@ export function useVisitasCliente(sucursalIds) {
             estadoLabel: row.estado?.nombre || '',
             tecnicosNombres: tecnicos.map(t => `${t.nombres} ${t.apellidos}`.trim()),
             tecnicos,
+            informeId: inf?.informeId || null,
+            informeStoragePath: inf?.storagePath || null,
           };
         });
 

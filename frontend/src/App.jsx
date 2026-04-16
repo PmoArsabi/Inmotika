@@ -24,6 +24,8 @@ import SolicitudVisitaPage from './pages/visits/SolicitudVisitaPage';
 import ProgramacionVisitaPage from './pages/visits/ProgramacionVisitaPage';
 import GestionVisitasPage from './pages/visits/GestionVisitasPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import ValidacionInformePage from './pages/informe/ValidacionInformePage';
+import InformeDirectorPage from './pages/informe/InformeDirectorPage';
 
 /** Shown whenever the current user's role lacks permission for a route. */
 const AccessDenied = () => (
@@ -166,6 +168,22 @@ function App() {
               initialVisitaId={pendingVisitId}
               onInitialVisitaConsumed={() => setPendingVisitId(null)}
             />
+          </ProtectedRoute>
+        );
+      }
+
+      if (visitsSubTab === 'validacion-informes') {
+        return (
+          <ProtectedRoute roles={[ROLES.COORDINADOR]} userRole={userRole}>
+            <ValidacionInformePage />
+          </ProtectedRoute>
+        );
+      }
+
+      if (visitsSubTab === 'aprobacion-informes') {
+        return (
+          <ProtectedRoute roles={[ROLES.DIRECTOR]} userRole={userRole}>
+            <InformeDirectorPage />
           </ProtectedRoute>
         );
       }

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { CalendarDays, User, Tag, Calendar } from 'lucide-react';
+import { CalendarDays, User, FileDown } from 'lucide-react';
+import { supabase } from '../utils/supabase';
 import Card from '../components/ui/Card';
 import SectionHeader from '../components/ui/SectionHeader';
 import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
@@ -18,6 +19,18 @@ const ClientVisitsPage = () => {
   const { visitas, loading: loadingVisitas } = useVisitasCliente(sucursalIds);
 
   const loading = loadingData || loadingVisitas;
+
+  /**
+   * Genera URL firmada temporal para descargar el PDF del informe.
+   * @param {string} storagePath
+   */
+  const handleDescargarInforme = async (storagePath) => {
+    if (!storagePath) return;
+    const { data } = await supabase.storage
+      .from('inmotika')
+      .createSignedUrl(storagePath, 3600);
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+  };
 
   /** Formatea fecha ISO a dd/mm/aaaa */
   const fmt = (iso) => {
@@ -52,6 +65,7 @@ const ClientVisitsPage = () => {
               <Th>Técnico(s)</Th>
               <Th>Tipo</Th>
               <Th>Estado</Th>
+              <Th>Informe</Th>
             </tr>
           </THead>
           <TBody>
@@ -77,6 +91,20 @@ const ClientVisitsPage = () => {
                     </TextSmall>
                   </Td>
                   <Td><StatusBadge status={v.estadoLabel || v.estadoCodigo} /></Td>
+                  <Td>
+                    {v.informeStoragePath ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDescargarInforme(v.informeStoragePath)}
+                        className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        <FileDown size={14} />
+                        Descargar
+                      </button>
+                    ) : (
+                      <TextTiny className="text-gray-300">—</TextTiny>
+                    )}
+                  </Td>
                 </Tr>
               ))
             ) : (
@@ -117,7 +145,7 @@ const ClientVisitsPage = () => {
                   <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Sucursal</TextTiny>
                   <TextTiny className="text-gray-700 font-semibold flex-1">{v.sucursalNombre || '—'}</TextTiny>
                 </div>
-                <div className="flex items-start gap-3 py-2.5 last:pb-0">
+                <div className="flex items-start gap-3 py-2.5">
                   <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Técnico</TextTiny>
                   <div className="flex items-center gap-1.5 flex-1">
                     <User size={13} className="text-gray-300 shrink-0" />
@@ -126,6 +154,19 @@ const ClientVisitsPage = () => {
                     </TextTiny>
                   </div>
                 </div>
+                {v.informeStoragePath && (
+                  <div className="flex items-start gap-3 py-2.5 last:pb-0">
+                    <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Informe</TextTiny>
+                    <button
+                      type="button"
+                      onClick={() => handleDescargarInforme(v.informeStoragePath)}
+                      className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      <FileDown size={13} />
+                      Descargar PDF
+                    </button>
+                  </div>
+                )}
               </div>
             </Card>
           ))}

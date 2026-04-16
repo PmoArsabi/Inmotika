@@ -842,7 +842,7 @@ DECLARE
     target_role_id  UUID;
     role_code_meta  TEXT;
     default_estado  UUID;
-    contacto_row    RECORD;
+    contacto_row    public.contacto%ROWTYPE;
 BEGIN
     -- 1. Leer código de rol desde los metadatos de la invitación
     role_code_meta := COALESCE(NEW.raw_user_meta_data->>'role_code', 'COORDINADOR');
@@ -3490,6 +3490,161 @@ INSERT INTO public.catalogo (tipo, codigo, nombre, activo) VALUES
 ON CONFLICT (tipo, codigo) DO NOTHING;
 
 DROP TABLE IF EXISTS public.tecnico_certificado;
+
+-- ─── Módulo de Informes de Visita ─────────────────────────────────────────────
+
+-- Tabla coordinador_director: reemplaza coordinador.director_id con relación M:N
+CREATE TABLE IF NOT EXISTS public.coordinador_director (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  coordinador_id  uuid NOT NULL REFERENCES public.coordinador(id) ON DELETE CASCADE,
+  director_id     uuid NOT NULL REFERENCES public.director(id) ON DELETE CASCADE,
+  activo          boolean NOT NULL DEFAULT true,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(coordinador_id, director_id)
+);
+ALTER TABLE public.coordinador_director ENABLE ROW LEVEL SECURITY;
+
+-- Migrar datos existentes de coordinador.director_id → coordinador_director
+INSERT INTO public.coordinador_director (coordinador_id, director_id, activo)
+SELECT c.id, c.director_id, true
+FROM public.coordinador c
+WHERE c.director_id IS NOT NULL
+ON CONFLICT (coordinador_id, director_id) DO NOTHING;
+
+-- Tabla informe: una por visita, ciclo de vida propio
+CREATE TABLE IF NOT EXISTS public.informe (
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  visita_id             uuid NOT NULL UNIQUE REFERENCES public.visita(id) ON DELETE CASCADE,
+  estado                varchar(20) NOT NULL DEFAULT 'EN_REVISION',
+    -- EN_REVISION | APROBADO | RECHAZADO
+  storage_path          text,
+  generado_at           timestamptz,
+  enviado_director_at   timestamptz,
+  enviado_cliente_at    timestamptz,
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  updated_at            timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.informe ENABLE ROW LEVEL SECURITY;
+
+-- Tabla informe_coordinador: aprobación por dispositivo con trazabilidad
+CREATE TABLE IF NOT EXISTS public.informe_coordinador (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  informe_id      uuid NOT NULL REFERENCES public.informe(id) ON DELETE CASCADE,
+  intervencion_id uuid NOT NULL REFERENCES public.intervencion(id) ON DELETE CASCADE,
+  coordinador_id  uuid NOT NULL REFERENCES public.perfil_usuario(id),
+  aprobado        boolean NOT NULL,
+  nota            text,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(informe_id, intervencion_id)
+);
+ALTER TABLE public.informe_coordinador ENABLE ROW LEVEL SECURITY;
+
+-- Tabla informe_director: historial de revisiones del director
+CREATE TABLE IF NOT EXISTS public.informe_director (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  informe_id          uuid NOT NULL REFERENCES public.informe(id) ON DELETE CASCADE,
+  director_usuario_id uuid NOT NULL REFERENCES public.perfil_usuario(id),
+  accion              varchar(20) NOT NULL, -- 'APROBADO' | 'RECHAZADO'
+  observacion         text,
+  created_at          timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.informe_director ENABLE ROW LEVEL SECURITY;
+
+-- Índices
+CREATE INDEX IF NOT EXISTS idx_informe_visita        ON public.informe(visita_id);
+CREATE INDEX IF NOT EXISTS idx_informe_estado        ON public.informe(estado);
+CREATE INDEX IF NOT EXISTS idx_informe_coord_informe ON public.informe_coordinador(informe_id);
+CREATE INDEX IF NOT EXISTS idx_informe_dir_informe   ON public.informe_director(informe_id);
+CREATE INDEX IF NOT EXISTS idx_coord_director_coord  ON public.coordinador_director(coordinador_id);
+CREATE INDEX IF NOT EXISTS idx_coord_director_dir    ON public.coordinador_director(director_id);
+
+-- Trigger updated_at en informe
+CREATE TRIGGER handle_informe_updated_at
+  BEFORE UPDATE ON public.informe
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- ── RLS policies ──────────────────────────────────────────────────────────────
+
+-- coordinador_director
+CREATE POLICY "management_read_coordinador_director"
+  ON public.coordinador_director FOR SELECT TO authenticated
+  USING (is_management_staff());
+
+CREATE POLICY "management_write_coordinador_director"
+  ON public.coordinador_director FOR ALL TO authenticated
+  USING (is_management_staff()) WITH CHECK (is_management_staff());
+
+CREATE POLICY "service_role_coordinador_director"
+  ON public.coordinador_director FOR ALL TO postgres, service_role
+  USING (true) WITH CHECK (true);
+
+-- informe
+CREATE POLICY "management_read_informe"
+  ON public.informe FOR SELECT TO authenticated
+  USING (is_management_staff());
+
+CREATE POLICY "management_write_informe"
+  ON public.informe FOR ALL TO authenticated
+  USING (is_management_staff()) WITH CHECK (is_management_staff());
+
+CREATE POLICY "cliente_read_informe_aprobado"
+  ON public.informe FOR SELECT TO authenticated
+  USING (
+    estado = 'APROBADO' AND
+    EXISTS (
+      SELECT 1 FROM public.visita v
+      JOIN public.contacto_sucursal cs ON cs.sucursal_id = v.sucursal_id
+      JOIN public.contacto c ON c.id = cs.contacto_id
+      WHERE v.id = informe.visita_id
+        AND c.usuario_id = auth.uid()
+        AND cs.activo = true
+    )
+  );
+
+CREATE POLICY "service_role_informe"
+  ON public.informe FOR ALL TO postgres, service_role
+  USING (true) WITH CHECK (true);
+
+-- informe_coordinador
+CREATE POLICY "management_read_informe_coordinador"
+  ON public.informe_coordinador FOR SELECT TO authenticated
+  USING (is_management_staff());
+
+CREATE POLICY "coordinador_write_informe_coordinador"
+  ON public.informe_coordinador FOR ALL TO authenticated
+  USING (is_management_staff()) WITH CHECK (is_management_staff());
+
+CREATE POLICY "service_role_informe_coordinador"
+  ON public.informe_coordinador FOR ALL TO postgres, service_role
+  USING (true) WITH CHECK (true);
+
+-- informe_director
+CREATE POLICY "management_read_informe_director"
+  ON public.informe_director FOR SELECT TO authenticated
+  USING (is_management_staff());
+
+CREATE POLICY "director_write_informe_director"
+  ON public.informe_director FOR ALL TO authenticated
+  USING (is_management_staff()) WITH CHECK (is_management_staff());
+
+CREATE POLICY "service_role_informe_director"
+  ON public.informe_director FOR ALL TO postgres, service_role
+  USING (true) WITH CHECK (true);
+
+-- ── Grants ────────────────────────────────────────────────────────────────────
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.coordinador_director TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.informe TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.informe_coordinador TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.informe_director TO authenticated;
+GRANT ALL ON public.coordinador_director TO service_role;
+GRANT ALL ON public.informe TO service_role;
+GRANT ALL ON public.informe_coordinador TO service_role;
+GRANT ALL ON public.informe_director TO service_role;
+
+-- ── Catálogo ESTADO_INFORME ───────────────────────────────────────────────────
+INSERT INTO public.catalogo (tipo, codigo, nombre, activo) VALUES
+  ('TIPO_VISITA', 'CORRECTIVA', 'Correctiva', true)
+ON CONFLICT (tipo, codigo) DO NOTHING;
 
 -- ─── Realtime ─────────────────────────────────────────────────────────────────
 -- Habilita Supabase Realtime para las tablas de ejecución de visita.

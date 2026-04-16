@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import {
   CheckCircle2, Circle, ChevronDown, ChevronRight,
-  Save, Send, Lock, Camera, X, Plus, Tag,
-  AlertTriangle, MessageSquare, XCircle,
+  Lock, Camera, X, Plus, Tag,
+  AlertTriangle, MessageSquare, XCircle, Wrench,
 } from 'lucide-react';
 import SecureImage from '../ui/SecureImage';
 
@@ -489,6 +489,9 @@ const EvidenciasSection = ({ evidencias, onChange }) => {
  *   Evidencias actuales del dispositivo (gestionadas por el padre)
  * @param {function} props.onDeviceEvidenciasChange  - (patch) => void
  * @param {string}   [props.codigoEtiquetaInicial]   - Código de etiqueta existente (si ya fue guardado)
+ * @param {boolean}  [props.fueraDeServicio]          - Si el técnico marcó el dispositivo como fuera de servicio
+ * @param {string}   [props.observacionFinalDevice]   - Observación/motivo del estado fuera de servicio (intervencion.observacion_final)
+ * @param {function} [props.onFueraDeServicioChange]  - ({ active, observacion }) => void
  */
 const DeviceChecklistCard = ({
   device,
@@ -503,6 +506,9 @@ const DeviceChecklistCard = ({
   onDeviceEvidenciasChange,
   codigoEtiquetaInicial = '',
   onEtiquetaChange,
+  fueraDeServicio = false,
+  observacionFinalDevice = '',
+  onFueraDeServicioChange,
 }) => {
   const [open, setOpen] = useState(!isLocked);
   const [codigoEtiqueta, setCodigoEtiqueta] = useState(codigoEtiquetaInicial);
@@ -603,6 +609,57 @@ const DeviceChecklistCard = ({
               />
             );
           })}
+
+          {/* Fuera de servicio — solo en modo edición, visible siempre (no bloquea el guardado) */}
+          {!viewMode && !isLocked && (
+            <div className={`rounded-lg border p-3 space-y-2 transition-all ${fueraDeServicio ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50/50'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Wrench size={13} className={fueraDeServicio ? 'text-red-500' : 'text-gray-400'} />
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${fueraDeServicio ? 'text-red-600' : 'text-gray-400'}`}>
+                    Dispositivo fuera de servicio
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onFueraDeServicioChange?.({ active: !fueraDeServicio, observacion: observacionFinalDevice })}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 ${fueraDeServicio ? 'bg-red-500 border-red-500' : 'bg-gray-200 border-gray-200'}`}
+                  role="switch"
+                  aria-checked={fueraDeServicio}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200 ${fueraDeServicio ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+              </div>
+              {fueraDeServicio && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
+                    Motivo <span className="text-red-500">*</span>
+                  </p>
+                  <textarea
+                    autoFocus
+                    value={observacionFinalDevice}
+                    onChange={e => onFueraDeServicioChange?.({ active: true, observacion: e.target.value })}
+                    rows={2}
+                    placeholder="Describe por qué el dispositivo no pudo ser reparado..."
+                    className="w-full px-2 py-1.5 text-xs border border-red-300 rounded-md bg-white resize-none focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400 transition-all"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Fuera de servicio en modo lectura */}
+          {viewMode && fueraDeServicio && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-1">
+              <div className="flex items-center gap-2">
+                <Wrench size={13} className="text-red-500" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">Fuera de servicio</span>
+              </div>
+              {observacionFinalDevice && (
+                <p className="text-xs text-red-700 px-2 py-1 bg-red-100 rounded-md">{observacionFinalDevice}</p>
+              )}
+            </div>
+          )}
 
           {/* Código de etiqueta + evidencias */}
           {!viewMode ? (

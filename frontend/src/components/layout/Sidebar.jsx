@@ -3,7 +3,7 @@ import {
   LayoutDashboard, ClipboardList, Settings, Calendar, Building2,
   Cpu, Eye, LogOut, Menu, ChevronUp, ChevronDown, Users,
   FileText, Wallet, BarChart, Bell, Phone, UserCog, Tag,
-  CalendarCheck, PlayCircle, List
+  CalendarCheck, PlayCircle, List, ClipboardCheck
 } from 'lucide-react';
 import { ROLES, isManagementRole } from '../../utils/constants';
 import { H3, TextSmall, Subtitle } from '../ui/Typography';
@@ -65,6 +65,12 @@ const Sidebar = ({
             { id: 'visits-solicitudes',  label: 'Solicitud Visita', icon: List         },
             { id: 'visits-programacion', label: 'Programación',     icon: CalendarCheck },
             { id: 'visits-gestion',      label: 'Gestión Visitas',  icon: PlayCircle   },
+            ...(userRole === ROLES.COORDINADOR
+              ? [{ id: 'visits-validacion-informes', label: 'Validar Informes', icon: ClipboardCheck }]
+              : []),
+            ...(userRole === ROLES.DIRECTOR
+              ? [{ id: 'visits-aprobacion-informes', label: 'Aprobar Informes', icon: ClipboardCheck }]
+              : []),
           ],
         },
       ];

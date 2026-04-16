@@ -18,7 +18,7 @@ import { useVisitas } from '../../hooks/useVisitas';
 import { useNotify } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../utils/constants';
-import { iniciarVisita, guardarAvanceDispositivo, finalizarVisita, notificarAvanceDispositivo } from '../../api/visitaApi';
+import { iniciarVisita, guardarAvanceDispositivo, finalizarVisita, notificarAvanceDispositivo, marcarDispositivoEnMantenimiento } from '../../api/visitaApi';
 import { supabase } from '../../utils/supabase';
 
 // ─── Info row helper ──────────────────────────────────────────────────────────
@@ -56,6 +56,10 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   const [modalMessage,         setModalMessage]         = useState('');
   const [successModal,         setSuccessModal]         = useState({ open: false, deviceNombre: '' });
   const [finalizadoModal,      setFinalizadoModal]      = useState({ open: false, clienteNombre: '', sucursalNombre: '' });
+  /** @type {{ [deviceId: string]: { active: boolean, observacion: string } }} */
+  const [fueraDeServicioMap,   setFueraDeServicioMap]   = useState({});
+  /** Set de deviceIds ya marcados EN_MANTENIMIENTO — evita re-disparos */
+  const enMantenimientoRef = useRef(new Set());
 
   const visitas = visitasHook;
 
@@ -295,11 +299,24 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
 
   // ── Update actividad-level execution state ────────────────────────────────
   // patch: { estado: 'completada'|'omitida'|'pendiente', observacion?: string|null }
-  const handleActividadChange = (actividadId, patch) => {
+  const handleActividadChange = (actividadId, patch, deviceId) => {
     localChangesRef.current.actividades.add(actividadId);
     setEjecucionActividades(prev => ({
       ...prev,
       [actividadId]: { ...(prev[actividadId] || {}), ...patch },
+    }));
+    // Auto EN_MANTENIMIENTO: primera vez que el técnico toca una actividad del dispositivo
+    if (deviceId && !enMantenimientoRef.current.has(deviceId)) {
+      enMantenimientoRef.current.add(deviceId);
+      marcarDispositivoEnMantenimiento(deviceId);
+    }
+  };
+
+  // ── Update fuera-de-servicio state for a device ───────────────────────────
+  const handleFueraDeServicioChange = (deviceId, patch) => {
+    setFueraDeServicioMap(prev => ({
+      ...prev,
+      [deviceId]: { ...(prev[deviceId] || { active: false, observacion: '' }), ...patch },
     }));
   };
 
@@ -322,8 +339,11 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     setIsSaving(true);
     try {
       await Promise.all(
-        dispositivos.map(device =>
-          guardarAvanceDispositivo(
+        dispositivos.map(device => {
+          const fds = fueraDeServicioMap[device.id];
+          const estadoCodigo = fds?.active ? 'FUERA_DE_SERVICIO' : 'OPERATIVO';
+          const observacionDevice = fds?.active ? (fds.observacion || null) : null;
+          return guardarAvanceDispositivo(
             activeVisita.id,
             device.id,
             device.pasos || [],
@@ -331,8 +351,10 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
             ejecucionActividades,
             deviceEvidencias[device.id] || { etiqueta: null, fotos: [] },
             codigoEtiquetas[device.id] || null,
-          )
-        )
+            observacionDevice,
+            estadoCodigo,
+          );
+        })
       );
 
       // Limpiar cambios locales para que el realtime pueda refrescar desde BD
@@ -369,6 +391,9 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     if (!activeVisita || savingDeviceId) return;
     setSavingDeviceId(device.id);
     try {
+      const fds = fueraDeServicioMap[device.id];
+      const estadoCodigo = fds?.active ? 'FUERA_DE_SERVICIO' : 'OPERATIVO';
+      const observacionDevice = fds?.active ? (fds.observacion || null) : null;
       await guardarAvanceDispositivo(
         activeVisita.id,
         device.id,
@@ -377,6 +402,8 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
         ejecucionActividades,
         deviceEvidencias[device.id] || { etiqueta: null, fotos: [] },
         codigoEtiquetas[device.id] || null,
+        observacionDevice,
+        estadoCodigo,
       );
       notificarAvanceDispositivo(
         activeVisita.id,
@@ -513,13 +540,16 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
                         ejecucionPasos={ejecucionPasos}
                         ejecucionActividades={ejecucionActividades}
                         onPasoChange={handlePasoChange}
-                        onActividadChange={handleActividadChange}
+                        onActividadChange={(actividadId, patch) => handleActividadChange(actividadId, patch, device.id)}
                         viewMode={viewMode || isProgramado}
                         isLocked={isLocked}
                         deviceEvidencias={deviceEvidencias[device.id] || { etiqueta: null, fotos: [] }}
                         onDeviceEvidenciasChange={(patch) => handleDeviceEvidenciasChange(device.id, patch)}
                         codigoEtiquetaInicial={activeVisita.codigoEtiquetaByDevice?.[device.id] || ''}
                         onEtiquetaChange={handleEtiquetaChange}
+                        fueraDeServicio={fueraDeServicioMap[device.id]?.active ?? false}
+                        observacionFinalDevice={fueraDeServicioMap[device.id]?.observacion ?? ''}
+                        onFueraDeServicioChange={(patch) => handleFueraDeServicioChange(device.id, patch)}
                       />
                       {isEnCurso && !viewMode && stat.done && (
                         <div className="flex justify-end">
