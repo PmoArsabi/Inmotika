@@ -5,6 +5,7 @@
  */
 import { supabase } from '../utils/supabase';
 import { uploadAndSyncFile } from '../utils/storageUtils';
+import { syncCoordinadorSucursales } from './coordinadorSucursalApi';
 
 export function isNewSucursalId(id) {
   if (id == null || id === '') return true;
@@ -448,6 +449,13 @@ export async function saveSucursal({ sucursalId, clienteId, draft, catalogIds = 
 
   // Sincronizar dispositivos: estado declarativo, siempre ejecutar
   await syncSucursalDispositivos(resolvedId, draft.associatedDeviceIds || []);
+
+  // Sincronizar coordinadores: por cada coordinador asignado, upsert en sucursal_coordinador
+  if (draft.associatedCoordinadorIds?.length > 0) {
+    for (const coordinadorId of draft.associatedCoordinadorIds) {
+      await syncCoordinadorSucursales(coordinadorId, [resolvedId]);
+    }
+  }
 
   return { sucursalId: resolvedId, contratos };
 }

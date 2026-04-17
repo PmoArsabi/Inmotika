@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../../utils/supabase';
+import { syncCoordinadorSucursales, getCoordinadorSucursales } from '../../api/coordinadorSucursalApi';
 import { Users, Building2, MapPin, User, Monitor, Phone, CheckCircle2, Layers, Tag } from 'lucide-react';
 import Button from '../ui/Button';
 import { H3, TextSmall } from '../ui/Typography';
@@ -86,6 +88,10 @@ const ConfigurationNavigator = ({ onClose }) => {
   const [associateDirectorsModal, setAssociateDirectorsModal] = useState(null);
   const [associateDirectorsSearch, setAssociateDirectorsSearch] = useState('');
   const [associateDirectorsSelected, setAssociateDirectorsSelected] = useState([]);
+  // Coordinadores modal (sucursal → coordinadores)
+  const [associateCoordinadoresModal, setAssociateCoordinadoresModal] = useState(null);
+  const [associateCoordinadoresSearch, setAssociateCoordinadoresSearch] = useState('');
+  const [associateCoordinadoresSelected, setAssociateCoordinadoresSelected] = useState([]);
   // Client-level contacts & devices modals
   const [clientContactsModal, setClientContactsModal] = useState(null);
   const [clientContactsSearch, setClientContactsSearch] = useState('');
@@ -138,6 +144,79 @@ const ConfigurationNavigator = ({ onClose }) => {
 
   /** Cierra el modal de asociar directores sin confirmar. */
   const handleCloseDirectorsModal = () => setAssociateDirectorsModal(null);
+
+  /**
+   * Abre el modal de coordinadores para una sucursal.
+   * Carga los coordinadores activos desde BD y pre-selecciona los ya asignados.
+   */
+  const handleOpenCoordinadoresModal = useCallback(async (branchKey, sucursalId) => {
+    // Cargar todos los coordinadores activos
+    const { data: rows } = await supabase
+      .from('coordinador')
+      .select('id, usuario_id, perfil_usuario:usuario_id(nombres, apellidos, email)')
+      .eq('activo', true);
+
+    const allCoordinadores = (rows || []).map(r => ({
+      coordinadorId: r.id,
+      nombres:   r.perfil_usuario?.nombres   || '',
+      apellidos: r.perfil_usuario?.apellidos || '',
+      email:     r.perfil_usuario?.email     || '',
+    }));
+
+    // Pre-seleccionar los ya asignados (solo si la sucursal ya existe en BD)
+    let preselected = [];
+    const isExisting = sucursalId && !sucursalId.startsWith('S-') && !sucursalId.startsWith('NEW-') && !sucursalId.startsWith('new-') && sucursalId.length > 20;
+    if (isExisting) {
+      preselected = await getCoordinadorSucursales(sucursalId).then(ids => ids).catch(() => []);
+      // getCoordinadorSucursales devuelve sucursal_id, necesitamos coordinador_id
+      // Re-query para obtener coordinador_id de los asignados
+      const { data: asignados } = await supabase
+        .from('sucursal_coordinador')
+        .select('coordinador_id')
+        .eq('sucursal_id', sucursalId)
+        .eq('activo', true);
+      preselected = (asignados || []).map(r => String(r.coordinador_id));
+    }
+
+    setAssociateCoordinadoresSelected(preselected);
+    setAssociateCoordinadoresSearch('');
+    setAssociateCoordinadoresModal({ branchKey, sucursalId, allCoordinadores });
+  }, []);
+
+  /**
+   * Confirma la asociación de coordinadores: actualiza el draft en memoria
+   * y persiste inmediatamente en BD si la sucursal ya existe.
+   */
+  const handleConfirmCoordinadores = useCallback(async (branchKey, selected) => {
+    updateDraft(branchKey, { associatedCoordinadorIds: selected });
+    setAssociateCoordinadoresModal(null);
+    setAssociateSuccess(true);
+
+    // Persistir en BD si la sucursal ya tiene un UUID real
+    const sucursalId = associateCoordinadoresModal?.sucursalId;
+    const isExisting = sucursalId && !sucursalId.startsWith('S-') && !sucursalId.startsWith('NEW-') && !sucursalId.startsWith('new-') && sucursalId.length > 20;
+    if (!isExisting) return;
+
+    const allCoords = associateCoordinadoresModal?.allCoordinadores || [];
+    for (const cId of selected) {
+      await syncCoordinadorSucursales(cId, [sucursalId]);
+    }
+    // Desasignar los que fueron removidos
+    const removidos = allCoords
+      .map(c => String(c.coordinadorId))
+      .filter(cId => !selected.includes(cId));
+    for (const cId of removidos) {
+      // Soft-delete: quitar esta sucursal del coordinador
+      await supabase
+        .from('sucursal_coordinador')
+        .update({ activo: false })
+        .eq('coordinador_id', cId)
+        .eq('sucursal_id', sucursalId);
+    }
+  }, [associateCoordinadoresModal, updateDraft]);
+
+  /** Cierra el modal de coordinadores sin confirmar. */
+  const handleCloseCoordinadoresModal = () => setAssociateCoordinadoresModal(null);
 
   /** Cierra el modal de contactos del cliente y limpia filtros. */
   const handleCloseClientContactsModal = () => {
@@ -261,6 +340,7 @@ const ConfigurationNavigator = ({ onClose }) => {
             setAssociateDevicesModal={setAssociateDevicesModal}
             setAssociateDevicesSelected={setAssociateDevicesSelected}
             setAssociateDevicesSearch={setAssociateDevicesSearch}
+            onOpenCoordinadoresModal={handleOpenCoordinadoresModal}
           />
         )}
 
@@ -375,6 +455,13 @@ const ConfigurationNavigator = ({ onClose }) => {
         setAssociateDirectorsSelected={setAssociateDirectorsSelected}
         onConfirmDirectors={handleConfirmDirectors}
         onCloseDirectorsModal={handleCloseDirectorsModal}
+        associateCoordinadoresModal={associateCoordinadoresModal}
+        associateCoordinadoresSearch={associateCoordinadoresSearch}
+        setAssociateCoordinadoresSearch={setAssociateCoordinadoresSearch}
+        associateCoordinadoresSelected={associateCoordinadoresSelected}
+        setAssociateCoordinadoresSelected={setAssociateCoordinadoresSelected}
+        onConfirmCoordinadores={handleConfirmCoordinadores}
+        onCloseCoordinadoresModal={handleCloseCoordinadoresModal}
         clientContactsModal={clientContactsModal}
         clientContactsSearch={clientContactsSearch}
         setClientContactsSearch={setClientContactsSearch}

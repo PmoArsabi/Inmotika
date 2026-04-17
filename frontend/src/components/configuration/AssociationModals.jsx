@@ -78,6 +78,14 @@ const AssociationModals = ({
   setAssociateDirectorsSelected,
   onConfirmDirectors,
   onCloseDirectorsModal,
+  // coordinadores modal (sucursal → coordinadores)
+  associateCoordinadoresModal,
+  associateCoordinadoresSearch,
+  setAssociateCoordinadoresSearch,
+  associateCoordinadoresSelected,
+  setAssociateCoordinadoresSelected,
+  onConfirmCoordinadores,
+  onCloseCoordinadoresModal,
   // client-level modals
   clientContactsModal,
   clientContactsSearch,
@@ -572,6 +580,86 @@ const AssociationModals = ({
                 </div>
                 <div className="pt-2 flex justify-end">
                   <Button onClick={onCloseClientDevicesModal} variant="ghost">Cerrar</Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        );
+      })()}
+
+      {/* Associate Coordinadores Modal (sucursal → coordinadores) */}
+      {associateCoordinadoresModal && (() => {
+        const allCoordinadores = associateCoordinadoresModal.allCoordinadores || [];
+        const q = (associateCoordinadoresSearch || '').toLowerCase();
+        const filtered = allCoordinadores.filter(c =>
+          !q ||
+          (c.nombres || '').toLowerCase().includes(q) ||
+          (c.apellidos || '').toLowerCase().includes(q) ||
+          (c.email || '').toLowerCase().includes(q)
+        );
+        return (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <Card className="max-w-md w-full p-6 shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-50 rounded-lg">
+                  <UserCircle2 size={20} className="text-[#D32F2F]" />
+                </div>
+                <H3 className="normal-case">Asociar Coordinadores</H3>
+              </div>
+              <div className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                  <input
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F] text-sm"
+                    placeholder="Buscar coordinador por nombre o email..."
+                    value={associateCoordinadoresSearch}
+                    onChange={e => setAssociateCoordinadoresSearch(e.target.value)}
+                  />
+                </div>
+                <div className="max-h-70 overflow-y-auto space-y-2 pr-1">
+                  {filtered.length === 0 && (
+                    <div className="text-center py-8">
+                      <UserCircle2 size={32} className="mx-auto text-gray-300 mb-2" />
+                      <TextSmall className="text-gray-400">No hay coordinadores disponibles</TextSmall>
+                    </div>
+                  )}
+                  {filtered.map(c => {
+                    const isSelected = (associateCoordinadoresSelected || []).includes(String(c.coordinadorId));
+                    const nombre = [c.nombres, c.apellidos].filter(Boolean).join(' ') || c.email || 'Coordinador';
+                    return (
+                      <div
+                        key={c.coordinadorId}
+                        onClick={() => setAssociateCoordinadoresSelected(prev =>
+                          prev.includes(String(c.coordinadorId))
+                            ? prev.filter(id => id !== String(c.coordinadorId))
+                            : [...prev, String(c.coordinadorId)]
+                        )}
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
+                          isSelected ? 'border-[#D32F2F] bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isSelected ? 'bg-[#D32F2F] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                            {(nombre[0] || 'C').toUpperCase()}
+                          </div>
+                          <div>
+                            <TextSmall className="font-bold text-gray-900">{nombre}</TextSmall>
+                            {c.email && <TextSmall className="text-gray-500 text-[10px]">{c.email}</TextSmall>}
+                          </div>
+                        </div>
+                        {isSelected && <CheckCircle2 size={18} className="text-[#D32F2F]" />}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <Button
+                    onClick={() => onConfirmCoordinadores(associateCoordinadoresModal.branchKey, associateCoordinadoresSelected)}
+                    className="w-full bg-[#1A1A1A] hover:bg-[#D32F2F] text-white"
+                  >
+                    Confirmar
+                  </Button>
+                  <Button onClick={onCloseCoordinadoresModal} variant="ghost" className="w-full">Cancelar</Button>
                 </div>
               </div>
             </Card>

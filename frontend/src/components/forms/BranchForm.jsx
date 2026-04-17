@@ -20,7 +20,7 @@ export const BranchForm = (props) => {
   const {
     newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
     isEditing, isSaving, editingBranchId, onCancelEdit,
-    onAssociateContacts, onAssociateDevices, showErrors,
+    onAssociateContacts, onAssociateDevices, onAssociateCoordinadores, showErrors,
     activoId, inactivoId
   } = props;
 
@@ -137,10 +137,11 @@ export const BranchForm = (props) => {
       {/* Asociaciones */}
       <div className="pt-4 border-t border-gray-200 space-y-3">
         <Subtitle className="text-gray-700">Asociaciones</Subtitle>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { label: 'Asociar contactos', sub: 'Relaciona contactos responsables a esta sucursal.', count: newBranchDraft?.associatedContactIds?.length, onClick: onAssociateContacts },
-            { label: 'Asociar dispositivos', sub: 'Vincula los dispositivos instalados.', count: newBranchDraft?.associatedDeviceIds?.length, onClick: onAssociateDevices },
+            { label: 'Asociar contactos',     sub: 'Relaciona contactos responsables a esta sucursal.', count: newBranchDraft?.associatedContactIds?.length,     onClick: onAssociateContacts },
+            { label: 'Asociar dispositivos',  sub: 'Vincula los dispositivos instalados.',              count: newBranchDraft?.associatedDeviceIds?.length,      onClick: onAssociateDevices },
+            { label: 'Asociar coordinadores', sub: 'Asigna coordinadores a cargo de esta sucursal.',    count: newBranchDraft?.associatedCoordinadorIds?.length,  onClick: onAssociateCoordinadores },
           ].map(({ label, sub, count, onClick }) => (
             <button
               key={label}

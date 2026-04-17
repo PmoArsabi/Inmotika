@@ -9,10 +9,12 @@ import { useNotify } from '../../../context/NotificationContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useCatalog } from '../../../hooks/useCatalog';
 import { saveSucursal } from '../../../api/sucursalApi';
+import { supabase } from '../../../utils/supabase';
 
 const BranchNavigator = ({
   setAssociateContactsModal, setAssociateContactsSelected, setAssociateContactsSearch,
   setAssociateDevicesModal, setAssociateDevicesSelected, setAssociateDevicesSearch,
+  onOpenCoordinadoresModal,
 }) => {
   const { route, drafts, setDrafts, updateDraft, setStack } = useConfigurationContext();
   const { data, setData } = useMasterData();
@@ -46,13 +48,32 @@ const BranchNavigator = ({
     return emptyBranchDraft();
   };
 
-  // Seed draft into context on mount so the first onChange merges over a
-  // complete draft (with pais: 'CO' etc.) rather than {}.
+  // Seed draft into context on mount. Para sucursales existentes, carga también
+  // los coordinadores ya asignados desde BD.
   useEffect(() => {
     if (!route.branchId) return;
     if (drafts[key]) return;
     const base = getDraft();
-    setDrafts(prev => ({ ...prev, [key]: base }));
+
+    const isExisting = route.branchId &&
+      !route.branchId.startsWith('S-') &&
+      !route.branchId.startsWith('NEW-') &&
+      !route.branchId.startsWith('new-') &&
+      route.branchId.length > 20;
+
+    if (isExisting) {
+      supabase
+        .from('sucursal_coordinador')
+        .select('coordinador_id')
+        .eq('sucursal_id', route.branchId)
+        .eq('activo', true)
+        .then(({ data }) => {
+          const ids = (data || []).map(r => String(r.coordinador_id));
+          setDrafts(prev => ({ ...prev, [key]: { ...base, associatedCoordinadorIds: ids } }));
+        });
+    } else {
+      setDrafts(prev => ({ ...prev, [key]: base }));
+    }
   }, [route.branchId, key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draft = getDraft();
@@ -134,6 +155,11 @@ const BranchNavigator = ({
           setAssociateDevicesSelected(currentIds);
           setAssociateDevicesSearch('');
           setAssociateDevicesModal({ branchKey: key, clientId: route.clientId, branchId: route.branchId });
+        }}
+        onAssociateCoordinadores={() => {
+          const fullDraft = drafts[key] ?? getDraft();
+          if (!drafts[key]) setDrafts(prev => ({ ...prev, [key]: fullDraft }));
+          onOpenCoordinadoresModal?.(key, route.branchId);
         }}
         estadoSelectOptions={[{value: 'est-1', label: 'ACTIVO'}, {value: 'est-2', label: 'INACTIVO'}]}
         activoId="est-1"
