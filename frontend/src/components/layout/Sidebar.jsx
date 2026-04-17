@@ -142,7 +142,7 @@ const Sidebar = ({
         {!collapsed && (
           <div className="overflow-hidden animate-in fade-in duration-300">
             <H3 className="text-white text-sm leading-none whitespace-nowrap">Inmotika</H3>
-            <TextSmall className="text-gray-500 uppercase mt-0.5 text-[8px] whitespace-nowrap">Gestión Inmobiliaria</TextSmall>
+            <TextSmall className="text-gray-500 uppercase mt-0.5 text-[8px] whitespace-nowrap">Acceso a un mundo diferente</TextSmall>
           </div>
         )}
         {!collapsed && onToggleCollapsed && (

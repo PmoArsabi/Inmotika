@@ -68,8 +68,8 @@ const S = {
     color: C.gray900,
     background: C.white,
     width: '794px',
-    margin: '0',
-    padding: '0',
+    margin: '0 auto',
+    padding: '32px 40px',
   },
 
   // ── Cabecera ──
@@ -698,7 +698,7 @@ export default function InformePDFTemplate({ informe }) {
         <div style={S.headerAccent} />
         <div style={S.headerLogo}>
           <p style={S.headerLogoTitle}>INMOTIKA</p>
-          <span style={S.headerLogoSub}>Sistema de Gestión</span>
+          <span style={S.headerLogoSub}>Acceso a un mundo diferente</span>
         </div>
         <div style={S.headerCenter}>
           <p style={S.headerDocLabel}>Documento de mantenimiento</p>
@@ -811,7 +811,7 @@ export default function InformePDFTemplate({ informe }) {
 
       {/* ══ FOOTER ══ */}
       <div style={S.footer}>
-        <span style={S.footerLeft}>Inmotika S.A.S — Sistema de Gestión de Calidad</span>
+        <span style={S.footerLeft}>Inmotika S.A.S — Acceso a un mundo diferente</span>
         <span style={S.footerRight}>Generado el {hoy} · Documento de uso interno</span>
       </div>
 
