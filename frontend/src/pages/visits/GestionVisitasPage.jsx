@@ -51,6 +51,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   const [observacionFinal,     setObservacionFinal]     = useState('');
   const [isSaving,             setIsSaving]             = useState(false);
   const [savingDeviceId,       setSavingDeviceId]       = useState(null);
+  const [savedDeviceIds,       setSavedDeviceIds]       = useState(new Set());
   const [showHelpModal,        setShowHelpModal]        = useState(false);
   const [modalTitle,           setModalTitle]           = useState('');
   const [modalMessage,         setModalMessage]         = useState('');
@@ -412,6 +413,8 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
         ejecucionActividades,
         device,
       );
+      setSavedDeviceIds(prev => new Set([...prev, device.id]));
+      setSuccessModal({ open: true, deviceNombre: device.label || device.idInmotika || 'Dispositivo' });
       // Limpiar cambios locales del dispositivo guardado para que realtime pueda refrescar
       const deviceActIds = new Set(
         (device.pasos || []).flatMap(p => (p.actividades || []).map(a => a.id))
@@ -551,7 +554,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
                         observacionFinalDevice={fueraDeServicioMap[device.id]?.observacion ?? ''}
                         onFueraDeServicioChange={(patch) => handleFueraDeServicioChange(device.id, patch)}
                       />
-                      {isEnCurso && !viewMode && stat.done && (
+                      {isEnCurso && !viewMode && stat.done && !savedDeviceIds.has(device.id) && (
                         <div className="flex justify-end">
                           <button
                             type="button"
@@ -562,6 +565,14 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
                             <Save size={12} />
                             {isSavingThis ? 'Guardando...' : 'Guardar avance'}
                           </button>
+                        </div>
+                      )}
+                      {isEnCurso && !viewMode && savedDeviceIds.has(device.id) && (
+                        <div className="flex justify-end">
+                          <div className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase rounded-md bg-green-50 border border-green-200 text-green-700">
+                            <CheckCircle2 size={12} />
+                            Avance guardado
+                          </div>
                         </div>
                       )}
                     </div>
@@ -834,12 +845,6 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
         loadingText="Cargando visitas..."
         emptyText="No hay visitas asignadas con los filtros seleccionados."
         emptyIcon={ClipboardList}
-        onNew={() => {
-          setModalTitle('¿Cómo crear una visita?');
-          setModalMessage('Para crear una visita técnica, por favor diríjase al módulo de "Programación de Visitas" para asignar técnicos a una solicitud existente, o cree una nueva "Solicitud de Visita" desde el módulo correspondiente.');
-          setShowHelpModal(true);
-        }}
-        newButtonLabel="Ayuda Creación"
         filteredCount={filtered.length}
         totalItems={baseList.length}
         activeFiltersCount={filters.cliente.length + filters.sucursal.length + filters.estado.length + filters.tecnico.length + (filters.fechaDesde ? 1 : 0) + (filters.fechaHasta ? 1 : 0)}

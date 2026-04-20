@@ -187,6 +187,11 @@ const SolicitudVisitaPage = () => {
     setMode('view');
   };
 
+  // Siempre derivar desde el array reactivo para reflejar cambios de estado sin recargar
+  const currentSol = (mode === 'view' || mode === 'edit') && selectedSol
+    ? (solicitudes.find(s => s.id === selectedSol.id) ?? selectedSol)
+    : selectedSol;
+
   const handleSaveCreate = async () => {
     if (!draft.tipoVisitaCodigo || !draft.clienteId || !draft.sucursalId || !draft.fechaSugerida || draft.dispositivoIds.length === 0 || !draft.motivo?.trim()) {
       await confirm({
@@ -347,11 +352,11 @@ const SolicitudVisitaPage = () => {
   // ══════════════════════════════════════════════════════════════════════════
   // DETAIL / TRACE VIEW
   // ══════════════════════════════════════════════════════════════════════════
-  if (mode === 'view' && selectedSol) {
+  if (mode === 'view' && currentSol) {
     return (
       <>
         <SolicitudDetalle
-          sol={selectedSol}
+          sol={currentSol}
           visitas={visitas}
           onBack={handleGoList}
           onEdit={handleEdit}

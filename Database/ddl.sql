@@ -3166,6 +3166,40 @@ to public
 using (public.is_management_staff())
 with check (public.is_management_staff());
 
+-- Técnicos pueden leer contactos/coordinadores de sucursales de sus visitas asignadas
+-- (necesario para construir la lista de destinatarios de emails de avance)
+CREATE POLICY "tecnico_read_contacto_sucursal"
+  ON public.contacto_sucursal FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.visita v
+      WHERE v.sucursal_id = contacto_sucursal.sucursal_id
+        AND public.is_tecnico_asignado_visita(v.id)
+    )
+  );
+
+CREATE POLICY "tecnico_read_contacto"
+  ON public.contacto FOR SELECT TO authenticated
+  USING (
+    is_admin_or_coordinator()
+    OR EXISTS (
+      SELECT 1 FROM public.tecnico t
+      JOIN public.visita_tecnico vt ON vt.tecnico_id = t.id
+      WHERE t.usuario_id = auth.uid()
+      LIMIT 1
+    )
+  );
+
+CREATE POLICY "tecnico_read_sucursal_coordinador"
+  ON public.sucursal_coordinador FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.visita v
+      WHERE v.sucursal_id = sucursal_coordinador.sucursal_id
+        AND public.is_tecnico_asignado_visita(v.id)
+    )
+  );
+
 
 -- --- evidencia_intervencion ---
 create table "public"."evidencia_intervencion" (
@@ -3215,6 +3249,24 @@ using (
     AND public.is_tecnico_asignado_visita(v.id)
   )
 );
+
+-- --- solicitud_visita: técnicos pueden actualizar estado de solicitudes de sus visitas ---
+CREATE POLICY "Tecnicos can update solicitud of assigned visits"
+  ON public.solicitud_visita FOR UPDATE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.visita v
+      WHERE v.solicitud_id = solicitud_visita.id
+        AND public.is_tecnico_asignado_visita(v.id)
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.visita v
+      WHERE v.solicitud_id = solicitud_visita.id
+        AND public.is_tecnico_asignado_visita(v.id)
+    )
+  );
 
 -- --- solicitud_dispositivo: técnicos pueden ver dispositivos de sus solicitudes asignadas ---
 create policy "Tecnicos can view dispositivos of assigned visits"
@@ -3317,6 +3369,20 @@ FOR UPDATE
 TO authenticated
 USING (id = auth.uid() AND is_user_active())
 WITH CHECK (id = auth.uid());
+
+-- Técnicos pueden leer el perfil del coordinador/director responsable de sus visitas
+CREATE POLICY "tecnico_read_responsable_perfil"
+  ON public.perfil_usuario FOR SELECT TO authenticated
+  USING (
+    -- propio perfil
+    id = auth.uid()
+    -- o coordinador/director de una visita asignada al técnico
+    OR EXISTS (
+      SELECT 1 FROM public.visita v
+      WHERE (v.coordinador_usuario_id = perfil_usuario.id)
+        AND public.is_tecnico_asignado_visita(v.id)
+    )
+  );
 
 CREATE POLICY "informe_token_management"
 ON public.informe_descarga_token
@@ -3601,6 +3667,17 @@ CREATE POLICY "cliente_read_informe_aprobado"
       WHERE v.id = informe.visita_id
         AND c.usuario_id = auth.uid()
         AND cs.activo = true
+    )
+  );
+
+CREATE POLICY "tecnico_insert_informe"
+  ON public.informe FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.visita_tecnico vt
+      JOIN public.tecnico t ON t.id = vt.tecnico_id
+      WHERE vt.visita_id = informe.visita_id
+        AND t.usuario_id = auth.uid()
     )
   );
 

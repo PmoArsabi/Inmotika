@@ -11,7 +11,7 @@ import {
 import { H2, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import SearchableSelect from '../../components/ui/SearchableSelect';
+import { CheckSelect } from '../../components/shared/FilterBar';
 import InfoRow from '../../components/ui/InfoRow';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import DevicePickerModal from '../../components/shared/DevicePickerModal';
@@ -60,10 +60,6 @@ export const ProgramacionForm = ({
   isEditing, solicitudOrigen, tecnicosOptions, dispositivosDisponibles,
 }) => {
   const [devicePickerOpen, setDevicePickerOpen] = useState(false);
-  const tecnicosSeleccionados = draft.tecnicoIds.map(id => ({
-    value: id,
-    label: tecnicosOptions.find(o => o.value === id)?.label || id,
-  }));
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
@@ -99,12 +95,11 @@ export const ProgramacionForm = ({
           {/* Técnicos */}
           <Card className="p-5 space-y-4">
             <CardSection icon={Users} title="Asignación de Técnicos" />
-            <SearchableSelect
-              options={tecnicosOptions}
-              value={tecnicosSeleccionados}
-              onChange={opts => updateDraft({ tecnicoIds: opts.map(o => o.value) })}
+            <CheckSelect
               placeholder="Asignar técnicos..."
-              isMulti
+              options={tecnicosOptions}
+              value={draft.tecnicoIds}
+              onChange={ids => updateDraft({ tecnicoIds: ids })}
             />
             {draft.tecnicoIds.length === 0 && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200">

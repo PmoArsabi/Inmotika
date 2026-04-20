@@ -145,8 +145,12 @@ export async function getVisitaEmailRecipients(actor) {
  * @returns {Promise<string[]>}
  */
 export async function getAvanceDispositivoRecipients({ sucursalId, responsableEmail }) {
-  const contactEmails = await fetchContactoEmailsBySucursal(sucursalId);
-  const all = [...contactEmails];
+  const [contactEmails, coordEmails] = await Promise.all([
+    fetchContactoEmailsBySucursal(sucursalId),
+    fetchCoordinadorEmailsBySucursal(sucursalId),
+  ]);
+  console.log('[avance-recipients] sucursalId:', sucursalId, '| contactos:', contactEmails, '| coordinadores:', coordEmails, '| responsable:', responsableEmail);
+  const all = [...contactEmails, ...coordEmails];
   if (responsableEmail) all.push(responsableEmail);
   return [...new Set(all.filter(Boolean))];
 }

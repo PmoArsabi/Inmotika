@@ -148,6 +148,19 @@ export const useSolicitudesVisita = () => {
     fetchSolicitudes();
   }, [fetchSolicitudes]);
 
+  // Refrescar cuando otro usuario cambia el estado de una solicitud (ej: técnico finaliza visita)
+  useEffect(() => {
+    const channel = supabase
+      .channel('solicitud_visita_estado')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'solicitud_visita' },
+        () => { fetchSolicitudes(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchSolicitudes]);
+
   // ── Create ─────────────────────────────────────────────────────────────────
   /**
    * @param {Object} payload

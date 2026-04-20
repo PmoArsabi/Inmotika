@@ -156,17 +156,20 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
       tipo_visita:tipo_visita_id(nombre),
       solicitud:solicitud_id(cliente:cliente_id(razon_social)),
       coordinador_perfil:coordinador_usuario_id(nombres, apellidos, email),
-      intervencion!inner(
+      intervencion(
         id,
         codigo_etiqueta,
         dispositivo_id
       )
     `)
     .eq('id', visitaId)
-    .eq('intervencion.dispositivo_id', dispositivoId)
     .maybeSingle()
-    .then(async ({ data: v }) => {
-      if (!v) return;
+    .then(async ({ data: v, error: vErr }) => {
+      console.log('[avance] visita query result:', { v, vErr, visitaId, dispositivoId });
+      if (!v) {
+        console.warn('[avance] visita no encontrada (posiblemente intervencion no existe aún)');
+        return;
+      }
 
       // Resolver responsable: coordinador asignado o, si no, buscar director asignado
       let responsableNombre = '';
@@ -176,6 +179,7 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
         const cp = v.coordinador_perfil;
         responsableNombre = `${cp.nombres || ''} ${cp.apellidos || ''}`.trim();
         responsableEmail  = cp.email || null;
+        console.log('[avance] responsable (coordinador):', responsableEmail);
       } else if (v?.coordinador_usuario_id === null) {
         // Programado por un Director — buscar director asignado al cliente
         const { data: dirs } = await supabase
@@ -189,7 +193,12 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
         if (p) {
           responsableNombre = `${p.nombres || ''} ${p.apellidos || ''}`.trim();
           responsableEmail  = p.email || null;
+          console.log('[avance] responsable (director via cliente_director):', responsableEmail);
+        } else {
+          console.warn('[avance] sin responsable: coordinador_usuario_id=null y sin director en cliente_director');
         }
+      } else {
+        console.warn('[avance] coordinador_usuario_id existe pero coordinador_perfil es null:', v.coordinador_usuario_id);
       }
 
       // Resumen de observaciones de actividades del dispositivo
@@ -205,8 +214,9 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
 
       const observaciones = observacionLines.length > 0 ? observacionLines.join('\n') : null;
 
-      // Código de etiqueta del dispositivo (primera intervención encontrada)
-      const intervencion = Array.isArray(v.intervencion) ? v.intervencion[0] : v.intervencion;
+      // Código de etiqueta: buscar la intervención del dispositivo específico
+      const intervenciones = Array.isArray(v.intervencion) ? v.intervencion : (v.intervencion ? [v.intervencion] : []);
+      const intervencion = intervenciones.find(i => i.dispositivo_id === dispositivoId) || intervenciones[0];
       const dispositivoSerial = intervencion?.codigo_etiqueta || device?.idInmotika || '—';
 
       const horaFinalizacion = new Date().toLocaleString('es-ES');
@@ -219,7 +229,11 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
         sucursalId: v.sucursal_id,
         responsableEmail,
       });
-      if (!allEmails.length) return;
+      console.log('[avance] allEmails para sucursal', v.sucursal_id, ':', allEmails);
+      if (!allEmails.length) {
+        console.warn('[avance] lista de emails vacía — no se envía correo');
+        return;
+      }
 
       const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
       sendEmail('avance_dispositivo', {
@@ -473,12 +487,11 @@ const ETIQUETA_RE = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 
 async function resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta) {
   const raw = codigoEtiqueta?.trim().toUpperCase() || '';
-  if (!raw) throw new Error('El código de etiqueta es obligatorio.');
-  if (!ETIQUETA_RE.test(raw)) throw new Error(`Formato de etiqueta inválido "${codigoEtiqueta}". Debe ser XXXX-XXXX (letras y números).`);
-  const etiqueta = raw;
+  const etiqueta = raw && ETIQUETA_RE.test(raw) ? raw : null;
+
   const { data: existing, error: fetchErr } = await supabase
     .from('intervencion')
-    .select('id')
+    .select('id, codigo_etiqueta')
     .eq('visita_id', visitaId)
     .eq('dispositivo_id', dispositivoId)
     .maybeSingle();
@@ -486,13 +499,16 @@ async function resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta) {
   if (fetchErr) throw new Error(`Error al buscar intervención: ${fetchErr.message}`);
 
   if (existing) {
-    if (etiqueta) {
+    // Solo actualizar etiqueta si se provee una nueva válida
+    if (etiqueta && etiqueta !== existing.codigo_etiqueta) {
       await supabase.from('intervencion').update({ codigo_etiqueta: etiqueta }).eq('id', existing.id);
     }
     return existing.id;
   }
 
-  // Heredar estado_id de la visita para mantener consistencia
+  // Nueva intervención: etiqueta obligatoria solo si no existe registro previo
+  if (!etiqueta) throw new Error('El código de etiqueta es obligatorio para registrar un nuevo dispositivo.');
+
   const { data: visitaRow } = await supabase.from('visita').select('estado_id').eq('id', visitaId).single();
   const { data: created, error: insertErr } = await supabase
     .from('intervencion')
@@ -676,7 +692,7 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
       .eq('id', visitaRow.solicitud_id);
   }
 
-  // 4. Crear registro informe en EN_REVISION (fire-and-forget)
+  // 4. Crear registro informe en EN_REVISION + email de cierre
   // El PDF se genera más adelante cuando el director apruebe.
   if (visitaRow?.sucursal_id) {
     const tecnicos = (visitaRow?.visita_tecnico || [])
@@ -693,13 +709,13 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
     const fechaFinStr = new Date(fechaFin).toLocaleString('es-ES');
     const appUrl = window.location.origin;
 
-    // Crear registro informe
-    supabase
+    // Crear registro informe — awaited: si falla, el técnico ve el error
+    const { error: informeError } = await supabase
       .from('informe')
-      .insert({ visita_id: visitaId, estado: 'EN_REVISION' })
-      .then(({ error }) => {
-        if (error) console.error('[finalizarVisita] No se pudo crear informe:', error.message);
-      });
+      .insert({ visita_id: visitaId, estado: 'EN_REVISION' });
+    if (informeError) {
+      throw new Error(`No se pudo crear el informe de visita: ${informeError.message}`);
+    }
 
     // Enviar email de cierre al cliente: "informe listo en 24h"
     getVisitaEmailRecipients({

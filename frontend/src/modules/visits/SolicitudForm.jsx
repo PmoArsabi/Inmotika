@@ -480,7 +480,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                 { label: 'Solicitud enviada', active: true,                                                    fecha: sol.fechaSolicitud },
                 { label: 'Visita programada', active: !!visitaVinculada,                                       fecha: visitaVinculada?.fechaProgramada || null },
                 { label: 'En curso',          active: !!visitaVinculada?.fechaInicio,                          fecha: visitaVinculada?.fechaInicio || null },
-                { label: 'Finalizada',        active: sol.estadoCodigo === 'COMPLETADA',                       fecha: visitaVinculada?.fechaFin || null },
+                { label: 'Finalizada',        active: sol.estadoCodigo === 'COMPLETADA' || !!visitaVinculada?.fechaFin,  fecha: visitaVinculada?.fechaFin || null },
                 { label: 'Cancelada',         active: sol.estadoCodigo === 'CANCELADA' || sol.estadoCodigo === 'CANCELADO', fecha: null },
               ].map((step, i) => (
                 <li key={i} className="relative">
