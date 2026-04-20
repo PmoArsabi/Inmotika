@@ -157,13 +157,20 @@ alter table "public"."contrato" enable row level security;
   create table "public"."coordinador" (
     "id" uuid not null default gen_random_uuid(),
     "usuario_id" uuid,
-    "director_id" uuid,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now(),
     "activo" boolean not null default true
       );
 
 alter table "public"."coordinador" enable row level security;
+
+CREATE POLICY "management_read_coordinador"
+  ON public.coordinador FOR SELECT
+  USING (is_admin_or_coordinator());
+
+CREATE POLICY "service_role_coordinador"
+  ON public.coordinador FOR ALL
+  USING (auth.role() = 'service_role');
 
   create table "public"."director" (
     "id" uuid not null default gen_random_uuid(),
@@ -629,10 +636,6 @@ alter table "public"."contrato" validate constraint "contrato_cliente_id_fkey";
 alter table "public"."contrato" add constraint "contrato_sucursal_id_fkey" FOREIGN KEY (sucursal_id) REFERENCES public.sucursal(id) ON DELETE CASCADE not valid;
 
 alter table "public"."contrato" validate constraint "contrato_sucursal_id_fkey";
-
-alter table "public"."coordinador" add constraint "coordinador_director_id_fkey" FOREIGN KEY (director_id) REFERENCES public.director(id) not valid;
-
-alter table "public"."coordinador" validate constraint "coordinador_director_id_fkey";
 
 alter table "public"."coordinador" add constraint "coordinador_usuario_id_fkey" FOREIGN KEY (usuario_id) REFERENCES public.perfil_usuario(id) ON DELETE CASCADE not valid;
 

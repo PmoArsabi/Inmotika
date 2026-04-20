@@ -29,7 +29,8 @@ const ClientForm = ({
   onSave, isSaving = false, activeTab, onTabChange,
   branches = [], onNewBranch, onEditBranch, onViewBranch,
   newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
-  onAssociateContacts, onAssociateDevices, onAssociateDirectors,
+  isNew = false,
+  onAssociateContacts, onAssociateDevices, onAssociateDirectors, onAssociateCoordinadores,
   onOpenClientContacts, onOpenClientDevices,
   clientDevices = [], clientContacts = [],
   totalSucursales = 0, totalContactos = 0, totalDispositivos = 0,
@@ -300,26 +301,29 @@ const ClientForm = ({
                     icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
                     isEditing={isEditing}
                     onClick={onAssociateDirectors}
+                    disabled={isNew}
                   />
 
                   {/* Contactos */}
                   <AssocButton
                     label="Contactos"
-                    count={clientContacts.length}
+                    count={draft.associatedClientContactIds !== undefined ? draft.associatedClientContactIds.length : clientContacts.length}
                     emptyHint="Contactos asociados al cliente."
                     icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
                     isEditing={isEditing}
                     onClick={onOpenClientContacts}
+                    disabled={isNew}
                   />
 
                   {/* Dispositivos */}
                   <AssocButton
                     label="Dispositivos"
-                    count={clientDevices.length}
+                    count={draft.associatedClientDeviceIds !== undefined ? draft.associatedClientDeviceIds.length : clientDevices.length}
                     emptyHint="Dispositivos registrados para este cliente."
                     icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>}
                     isEditing={isEditing}
                     onClick={onOpenClientDevices}
+                    disabled={isNew}
                   />
                 </div>
 
@@ -387,6 +391,7 @@ const ClientForm = ({
                   onCancelEdit={onCancelEdit}
                   onAssociateContacts={onAssociateContacts}
                   onAssociateDevices={onAssociateDevices}
+                  onAssociateCoordinadores={onAssociateCoordinadores}
                   showErrors={showErrors}
                   estadoSelectOptions={estadoSelectOptions}
                   activoId={activoId}
@@ -465,14 +470,18 @@ const ClientForm = ({
  * @param {boolean} props.isEditing
  * @param {Function} props.onClick
  */
-const AssocButton = ({ label, count, emptyHint, icon, isEditing, onClick }) => (
+const AssocButton = ({ label, count, emptyHint, icon, isEditing, onClick, disabled = false }) => (
   <button
     type="button"
-    onClick={onClick}
+    onClick={disabled ? undefined : onClick}
+    disabled={disabled}
+    title={disabled ? 'Guarda el cliente primero para gestionar asociaciones' : undefined}
     className={`flex items-center justify-between p-3 rounded-lg transition-all text-left w-full group
-      ${isEditing
-        ? 'bg-gray-50 border border-gray-200 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer'
-        : 'bg-gray-50 border border-gray-100 cursor-pointer hover:bg-white'
+      ${disabled
+        ? 'bg-gray-50 border border-gray-100 opacity-50 cursor-not-allowed'
+        : isEditing
+          ? 'bg-gray-50 border border-gray-200 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer'
+          : 'bg-gray-50 border border-gray-100 cursor-pointer hover:bg-white'
       }`}
   >
     <div className="flex items-center gap-3 min-w-0">
@@ -482,9 +491,11 @@ const AssocButton = ({ label, count, emptyHint, icon, isEditing, onClick }) => (
       <div className="min-w-0">
         <TextSmall className="font-semibold text-gray-900 group-hover:text-[#D32F2F] transition-colors">{label}</TextSmall>
         <TextSmall className="text-gray-400 mt-0.5 truncate">
-          {count > 0
-            ? <span className="text-[#D32F2F] font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
-            : emptyHint}
+          {disabled
+            ? 'Disponible después de guardar el cliente'
+            : count > 0
+              ? <span className="text-[#D32F2F] font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
+              : emptyHint}
         </TextSmall>
       </div>
     </div>

@@ -157,9 +157,13 @@ const BranchNavigator = ({
           setAssociateDevicesModal({ branchKey: key, clientId: route.clientId, branchId: route.branchId });
         }}
         onAssociateCoordinadores={() => {
+          console.log('[Coord] click – branchId:', route.branchId, 'handler:', typeof onOpenCoordinadoresModal);
           const fullDraft = drafts[key] ?? getDraft();
           if (!drafts[key]) setDrafts(prev => ({ ...prev, [key]: fullDraft }));
-          onOpenCoordinadoresModal?.(key, route.branchId);
+          if (!onOpenCoordinadoresModal) { console.warn('[Coord] onOpenCoordinadoresModal es undefined'); return; }
+          onOpenCoordinadoresModal(key, route.branchId).catch(err => {
+            console.error('[Coord] Error abriendo modal de coordinadores:', err);
+          });
         }}
         estadoSelectOptions={[{value: 'est-1', label: 'ACTIVO'}, {value: 'est-2', label: 'INACTIVO'}]}
         activoId="est-1"

@@ -6,6 +6,53 @@ import { supabase } from '../utils/supabase';
 import { uploadAndSyncFile } from '../utils/storageUtils';
 import { getSupervisorCCs, buildRecipients, fireAndForgetEmail } from '../hooks/useEmail';
 
+/**
+ * Desasocia un contacto de su cliente: limpia cliente_id y marca activo=false
+ * en todas sus filas de contacto_sucursal. El contacto queda activo y reasignable.
+ * @param {string} contactoId
+ */
+export async function unlinkContactoFromCliente(contactoId) {
+  const { error: csErr } = await supabase
+    .from('contacto_sucursal')
+    .update({ activo: false })
+    .eq('contacto_id', contactoId)
+    .eq('activo', true);
+  if (csErr) throw csErr;
+
+  const { error } = await supabase
+    .from('contacto')
+    .update({ cliente_id: null })
+    .eq('id', contactoId);
+  if (error) throw error;
+}
+
+/**
+ * Asocia un dispositivo a un cliente (solo cliente_id; sucursal_id se gestiona
+ * desde la sucursal).
+ * @param {string} dispositivoId
+ * @param {string} clienteId
+ */
+export async function linkDispositivoToCliente(dispositivoId, clienteId) {
+  const { error } = await supabase
+    .from('dispositivo')
+    .update({ cliente_id: clienteId })
+    .eq('id', dispositivoId);
+  if (error) throw error;
+}
+
+/**
+ * Desasocia un dispositivo de su cliente y sucursal.
+ * El dispositivo queda activo y reasignable.
+ * @param {string} dispositivoId
+ */
+export async function unlinkDispositivoFromCliente(dispositivoId) {
+  const { error } = await supabase
+    .from('dispositivo')
+    .update({ cliente_id: null, sucursal_id: null })
+    .eq('id', dispositivoId);
+  if (error) throw error;
+}
+
 export function isNewClientId(id) {
   if (id == null || id === '') return true;
   const s = String(id);

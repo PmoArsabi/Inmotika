@@ -10,6 +10,7 @@ import Select from '../../../components/ui/Select';
 import Switch from '../../../components/ui/Switch';
 import PhoneInput from '../../../components/ui/PhoneInput';
 import SearchableSelect from '../../../components/ui/SearchableSelect';
+import { CheckSelect } from '../../../components/shared/FilterBar';
 import DocumentUploadManager from '../../../components/ui/DocumentUploadManager';
 import UserSuccessModal from './UserSuccessModal';
 import { Subtitle, TextSmall, H2, TextTiny, Label } from '../../../components/ui/Typography';
@@ -360,7 +361,7 @@ const UserForm = ({
                   value={newUser.rol}
                   onChange={e => {
                     const nuevoRol = e.target.value;
-                    setNewUser({ ...newUser, rol: nuevoRol, directorId: '' });
+                    setNewUser({ ...newUser, rol: nuevoRol, directorIds: [] });
                   }}
                   viewMode={isView}
                   required
@@ -405,18 +406,32 @@ const UserForm = ({
             {newUser.rol === ROLES.COORDINADOR && (
               <>
                 <RoleSection icon={Shield} label="Datos del Coordinador" color="blue">
-                  <SearchableSelect
-                    label="Director Asignado"
-                    icon={User}
-                    options={activeDirectors.map(d => ({
-                      value: d.id,
-                      label: d.nombreCompleto
-                    }))}
-                    value={newUser.directorId || ''}
-                    onChange={v => setNewUser({ ...newUser, directorId: v?.value || v || '' })}
-                    viewMode={isView}
-                    placeholder="Buscar director..."
-                  />
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Directores Asignados</label>
+                    {isView ? (
+                      (newUser.directorIds || []).length === 0 ? (
+                        <p className="text-sm text-gray-400 italic">Sin directores asignados</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {(newUser.directorIds || []).map(dId => {
+                            const dir = activeDirectors.find(d => d.id === dId);
+                            return dir ? (
+                              <span key={dId} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100">
+                                {dir.nombreCompleto}
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
+                      )
+                    ) : (
+                      <CheckSelect
+                        placeholder="Seleccionar directores..."
+                        options={activeDirectors.map(d => ({ value: d.id, label: d.nombreCompleto }))}
+                        value={newUser.directorIds || []}
+                        onChange={ids => setNewUser({ ...newUser, directorIds: ids })}
+                      />
+                    )}
+                  </div>
                 </RoleSection>
 
                 <RoleSection icon={Building2} label="Sucursales a Cargo" color="green">

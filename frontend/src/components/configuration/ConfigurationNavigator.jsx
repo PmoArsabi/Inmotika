@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../utils/supabase';
-import { syncCoordinadorSucursales, getCoordinadorSucursales } from '../../api/coordinadorSucursalApi';
+import { syncCoordinadorSucursales } from '../../api/coordinadorSucursalApi';
 import { Users, Building2, MapPin, User, Monitor, Phone, CheckCircle2, Layers, Tag } from 'lucide-react';
 import Button from '../ui/Button';
 import { H3, TextSmall } from '../ui/Typography';
@@ -68,7 +68,7 @@ const NavigatorBreadcrumbs = ({ route, stack, data, setStack, onClose }) => {
 
 const ConfigurationNavigator = ({ onClose }) => {
   const {
-    route, stack, setStack, updateDraft,
+    route, stack, setStack, drafts, updateDraft,
     showSuccessModal, branchSuccessInfo, savedClientId,
     contactSuccessInfo, deviceSuccessInfo,
     stopEditingBranch, startCreatingBranch, stopCreatingBranch,
@@ -76,6 +76,20 @@ const ConfigurationNavigator = ({ onClose }) => {
   } = useConfigurationContext();
 
   const { data } = useMasterData();
+
+  /**
+   * setStack con guard: si el cliente activo tiene cambios de asociación pendientes
+   * (contactos o dispositivos confirmados pero no guardados), pregunta antes de navegar.
+   */
+  const guardedSetStack = useCallback((updater) => {
+    if (route?.type === 'cliente') {
+      const clientKey = `cliente:${route.clientId}`;
+      const draft = drafts[clientKey];
+      const hasPending = draft?.associatedClientContactIds !== undefined || draft?.associatedClientDeviceIds !== undefined;
+      if (hasPending && !window.confirm('Tienes cambios sin guardar en las asociaciones. ¿Salir sin guardar?')) return;
+    }
+    setStack(updater);
+  }, [route, drafts, setStack]);
 
   // Association modals
   const [associateContactsModal, setAssociateContactsModal] = useState(null);
@@ -96,10 +110,12 @@ const ConfigurationNavigator = ({ onClose }) => {
   const [clientContactsModal, setClientContactsModal] = useState(null);
   const [clientContactsSearch, setClientContactsSearch] = useState('');
   const [clientContactsSedeFilter, setClientContactsSedeFilter] = useState([]);
+  const [clientContactsSelected, setClientContactsSelected] = useState([]);
   const [clientDevicesModal, setClientDevicesModal] = useState(null);
   const [clientDevicesSearch, setClientDevicesSearch] = useState('');
   const [clientDevicesCatFilter, setClientDevicesCatFilter] = useState([]);
   const [clientDevicesSedeFilter, setClientDevicesSedeFilter] = useState([]);
+  const [clientDevicesSelected, setClientDevicesSelected] = useState([]);
 
   const [associateSuccess, setAssociateSuccess] = useState(false);
 
@@ -150,37 +166,56 @@ const ConfigurationNavigator = ({ onClose }) => {
    * Carga los coordinadores activos desde BD y pre-selecciona los ya asignados.
    */
   const handleOpenCoordinadoresModal = useCallback(async (branchKey, sucursalId) => {
-    // Cargar todos los coordinadores activos
-    const { data: rows } = await supabase
-      .from('coordinador')
-      .select('id, usuario_id, perfil_usuario:usuario_id(nombres, apellidos, email)')
-      .eq('activo', true);
-
-    const allCoordinadores = (rows || []).map(r => ({
-      coordinadorId: r.id,
-      nombres:   r.perfil_usuario?.nombres   || '',
-      apellidos: r.perfil_usuario?.apellidos || '',
-      email:     r.perfil_usuario?.email     || '',
-    }));
-
-    // Pre-seleccionar los ya asignados (solo si la sucursal ya existe en BD)
-    let preselected = [];
-    const isExisting = sucursalId && !sucursalId.startsWith('S-') && !sucursalId.startsWith('NEW-') && !sucursalId.startsWith('new-') && sucursalId.length > 20;
-    if (isExisting) {
-      preselected = await getCoordinadorSucursales(sucursalId).then(ids => ids).catch(() => []);
-      // getCoordinadorSucursales devuelve sucursal_id, necesitamos coordinador_id
-      // Re-query para obtener coordinador_id de los asignados
-      const { data: asignados } = await supabase
-        .from('sucursal_coordinador')
-        .select('coordinador_id')
-        .eq('sucursal_id', sucursalId)
+    try {
+      // Cargar todos los coordinadores activos con perfil
+      const { data: rows, error: rowsErr } = await supabase
+        .from('coordinador')
+        .select('id, usuario_id, activo')
         .eq('activo', true);
-      preselected = (asignados || []).map(r => String(r.coordinador_id));
-    }
 
-    setAssociateCoordinadoresSelected(preselected);
-    setAssociateCoordinadoresSearch('');
-    setAssociateCoordinadoresModal({ branchKey, sucursalId, allCoordinadores });
+      if (rowsErr) console.error('[Coordinadores] Error cargando coordinadores:', rowsErr);
+
+      // Fetch perfiles por separado para evitar ambigüedad de FK en PostgREST
+      const usuarioIds = (rows || []).map(r => r.usuario_id).filter(Boolean);
+      let perfilesMap = {};
+      if (usuarioIds.length > 0) {
+        const { data: perfiles, error: perfilesErr } = await supabase
+          .from('perfil_usuario')
+          .select('id, nombres, apellidos, email')
+          .in('id', usuarioIds);
+        if (perfilesErr) console.error('[Coordinadores] Error cargando perfiles:', perfilesErr);
+        (perfiles || []).forEach(p => { perfilesMap[p.id] = p; });
+      }
+
+      const allCoordinadores = (rows || []).map(r => {
+        const perfil = perfilesMap[r.usuario_id] || {};
+        return {
+          coordinadorId: r.id,
+          nombres:   perfil.nombres   || '',
+          apellidos: perfil.apellidos || '',
+          email:     perfil.email     || '',
+        };
+      });
+
+      // Pre-seleccionar los ya asignados (solo si la sucursal ya existe en BD)
+      let preselected = [];
+      const isExisting = sucursalId && !String(sucursalId).startsWith('S-') && !String(sucursalId).startsWith('NEW-') && !String(sucursalId).startsWith('new-') && String(sucursalId).length > 20;
+      if (isExisting) {
+        const { data: asignados, error: asigErr } = await supabase
+          .from('sucursal_coordinador')
+          .select('coordinador_id')
+          .eq('sucursal_id', sucursalId)
+          .eq('activo', true);
+        if (asigErr) console.error('[Coordinadores] Error cargando asignados:', asigErr);
+        preselected = (asignados || []).map(r => String(r.coordinador_id));
+      }
+
+      setAssociateCoordinadoresSelected(preselected);
+      setAssociateCoordinadoresSearch('');
+      setAssociateCoordinadoresModal({ branchKey, sucursalId, allCoordinadores });
+    } catch (err) {
+      console.error('[Coordinadores] Error inesperado:', err);
+    }
   }, []);
 
   /**
@@ -219,10 +254,20 @@ const ConfigurationNavigator = ({ onClose }) => {
   const handleCloseCoordinadoresModal = () => setAssociateCoordinadoresModal(null);
 
   /** Cierra el modal de contactos del cliente y limpia filtros. */
+  /** Confirma la selección de contactos del cliente: actualiza draft y cierra modal. */
+  const handleConfirmClientContacts = (clientKey, selected) => {
+    updateDraft(clientKey, { associatedClientContactIds: selected });
+    setClientContactsModal(null);
+    setClientContactsSearch('');
+    setClientContactsSedeFilter([]);
+    setClientContactsSelected([]);
+  };
+
   const handleCloseClientContactsModal = () => {
     setClientContactsModal(null);
     setClientContactsSearch('');
     setClientContactsSedeFilter([]);
+    setClientContactsSelected([]);
   };
 
   /** Abre formulario de nuevo contacto desde el modal de contactos del cliente. */
@@ -231,12 +276,23 @@ const ConfigurationNavigator = ({ onClose }) => {
     setClientContactsModal(null);
   };
 
+  /** Confirma la selección de dispositivos del cliente: actualiza draft y cierra modal. */
+  const handleConfirmClientDevices = (clientKey, selected) => {
+    updateDraft(clientKey, { associatedClientDeviceIds: selected });
+    setClientDevicesModal(null);
+    setClientDevicesSearch('');
+    setClientDevicesCatFilter([]);
+    setClientDevicesSedeFilter([]);
+    setClientDevicesSelected([]);
+  };
+
   /** Cierra el modal de dispositivos del cliente y limpia filtros. */
   const handleCloseClientDevicesModal = () => {
     setClientDevicesModal(null);
     setClientDevicesSearch('');
     setClientDevicesCatFilter([]);
     setClientDevicesSedeFilter([]);
+    setClientDevicesSelected([]);
   };
 
   /** Abre formulario de nuevo dispositivo desde el modal de dispositivos del cliente. */
@@ -246,6 +302,12 @@ const ConfigurationNavigator = ({ onClose }) => {
   };
 
   const handleClose = () => {
+    if (route?.type === 'cliente') {
+      const clientKey = `cliente:${route.clientId}`;
+      const draft = drafts[clientKey];
+      const hasPending = draft?.associatedClientContactIds !== undefined || draft?.associatedClientDeviceIds !== undefined;
+      if (hasPending && !window.confirm('Tienes cambios sin guardar en las asociaciones. ¿Salir sin guardar?')) return;
+    }
     setStack([]);
     onClose();
   };
@@ -311,7 +373,7 @@ const ConfigurationNavigator = ({ onClose }) => {
   return (
     <>
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 -mt-4">
-        <NavigatorBreadcrumbs route={route} stack={stack} data={data} setStack={setStack} onClose={handleClose} />
+        <NavigatorBreadcrumbs route={route} stack={stack} data={data} setStack={guardedSetStack} onClose={handleClose} />
         
         {route?.type === 'cliente' && (
           <ClientNavigator
@@ -325,10 +387,18 @@ const ConfigurationNavigator = ({ onClose }) => {
             setAssociateDirectorsSelected={setAssociateDirectorsSelected}
             setAssociateDirectorsSearch={setAssociateDirectorsSearch}
             setClientContactsModal={setClientContactsModal}
+            setClientContactsSelected={setClientContactsSelected}
+            setClientContactsSearch={setClientContactsSearch}
+            setClientContactsSedeFilter={setClientContactsSedeFilter}
             setClientDevicesModal={setClientDevicesModal}
+            setClientDevicesSelected={setClientDevicesSelected}
+            setClientDevicesSearch={setClientDevicesSearch}
+            setClientDevicesCatFilter={setClientDevicesCatFilter}
+            setClientDevicesSedeFilter={setClientDevicesSedeFilter}
+            onOpenCoordinadoresModal={handleOpenCoordinadoresModal}
           />
         )}
-        
+
         {route?.type === 'contact' && <ContactNavigator />}
         {route?.type === 'dispositivo' && <DeviceNavigator />}
         {route?.type === 'tecnico' && <TechnicalNavigator />}
@@ -467,6 +537,9 @@ const ConfigurationNavigator = ({ onClose }) => {
         setClientContactsSearch={setClientContactsSearch}
         clientContactsSedeFilter={clientContactsSedeFilter}
         setClientContactsSedeFilter={setClientContactsSedeFilter}
+        clientContactsSelected={clientContactsSelected}
+        setClientContactsSelected={setClientContactsSelected}
+        onConfirmClientContacts={handleConfirmClientContacts}
         onCloseClientContactsModal={handleCloseClientContactsModal}
         onCreateContact={handleCreateContact}
         clientDevicesModal={clientDevicesModal}
@@ -476,6 +549,9 @@ const ConfigurationNavigator = ({ onClose }) => {
         setClientDevicesCatFilter={setClientDevicesCatFilter}
         clientDevicesSedeFilter={clientDevicesSedeFilter}
         setClientDevicesSedeFilter={setClientDevicesSedeFilter}
+        clientDevicesSelected={clientDevicesSelected}
+        setClientDevicesSelected={setClientDevicesSelected}
+        onConfirmClientDevices={handleConfirmClientDevices}
         onCloseClientDevicesModal={handleCloseClientDevicesModal}
         onCreateDevice={handleCreateDevice}
         data={data}

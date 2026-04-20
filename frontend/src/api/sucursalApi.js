@@ -333,7 +333,7 @@ async function syncVisitasPreventivas({
  * @param {string} sucursalId
  * @param {string[]} selectedIds - IDs finales que deben quedar asociados
  */
-export async function syncSucursalContactos(sucursalId, selectedIds) {
+export async function syncSucursalContactos(sucursalId, clienteId, selectedIds) {
   const ids = (selectedIds || []).map(String).filter(Boolean);
 
   // Leer asociaciones activas actuales de esta sucursal
@@ -347,7 +347,7 @@ export async function syncSucursalContactos(sucursalId, selectedIds) {
   const currentIds = (current || []).map(r => String(r.contacto_id));
   const selectedSet = new Set(ids);
 
-  // Soft-delete: marcar activo=false los que fueron removidos
+  // Soft-delete los removidos + limpiar cliente_id si ya no tienen sucursal activa en este cliente
   const toRemove = currentIds.filter(id => !selectedSet.has(id));
   if (toRemove.length > 0) {
     const { error } = await supabase
@@ -356,9 +356,22 @@ export async function syncSucursalContactos(sucursalId, selectedIds) {
       .eq('sucursal_id', sucursalId)
       .in('contacto_id', toRemove);
     if (error) throw error;
+
+    // Para cada removido: si ya no tiene ninguna sucursal activa, limpiar cliente_id
+    for (const contactoId of toRemove) {
+      const { data: remaining } = await supabase
+        .from('contacto_sucursal')
+        .select('id')
+        .eq('contacto_id', contactoId)
+        .eq('activo', true)
+        .limit(1);
+      if (!remaining || remaining.length === 0) {
+        await supabase.from('contacto').update({ cliente_id: null }).eq('id', contactoId);
+      }
+    }
   }
 
-  // Upsert los seleccionados (activo=true cubre tanto nuevos como re-activaciones)
+  // Upsert los seleccionados + asignar cliente_id
   if (ids.length > 0) {
     const { error } = await supabase
       .from('contacto_sucursal')
@@ -367,20 +380,25 @@ export async function syncSucursalContactos(sucursalId, selectedIds) {
         { onConflict: 'contacto_id,sucursal_id' }
       );
     if (error) throw error;
+
+    // Asignar cliente_id a los contactos recién asociados
+    if (clienteId) {
+      await supabase.from('contacto').update({ cliente_id: clienteId }).in('id', ids);
+    }
   }
 }
 
 /**
  * Sincroniza dispositivos asociados a la sucursal.
- * Estrategia declarativa: el estado final en BD debe coincidir con selectedIds.
- * 1. Quita sucursal_id de todos los dispositivos de esta sucursal que no estén en selectedIds.
- * 2. Asigna sucursal_id a todos los dispositivos en selectedIds.
+ * Al asignar: actualiza sucursal_id Y cliente_id del dispositivo.
+ * Al desasignar: deja sucursal_id=null y cliente_id=null (disponible para reasignar).
  * @param {string} sucursalId
+ * @param {string} clienteId
  * @param {string[]} selectedIds - IDs finales que deben quedar asociados
  */
-export async function syncSucursalDispositivos(sucursalId, selectedIds) {
+export async function syncSucursalDispositivos(sucursalId, clienteId, selectedIds) {
   const selectedSet = new Set((selectedIds || []).map(String).filter(Boolean));
-  // Leer dispositivos actuales de esta sucursal en BD
+
   const { data: current, error: fetchError } = await supabase
     .from('dispositivo')
     .select('id')
@@ -389,22 +407,22 @@ export async function syncSucursalDispositivos(sucursalId, selectedIds) {
 
   const currentIds = (current || []).map(d => String(d.id));
 
-  // Quitar sucursal solo a los que fueron removidos de la selección
+  // Desasociar: quitar sucursal_id y cliente_id (activo disponible para reasignar)
   const toRemove = currentIds.filter(id => !selectedSet.has(id));
   if (toRemove.length > 0) {
     const { error } = await supabase
       .from('dispositivo')
-      .update({ sucursal_id: null })
+      .update({ sucursal_id: null, cliente_id: null })
       .in('id', toRemove);
     if (error) throw error;
   }
 
-  // Asignar sucursal a los seleccionados
+  // Asignar sucursal_id y cliente_id a los seleccionados
   const toAssign = [...selectedSet].filter(id => !currentIds.includes(id));
   if (toAssign.length > 0) {
     const { error } = await supabase
       .from('dispositivo')
-      .update({ sucursal_id: sucursalId })
+      .update({ sucursal_id: sucursalId, cliente_id: clienteId || null })
       .in('id', toAssign);
     if (error) throw error;
   }
@@ -445,10 +463,10 @@ export async function saveSucursal({ sucursalId, clienteId, draft, catalogIds = 
   const contratos = await syncSucursalContracts(resolvedId, clienteId, draft, catalogIds);
 
   // Sincronizar contactos: siempre ejecutar para poder eliminar los removidos
-  await syncSucursalContactos(resolvedId, draft.associatedContactIds || []);
+  await syncSucursalContactos(resolvedId, clienteId, draft.associatedContactIds || []);
 
   // Sincronizar dispositivos: estado declarativo, siempre ejecutar
-  await syncSucursalDispositivos(resolvedId, draft.associatedDeviceIds || []);
+  await syncSucursalDispositivos(resolvedId, clienteId, draft.associatedDeviceIds || []);
 
   // Sincronizar coordinadores: por cada coordinador asignado, upsert en sucursal_coordinador
   if (draft.associatedCoordinadorIds?.length > 0) {

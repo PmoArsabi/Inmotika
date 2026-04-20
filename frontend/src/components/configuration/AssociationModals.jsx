@@ -4,6 +4,8 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { TextSmall, H3 } from '../ui/Typography';
 import SearchableSelect from '../ui/SearchableSelect';
+import { CheckSelect } from '../shared/FilterBar';
+import { useConfirm } from '../../context/ConfirmContext';
 
 /**
  * AssociationModals — renderiza los 5 modales de asociación de ConfigurationNavigator.
@@ -92,6 +94,9 @@ const AssociationModals = ({
   setClientContactsSearch,
   clientContactsSedeFilter,
   setClientContactsSedeFilter,
+  clientContactsSelected,
+  setClientContactsSelected,
+  onConfirmClientContacts,
   onCloseClientContactsModal,
   onCreateContact,
   clientDevicesModal,
@@ -101,13 +106,17 @@ const AssociationModals = ({
   setClientDevicesCatFilter,
   clientDevicesSedeFilter,
   setClientDevicesSedeFilter,
+  clientDevicesSelected,
+  setClientDevicesSelected,
+  onConfirmClientDevices,
   onCloseClientDevicesModal,
   onCreateDevice,
   // data
   data,
 }) => {
+  const confirm = useConfirm();
   return (
-    <>
+<>
       {/* Associate Contacts Modal */}
       {associateContactsModal && (() => {
         const clientId = associateContactsModal.clientId;
@@ -388,7 +397,7 @@ const AssociationModals = ({
 
       {/* Client Contacts Modal */}
       {clientContactsModal && (() => {
-        const { clientId, branches } = clientContactsModal;
+        const { clientKey, clientId, branches } = clientContactsModal;
         const allContacts = (() => {
           const seen = new Map();
           (branches || []).forEach(s => {
@@ -399,13 +408,24 @@ const AssociationModals = ({
           return [...seen.values()];
         })();
         const sedeOptions = (branches || []).filter(b => b.id && b.nombre).map(b => ({ value: String(b.id), label: b.nombre }));
-        const sedeFilterIds = new Set(clientContactsSedeFilter.map(o => o.value));
+        const sedeFilterIds = new Set(clientContactsSedeFilter);
         const q = clientContactsSearch.toLowerCase();
         const filtered = allContacts.filter(ct => {
           if (sedeFilterIds.size > 0 && !sedeFilterIds.has(ct.branchId)) return false;
           const nombre = ((ct.nombre || ct.nombres || '') + ' ' + (ct.apellido || ct.apellidos || '')).toLowerCase();
           return !q || nombre.includes(q) || (ct.email || '').toLowerCase().includes(q) || (ct.cargo || '').toLowerCase().includes(q);
         });
+        const originalSelected = clientContactsModal._originalSelected;
+        const isDirty = JSON.stringify([...clientContactsSelected].sort()) !== JSON.stringify([...originalSelected].sort());
+
+        const handleClose = async () => {
+          if (isDirty) {
+            const ok = await confirm({ title: 'Cambios sin confirmar', message: 'Tienes cambios sin confirmar. ¿Salir sin aplicarlos?', confirmText: 'Salir', cancelText: 'Seguir editando', type: 'warning' });
+            if (!ok) return;
+          }
+          onCloseClientContactsModal();
+        };
+
         return (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <Card className="max-w-lg w-full p-6 shadow-2xl">
@@ -434,17 +454,15 @@ const AssociationModals = ({
                     />
                   </div>
                   {sedeOptions.length > 0 && (
-                    <SearchableSelect
-                      placeholder="Filtrar por sucursal..."
+                    <CheckSelect
+                      placeholder="Sucursal..."
                       options={sedeOptions}
                       value={clientContactsSedeFilter}
                       onChange={setClientContactsSedeFilter}
-                      isMulti
-                      icon={GitBranch}
                     />
                   )}
                 </div>
-                <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
                   {filtered.length === 0 ? (
                     <div className="text-center py-10">
                       <UserCircle2 size={32} className="mx-auto text-gray-300 mb-2" />
@@ -452,28 +470,46 @@ const AssociationModals = ({
                     </div>
                   ) : filtered.map(ct => {
                     const nombre = [ct.nombre || ct.nombres, ct.apellido || ct.apellidos].filter(Boolean).join(' ') || ct.email || 'Contacto';
+                    const isSelected = clientContactsSelected.includes(String(ct.id));
                     return (
-                      <div key={ct.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
-                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0 text-xs font-bold text-gray-500">
-                          {(nombre[0] || 'C').toUpperCase()}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <TextSmall className="font-semibold text-gray-900 truncate">{nombre}</TextSmall>
-                          <div className="flex flex-wrap gap-2 mt-0.5">
-                            {ct.cargo && <span className="text-[10px] text-gray-400">{ct.cargo}</span>}
-                            {ct.branchName && (
-                              <span className="flex items-center gap-0.5 text-[10px] text-gray-400">
-                                <GitBranch size={9} />{ct.branchName}
-                              </span>
-                            )}
+                      <div
+                        key={ct.id}
+                        onClick={() => setClientContactsSelected(prev =>
+                          prev.includes(String(ct.id)) ? prev.filter(id => id !== String(ct.id)) : [...prev, String(ct.id)]
+                        )}
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
+                          isSelected ? 'border-[#D32F2F] bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${isSelected ? 'bg-[#D32F2F] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                            {(nombre[0] || 'C').toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <TextSmall className="font-semibold text-gray-900 truncate">{nombre}</TextSmall>
+                            <div className="flex flex-wrap gap-2 mt-0.5">
+                              {ct.cargo && <span className="text-[10px] text-gray-400">{ct.cargo}</span>}
+                              {ct.branchName && (
+                                <span className="flex items-center gap-0.5 text-[10px] text-gray-400">
+                                  <GitBranch size={9} />{ct.branchName}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        {isSelected && <CheckCircle2 size={18} className="text-[#D32F2F] shrink-0" />}
                       </div>
                     );
                   })}
                 </div>
-                <div className="pt-2 flex justify-end">
-                  <Button onClick={onCloseClientContactsModal} variant="ghost">Cerrar</Button>
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <Button
+                    onClick={() => onConfirmClientContacts(clientKey, clientContactsSelected)}
+                    className="w-full bg-[#1A1A1A] hover:bg-[#D32F2F] text-white"
+                  >
+                    Confirmar
+                  </Button>
+                  <Button onClick={handleClose} variant="ghost" className="w-full">Cancelar</Button>
                 </div>
               </div>
             </Card>
@@ -483,27 +519,38 @@ const AssociationModals = ({
 
       {/* Client Devices Modal */}
       {clientDevicesModal && (() => {
-        const { clientId, branches } = clientDevicesModal;
+        const { clientKey, clientId, branches } = clientDevicesModal;
         const allDevices = (data?.dispositivos || []).filter(d => {
           const dClientId = String(d.clientId || d.cliente_id || '');
-          return dClientId === String(clientId);
+          return dClientId === String(clientId) || !dClientId || dClientId === 'null' || dClientId === 'undefined';
         });
         const catOptions = [...new Map(
           allDevices.filter(d => d.categoriaId && (d.categoria?.nombre || d.categoriaNombre))
-            .map(d => [d.categoriaId, d.categoria?.nombre || d.categoriaNombre])
+            .map(d => [String(d.categoriaId), d.categoria?.nombre || d.categoriaNombre])
         ).entries()].map(([value, label]) => ({ value, label }));
         const sedeOptions = (branches || []).filter(b => b.id && b.nombre).map(b => ({ value: String(b.id), label: b.nombre }));
-        const catFilterIds = new Set(clientDevicesCatFilter.map(o => o.value));
-        const sedeFilterIds = new Set(clientDevicesSedeFilter.map(o => o.value));
+        const catFilterIds = new Set(clientDevicesCatFilter);
+        const sedeFilterIds = new Set(clientDevicesSedeFilter);
         const q = clientDevicesSearch.toLowerCase();
         const filtered = allDevices.filter(d => {
-          if (catFilterIds.size > 0 && !catFilterIds.has(d.categoriaId)) return false;
+          if (catFilterIds.size > 0 && !catFilterIds.has(String(d.categoriaId))) return false;
           if (sedeFilterIds.size > 0 && !sedeFilterIds.has(String(d.branchId || d.sucursal_id || ''))) return false;
           return !q ||
             (d.descripcion || '').toLowerCase().includes(q) ||
             (d.serial || '').toLowerCase().includes(q) ||
             (d.idInmotika || d.id_inmotika || '').toLowerCase().includes(q);
         });
+        const originalSelected = clientDevicesModal._originalSelected;
+        const isDirty = JSON.stringify([...clientDevicesSelected].sort()) !== JSON.stringify([...originalSelected].sort());
+
+        const handleClose = async () => {
+          if (isDirty) {
+            const ok = await confirm({ title: 'Cambios sin confirmar', message: 'Tienes cambios sin guardar. ¿Salir sin confirmar?' });
+            if (!ok) return;
+          }
+          onCloseClientDevicesModal();
+        };
+
         return (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <Card className="max-w-lg w-full p-6 shadow-2xl">
@@ -532,27 +579,23 @@ const AssociationModals = ({
                     />
                   </div>
                   {catOptions.length > 0 && (
-                    <SearchableSelect
+                    <CheckSelect
                       placeholder="Categoría..."
                       options={catOptions}
                       value={clientDevicesCatFilter}
                       onChange={setClientDevicesCatFilter}
-                      isMulti
-                      icon={Tag}
                     />
                   )}
                   {sedeOptions.length > 0 && (
-                    <SearchableSelect
+                    <CheckSelect
                       placeholder="Sucursal..."
                       options={sedeOptions}
                       value={clientDevicesSedeFilter}
                       onChange={setClientDevicesSedeFilter}
-                      isMulti
-                      icon={GitBranch}
                     />
                   )}
                 </div>
-                <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
                   {filtered.length === 0 ? (
                     <div className="text-center py-10">
                       <Monitor size={32} className="mx-auto text-gray-300 mb-2" />
@@ -562,24 +605,46 @@ const AssociationModals = ({
                     const label = d.descripcion || d.serial || d.idInmotika || 'Dispositivo';
                     const cat = d.categoria?.nombre || d.categoriaNombre || null;
                     const sedeName = (branches || []).find(b => String(b.id) === String(d.branchId || d.sucursal_id || ''))?.nombre || null;
+                    const isSelected = clientDevicesSelected.includes(String(d.id));
+                    const dClientId = String(d.clientId || d.cliente_id || '');
+                    const isOwned = dClientId === String(clientId);
+                    const isAvailable = !isOwned;
                     return (
-                      <div key={d.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
-                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-                          <Monitor size={14} className="text-gray-500" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <TextSmall className="font-semibold text-gray-900 truncate">{label}</TextSmall>
-                          <div className="flex flex-wrap gap-2 mt-0.5">
-                            {cat && <span className="flex items-center gap-0.5 text-[10px] text-gray-400"><Tag size={9} />{cat}</span>}
-                            {sedeName && <span className="flex items-center gap-0.5 text-[10px] text-gray-400"><GitBranch size={9} />{sedeName}</span>}
+                      <div
+                        key={d.id}
+                        onClick={() => setClientDevicesSelected(prev =>
+                          prev.includes(String(d.id)) ? prev.filter(id => id !== String(d.id)) : [...prev, String(d.id)]
+                        )}
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
+                          isSelected ? 'border-[#D32F2F] bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#D32F2F]' : 'bg-gray-200'}`}>
+                            <Monitor size={14} className={isSelected ? 'text-white' : 'text-gray-500'} />
+                          </div>
+                          <div className="min-w-0">
+                            <TextSmall className="font-semibold text-gray-900 truncate">{label}</TextSmall>
+                            <div className="flex flex-wrap gap-2 mt-0.5">
+                              {cat && <span className="flex items-center gap-0.5 text-[10px] text-gray-400"><Tag size={9} />{cat}</span>}
+                              {sedeName && <span className="flex items-center gap-0.5 text-[10px] text-gray-400"><GitBranch size={9} />{sedeName}</span>}
+                              {isAvailable && <span className="text-[10px] text-emerald-600 font-medium">Disponible</span>}
+                            </div>
                           </div>
                         </div>
+                        {isSelected && <CheckCircle2 size={18} className="text-[#D32F2F] shrink-0" />}
                       </div>
                     );
                   })}
                 </div>
-                <div className="pt-2 flex justify-end">
-                  <Button onClick={onCloseClientDevicesModal} variant="ghost">Cerrar</Button>
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <Button
+                    onClick={() => onConfirmClientDevices(clientKey, clientDevicesSelected)}
+                    className="w-full bg-[#1A1A1A] hover:bg-[#D32F2F] text-white"
+                  >
+                    Confirmar
+                  </Button>
+                  <Button onClick={handleClose} variant="ghost" className="w-full">Cancelar</Button>
                 </div>
               </div>
             </Card>

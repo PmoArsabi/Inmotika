@@ -168,7 +168,7 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
   const someSelected = count > 0 && !allSelected;
 
   const displayText = count === 0
-    ? (isDisabled ? `Sel. ${filter.dependsOnLabel || 'primero'}...` : 'Todos')
+    ? (isDisabled ? `Sel. ${filter.dependsOnLabel || 'primero'}...` : (filter.placeholder || 'Todos'))
     : count === 1
       ? (opts.find(o => String(o.value) === selected[0])?.label ?? '1 seleccionado')
       : `${count} seleccionados`;
@@ -194,9 +194,11 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
 
   return (
     <div className="flex flex-col gap-0.5 flex-1" style={{ minWidth: itemMinW }}>
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
-        {filter.label}
-      </span>
+      {filter.label && (
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
+          {filter.label}
+        </span>
+      )}
 
       <button
         ref={triggerRef}
@@ -216,11 +218,6 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
       >
         <span className="truncate flex-1 text-left text-sm">{displayText}</span>
         <div className="flex items-center gap-1 shrink-0">
-          {count > 0 && (
-            <span className="flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full bg-[#D32F2F] text-white text-[10px] font-bold leading-none">
-              {count}
-            </span>
-          )}
           {count > 0 && (
             <span
               role="button"
@@ -297,5 +294,46 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
     </div>
   );
 };
+
+/**
+ * Standalone checkbox-dropdown con la misma estética que FilterBar.
+ * Reemplaza CheckDropdown — usar este en lugar de mantener dos componentes.
+ *
+ * @param {Object}   props
+ * @param {string}   [props.placeholder]  - Texto cuando no hay selección (default: 'Todos')
+ * @param {{ value: string|number, label: string }[]} props.options
+ * @param {string[]} props.value          - IDs seleccionados
+ * @param {Function} props.onChange       - (newSelected: string[]) => void
+ */
+export function CheckSelect({ placeholder = 'Todos', options = [], value = [], onChange }) {
+  const [open, setOpen] = useState(false);
+  const filterDef = { key: '__cs__', label: '', placeholder, options };
+  const values = { __cs__: value.map(String) };
+
+  const handleSelect = (_key, val, opts) => {
+    if (val === '__all__') {
+      const allSelected = opts.length > 0 && values.__cs__.length === opts.length;
+      onChange(allSelected ? [] : opts.map(o => String(o.value)));
+    } else {
+      const cur = values.__cs__;
+      const sv = String(val);
+      onChange(cur.includes(sv) ? cur.filter(v => v !== sv) : [...cur, sv]);
+    }
+  };
+
+  const handleClear = (_key, e) => { e.stopPropagation(); onChange([]); };
+
+  return (
+    <FilterSelect
+      filter={filterDef}
+      values={values}
+      isOpen={open}
+      onToggle={() => setOpen(v => !v)}
+      onClose={() => setOpen(false)}
+      onSelect={handleSelect}
+      onClear={handleClear}
+    />
+  );
+}
 
 export default FilterBar;

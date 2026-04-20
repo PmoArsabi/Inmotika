@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useMasterData } from '../../context/MasterDataContext';
 import { useAuth } from '../../context/AuthContext';
-import { ROLE_HIERARCHY } from '../../utils/constants';
+import { ROLE_HIERARCHY, ROLES } from '../../utils/constants';
 import { Plus, UserPlus } from 'lucide-react';
 import ModuleHeader from '../../components/ui/ModuleHeader';
 import Card from '../../components/ui/Card';
@@ -22,7 +22,7 @@ const emptyUser = () => ({
   rol: '',
   activo: true,
   certificados: [],
-  directorId: '',
+  directorIds: [],
   sucursalesACargo: [],
 });
 
@@ -116,17 +116,16 @@ const UsersPage = ({ setData }) => {
   }, [usuarios, search, filters]);
 
   // Roles que el usuario actual puede asignar:
-  // - Solo roles de nivel INFERIOR en la jerarquía (DIRECTOR > COORDINADOR > TECNICO).
+  // - DIRECTOR (rol tope) puede crear su mismo nivel y cualquier nivel inferior.
+  // - COORDINADOR solo puede crear niveles inferiores al suyo.
   // - CLIENTE se gestiona desde Contactos, nunca aparece aquí.
   const roleOptions = useMemo(() => {
     const myRole = currentUser?.role;
     const myIndex = ROLE_HIERARCHY.indexOf(myRole);
-    // Si el rol no está en la jerarquía (ej. TECNICO) no puede crear nadie → lista vacía.
-    const allowedCodes = myIndex >= 0
-      ? ROLE_HIERARCHY.slice(myIndex + 1)   // solo roles por debajo del propio
-      : [];
-    // DIRECTOR es el tope: puede crear COORDINADOR y TECNICO.
-    // Si myIndex === -1 (rol desconocido) no se permite crear ninguno.
+    if (myIndex < 0) return [{ value: '', label: 'Seleccionar rol' }];
+    // DIRECTOR (índice 0) incluye su propio nivel; los demás solo los inferiores.
+    const startIndex = myRole === ROLES.DIRECTOR ? myIndex : myIndex + 1;
+    const allowedCodes = ROLE_HIERARCHY.slice(startIndex);
     const filtered = rolOptions.filter(r => allowedCodes.includes(r.value));
     return [{ value: '', label: 'Seleccionar rol' }, ...filtered];
   }, [rolOptions, currentUser?.role]);
@@ -153,7 +152,7 @@ const UsersPage = ({ setData }) => {
       identificacion: user.identificacion || '',
       rol: user.rol || '',
       activo: user.activo !== undefined ? user.activo : true,
-      directorId: user.directorAsignadoId || '',
+      directorIds: Array.isArray(user.directorAsignadoIds) ? user.directorAsignadoIds : (user.directorAsignadoIds ? [user.directorAsignadoIds] : []),
       sucursalesACargo: Array.isArray(user.sucursalesACargo) ? user.sucursalesACargo : [],
       avatarUrl: user.avatar_url || '',
     });
@@ -171,7 +170,7 @@ const UsersPage = ({ setData }) => {
       identificacion: user.identificacion || '',
       rol: user.rol || '',
       activo: user.activo !== undefined ? user.activo : true,
-      directorId: user.directorAsignadoId || '',
+      directorIds: Array.isArray(user.directorAsignadoIds) ? user.directorAsignadoIds : (user.directorAsignadoIds ? [user.directorAsignadoIds] : []),
       sucursalesACargo: Array.isArray(user.sucursalesACargo) ? user.sucursalesACargo : [],
       avatarUrl: user.avatar_url || '',
     });

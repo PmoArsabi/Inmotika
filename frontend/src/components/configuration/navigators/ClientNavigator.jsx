@@ -13,7 +13,7 @@ import {
 import { validateClient, validateBranch } from '../../../utils/validators';
 import { useCatalog } from '../../../hooks/useCatalog';
 import { saveSucursal } from '../../../api/sucursalApi';
-import { saveCliente, syncClientDirectors, notificarClienteCreado } from '../../../api/clienteApi';
+import { saveCliente, syncClientDirectors, notificarClienteCreado, unlinkContactoFromCliente, unlinkDispositivoFromCliente, linkDispositivoToCliente } from '../../../api/clienteApi';
 import { useUsers } from '../../../hooks/useUsers';
 import { useNotify } from '../../../context/NotificationContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -29,7 +29,15 @@ const ClientNavigator = ({
   setAssociateDirectorsSelected,
   setAssociateDirectorsSearch,
   setClientContactsModal,
+  setClientContactsSelected,
+  setClientContactsSearch,
+  setClientContactsSedeFilter,
   setClientDevicesModal,
+  setClientDevicesSelected,
+  setClientDevicesSearch,
+  setClientDevicesCatFilter,
+  setClientDevicesSedeFilter,
+  onOpenCoordinadoresModal,
 }) => {
   const {
     route, drafts, setDrafts, updateDraft, setStack,
@@ -114,6 +122,47 @@ const ClientNavigator = ({
       // Sync directors
       if (draft.associatedDirectorIds) {
         await syncClientDirectors(realId, draft.associatedDirectorIds);
+      }
+
+      // Desasociar contactos removidos (los que estaban antes pero no están en el draft)
+      if (draft.associatedClientContactIds !== undefined) {
+        const selectedSet = new Set(draft.associatedClientContactIds.map(String));
+        const originalIds = clientContacts.map(ct => String(ct.id));
+        const removed = originalIds.filter(id => !selectedSet.has(id));
+        if (removed.length > 0) {
+          await Promise.all(removed.map(id => unlinkContactoFromCliente(id)));
+          setData(prev => ({
+            ...prev,
+            contactos: (prev.contactos || []).map(ct =>
+              removed.includes(String(ct.id)) ? { ...ct, cliente_id: null, clientId: null } : ct
+            ),
+          }));
+        }
+      }
+
+      // Sincronizar dispositivos del cliente (added y removed)
+      if (draft.associatedClientDeviceIds !== undefined) {
+        const selectedSet = new Set(draft.associatedClientDeviceIds.map(String));
+        const originalSet = new Set(clientDevices.map(d => String(d.id)));
+        const removed = [...originalSet].filter(id => !selectedSet.has(id));
+        const added = [...selectedSet].filter(id => !originalSet.has(id));
+        if (removed.length > 0) {
+          await Promise.all(removed.map(id => unlinkDispositivoFromCliente(id)));
+        }
+        if (added.length > 0) {
+          await Promise.all(added.map(id => linkDispositivoToCliente(id, realId)));
+        }
+        if (removed.length > 0 || added.length > 0) {
+          setData(prev => ({
+            ...prev,
+            dispositivos: (prev.dispositivos || []).map(d => {
+              const sid = String(d.id);
+              if (removed.includes(sid)) return { ...d, cliente_id: null, clientId: null, sucursal_id: null, branchId: null };
+              if (added.includes(sid)) return { ...d, cliente_id: realId, clientId: realId };
+              return d;
+            }),
+          }));
+        }
       }
 
       finishSaving();
@@ -297,12 +346,29 @@ const ClientNavigator = ({
     setAssociateDevicesModal({ branchKey: activeBranchKey, clientId: route.clientId, branchId: editingBranchId });
   };
 
+  const handleOpenAssociateCoordinadores = () => {
+    if (!activeBranchKey || !onOpenCoordinadoresModal) return;
+    const sucursalId = activeBranchDraft?.id || editingBranchId || null;
+    onOpenCoordinadoresModal(activeBranchKey, sucursalId).catch(err => {
+      console.error('[Coord] Error abriendo modal:', err);
+    });
+  };
+
   const handleOpenClientContacts = () => {
-    setClientContactsModal({ clientId: route.clientId, branches: currentBranches });
+    const currentIds = (draft.associatedClientContactIds ?? clientContacts.map(ct => String(ct.id))).map(String);
+    setClientContactsSelected(currentIds);
+    setClientContactsSearch('');
+    setClientContactsSedeFilter([]);
+    setClientContactsModal({ clientKey: key, clientId: route.clientId, branches: currentBranches, _originalSelected: currentIds });
   };
 
   const handleOpenClientDevices = () => {
-    setClientDevicesModal({ clientId: route.clientId, branches: currentBranches });
+    const currentIds = (draft.associatedClientDeviceIds ?? clientDevices.map(d => String(d.id))).map(String);
+    setClientDevicesSelected(currentIds);
+    setClientDevicesSearch('');
+    setClientDevicesCatFilter([]);
+    setClientDevicesSedeFilter([]);
+    setClientDevicesModal({ clientKey: key, clientId: route.clientId, branches: currentBranches, _originalSelected: currentIds });
   };
 
   const handleOpenAssociateDirectors = () => {
@@ -336,7 +402,11 @@ const ClientNavigator = ({
     });
     return seen.size;
   }, [currentBranches]);
-  const totalDispositivos = (data?.dispositivos || []).filter(d => compareIds(d.clientId, route.clientId)).length;
+  const clientDevices = useMemo(
+    () => (data?.dispositivos || []).filter(d => compareIds(d.clientId || d.cliente_id, route.clientId)),
+    [data?.dispositivos, route.clientId]
+  );
+  const totalDispositivos = clientDevices.length;
 
   return (
     <>
@@ -369,10 +439,11 @@ const ClientNavigator = ({
       onAssociateContacts={handleOpenAssociateContacts}
       onAssociateDevices={handleOpenAssociateDevices}
       onAssociateDirectors={handleOpenAssociateDirectors}
+      onAssociateCoordinadores={handleOpenAssociateCoordinadores}
       onAddDevice={() => setStack(prev => [...prev, { type: 'dispositivo', deviceId: `new-${Date.now()}`, mode: 'edit', clientId: route.clientId }])}
       onOpenClientContacts={handleOpenClientContacts}
       onOpenClientDevices={handleOpenClientDevices}
-      clientDevices={(data?.dispositivos || []).filter(d => compareIds(d.clientId || d.cliente_id, route.clientId))}
+      clientDevices={clientDevices}
       clientBranches={currentBranches}
       clientContacts={clientContacts}
       isDeviceAdmin={false}
@@ -380,6 +451,7 @@ const ClientNavigator = ({
       totalSucursales={totalSucursales}
       totalContactos={totalContactos}
       totalDispositivos={totalDispositivos}
+      isNew={!currentClient}
       />
     </>
   );

@@ -29,29 +29,24 @@ async function fetchDirectorEmails() {
   return (data || []).map(d => d.perfil?.email).filter(Boolean);
 }
 
-/**
- * Extrae emails de director desde un resultado de Supabase con el join
- * `director:director_id(perfil:usuario_id(email))`.
- * Acepta tanto un objeto único como un array.
- * @param {object|object[]|null} data
- * @returns {string[]}
- */
-function extractDirectorEmails(data) {
-  if (!data) return [];
-  const rows = Array.isArray(data) ? data : [data];
-  return rows.map(r => r.director?.perfil?.email).filter(Boolean);
-}
-
-/** Email del director asignado a un coordinador (por perfil_usuario.id del coordinador). */
+/** Email del director asignado a un coordinador via coordinador_director. */
 async function fetchDirectorEmailByCoordinador(coordinadorUsuarioId) {
   if (!coordinadorUsuarioId) return [];
-  const { data } = await supabase
+  // Obtener el id interno del coordinador
+  const { data: cooRow } = await supabase
     .from('coordinador')
-    .select('director:director_id(perfil:usuario_id(email))')
+    .select('id')
     .eq('usuario_id', coordinadorUsuarioId)
     .eq('activo', true)
     .maybeSingle();
-  return extractDirectorEmails(data);
+  if (!cooRow?.id) return [];
+  // Leer directores asignados via coordinador_director
+  const { data } = await supabase
+    .from('coordinador_director')
+    .select('director:director_id(perfil:usuario_id(email))')
+    .eq('coordinador_id', cooRow.id)
+    .eq('activo', true);
+  return (data || []).map(r => r.director?.perfil?.email).filter(Boolean);
 }
 
 /** Emails de los directores activos asignados a un cliente. */
@@ -62,7 +57,7 @@ async function fetchDirectorEmailsByCliente(clienteId) {
     .select('director:director_id(perfil:usuario_id(email))')
     .eq('cliente_id', clienteId)
     .eq('activo', true);
-  return extractDirectorEmails(data);
+  return (data || []).map(r => r.director?.perfil?.email).filter(Boolean);
 }
 
 /** Emails de los coordinadores activos asignados a una sucursal. */

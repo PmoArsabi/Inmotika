@@ -166,9 +166,8 @@ export const useUsers = () => {
         tecnico!tecnico_usuario_id_fkey (id, activo),
         coordinador!coordinador_usuario_id_fkey (
           id,
-          director_id,
           activo,
-          director!coordinador_director_id_fkey (usuario_id),
+          coordinador_director!coordinador_director_coordinador_id_fkey (director_id, activo),
           sucursal_coordinador!sucursal_coordinador_coordinador_id_fkey (sucursal_id, activo)
         ),
         director!director_usuario_id_fkey (id, activo),
@@ -212,8 +211,8 @@ export const useUsers = () => {
           coordinadorId: coo?.id || null,
           /** ID interno del registro en la tabla `director` para este usuario. */
           directorId: dir?.id || null,
-          /** ID interno del director asignado al coordinador (tabla `director`). */
-          directorAsignadoId: coo?.director_id || null,
+          /** IDs de los directores asignados al coordinador (via coordinador_director). */
+          directorAsignadoIds: (coo?.coordinador_director || []).filter(cd => cd.activo).map(cd => cd.director_id),
           /** UUIDs de sucursales activamente asignadas al coordinador. */
           sucursalesACargo: (coo?.sucursal_coordinador || [])
             .filter(sc => sc.activo)
@@ -406,11 +405,13 @@ export const useUsers = () => {
           if ((payloadUser.sucursalesACargo || []).length > 0) {
             await syncCoordinadorSucursales(cooRow.id, payloadUser.sucursalesACargo);
           }
-          if (payloadUser.directorId) {
-            await supabase
-              .from('coordinador')
-              .update({ director_id: payloadUser.directorId })
-              .eq('id', cooRow.id);
+          const incomingDirectorIds = (payloadUser.directorIds || []).filter(Boolean);
+          if (incomingDirectorIds.length > 0) {
+            await supabase.from('coordinador_director').update({ activo: false }).eq('coordinador_id', cooRow.id).eq('activo', true);
+            await supabase.from('coordinador_director').upsert(
+              incomingDirectorIds.map(dId => ({ coordinador_id: cooRow.id, director_id: dId, activo: true })),
+              { onConflict: 'coordinador_id,director_id' }
+            );
           }
         }
       } catch (err) {
@@ -567,11 +568,17 @@ export const useUsers = () => {
             editingUser.coordinadorId,
             newUser.sucursalesACargo || []
           );
-          if (newUser.directorId !== undefined) {
-            await supabase
-              .from('coordinador')
-              .update({ director_id: newUser.directorId || null })
-              .eq('id', editingUser.coordinadorId);
+          if (newUser.directorIds !== undefined) {
+            const incomingDirectorIds = (newUser.directorIds || []).filter(Boolean);
+            // Desactivar todas las relaciones previas
+            await supabase.from('coordinador_director').update({ activo: false }).eq('coordinador_id', editingUser.coordinadorId).eq('activo', true);
+            // Upsert las nuevas relaciones
+            if (incomingDirectorIds.length > 0) {
+              await supabase.from('coordinador_director').upsert(
+                incomingDirectorIds.map(dId => ({ coordinador_id: editingUser.coordinadorId, director_id: dId, activo: true })),
+                { onConflict: 'coordinador_id,director_id' }
+              );
+            }
           }
         }
 
