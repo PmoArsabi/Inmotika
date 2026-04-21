@@ -133,7 +133,8 @@ alter table "public"."contacto" enable row level security;
     "contacto_id" uuid,
     "sucursal_id" uuid,
     "activo" boolean not null default true,
-    "created_at" timestamp with time zone default now()
+    "created_at" timestamp with time zone default now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now()
       );
 
 alter table "public"."contacto_sucursal" enable row level security;
@@ -167,6 +168,12 @@ alter table "public"."coordinador" enable row level security;
 CREATE POLICY "management_read_coordinador"
   ON public.coordinador FOR SELECT
   USING (is_admin_or_coordinator());
+
+-- Lectura amplia: cualquier usuario autenticado puede leer coordinadores
+-- (necesario para construir listas de destinatarios de email desde el cliente)
+CREATE POLICY "authenticated_read_coordinador"
+  ON public.coordinador FOR SELECT TO authenticated
+  USING (true);
 
 CREATE POLICY "service_role_coordinador"
   ON public.coordinador FOR ALL
@@ -288,6 +295,8 @@ alter table "public"."historial_traslado" enable row level security;
     "activo" boolean not null default true,
     "codigo_etiqueta" character varying(9),
     "observacion_final" text,
+    "fuera_de_servicio" boolean not null default false,
+    "motivo_fuera_de_servicio" text,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
@@ -409,6 +418,7 @@ alter table "public"."tecnico_certificado" enable row level security;
     "fecha_inicio" timestamp with time zone,
     "fecha_fin" timestamp with time zone,
     "observaciones" text,
+    "observacion_final" text,
     "estado_id" uuid,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
@@ -2338,6 +2348,32 @@ with check (public.is_admin_or_coordinator());
   to authenticated
 using (true);
 
+-- Técnicos pueden actualizar estado_gestion_id en dispositivos de sus visitas asignadas
+CREATE POLICY "tecnicos_update_estado_gestion_dispositivo"
+  ON public.dispositivo FOR UPDATE TO authenticated
+  USING (
+    is_admin_or_coordinator()
+    OR EXISTS (
+      SELECT 1 FROM intervencion i
+      JOIN visita v ON v.id = i.visita_id
+      JOIN visita_tecnico vt ON vt.visita_id = v.id
+      JOIN tecnico t ON t.id = vt.tecnico_id
+      WHERE i.dispositivo_id = dispositivo.id
+        AND t.usuario_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    is_admin_or_coordinator()
+    OR EXISTS (
+      SELECT 1 FROM intervencion i
+      JOIN visita v ON v.id = i.visita_id
+      JOIN visita_tecnico vt ON vt.visita_id = v.id
+      JOIN tecnico t ON t.id = vt.tecnico_id
+      WHERE i.dispositivo_id = dispositivo.id
+        AND t.usuario_id = auth.uid()
+    )
+  );
+
   create policy "allow_manage_admin"
   on "public"."catalogo_estado_dispositivo"
   as permissive
@@ -3134,6 +3170,8 @@ CREATE TRIGGER set_updated_at_intervencion BEFORE UPDATE ON public.intervencion 
 CREATE TRIGGER set_updated_at_ejecucion_paso BEFORE UPDATE ON public.ejecucion_paso FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 CREATE TRIGGER set_updated_at_dispositivo BEFORE UPDATE ON public.dispositivo FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 CREATE TRIGGER set_updated_at_perfil_usuario BEFORE UPDATE ON public.perfil_usuario FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at_sucursal_coordinador BEFORE UPDATE ON public.sucursal_coordinador FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+CREATE TRIGGER set_updated_at_contacto_sucursal BEFORE UPDATE ON public.contacto_sucursal FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 -- --- sucursal_coordinador ---
 create table "public"."sucursal_coordinador" (
@@ -3141,7 +3179,8 @@ create table "public"."sucursal_coordinador" (
   "sucursal_id" uuid not null,
   "coordinador_id" uuid not null,
   "activo" boolean not null default true,
-  "created_at" timestamp with time zone default now()
+  "created_at" timestamp with time zone default now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
 );
 
 alter table "public"."sucursal_coordinador" enable row level security;
@@ -3582,16 +3621,17 @@ ON CONFLICT (coordinador_id, director_id) DO NOTHING;
 
 -- Tabla informe: una por visita, ciclo de vida propio
 CREATE TABLE IF NOT EXISTS public.informe (
-  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  visita_id             uuid NOT NULL UNIQUE REFERENCES public.visita(id) ON DELETE CASCADE,
-  estado                varchar(20) NOT NULL DEFAULT 'EN_REVISION',
+  id                       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  visita_id                uuid NOT NULL UNIQUE REFERENCES public.visita(id) ON DELETE CASCADE,
+  estado                   varchar(20) NOT NULL DEFAULT 'EN_REVISION',
     -- EN_REVISION | APROBADO | RECHAZADO
-  storage_path          text,
-  generado_at           timestamptz,
-  enviado_director_at   timestamptz,
-  enviado_cliente_at    timestamptz,
-  created_at            timestamptz NOT NULL DEFAULT now(),
-  updated_at            timestamptz NOT NULL DEFAULT now()
+  storage_path             text,
+  generado_at              timestamptz,
+  enviado_director_at      timestamptz,
+  enviado_cliente_at       timestamptz,
+  observacion_coordinador  text,
+  created_at               timestamptz NOT NULL DEFAULT now(),
+  updated_at               timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.informe ENABLE ROW LEVEL SECURITY;
 
@@ -3730,4 +3770,69 @@ ON CONFLICT (tipo, codigo) DO NOTHING;
 -- Habilita Supabase Realtime para las tablas de ejecución de visita.
 -- Permite que múltiples técnicos vean el avance en tiempo real.
 ALTER PUBLICATION supabase_realtime ADD TABLE public.ejecucion_actividad;
+
+-- ─── observacion_coordinador en informe ──────────────────────────────────────
+-- Campo editable por el coordinador que aparece en el PDF generado.
+ALTER TABLE public.informe
+  ADD COLUMN IF NOT EXISTS observacion_coordinador text;
+
+-- ─── Tabla: chat_informe ─────────────────────────────────────────────────────
+-- Comentarios internos de coordinación sobre un informe (no aparecen en el PDF).
+-- Visibles para técnico, coordinador y director; solo el autor puede eliminar.
+CREATE TABLE IF NOT EXISTS public.chat_informe (
+  id          uuid        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  informe_id  uuid        NOT NULL REFERENCES public.informe(id) ON DELETE CASCADE,
+  autor_id    uuid        NOT NULL REFERENCES public.perfil_usuario(id),
+  mensaje     text        NOT NULL CHECK (char_length(mensaje) > 0),
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.chat_informe ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_chat_informe_informe ON public.chat_informe(informe_id);
+CREATE INDEX IF NOT EXISTS idx_chat_informe_autor   ON public.chat_informe(autor_id);
+
+-- Coordinadores y directores (gestión) pueden leer y escribir
+CREATE POLICY "management_all_chat_informe"
+  ON public.chat_informe FOR ALL TO authenticated
+  USING (is_management_staff()) WITH CHECK (is_management_staff());
+
+-- Técnico puede leer mensajes del chat de informes de visitas donde participó
+CREATE POLICY "tecnico_read_chat_informe"
+  ON public.chat_informe FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.informe inf
+      JOIN public.visita_tecnico vt ON vt.visita_id = inf.visita_id
+      JOIN public.tecnico tc        ON tc.id = vt.tecnico_id
+      WHERE inf.id = chat_informe.informe_id
+        AND tc.usuario_id = auth.uid()
+    )
+  );
+
+-- Técnico puede insertar mensajes en chats de sus propios informes
+CREATE POLICY "tecnico_insert_chat_informe"
+  ON public.chat_informe FOR INSERT TO authenticated
+  WITH CHECK (
+    autor_id = (SELECT id FROM public.perfil_usuario WHERE id = auth.uid())
+    AND EXISTS (
+      SELECT 1
+      FROM public.informe inf
+      JOIN public.visita_tecnico vt ON vt.visita_id = inf.visita_id
+      JOIN public.tecnico tc        ON tc.id = vt.tecnico_id
+      WHERE inf.id = chat_informe.informe_id
+        AND tc.usuario_id = auth.uid()
+    )
+  );
+
+-- service_role acceso total (Edge Functions)
+CREATE POLICY "service_role_chat_informe"
+  ON public.chat_informe FOR ALL TO postgres, service_role
+  USING (true) WITH CHECK (true);
+
+GRANT SELECT, INSERT ON public.chat_informe TO authenticated;
+GRANT ALL ON public.chat_informe TO service_role;
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_informe;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.ejecucion_paso;

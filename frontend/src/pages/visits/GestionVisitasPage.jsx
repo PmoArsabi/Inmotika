@@ -18,7 +18,7 @@ import { useVisitas } from '../../hooks/useVisitas';
 import { useNotify } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../utils/constants';
-import { iniciarVisita, guardarAvanceDispositivo, finalizarVisita, notificarAvanceDispositivo, marcarDispositivoEnMantenimiento } from '../../api/visitaApi';
+import { iniciarVisita, guardarAvanceDispositivo, finalizarVisita, notificarAvanceDispositivo, notificarDispositivoFueraDeServicio, marcarDispositivoEnMantenimiento } from '../../api/visitaApi';
 import { supabase } from '../../utils/supabase';
 
 // ─── Info row helper ──────────────────────────────────────────────────────────
@@ -52,13 +52,24 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   const [isSaving,             setIsSaving]             = useState(false);
   const [savingDeviceId,       setSavingDeviceId]       = useState(null);
   const [savedDeviceIds,       setSavedDeviceIds]       = useState(new Set());
+  /**
+   * Mapa local deviceId → intervencionId (real o temporal).
+   * Se inicializa con UUIDs temporales al abrir una visita para que dos dispositivos
+   * de la misma categoría nunca compartan keys de ejecucionActividades.
+   * Se reemplaza con el ID real cuando guardarAvanceDispositivo crea la intervención.
+   * @type {React.MutableRefObject<Record<string, string>>}
+   */
+  const localIntervencionMapRef = useRef({});
+
   const [showHelpModal,        setShowHelpModal]        = useState(false);
   const [modalTitle,           setModalTitle]           = useState('');
   const [modalMessage,         setModalMessage]         = useState('');
-  const [successModal,         setSuccessModal]         = useState({ open: false, deviceNombre: '' });
+  const [successModal,         setSuccessModal]         = useState({ open: false, deviceNombre: '', esFueraDeServicio: false });
   const [finalizadoModal,      setFinalizadoModal]      = useState({ open: false, clienteNombre: '', sucursalNombre: '' });
-  /** @type {{ [deviceId: string]: { active: boolean, observacion: string } }} */
+  /** @type {{ [deviceId: string]: { active: boolean, motivo: string } }} */
   const [fueraDeServicioMap,   setFueraDeServicioMap]   = useState({});
+  /** @type {{ [deviceId: string]: string }} */
+  const [observacionFinalMap,  setObservacionFinalMap]  = useState({});
   /** Set de deviceIds ya marcados EN_MANTENIMIENTO — evita re-disparos */
   const enMantenimientoRef = useRef(new Set());
 
@@ -88,41 +99,43 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
       const intervencionIds = (intervenciones || []).map(i => i.id);
       if (!intervencionIds.length) return;
 
-      // 2. Fetch fresco de actividades y pasos
+      // 2. Fetch fresco de actividades y pasos (con intervencion_id para construir la key)
       const [{ data: actRows }, { data: pasoRows }] = await Promise.all([
         supabase
           .from('ejecucion_actividad')
-          .select('actividad_id, estado_id, catalogo:estado_id(codigo), observacion')
+          .select('intervencion_id, actividad_id, estado_id, catalogo:estado_id(codigo), observacion')
           .in('intervencion_id', intervencionIds),
         supabase
           .from('ejecucion_paso')
-          .select('paso_protocolo_id, comentarios, fecha_inicio, fecha_fin')
+          .select('intervencion_id, paso_protocolo_id, comentarios, fecha_inicio, fecha_fin')
           .in('intervencion_id', intervencionIds),
       ]);
 
-      // 3. Merge actividades: solo actualizar las que el técnico local NO ha tocado
+      // 3. Merge actividades usando key "intervencionId:actividadId"
       if (actRows?.length) {
         setEjecucionActividades(prev => {
           const next = { ...prev };
           for (const a of actRows) {
-            if (localChangesRef.current.actividades.has(a.actividad_id)) continue;
+            const key = `${a.intervencion_id}:${a.actividad_id}`;
+            if (localChangesRef.current.actividades.has(key)) continue;
             const catalogoCodigo = a.catalogo?.codigo || 'PENDIENTE';
             const estadoInterno =
               catalogoCodigo === 'COMPLETADA' ? 'completada' :
               catalogoCodigo === 'INCOMPLETA' ? 'omitida' : 'pendiente';
-            next[a.actividad_id] = { estado: estadoInterno, observacion: a.observacion || null };
+            next[key] = { estado: estadoInterno, observacion: a.observacion || null };
           }
           return next;
         });
       }
 
-      // 4. Merge pasos: solo actualizar los que el técnico local NO ha tocado
+      // 4. Merge pasos usando key "intervencionId:pasoProtocoloId"
       if (pasoRows?.length) {
         setEjecucionPasos(prev => {
           const next = { ...prev };
           for (const p of pasoRows) {
-            if (localChangesRef.current.pasos.has(p.paso_protocolo_id)) continue;
-            next[p.paso_protocolo_id] = {
+            const key = `${p.intervencion_id}:${p.paso_protocolo_id}`;
+            if (localChangesRef.current.pasos.has(key)) continue;
+            next[key] = {
               comentarios: p.comentarios || '',
               fechaInicio: p.fecha_inicio,
               fechaFin: p.fecha_fin,
@@ -232,17 +245,46 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
 
   // ── Open execution view ──────────────────────────────────────────────────
   const handleOpenVisita = (visita) => {
+    // Construir mapa intervencionId por dispositivo:
+    // - Si ya existe en BD (visita guardada previamente) → usar el ID real
+    // - Si no → asignar un UUID temporal local para aislar las keys de estado
+    const knownMap = visita.dispositivoIntervencionMap || {};
+    const localMap = {};
+    (visita.dispositivos || []).forEach(d => {
+      localMap[d.id] = knownMap[d.id] || crypto.randomUUID();
+    });
+    localIntervencionMapRef.current = localMap;
+
+    // Dispositivos que ya tienen intervención guardada en BD se consideran ya guardados
+    const alreadySaved = new Set(
+      Object.keys(visita.dispositivoIntervencionMap || {})
+    );
+
+    // Restaurar fueraDeServicioMap desde BD (dispositivoFdsMap) para que al recargar
+    // los dispositivos fuera de servicio sigan mostrándose correctamente.
+    const fdsMap = {};
+    const fdsSource = visita.dispositivoFdsMap || {};
+    Object.entries(fdsSource).forEach(([deviceId, fds]) => {
+      if (fds.fueraDeServicio) {
+        fdsMap[deviceId] = { active: true, motivo: fds.motivo || '' };
+      }
+    });
+
     setActiveVisita(visita);
+    setSavedDeviceIds(alreadySaved);
     setEjecucionPasos(visita.ejecucionPasos || {});
     setEjecucionActividades(visita.ejecucionActividades || {});
     // Inicializar con evidencias ya subidas (preview = url pública) para mostrar imágenes guardadas
     setDeviceEvidencias(visita.deviceEvidencias || {});
     setObservacionFinal(visita.observacionFinal || '');
+    setFueraDeServicioMap(fdsMap);
   };
 
   const handleCloseVisita = () => {
     localChangesRef.current = { actividades: new Set(), pasos: new Set() };
+    localIntervencionMapRef.current = {};
     setActiveVisita(null);
+    setSavedDeviceIds(new Set());
     setEjecucionPasos({});
     setEjecucionActividades({});
     setDeviceEvidencias({});
@@ -290,21 +332,22 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   };
 
   // ── Update paso-level execution (comments, photo) ─────────────────────────
-  const handlePasoChange = (pasoId, patch) => {
-    localChangesRef.current.pasos.add(pasoId);
+  // pasoKey = "intervencionId:pasoProtocoloId"
+  const handlePasoChange = (pasoKey, patch) => {
+    localChangesRef.current.pasos.add(pasoKey);
     setEjecucionPasos(prev => ({
       ...prev,
-      [pasoId]: { ...(prev[pasoId] || {}), ...patch },
+      [pasoKey]: { ...(prev[pasoKey] || {}), ...patch },
     }));
   };
 
   // ── Update actividad-level execution state ────────────────────────────────
-  // patch: { estado: 'completada'|'omitida'|'pendiente', observacion?: string|null }
-  const handleActividadChange = (actividadId, patch, deviceId) => {
-    localChangesRef.current.actividades.add(actividadId);
+  // actKey = "intervencionId:actividadId"
+  const handleActividadChange = (actKey, patch, deviceId) => {
+    localChangesRef.current.actividades.add(actKey);
     setEjecucionActividades(prev => ({
       ...prev,
-      [actividadId]: { ...(prev[actividadId] || {}), ...patch },
+      [actKey]: { ...(prev[actKey] || {}), ...patch },
     }));
     // Auto EN_MANTENIMIENTO: primera vez que el técnico toca una actividad del dispositivo
     if (deviceId && !enMantenimientoRef.current.has(deviceId)) {
@@ -317,8 +360,12 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   const handleFueraDeServicioChange = (deviceId, patch) => {
     setFueraDeServicioMap(prev => ({
       ...prev,
-      [deviceId]: { ...(prev[deviceId] || { active: false, observacion: '' }), ...patch },
+      [deviceId]: { ...(prev[deviceId] || { active: false, motivo: '' }), ...patch },
     }));
+  };
+
+  const handleObservacionFinalChange = (deviceId, observacion) => {
+    setObservacionFinalMap(prev => ({ ...prev, [deviceId]: observacion }));
   };
 
   // ── Save avance for a device ──────────────────────────────────────────────
@@ -343,7 +390,9 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
         dispositivos.map(device => {
           const fds = fueraDeServicioMap[device.id];
           const estadoCodigo = fds?.active ? 'FUERA_DE_SERVICIO' : 'OPERATIVO';
-          const observacionDevice = fds?.active ? (fds.observacion || null) : null;
+          const observacionFinalDevice = observacionFinalMap[device.id] || null;
+          const motivoFds = fds?.active ? (fds.motivo || null) : null;
+          const localIntervencionId = localIntervencionMapRef.current[device.id] || null;
           return guardarAvanceDispositivo(
             activeVisita.id,
             device.id,
@@ -352,8 +401,10 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
             ejecucionActividades,
             deviceEvidencias[device.id] || { etiqueta: null, fotos: [] },
             codigoEtiquetas[device.id] || null,
-            observacionDevice,
+            observacionFinalDevice,
             estadoCodigo,
+            localIntervencionId,
+            motivoFds,
           );
         })
       );
@@ -394,8 +445,10 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     try {
       const fds = fueraDeServicioMap[device.id];
       const estadoCodigo = fds?.active ? 'FUERA_DE_SERVICIO' : 'OPERATIVO';
-      const observacionDevice = fds?.active ? (fds.observacion || null) : null;
-      await guardarAvanceDispositivo(
+      const observacionFinalDevice = observacionFinalMap[device.id] || null;
+      const motivoFds = fds?.active ? (fds.motivo || null) : null;
+      const localIntervencionId = localIntervencionMapRef.current[device.id] || null;
+      const intervencionId = await guardarAvanceDispositivo(
         activeVisita.id,
         device.id,
         device.pasos || [],
@@ -403,18 +456,32 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
         ejecucionActividades,
         deviceEvidencias[device.id] || { etiqueta: null, fotos: [] },
         codigoEtiquetas[device.id] || null,
-        observacionDevice,
+        observacionFinalDevice,
         estadoCodigo,
+        localIntervencionId,
+        motivoFds,
       );
-      notificarAvanceDispositivo(
-        activeVisita.id,
-        device.id,
-        { completados, total },
-        ejecucionActividades,
-        device,
-      );
+      // Actualizar el mapa local con el ID real de intervención (reemplaza el UUID temporal)
+      if (intervencionId) {
+        localIntervencionMapRef.current = { ...localIntervencionMapRef.current, [device.id]: intervencionId };
+      }
+      const tecnicoNombre = [user?.nombres, user?.apellidos].filter(Boolean).join(' ') || user?.email || null;
+      const esFueraDeServicio = fds?.active ?? false;
+      if (esFueraDeServicio) {
+        notificarDispositivoFueraDeServicio(
+          activeVisita.id, device.id,
+          { completados, total },
+          device, fds?.motivo || null, tecnicoNombre,
+        );
+      } else {
+        notificarAvanceDispositivo(
+          activeVisita.id, device.id,
+          { completados, total },
+          ejecucionActividades, device, tecnicoNombre,
+        );
+      }
       setSavedDeviceIds(prev => new Set([...prev, device.id]));
-      setSuccessModal({ open: true, deviceNombre: device.label || device.idInmotika || 'Dispositivo' });
+      setSuccessModal({ open: true, deviceNombre: device.label || device.idInmotika || 'Dispositivo', esFueraDeServicio });
       // Limpiar cambios locales del dispositivo guardado para que realtime pueda refrescar
       const deviceActIds = new Set(
         (device.pasos || []).flatMap(p => (p.actividades || []).map(a => a.id))
@@ -436,21 +503,32 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   };
 
   // ── All done: toda actividad resuelta (completada u omitida) ─────────────
-  const isActResuelta = (a) => {
-    const e = ejecucionActividades[a.id]?.estado;
+  const makeActKey = (deviceId, actId) => {
+    const intervencionId = localIntervencionMapRef.current[deviceId];
+    return intervencionId ? `${intervencionId}:${actId}` : actId;
+  };
+
+  const isActResueltaForDevice = (deviceId, a) => {
+    const e = ejecucionActividades[makeActKey(deviceId, a.id)]?.estado;
     return e === 'completada' || e === 'omitida';
   };
-  const allDevicesDone = useMemo(() => {
-    if (!activeVisita?.dispositivos?.length) return false;
-    return activeVisita.dispositivos.every(device =>
-      (device.pasos || []).length > 0 &&
+
+  const isDeviceDone = (device) => {
+    // Un dispositivo fuera de servicio guardado se considera completo
+    const esFds = fueraDeServicioMap[device.id]?.active || activeVisita?.dispositivoFdsMap?.[device.id]?.fueraDeServicio;
+    if (esFds && savedDeviceIds.has(device.id)) return true;
+    return (device.pasos || []).length > 0 &&
       (device.pasos || []).every(paso =>
         (paso.actividades || []).length === 0 ||
-        (paso.actividades || []).every(isActResuelta)
-      ),
-    );
+        (paso.actividades || []).every(a => isActResueltaForDevice(device.id, a))
+      );
+  };
+
+  const allDevicesDone = useMemo(() => {
+    if (!activeVisita?.dispositivos?.length) return false;
+    return activeVisita.dispositivos.every(device => isDeviceDone(device));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeVisita, ejecucionActividades]);
+  }, [activeVisita, ejecucionActividades, fueraDeServicioMap, savedDeviceIds]);
 
   // ══════════════════════════════════════════════════════════════════════════
   // EXECUTION VIEW
@@ -465,11 +543,8 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     const deviceStats = (activeVisita.dispositivos || []).map(d => {
       const allActs   = (d.pasos || []).flatMap(p => p.actividades || []);
       const totalActs = allActs.length;
-      const doneActs  = allActs.filter(isActResuelta).length;
-      const done = (d.pasos || []).length > 0 && (d.pasos || []).every(paso =>
-        (paso.actividades || []).length === 0 ||
-        (paso.actividades || []).every(isActResuelta)
-      );
+      const doneActs  = allActs.filter(a => isActResueltaForDevice(d.id, a)).length;
+      const done = isDeviceDone(d);
       // started: al menos una actividad resuelta pero el dispositivo no está terminado del todo
       const started = doneActs > 0 && !done;
       return { ...d, totalActs, doneActs, done, started };
@@ -477,6 +552,9 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
 
     const completedDevices = deviceStats.filter(d => d.done).length;
     const totalDevices     = deviceStats.length;
+    const hasDevicesFueraDeServicio = deviceStats.some(d =>
+      d.done && (fueraDeServicioMap[d.id]?.active || activeVisita.dispositivoFdsMap?.[d.id]?.fueraDeServicio)
+    );
 
     // Dispositivo actualmente en progreso (empezado pero no terminado)
     // Si existe, bloquea a los demás hasta que se termine
@@ -539,22 +617,32 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
                     <div key={device.id} className="space-y-2">
                       <DeviceChecklistCard
                         device={device}
+                        intervencionId={localIntervencionMapRef.current[device.id] || null}
                         steps={device.pasos || []}
                         ejecucionPasos={ejecucionPasos}
                         ejecucionActividades={ejecucionActividades}
                         onPasoChange={handlePasoChange}
-                        onActividadChange={(actividadId, patch) => handleActividadChange(actividadId, patch, device.id)}
-                        viewMode={viewMode || isProgramado}
+                        onActividadChange={(actKey, patch) => handleActividadChange(actKey, patch, device.id)}
+                        viewMode={viewMode || isProgramado || savedDeviceIds.has(device.id)}
                         isLocked={isLocked}
                         deviceEvidencias={deviceEvidencias[device.id] || { etiqueta: null, fotos: [] }}
                         onDeviceEvidenciasChange={(patch) => handleDeviceEvidenciasChange(device.id, patch)}
                         codigoEtiquetaInicial={activeVisita.codigoEtiquetaByDevice?.[device.id] || ''}
                         onEtiquetaChange={handleEtiquetaChange}
-                        fueraDeServicio={fueraDeServicioMap[device.id]?.active ?? false}
-                        observacionFinalDevice={fueraDeServicioMap[device.id]?.observacion ?? ''}
+                        fueraDeServicio={fueraDeServicioMap[device.id]?.active ?? activeVisita.dispositivoFdsMap?.[device.id]?.fueraDeServicio ?? false}
+                        motivoFueraDeServicio={fueraDeServicioMap[device.id]?.motivo ?? activeVisita.dispositivoFdsMap?.[device.id]?.motivo ?? ''}
+                        observacionFinalDevice={observacionFinalMap[device.id] ?? ''}
                         onFueraDeServicioChange={(patch) => handleFueraDeServicioChange(device.id, patch)}
+                        onObservacionFinalChange={(obs) => handleObservacionFinalChange(device.id, obs)}
                       />
-                      {isEnCurso && !viewMode && stat.done && !savedDeviceIds.has(device.id) && (
+                      {isEnCurso && !viewMode && !savedDeviceIds.has(device.id) && (() => {
+                        const esFueraDeServicio = fueraDeServicioMap[device.id]?.active ?? false;
+                        const ev = deviceEvidencias[device.id] || { etiqueta: null, fotos: [] };
+                        const hasEtiqueta = !!ev.etiqueta;
+                        const hasPhoto = !!(ev.etiqueta || (ev.fotos || []).length > 0);
+                        if (esFueraDeServicio) return hasEtiqueta; // fuera de servicio: solo requiere foto etiqueta
+                        return stat.done && hasPhoto;             // normal: 100% + al menos una foto
+                      })() && (
                         <div className="flex justify-end">
                           <button
                             type="button"
@@ -588,9 +676,9 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
 
             {/* Observación final — visible solo cuando todos los dispositivos están completos */}
             {isEnCurso && !viewMode && allDevicesDone && (
-              <Card className="p-5 space-y-3 border-green-300 bg-green-50/40">
+              <Card className={`p-5 space-y-3 ${hasDevicesFueraDeServicio ? 'border-red-300 bg-red-50/40' : 'border-green-300 bg-green-50/40'}`}>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+                  <CheckCircle2 size={16} className={hasDevicesFueraDeServicio ? 'text-red-500 shrink-0' : 'text-green-600 shrink-0'} />
                   <Label className="text-sm font-bold uppercase tracking-wide text-gray-700">
                     Observación Final <span className="text-red-500">*</span>
                   </Label>
@@ -603,7 +691,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
                   onChange={e => setObservacionFinal(e.target.value)}
                   rows={4}
                   placeholder="Ej: Se realizó mantenimiento preventivo completo. Se detectó desgaste en sensor X, se recomienda reemplazo en próxima visita..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-y focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all bg-white"
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-y focus:outline-none transition-all bg-white ${hasDevicesFueraDeServicio ? 'focus:ring-4 focus:ring-red-500/10 focus:border-red-500' : 'focus:ring-4 focus:ring-green-500/10 focus:border-green-500'}`}
                 />
               </Card>
             )}
@@ -616,19 +704,17 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
               </Card>
             )}
 
-            {/* Botón global — siempre visible en ejecución */}
-            {isEnCurso && !viewMode && (
+            {/* Botón final — solo cuando todos los dispositivos están completos */}
+            {isEnCurso && !viewMode && allDevicesDone && (
               <div className="flex justify-end pt-1">
                 <button
                   type="button"
-                  disabled={isSaving || (allDevicesDone && !observacionFinal.trim())}
+                  disabled={isSaving || !observacionFinal.trim()}
                   onClick={handleGuardarTodo}
-                  className={`flex items-center gap-2 px-6 py-2.5 text-xs font-bold uppercase rounded-md transition-all shadow-sm text-white disabled:opacity-40 disabled:cursor-not-allowed ${
-                    allDevicesDone ? 'bg-green-600 hover:bg-green-700' : 'bg-[#1A1A1A] hover:bg-black'
-                  }`}
+                  className={`flex items-center gap-2 px-6 py-2.5 text-xs font-bold uppercase rounded-md transition-all shadow-sm text-white disabled:opacity-40 disabled:cursor-not-allowed ${hasDevicesFueraDeServicio ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
                 >
-                  {allDevicesDone ? <Send size={13} /> : <Save size={13} />}
-                  {isSaving ? 'Guardando...' : allDevicesDone ? 'Finalizar y Enviar Informe' : 'Guardar Avance'}
+                  <Send size={13} />
+                  {isSaving ? 'Enviando...' : 'Finalizar y Enviar Informe'}
                 </button>
               </div>
             )}
@@ -716,23 +802,40 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
         {successModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
-              <div className="flex items-center gap-3 text-green-600 mb-4">
-                <CheckCircle2 size={32} />
-                <H3 className="normal-case text-gray-900">Avance Guardado</H3>
-              </div>
-              <TextSmall className="text-gray-600 mb-6 leading-relaxed">
-                El avance del dispositivo <strong>{successModal.deviceNombre}</strong> fue guardado y enviado al coordinador correctamente. ¿Qué deseas hacer ahora?
-              </TextSmall>
+              {successModal.esFueraDeServicio ? (
+                <>
+                  <div className="flex items-center gap-3 text-red-600 mb-4">
+                    <AlertCircle size={32} />
+                    <H3 className="normal-case text-gray-900">Dispositivo fuera de servicio</H3>
+                  </div>
+                  <TextSmall className="text-gray-600 mb-2 leading-relaxed">
+                    El dispositivo <strong>{successModal.deviceNombre}</strong> fue reportado como <strong className="text-red-600">fuera de servicio</strong> y se notificó al coordinador.
+                  </TextSmall>
+                  <TextSmall className="text-gray-500 mb-6 leading-relaxed">
+                    La visita continuará con los dispositivos restantes. Puedes seguir avanzando.
+                  </TextSmall>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3 text-green-600 mb-4">
+                    <CheckCircle2 size={32} />
+                    <H3 className="normal-case text-gray-900">Avance Guardado</H3>
+                  </div>
+                  <TextSmall className="text-gray-600 mb-6 leading-relaxed">
+                    El avance del dispositivo <strong>{successModal.deviceNombre}</strong> fue guardado y enviado al coordinador correctamente. ¿Qué deseas hacer ahora?
+                  </TextSmall>
+                </>
+              )}
               <div className="flex flex-col gap-3">
                 <Button
-                  onClick={() => setSuccessModal({ open: false, deviceNombre: '' })}
-                  variant="success"
+                  onClick={() => setSuccessModal({ open: false, deviceNombre: '', esFueraDeServicio: false })}
+                  variant={successModal.esFueraDeServicio ? 'primary' : 'success'}
                   className="w-full"
                 >
                   Continuar con la visita
                 </Button>
                 <Button
-                  onClick={() => { setSuccessModal({ open: false, deviceNombre: '' }); handleCloseVisita(); }}
+                  onClick={() => { setSuccessModal({ open: false, deviceNombre: '', esFueraDeServicio: false }); handleCloseVisita(); }}
                   variant="outline"
                   className="w-full"
                 >
@@ -752,14 +855,22 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
 
   /** Calcula dispositivos completados (obligatorios) para una visita */
   const getDeviceProgress = (visita) => {
-    const total     = visita.dispositivos?.length || 0;
-    const completed = visita.dispositivos?.filter(d =>
-      (d.pasos || []).length > 0 &&
-      (d.pasos || []).every(paso =>
-        (paso.actividades || []).length === 0 ||
-        (paso.actividades || []).every(a => { const e = visita.ejecucionActividades?.[a.id]?.estado; return e === 'completada' || e === 'omitida'; })
-      )
-    ).length || 0;
+    const total = visita.dispositivos?.length || 0;
+    const completed = visita.dispositivos?.filter(d => {
+      // Dispositivo fuera de servicio guardado → se considera completado
+      if (visita.dispositivoFdsMap?.[d.id]?.fueraDeServicio &&
+          visita.dispositivoIntervencionMap?.[d.id]) return true;
+      const intervencionId = visita.dispositivoIntervencionMap?.[d.id];
+      const actKey = (actId) => intervencionId ? `${intervencionId}:${actId}` : actId;
+      return (d.pasos || []).length > 0 &&
+        (d.pasos || []).every(paso =>
+          (paso.actividades || []).length === 0 ||
+          (paso.actividades || []).every(a => {
+            const e = visita.ejecucionActividades?.[actKey(a.id)]?.estado;
+            return e === 'completada' || e === 'omitida';
+          })
+        );
+    }).length || 0;
     return { total, completed };
   };
 

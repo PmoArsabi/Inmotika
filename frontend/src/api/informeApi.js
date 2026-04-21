@@ -13,6 +13,7 @@ import { fireAndForgetEmail } from '../hooks/useEmail';
 /**
  * @typedef {Object} PasoEjecucion
  * @property {string} id
+ * @property {string} paso_protocolo_id     - FK a paso_protocolo.id (mismo valor que id en fetchInformeData)
  * @property {string} descripcion
  * @property {number} orden
  * @property {string|null} comentarios
@@ -24,6 +25,7 @@ import { fireAndForgetEmail } from '../hooks/useEmail';
 /**
  * @typedef {Object} DispositivoInforme
  * @property {string} id                    - dispositivo.id
+ * @property {string} intervencion_id       - intervencion.id que generó este registro
  * @property {string|null} id_inmotika
  * @property {string|null} codigo_unico
  * @property {string|null} serial
@@ -207,6 +209,15 @@ export async function getInformesEnRevision() {
 
   if (error) throw new Error(`Error al obtener informes: ${error.message}`);
 
+  // Enriquecer con cliente_id y sucursal_id desde la visita usando una segunda query
+  const visitaIds = (data || []).map(inf => inf.visita_id);
+  const { data: visitasExtra } = visitaIds.length
+    ? await supabase.from('visita').select('id, cliente_id, sucursal_id').in('id', visitaIds)
+    : { data: [] };
+
+  /** @type {Map<string, { cliente_id: string|null, sucursal_id: string|null }>} */
+  const visitaExtraMap = new Map((visitasExtra || []).map(v => [v.id, { cliente_id: v.cliente_id, sucursal_id: v.sucursal_id }]));
+
   const informeIds = (data || []).map(inf => inf.id);
 
   // Conteo de intervenciones y revisiones por informe en paralelo
@@ -252,20 +263,25 @@ export async function getInformesEnRevision() {
     if (!obsMap.has(row.informe_id)) obsMap.set(row.informe_id, row.observacion);
   }
 
-  return (data || []).map(inf => ({
-    id: inf.id,
-    visita_id: inf.visita_id,
-    estado: inf.estado,
-    enviado_director_at: inf.enviado_director_at || null,
-    observacion_director: obsMap.get(inf.id) || null,
-    cliente_nombre: inf.visita?.cliente?.razon_social || '—',
-    sucursal_nombre: inf.visita?.sucursal?.nombre || '—',
-    sucursal_ciudad: inf.visita?.sucursal?.ciudad || null,
-    tipo_visita: inf.visita?.tipo_visita?.nombre || '—',
-    fecha_fin: inf.visita?.fecha_fin || null,
-    total_intervenciones: intervByVisita.get(inf.visita_id) || 0,
-    revisadas: revByInforme.get(inf.id) || 0,
-  }));
+  return (data || []).map(inf => {
+    const extra = visitaExtraMap.get(inf.visita_id);
+    return {
+      id: inf.id,
+      visita_id: inf.visita_id,
+      estado: inf.estado,
+      enviado_director_at: inf.enviado_director_at || null,
+      observacion_director: obsMap.get(inf.id) || null,
+      cliente_id: extra?.cliente_id || null,
+      sucursal_id: extra?.sucursal_id || null,
+      cliente_nombre: inf.visita?.cliente?.razon_social || '—',
+      sucursal_nombre: inf.visita?.sucursal?.nombre || '—',
+      sucursal_ciudad: inf.visita?.sucursal?.ciudad || null,
+      tipo_visita: inf.visita?.tipo_visita?.nombre || '—',
+      fecha_fin: inf.visita?.fecha_fin || null,
+      total_intervenciones: intervByVisita.get(inf.visita_id) || 0,
+      revisadas: revByInforme.get(inf.id) || 0,
+    };
+  });
 }
 
 /**
@@ -308,16 +324,28 @@ export async function enviarInformeADirector(informeId, ctx) {
  * @returns {Promise<void>}
  */
 export async function registrarRevisionDirector(informeId, directorUsuarioId, accion, observacion = null) {
+  // Leer ciclo_revision actual para registrar en qué ciclo se tomó la decisión
+  const { data: informeActual } = await supabase
+    .from('informe')
+    .select('ciclo_revision')
+    .eq('id', informeId)
+    .single();
+
+  const cicloActual = informeActual?.ciclo_revision ?? 1;
+
   const { error: insErr } = await supabase
     .from('informe_director')
-    .insert({ informe_id: informeId, director_usuario_id: directorUsuarioId, accion, observacion });
+    .insert({ informe_id: informeId, director_usuario_id: directorUsuarioId, accion, observacion, ciclo: cicloActual });
   if (insErr) throw new Error(`Error al registrar acción del director: ${insErr.message}`);
 
   const nuevoEstado = accion === 'APROBADO' ? 'APROBADO' : 'EN_REVISION';
   const patch = {
     estado: nuevoEstado,
     updated_at: new Date().toISOString(),
-    ...(accion === 'RECHAZADO' ? { enviado_director_at: null } : {}),
+    ...(accion === 'RECHAZADO' ? {
+      enviado_director_at: null,
+      ciclo_revision: cicloActual + 1,   // nuevo ciclo: coordinador revisa de nuevo
+    } : {}),
   };
 
   const { error: updErr } = await supabase
@@ -349,13 +377,13 @@ export async function registrarRevisionDirector(informeId, directorUsuarioId, ac
  * @returns {Promise<InformeDirectorPendiente[]>}
  */
 export async function getInformesPendientesDirector(directorUsuarioId) {
-  // Buscamos informes cuyo coordinador esté relacionado al director via coordinador_director
   const { data, error } = await supabase
     .from('informe')
     .select(`
       id,
       visita_id,
       estado,
+      ciclo_revision,
       enviado_director_at,
       visita:visita_id(
         fecha_fin,
@@ -373,14 +401,20 @@ export async function getInformesPendientesDirector(directorUsuarioId) {
   const informeIds = (data || []).map(inf => inf.id);
   if (!informeIds.length) return [];
 
-  // Filtrar los ya respondidos por este director
+  // Filtrar los ya respondidos en el ciclo ACTUAL — un rechazo previo no bloquea ciclos nuevos
   const { data: yaRespondidos } = await supabase
     .from('informe_director')
-    .select('informe_id')
+    .select('informe_id, ciclo')
     .in('informe_id', informeIds)
     .eq('director_usuario_id', directorUsuarioId);
 
-  const respondidosSet = new Set((yaRespondidos || []).map(r => r.informe_id));
+  // Construir set de "informe_id respondido en su ciclo actual"
+  const cicloActualMap = new Map((data || []).map(inf => [inf.id, inf.ciclo_revision ?? 1]));
+  const respondidosSet = new Set(
+    (yaRespondidos || [])
+      .filter(r => r.ciclo === (cicloActualMap.get(r.informe_id) ?? 1))
+      .map(r => r.informe_id)
+  );
 
   const pendientes = (data || []).filter(inf => !respondidosSet.has(inf.id));
   if (!pendientes.length) return [];
@@ -482,6 +516,152 @@ export async function aprobarYGenerarPDF(informeId, visitaId, ctx) {
   return { pdfUrl: pdfData.pdfUrl };
 }
 
+// ─── Chat interno del informe ─────────────────────────────────────────────────
+
+/**
+ * @typedef {Object} ChatMensaje
+ * @property {string}      id
+ * @property {string}      informe_id
+ * @property {string}      autor_id
+ * @property {string}      mensaje
+ * @property {string}      created_at
+ * @property {string|null} autor_nombre
+ * @property {string|null} autor_rol
+ */
+
+/**
+ * Retorna todos los mensajes del chat interno de un informe, con nombre del autor.
+ * @param {string} informeId
+ * @returns {Promise<ChatMensaje[]>}
+ */
+export async function getChatInforme(informeId) {
+  const { data, error } = await supabase
+    .from('chat_informe')
+    .select('id, informe_id, autor_id, mensaje, created_at, autor:autor_id(nombres, apellidos, rol_id(nombre))')
+    .eq('informe_id', informeId)
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(`Error al obtener chat: ${error.message}`);
+  return (data || []).map(m => ({
+    id: m.id,
+    informe_id: m.informe_id,
+    autor_id: m.autor_id,
+    mensaje: m.mensaje,
+    created_at: m.created_at,
+    autor_nombre: m.autor ? `${m.autor.nombres || ''} ${m.autor.apellidos || ''}`.trim() : '—',
+    autor_rol: m.autor?.rol_id?.nombre || null,
+  }));
+}
+
+/**
+ * Envía un mensaje al chat interno del informe.
+ * @param {string} informeId
+ * @param {string} autorId
+ * @param {string} mensaje
+ * @returns {Promise<void>}
+ */
+export async function sendChatInforme(informeId, autorId, mensaje) {
+  const { error } = await supabase
+    .from('chat_informe')
+    .insert({ informe_id: informeId, autor_id: autorId, mensaje });
+  if (error) throw new Error(`Error al enviar mensaje: ${error.message}`);
+}
+
+// ─── Edición de comentarios de paso ──────────────────────────────────────────
+
+/**
+ * Crea una solicitud de visita correctiva con los dispositivos rechazados.
+ * Busca el tipo_visita 'CORRECTIVA' y el estado 'PENDIENTE' del catálogo.
+ *
+ * @param {{
+ *   clienteId: string,
+ *   sucursalId: string,
+ *   creadoPor: string,
+ *   motivo: string,
+ *   dispositivoIds: string[],
+ * }} params
+ * @returns {Promise<string>} id de la solicitud creada
+ */
+export async function crearSolicitudCorrectiva({ clienteId, sucursalId, creadoPor, motivo, dispositivoIds }) {
+  // Obtener tipo_visita CORRECTIVA y estado PENDIENTE en paralelo
+  const [{ data: tipoData, error: tipoErr }, { data: estadoData }] = await Promise.all([
+    supabase.from('catalogo').select('id').eq('tipo', 'TIPO_VISITA').eq('codigo', 'CORRECTIVA').maybeSingle(),
+    supabase.from('catalogo').select('id').eq('tipo', 'ESTADO_SOLICITUD').eq('codigo', 'PENDIENTE').maybeSingle(),
+  ]);
+  if (tipoErr) throw new Error(`Error buscando tipo CORRECTIVA: ${tipoErr.message}`);
+  if (!tipoData) throw new Error('Tipo de visita CORRECTIVA no encontrado en catálogo.');
+
+  const { data: inserted, error: insErr } = await supabase
+    .from('solicitud_visita')
+    .insert({
+      cliente_id: clienteId || null,
+      sucursal_id: sucursalId,
+      creado_por: creadoPor,
+      tipo_visita_id: tipoData.id,
+      motivo: motivo || 'Corrección de dispositivos rechazados en informe.',
+      prioridad: 'ALTA',
+      estado_id: estadoData?.id || null,
+    })
+    .select('id')
+    .single();
+  if (insErr) throw new Error(`Error al crear solicitud correctiva: ${insErr.message}`);
+
+  if (dispositivoIds.length > 0) {
+    const { error: devErr } = await supabase
+      .from('solicitud_dispositivo')
+      .insert(dispositivoIds.map(dId => ({ solicitud_id: inserted.id, dispositivo_id: dId, activo: true })));
+    if (devErr) throw new Error(`Error al vincular dispositivos a solicitud: ${devErr.message}`);
+  }
+
+  return inserted.id;
+}
+
+/**
+ * Actualiza el comentario de un ejecucion_paso identificado por intervencion_id + paso_protocolo_id.
+ * @param {string} intervencionId
+ * @param {string} pasoProtocoloId
+ * @param {string|null} comentarios
+ * @returns {Promise<void>}
+ */
+export async function updateComentarioPaso(intervencionId, pasoProtocoloId, comentarios) {
+  const { error } = await supabase
+    .from('ejecucion_paso')
+    .update({ comentarios })
+    .eq('intervencion_id', intervencionId)
+    .eq('paso_protocolo_id', pasoProtocoloId);
+  if (error) throw new Error(`Error al actualizar comentario: ${error.message}`);
+}
+
+// ─── Observación coordinador en el informe (va al PDF) ───────────────────────
+
+/**
+ * Actualiza la observación del coordinador en el informe (campo que aparece en el PDF).
+ * @param {string} informeId
+ * @param {string|null} observacion
+ * @returns {Promise<void>}
+ */
+export async function updateObservacionCoordinador(informeId, observacion) {
+  const { error } = await supabase
+    .from('informe')
+    .update({ observacion_coordinador: observacion, updated_at: new Date().toISOString() })
+    .eq('id', informeId);
+  if (error) throw new Error(`Error al actualizar observación: ${error.message}`);
+}
+
+/**
+ * Retorna el informe completo incluyendo observacion_coordinador.
+ * @param {string} informeId
+ * @returns {Promise<{id:string, estado:string, observacion_coordinador:string|null}|null>}
+ */
+export async function getInformeDetalle(informeId) {
+  const { data, error } = await supabase
+    .from('informe')
+    .select('id, estado, observacion_coordinador, visita_id, enviado_director_at')
+    .eq('id', informeId)
+    .maybeSingle();
+  if (error) throw new Error(`Error al obtener informe: ${error.message}`);
+  return data || null;
+}
+
 /**
  * @param {string} visitaId - UUID de la visita a informar
  * @param {string[]|null} [aprobadosIds] - Si se pasa, solo incluye esas intervenciones en el PDF
@@ -497,6 +677,7 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
       fecha_inicio,
       fecha_fin,
       observaciones,
+      observacion_final,
       cliente:cliente_id(razon_social, nit),
       sucursal:sucursal_id(nombre, ciudad, direccion),
       tipo_visita:tipo_visita_id(nombre),
@@ -534,6 +715,8 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
       id,
       codigo_etiqueta,
       observacion_final,
+      fuera_de_servicio,
+      motivo_fuera_de_servicio,
       dispositivo:dispositivo_id(
         id,
         id_inmotika,
@@ -668,6 +851,7 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
     /** @type {PasoEjecucion[]} */
     const pasos = epList.map(ep => ({
       id: ep.paso?.id || '',
+      paso_protocolo_id: ep.paso?.id || '',
       descripcion: ep.paso?.descripcion || '',
       orden: ep.paso?.orden ?? 0,
       comentarios: ep.comentarios || null,
@@ -689,6 +873,7 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
     /** @type {DispositivoInforme} */
     const dispositivoInforme = {
       id: disp.id,
+      intervencion_id: interv.id,
       id_inmotika: disp.id_inmotika || null,
       codigo_unico: disp.codigo_unico || null,
       serial: disp.serial || null,
@@ -701,6 +886,8 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
       categoria_nombre: categoriaNombre,
       codigo_etiqueta: interv.codigo_etiqueta || null,
       observacion_final: interv.observacion_final || null,
+      fuera_de_servicio: interv.fuera_de_servicio ?? false,
+      motivo_fuera_de_servicio: interv.motivo_fuera_de_servicio || null,
       pasos,
       fotos: evidenciaEntry.fotos,
       foto_etiqueta: evidenciaEntry.etiqueta,
@@ -730,7 +917,7 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
     tecnicos,
     coordinador,
     instrucciones: visita.observaciones || null,
-    observacion_final: (intervenciones || [])[0]?.observacion_final || null,
+    observacion_final: visita.observacion_final || null,
     total_dispositivos: intervencionesFiltradas.length,
     categorias,
   };

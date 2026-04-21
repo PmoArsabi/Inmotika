@@ -273,7 +273,7 @@ export function notificarClienteCreado(draft, actor) {
         ruc: draft.nit ? `${draft.nit}${draft.dv ? `-${draft.dv}` : ''}` : '—',
         ciudad: draft.ciudad || '—',
         responsable: actor.email || '',
-        appUrl: window.location.origin,
+        appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
       }, cc);
     })
     .catch(err => console.error('[clienteApi] notificarClienteCreado falló:', err));

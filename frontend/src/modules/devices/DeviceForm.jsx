@@ -488,7 +488,7 @@ const DeviceForm = ({
                     <Switch label="¿Quién es el dueño?" checked={draft.esDeInmotika}
                       onChange={val => updateDraft({ esDeInmotika: val })}
                       viewMode={!isEditing} checkedLabel="Inmotika" uncheckedLabel="Cliente" />
-                    <SearchableSelect label="Estado de Propiedad"
+                    <SearchableSelect label="Estado de Gestión"
                       options={gestiones} value={draft.estadoGestionId || ''}
                       isLoading={loadingGestiones}
                       onChange={opt => updateDraft({ estadoGestionId: opt?.value || '' })}

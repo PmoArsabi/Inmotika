@@ -133,6 +133,7 @@ export const useVisitas = () => {
           fecha_inicio,
           fecha_fin,
           observaciones,
+          observacion_final,
           estado_id,
           cliente:cliente_id(razon_social),
           sucursal:sucursal_id(nombre,ciudad),
@@ -288,13 +289,16 @@ export const useVisitas = () => {
       let ejecucionPasoMap = new Map();      // visitaId → { [pasoProtocoloId]: { comentarios, fechaInicio, fechaFin } }
       let evidenciasMap = new Map();         // visitaId → { [dispositivoId]: { etiqueta, fotos } }
       let codigoEtiquetaMap = new Map();     // visitaId → { [dispositivoId]: codigoEtiqueta }
-      let observacionFinalMap = new Map();   // visitaId → observacion_final (primera no nula)
+      // dispositivoIntervencionMap: visitaId → { dispositivoId → intervencionId }
+      const dispositivoIntervencionMap = new Map();
+      // dispositivoFdsMap: visitaId → { dispositivoId → { fueraDeServicio, motivo } }
+      const dispositivoFdsMap = new Map();
 
       if (visitaIds.length > 0) {
         // Cargar intervenciones para obtener IDs y código etiqueta
         const { data: intervenciones } = await supabase
           .from('intervencion')
-          .select('id, visita_id, dispositivo_id, codigo_etiqueta, observacion_final')
+          .select('id, visita_id, dispositivo_id, codigo_etiqueta, observacion_final, fuera_de_servicio, motivo_fuera_de_servicio')
           .in('visita_id', visitaIds);
 
         const intervencionIds = (intervenciones || []).map(i => i.id);
@@ -306,13 +310,18 @@ export const useVisitas = () => {
             byDevice[i.dispositivo_id] = i.codigo_etiqueta;
             codigoEtiquetaMap.set(i.visita_id, byDevice);
           }
-          if (i.observacion_final && !observacionFinalMap.has(i.visita_id)) {
-            observacionFinalMap.set(i.visita_id, i.observacion_final);
-          }
+          const dm = dispositivoIntervencionMap.get(i.visita_id) || {};
+          dm[i.dispositivo_id] = i.id;
+          dispositivoIntervencionMap.set(i.visita_id, dm);
+
+          const fds = dispositivoFdsMap.get(i.visita_id) || {};
+          fds[i.dispositivo_id] = { fueraDeServicio: !!i.fuera_de_servicio, motivo: i.motivo_fuera_de_servicio || null };
+          dispositivoFdsMap.set(i.visita_id, fds);
         });
 
         if (intervencionIds.length > 0) {
-          // Estado de actividades ejecutadas
+          // Estado de actividades — key: "intervencionId:actividadId" para evitar
+          // colisiones entre dispositivos de la misma categoría que comparten actividad_id
           const { data: actRows } = await supabase
             .from('ejecucion_actividad')
             .select('intervencion_id, actividad_id, estado_id, catalogo:estado_id(codigo), observacion')
@@ -321,17 +330,16 @@ export const useVisitas = () => {
           (actRows || []).forEach(a => {
             const vId = intervencionByVisita.get(a.intervencion_id);
             if (!vId) return;
-            // Mapear codigo de catálogo al texto interno del frontend
             const catalogoCodigo = a.catalogo?.codigo || 'PENDIENTE';
             const estadoInterno =
               catalogoCodigo === 'COMPLETADA' ? 'completada' :
               catalogoCodigo === 'INCOMPLETA' ? 'omitida'    : 'pendiente';
             const map = ejecucionActividadMap.get(vId) || {};
-            map[a.actividad_id] = { estado: estadoInterno, observacion: a.observacion || null };
+            map[`${a.intervencion_id}:${a.actividad_id}`] = { estado: estadoInterno, observacion: a.observacion || null };
             ejecucionActividadMap.set(vId, map);
           });
 
-          // Pasos ejecutados
+          // Pasos — key: "intervencionId:pasoProtocoloId"
           const { data: pasoRows } = await supabase
             .from('ejecucion_paso')
             .select('intervencion_id, paso_protocolo_id, comentarios, fecha_inicio, fecha_fin')
@@ -341,7 +349,7 @@ export const useVisitas = () => {
             const vId = intervencionByVisita.get(p.intervencion_id);
             if (!vId) return;
             const map = ejecucionPasoMap.get(vId) || {};
-            map[p.paso_protocolo_id] = {
+            map[`${p.intervencion_id}:${p.paso_protocolo_id}`] = {
               comentarios: p.comentarios || '',
               fechaInicio: p.fecha_inicio,
               fechaFin: p.fecha_fin,
@@ -397,7 +405,9 @@ export const useVisitas = () => {
         ejecucionPasos: ejecucionPasoMap.get(r.id) || {},
         deviceEvidencias: evidenciasMap.get(r.id) || {},
         codigoEtiquetaByDevice: codigoEtiquetaMap.get(r.id) || {},
-        observacionFinal: observacionFinalMap.get(r.id) || '',
+        observacionFinal: r.observacion_final || '',
+        dispositivoIntervencionMap: dispositivoIntervencionMap.get(r.id) || {},
+        dispositivoFdsMap: dispositivoFdsMap.get(r.id) || {},
       }));
       setVisitas(mapped);
       return mapped;

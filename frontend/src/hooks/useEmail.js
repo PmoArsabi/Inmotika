@@ -65,19 +65,26 @@ async function fetchCoordinadorEmailsBySucursal(sucursalId) {
   if (!sucursalId) return [];
   const { data } = await supabase
     .from('sucursal_coordinador')
-    .select('coordinador:coordinador_id(perfil:usuario_id(email))')
-    .eq('sucursal_id', sucursalId);
-  return (data || []).map(r => r.coordinador?.perfil?.email).filter(Boolean);
+    .select('coordinador:coordinador_id(activo, perfil:usuario_id(email))')
+    .eq('sucursal_id', sucursalId)
+    .eq('activo', true);
+  return (data || [])
+    .filter(r => r.coordinador?.activo === true)
+    .map(r => r.coordinador?.perfil?.email)
+    .filter(Boolean);
 }
 
-/** Emails de los técnicos asignados a una visita. */
+/** Emails de los técnicos activos asignados a una visita. */
 async function fetchTecnicoEmailsByVisita(visitaId) {
   if (!visitaId) return [];
   const { data } = await supabase
     .from('visita_tecnico')
-    .select('tecnico:tecnico_id(perfil:usuario_id(email))')
+    .select('tecnico:tecnico_id(activo, perfil:usuario_id(email))')
     .eq('visita_id', visitaId);
-  return (data || []).map(r => r.tecnico?.perfil?.email).filter(Boolean);
+  return (data || [])
+    .filter(r => r.tecnico?.activo === true)
+    .map(r => r.tecnico?.perfil?.email)
+    .filter(Boolean);
 }
 
 /** Emails de los contactos activos de una sucursal. */
@@ -85,10 +92,13 @@ async function fetchContactoEmailsBySucursal(sucursalId) {
   if (!sucursalId) return [];
   const { data } = await supabase
     .from('contacto_sucursal')
-    .select('contacto:contacto_id(email)')
+    .select('contacto:contacto_id(email, estado:estado_id(codigo))')
     .eq('sucursal_id', sucursalId)
     .eq('activo', true);
-  return (data || []).map(r => r.contacto?.email).filter(Boolean);
+  return (data || [])
+    .filter(r => r.contacto?.estado?.codigo !== 'INACTIVO')
+    .map(r => r.contacto?.email)
+    .filter(Boolean);
 }
 
 // ─── Lógica de supervisión por rol ───────────────────────────────────────────

@@ -5,7 +5,6 @@
  */
 import { supabase } from '../utils/supabase';
 import { uploadAndSyncFile } from '../utils/storageUtils';
-import { syncCoordinadorSucursales } from './coordinadorSucursalApi';
 
 export function isNewSucursalId(id) {
   if (id == null || id === '') return true;
@@ -389,6 +388,49 @@ export async function syncSucursalContactos(sucursalId, clienteId, selectedIds) 
 }
 
 /**
+ * Sincroniza coordinadores asociados a la sucursal via tabla sucursal_coordinador.
+ * Estrategia declarativa: el estado final debe coincidir exactamente con selectedIds.
+ * Solo toca registros de esta sucursal; no afecta otras asignaciones del coordinador.
+ * @param {string} sucursalId
+ * @param {string[]} selectedIds - coordinador.id finales que deben quedar activos
+ */
+export async function syncSucursalCoordinadores(sucursalId, selectedIds) {
+  const ids = (selectedIds || []).map(String).filter(Boolean);
+
+  const { data: current, error: fetchError } = await supabase
+    .from('sucursal_coordinador')
+    .select('coordinador_id')
+    .eq('sucursal_id', sucursalId)
+    .eq('activo', true);
+  if (fetchError) throw fetchError;
+
+  const currentIds = (current || []).map(r => String(r.coordinador_id));
+  const selectedSet = new Set(ids);
+
+  // Soft-delete los removidos
+  const toRemove = currentIds.filter(id => !selectedSet.has(id));
+  if (toRemove.length > 0) {
+    const { error } = await supabase
+      .from('sucursal_coordinador')
+      .update({ activo: false })
+      .eq('sucursal_id', sucursalId)
+      .in('coordinador_id', toRemove);
+    if (error) throw error;
+  }
+
+  // Upsert los seleccionados (activa existentes inactivos o inserta nuevos)
+  if (ids.length > 0) {
+    const { error } = await supabase
+      .from('sucursal_coordinador')
+      .upsert(
+        ids.map(cId => ({ coordinador_id: cId, sucursal_id: sucursalId, activo: true })),
+        { onConflict: 'sucursal_id,coordinador_id' }
+      );
+    if (error) throw error;
+  }
+}
+
+/**
  * Sincroniza dispositivos asociados a la sucursal.
  * Al asignar: actualiza sucursal_id Y cliente_id del dispositivo.
  * Al desasignar: deja sucursal_id=null y cliente_id=null (disponible para reasignar).
@@ -468,12 +510,8 @@ export async function saveSucursal({ sucursalId, clienteId, draft, catalogIds = 
   // Sincronizar dispositivos: estado declarativo, siempre ejecutar
   await syncSucursalDispositivos(resolvedId, clienteId, draft.associatedDeviceIds || []);
 
-  // Sincronizar coordinadores: por cada coordinador asignado, upsert en sucursal_coordinador
-  if (draft.associatedCoordinadorIds?.length > 0) {
-    for (const coordinadorId of draft.associatedCoordinadorIds) {
-      await syncCoordinadorSucursales(coordinadorId, [resolvedId]);
-    }
-  }
+  // Sincronizar coordinadores: estado declarativo por sucursal
+  await syncSucursalCoordinadores(resolvedId, draft.associatedCoordinadorIds || []);
 
   return { sucursalId: resolvedId, contratos };
 }

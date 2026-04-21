@@ -65,7 +65,7 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
     const [clienteResult, contactos, inactivos] = await Promise.all([
       supabase
         .from('cliente')
-        .select('*, cliente_documento(id, nombre, url, activo), sucursal(*, contrato(*)), cliente_director(*)')
+        .select('*, cliente_documento(id, nombre, url, activo), sucursal(*, contrato(*), sucursal_coordinador(coordinador_id, activo)), cliente_director(*)')
         .order('razon_social'),
       preloadedContactos !== undefined
         ? Promise.resolve(preloadedContactos)
@@ -76,22 +76,20 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
     if (clienteResult.error) throw clienteResult.error;
 
     // Filtrar clientes cuyo estado_id corresponda a INACTIVO o RETIRADO (soft-deleted)
-    const clientesBase = (clienteResult.data || [])
+    return (clienteResult.data || [])
       .filter(row => !row.estado_id || !inactivos.has(row.estado_id))
       .map(row => ({
         ...toClientDraft(row),
-        sucursales: (row.sucursal || []).map(s => toBranchDraft(s)),
+        sucursales: (row.sucursal || []).map(s => {
+          const branchContacts = contactos.filter(ct =>
+            (ct.associatedBranchIds || []).includes(String(s.id))
+          );
+          const coordinadorIds = (s.sucursal_coordinador || [])
+            .filter(r => r.activo)
+            .map(r => String(r.coordinador_id));
+          return { ...toBranchDraft(s), contactos: branchContacts, coordinadorIds };
+        }),
       }));
-
-    return clientesBase.map(c => ({
-      ...c,
-      sucursales: (c.sucursales || []).map(s => {
-        const branchContacts = contactos.filter(ct =>
-          (ct.associatedBranchIds || []).includes(String(s.id))
-        );
-        return { ...s, contactos: branchContacts };
-      }),
-    }));
   }, [loadContactos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**

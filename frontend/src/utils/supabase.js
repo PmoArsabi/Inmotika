@@ -3,16 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-let supabase;
-
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.info('🔧 Modo desarrollo: Supabase no configurado, usando modo mock');
-  supabase = createClient('https://mock.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.xxMOCKxx', {
-    auth: { persistSession: false }
-  });
-} else {
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
+  throw new Error('[Inmotika] Variables de entorno VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY son requeridas.');
 }
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * Invoca una Edge Function pasando el access token en el body como `_token`.

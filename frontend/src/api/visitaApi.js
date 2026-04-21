@@ -127,7 +127,7 @@ export function notificarVisitaProgramada(visitaId, payload, actor) {
           : '—',
         tecnicos: tecnicos || '—',
         responsable: responsableNombre || '—',
-        appUrl: window.location.origin,
+        appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
       }, cc);
     })
     .catch(err => console.error('[visitaApi] notificarVisitaProgramada falló:', err));
@@ -144,7 +144,7 @@ export function notificarVisitaProgramada(visitaId, payload, actor) {
  * @param {Object} actividadData - actividadId → { estado, observacion } (para armar resumen)
  * @param {Object} device        - Objeto dispositivo con { label, idInmotika, pasos }
  */
-export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, actividadData, device) {
+export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, actividadData, device, tecnicoNombre = null) {
   supabase
     .from('visita')
     .select(`
@@ -223,7 +223,7 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
       const clienteNombre    = v.cliente?.razon_social || v.solicitud?.cliente?.razon_social || '';
       const sucursalNombre   = v.sucursal?.nombre || '';
       const tipoVisita       = v.tipo_visita?.nombre || '';
-      const appUrl           = window.location.origin;
+      const appUrl           = import.meta.env.VITE_APP_URL || window.location.origin;
 
       const allEmails = await getAvanceDispositivoRecipients({
         sucursalId: v.sucursal_id,
@@ -248,10 +248,87 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
         horaFinalizacion,
         observaciones:   observaciones || '',
         responsable:     responsableNombre || '—',
+        tecnico:         tecnicoNombre || '—',
         appUrl,
       }, cc);
     })
     .catch(err => console.error('[visitaApi] notificarAvanceDispositivo falló:', err));
+}
+
+/**
+ * Notificación fire-and-forget cuando un dispositivo queda fuera de servicio.
+ *
+ * @param {string} visitaId
+ * @param {string} dispositivoId
+ * @param {{ completados: number, total: number }} progreso
+ * @param {Object} device
+ * @param {string|null} motivo
+ * @param {string|null} tecnicoNombre
+ */
+export function notificarDispositivoFueraDeServicio(visitaId, dispositivoId, progreso, device, motivo = null, tecnicoNombre = null) {
+  supabase
+    .from('visita')
+    .select(`
+      cliente_id,
+      sucursal_id,
+      coordinador_usuario_id,
+      cliente:cliente_id(razon_social),
+      sucursal:sucursal_id(nombre),
+      tipo_visita:tipo_visita_id(nombre),
+      coordinador_perfil:coordinador_usuario_id(nombres, apellidos, email),
+      intervencion(id, codigo_etiqueta, dispositivo_id)
+    `)
+    .eq('id', visitaId)
+    .maybeSingle()
+    .then(async ({ data: v }) => {
+      if (!v) return;
+
+      let responsableNombre = '';
+      let responsableEmail  = null;
+      if (v?.coordinador_perfil) {
+        const cp = v.coordinador_perfil;
+        responsableNombre = `${cp.nombres || ''} ${cp.apellidos || ''}`.trim();
+        responsableEmail  = cp.email || null;
+      } else if (v?.coordinador_usuario_id === null) {
+        const { data: dirs } = await supabase
+          .from('cliente_director')
+          .select('director:director_id(perfil:usuario_id(nombres, apellidos, email))')
+          .eq('cliente_id', v.cliente_id)
+          .eq('activo', true)
+          .limit(1)
+          .maybeSingle();
+        const p = dirs?.director?.perfil;
+        if (p) {
+          responsableNombre = `${p.nombres || ''} ${p.apellidos || ''}`.trim();
+          responsableEmail  = p.email || null;
+        }
+      }
+
+      const intervenciones = Array.isArray(v.intervencion) ? v.intervencion : (v.intervencion ? [v.intervencion] : []);
+      const intervencion   = intervenciones.find(i => i.dispositivo_id === dispositivoId) || intervenciones[0];
+      const dispositivoSerial = intervencion?.codigo_etiqueta || device?.idInmotika || '—';
+
+      const allEmails = await getAvanceDispositivoRecipients({ sucursalId: v.sucursal_id, responsableEmail });
+      if (!allEmails.length) return;
+
+      const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
+      sendEmail('dispositivo_fuera_de_servicio', {
+        destinatario,
+        clienteNombre:           v.cliente?.razon_social || '',
+        sucursalNombre:          v.sucursal?.nombre || '',
+        tipoVisita:              v.tipo_visita?.nombre || '',
+        dispositivoNombre:       device?.label || device?.idInmotika || '—',
+        dispositivoSerial,
+        horaReporte:             new Date().toLocaleString('es-ES'),
+        motivo:                  motivo || '',
+        dispositivosCompletados: String(progreso.completados),
+        dispositivosTotal:       String(progreso.total),
+        tecnico:                 tecnicoNombre || '—',
+        responsable:             responsableNombre || '—',
+        appUrl:                  import.meta.env.VITE_APP_URL || window.location.origin,
+      }, cc);
+    })
+    .catch(err => console.error('[visitaApi] notificarDispositivoFueraDeServicio falló:', err));
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -329,7 +406,7 @@ export async function iniciarVisita(visitaId, actor = null) {
         tipoVisita: visitaRow?.tipo_visita?.nombre || '',
         fechaInicio: new Date(fechaInicio).toLocaleString('es-ES'),
         tecnicos: tecnicos || '—',
-        appUrl: window.location.origin,
+        appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
       }, cc);
     });
   }
@@ -437,30 +514,34 @@ export async function marcarDispositivoEnMantenimiento(dispositivoId) {
  *   Evidencias fotográficas capturadas a nivel de dispositivo
  * @param {string|null} [observacionFinalDevice]
  *   Observación final del dispositivo → se guarda en intervencion.observacion_final.
- *   Obligatoria cuando el dispositivo queda en estado FUERA_DE_SERVICIO.
- * @param {string|null} [observacionFinalDevice]
- *   Observación final del dispositivo → se guarda en intervencion.observacion_final.
- *   Obligatoria cuando el dispositivo queda en estado FUERA_DE_SERVICIO.
  * @param {'OPERATIVO'|'FUERA_DE_SERVICIO'|null} [estadoGestionCodigo]
  *   Código del nuevo estado_gestion del dispositivo.
  *   Si es null no se actualiza el estado del dispositivo.
- * @returns {Promise<void>}
+ * @param {string|null} [localIntervencionId]
+ *   UUID temporal usado como prefijo en keys de ejecucionActividades.
+ * @param {string|null} [motivoFueraDeServicio]
+ *   Motivo del estado fuera de servicio → se guarda en intervencion.motivo_fuera_de_servicio.
+ * @returns {Promise<string>} intervencionId real de BD
  * @throws {Error} Si alguna operación de BD falla
  */
-export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos, pasoData, actividadData, evidencias = { etiqueta: null, fotos: [] }, codigoEtiqueta = null, observacionFinalDevice = null, estadoGestionCodigo = null) {
-  const intervencionId = await resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta);
+export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos, pasoData, actividadData, evidencias = { etiqueta: null, fotos: [] }, codigoEtiqueta = null, observacionFinalDevice = null, estadoGestionCodigo = null, localIntervencionId = null, motivoFueraDeServicio = null) {
+  const intervencionId = await resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta, estadoGestionCodigo === 'FUERA_DE_SERVICIO');
   const now = new Date().toISOString();
-  await savePasosEjecucion(intervencionId, allPasos, pasoData, actividadData, now);
-  await saveActividadStates(intervencionId, actividadData);
+  // localIntervencionId es el UUID temporal usado como prefijo en las keys del mapa de estado.
+  // Si no se provee, se asume que las keys ya usan el intervencionId real (o son planas).
+  const keyPrefix = localIntervencionId || intervencionId;
+  await savePasosEjecucion(intervencionId, keyPrefix, allPasos, pasoData, actividadData, now);
+  await saveActividadStates(intervencionId, keyPrefix, actividadData);
   await uploadEvidenciasDispositivo(visitaId, dispositivoId, intervencionId, evidencias);
 
-  // Actualizar observacion_final en la intervencion si se provee
-  if (observacionFinalDevice !== null) {
-    await supabase
-      .from('intervencion')
-      .update({ observacion_final: observacionFinalDevice || null })
-      .eq('id', intervencionId);
-  }
+  // Actualizar campos de la intervencion: observacion_final + fuera_de_servicio
+  const esFueraDeServicio = estadoGestionCodigo === 'FUERA_DE_SERVICIO';
+  const intervencionPatch = {};
+  if (observacionFinalDevice !== null) intervencionPatch.observacion_final = observacionFinalDevice || null;
+  intervencionPatch.fuera_de_servicio = esFueraDeServicio;
+  if (esFueraDeServicio) intervencionPatch.motivo_fuera_de_servicio = motivoFueraDeServicio || null;
+
+  await supabase.from('intervencion').update(intervencionPatch).eq('id', intervencionId);
 
   // Actualizar estado_gestion del dispositivo si se provee
   if (estadoGestionCodigo) {
@@ -470,6 +551,8 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
       .update({ estado_gestion_id: estadoGestionId })
       .eq('id', dispositivoId);
   }
+
+  return intervencionId;
 }
 
 // ─── Helpers internos de guardarAvanceDispositivo ─────────────────────────────
@@ -485,7 +568,7 @@ export async function guardarAvanceDispositivo(visitaId, dispositivoId, allPasos
  */
 const ETIQUETA_RE = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 
-async function resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta) {
+async function resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta, allowNoEtiqueta = false) {
   const raw = codigoEtiqueta?.trim().toUpperCase() || '';
   const etiqueta = raw && ETIQUETA_RE.test(raw) ? raw : null;
 
@@ -506,8 +589,8 @@ async function resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta) {
     return existing.id;
   }
 
-  // Nueva intervención: etiqueta obligatoria solo si no existe registro previo
-  if (!etiqueta) throw new Error('El código de etiqueta es obligatorio para registrar un nuevo dispositivo.');
+  // Nueva intervención: etiqueta obligatoria solo si no existe registro previo y no se indica que es fuera de servicio
+  if (!etiqueta && !allowNoEtiqueta) throw new Error('El código de etiqueta es obligatorio para registrar un nuevo dispositivo.');
 
   const { data: visitaRow } = await supabase.from('visita').select('estado_id').eq('id', visitaId).single();
   const { data: created, error: insertErr } = await supabase
@@ -530,9 +613,13 @@ async function resolveIntervencionId(visitaId, dispositivoId, codigoEtiqueta) {
  * @param {Object} actividadData - actividadId → { estado }
  * @param {string} now           - ISO timestamp de referencia
  */
-async function savePasosEjecucion(intervencionId, allPasos, pasoData, actividadData, now) {
+async function savePasosEjecucion(intervencionId, keyPrefix, allPasos, pasoData, actividadData, now) {
+  // Busca en el mapa usando el prefijo de la sesión local (temporal o real), con fallback plano
+  const getPasoVal = (pasoId) => pasoData[`${keyPrefix}:${pasoId}`]    ?? pasoData[pasoId]    ?? {};
+  const getActVal  = (actId)  => actividadData[`${keyPrefix}:${actId}`] ?? actividadData[actId] ?? {};
+
   for (const paso of allPasos) {
-    const { comentarios } = pasoData[paso.id] || {};
+    const { comentarios } = getPasoVal(paso.id);
 
     const { data: existingPaso, error: fetchErr } = await supabase
       .from('ejecucion_paso')
@@ -546,7 +633,7 @@ async function savePasosEjecucion(intervencionId, allPasos, pasoData, actividadD
     // Cerrado cuando todas las actividades están completada u omitida
     const pasoDone = (paso.actividades || []).length === 0 ||
       (paso.actividades || []).every(a => {
-        const est = actividadData[a.id]?.estado;
+        const est = getActVal(a.id)?.estado;
         return est === 'completada' || est === 'omitida';
       });
 
@@ -576,23 +663,40 @@ async function savePasosEjecucion(intervencionId, allPasos, pasoData, actividadD
  * @param {string} intervencionId
  * @param {Object} actividadData - actividadId → { estado, observacion }
  */
-async function saveActividadStates(intervencionId, actividadData) {
-  const ids = Object.keys(actividadData);
-  if (!ids.length) return;
+async function saveActividadStates(intervencionId, keyPrefix, actividadData) {
+  const allKeys = Object.keys(actividadData);
+  if (!allKeys.length) return;
 
   const estadoMap = await getEstadoIntervencionMap();
 
-  const rows = ids.map(actividadId => {
-    const codigo = actividadData[actividadId].estado ?? 'pendiente';
+  // Las keys pueden ser "prefijo:actividadId" (compound) o solo "actividadId".
+  // keyPrefix es el UUID temporal (o real) usado al escribir las keys en esta sesión.
+  const rows = [];
+  for (const key of allKeys) {
+    const colonIdx = key.indexOf(':');
+    let actividadId, belongsToThis;
+    if (colonIdx !== -1) {
+      const keyPrefixInData = key.slice(0, colonIdx);
+      actividadId = key.slice(colonIdx + 1);
+      belongsToThis = keyPrefixInData === keyPrefix;
+    } else {
+      actividadId = key;
+      belongsToThis = true; // legacy sin prefijo
+    }
+    if (!belongsToThis) continue;
+
+    const codigo = actividadData[key].estado ?? 'pendiente';
     const estadoId = estadoMap.get(codigo);
     if (!estadoId) throw new Error(`Estado de actividad "${codigo}" no encontrado en catálogo ESTADO_INTERVENCION.`);
-    return {
+    rows.push({
       intervencion_id: intervencionId,
       actividad_id: actividadId,
       estado_id: estadoId,
-      observacion: actividadData[actividadId].observacion ?? null,
-    };
-  });
+      observacion: actividadData[key].observacion ?? null,
+    });
+  }
+
+  if (!rows.length) return;
 
   const { error } = await supabase
     .from('ejecucion_actividad')
@@ -650,12 +754,13 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
   const estadoId = await getCatalogoId('ESTADO_VISITA', 'COMPLETADA');
   const fechaFin = new Date().toISOString();
 
-  // 1. Actualizar visita: fecha_fin + estado (NO tocar observaciones)
+  // 1. Actualizar visita: fecha_fin + estado + observacion_final del técnico
   const { data: visitaRow, error: visitaError } = await supabase
     .from('visita')
     .update({
       fecha_fin: fechaFin,
       estado_id: estadoId,
+      observacion_final: observacionFinal || null,
     })
     .eq('id', visitaId)
     .select(`
@@ -707,7 +812,7 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
     const sucursalNombre = visitaRow?.sucursal?.nombre || visitaRow?.solicitud?.sucursal?.nombre || '';
     const tipoVisita = visitaRow?.tipo_visita?.nombre || '';
     const fechaFinStr = new Date(fechaFin).toLocaleString('es-ES');
-    const appUrl = window.location.origin;
+    const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
     // Crear registro informe — awaited: si falla, el técnico ve el error
     const { error: informeError } = await supabase

@@ -385,7 +385,7 @@ const InformeDirectorPage = () => {
         tipoVisita: visitaData?.tipo_visita?.nombre || selected.tipo_visita,
         fechaFin: visitaData?.fecha_fin
           ? new Date(visitaData.fecha_fin).toLocaleDateString('es-ES') : null,
-        appUrl: window.location.origin,
+        appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
       });
 
       setResultModal({

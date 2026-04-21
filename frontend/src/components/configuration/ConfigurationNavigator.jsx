@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../utils/supabase';
-import { syncCoordinadorSucursales } from '../../api/coordinadorSucursalApi';
+import { syncSucursalCoordinadores } from '../../api/sucursalApi';
 import { Users, Building2, MapPin, User, Monitor, Phone, CheckCircle2, Layers, Tag } from 'lucide-react';
 import Button from '../ui/Button';
 import { H3, TextSmall } from '../ui/Typography';
@@ -75,7 +75,7 @@ const ConfigurationNavigator = ({ onClose }) => {
     closeClientSuccess, closeBranchSuccess, closeContactSuccess, closeDeviceSuccess,
   } = useConfigurationContext();
 
-  const { data } = useMasterData();
+  const { data, setData } = useMasterData();
 
   /**
    * setStack con guard: si el cliente activo tiene cambios de asociación pendientes
@@ -227,28 +227,25 @@ const ConfigurationNavigator = ({ onClose }) => {
     setAssociateCoordinadoresModal(null);
     setAssociateSuccess(true);
 
-    // Persistir en BD si la sucursal ya tiene un UUID real
     const sucursalId = associateCoordinadoresModal?.sucursalId;
     const isExisting = sucursalId && !sucursalId.startsWith('S-') && !sucursalId.startsWith('NEW-') && !sucursalId.startsWith('new-') && sucursalId.length > 20;
-    if (!isExisting) return;
 
-    const allCoords = associateCoordinadoresModal?.allCoordinadores || [];
-    for (const cId of selected) {
-      await syncCoordinadorSucursales(cId, [sucursalId]);
-    }
-    // Desasignar los que fueron removidos
-    const removidos = allCoords
-      .map(c => String(c.coordinadorId))
-      .filter(cId => !selected.includes(cId));
-    for (const cId of removidos) {
-      // Soft-delete: quitar esta sucursal del coordinador
-      await supabase
-        .from('sucursal_coordinador')
-        .update({ activo: false })
-        .eq('coordinador_id', cId)
-        .eq('sucursal_id', sucursalId);
-    }
-  }, [associateCoordinadoresModal, updateDraft]);
+    // Reflejar en MasterData para que el contador sea correcto sin recargar
+    setData(prev => ({
+      ...prev,
+      clientes: (prev.clientes || []).map(c => ({
+        ...c,
+        sucursales: (c.sucursales || []).map(s =>
+          String(s.id) === String(sucursalId)
+            ? { ...s, coordinadorIds: selected }
+            : s
+        ),
+      })),
+    }));
+
+    if (!isExisting) return;
+    await syncSucursalCoordinadores(sucursalId, selected);
+  }, [associateCoordinadoresModal, updateDraft, setData]);
 
   /** Cierra el modal de coordinadores sin confirmar. */
   const handleCloseCoordinadoresModal = () => setAssociateCoordinadoresModal(null);

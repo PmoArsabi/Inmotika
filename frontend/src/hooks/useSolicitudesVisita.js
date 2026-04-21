@@ -245,7 +245,7 @@ export const useSolicitudesVisita = () => {
               : '—',
             motivo: sol.motivo || '',
             solicitante,
-            appUrl: window.location.origin,
+            appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
           }, cc);
         })
         .catch(emailErr => console.warn('[useSolicitudesVisita] email failed:', emailErr));

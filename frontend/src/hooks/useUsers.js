@@ -467,7 +467,7 @@ export const useUsers = () => {
               nombres: newUser.nombres,
               apellidos: newUser.apellidos,
               role_code: newUser.rol,
-              redirectTo: window.location.origin,
+              redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
             },
           });
 
@@ -516,7 +516,7 @@ export const useUsers = () => {
             email: newUser.email,
             rol: rolLabel,
             responsable: user?.email || '',
-            appUrl: window.location.origin,
+            appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
           };
           getSupervisorCCs({ actorId: user?.id, actorRole: user?.role }).then(supervisorEmails => {
             const { destinatario, cc } = buildRecipients(newUser.email, supervisorEmails);

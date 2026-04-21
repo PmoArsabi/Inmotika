@@ -184,13 +184,13 @@ const ActividadRow = ({ actividad, estado, observacion, onChange, viewMode, isBl
  * @param {boolean} props.viewMode             - Modo solo lectura
  * @param {boolean} props.isLocked             - Paso bloqueado por paso anterior incompleto
  */
-const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onActividadChange, viewMode, isLocked = false }) => {
+const PasoSection = ({ paso, execPaso, ejecucionActividades, actKey, pasoKey, onPasoChange, onActividadChange, viewMode, isLocked = false }) => {
   const actividades  = paso.actividades || [];
   const totalActs    = actividades.length;
   // Resuelta = completada u omitida
-  const isResuelta   = (a) => { const e = ejecucionActividades[a.id]?.estado; return e === 'completada' || e === 'omitida'; };
+  const isResuelta   = (a) => { const e = ejecucionActividades[actKey(a.id)]?.estado; return e === 'completada' || e === 'omitida'; };
   const doneActs     = actividades.filter(isResuelta).length;
-  const omitidas     = actividades.filter(a => ejecucionActividades[a.id]?.estado === 'omitida').length;
+  const omitidas     = actividades.filter(a => ejecucionActividades[actKey(a.id)]?.estado === 'omitida').length;
   const pasoCerrado  = actividades.length === 0 || actividades.every(isResuelta);
   const [open, setOpen] = useState(!isLocked);
 
@@ -258,17 +258,17 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
             const isActBlocked = !viewMode && !isLocked && actividades
               .slice(0, actIdx)
               .some(prev => {
-                const e = ejecucionActividades[prev.id]?.estado;
+                const e = ejecucionActividades[actKey(prev.id)]?.estado;
                 return e !== 'completada' && e !== 'omitida';
               });
-            const execAct = ejecucionActividades[act.id] || {};
+            const execAct = ejecucionActividades[actKey(act.id)] || {};
             return (
               <ActividadRow
                 key={act.id}
                 actividad={act}
                 estado={execAct.estado || 'pendiente'}
                 observacion={execAct.observacion || ''}
-                onChange={patch => onActividadChange(act.id, patch)}
+                onChange={patch => onActividadChange(actKey(act.id), patch)}
                 viewMode={viewMode || isLocked}
                 isBlocked={isActBlocked}
               />
@@ -276,16 +276,22 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, onPasoChange, onAct
           })}
 
           {/* Observation textarea del paso */}
-          <textarea
-            disabled={viewMode || isLocked}
-            value={execPaso?.comentarios || ''}
-            onChange={e => onPasoChange(paso.id, { comentarios: e.target.value })}
-            placeholder="Observación del paso (opcional)"
-            rows={1}
-            spellCheck="true"
-            lang="es"
-            className="w-full mt-1 px-3 py-2 text-xs border border-gray-200 rounded-md bg-gray-50 resize-none focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all disabled:opacity-60"
-          />
+          {viewMode ? (
+            execPaso?.comentarios ? (
+              <p className="mt-1 px-3 py-2 text-xs bg-gray-100 rounded-md text-gray-600">{execPaso.comentarios}</p>
+            ) : null
+          ) : (
+            <textarea
+              disabled={isLocked}
+              value={execPaso?.comentarios || ''}
+              onChange={e => onPasoChange(pasoKey(paso.id), { comentarios: e.target.value })}
+              placeholder="Observación del paso (opcional)"
+              rows={1}
+              spellCheck="true"
+              lang="es"
+              className="w-full mt-1 px-3 py-2 text-xs border border-gray-200 rounded-md bg-gray-50 resize-none focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all disabled:opacity-60"
+            />
+          )}
         </div>
       )}
     </div>
@@ -368,7 +374,7 @@ const AgregarFotoCard = ({ onClick }) => (
  *   Estado actual de evidencias del dispositivo
  * @param {function} props.onChange - (patch) => void — patch: { etiqueta?, fotos? }
  */
-const EvidenciasSection = ({ evidencias, onChange }) => {
+const EvidenciasSection = ({ evidencias, onChange, fueraDeServicio = false }) => {
   const etiquetaInputRef = useRef(null);
   // Refs para cada foto adicional — mapa indexado por posición
   const fotosInputRefs = useRef({});
@@ -413,10 +419,10 @@ const EvidenciasSection = ({ evidencias, onChange }) => {
 
       {/* Photo grid */}
       <div className="flex flex-wrap gap-3">
-        {/* Etiqueta card — always first, always present */}
+        {/* Cuando está fuera de servicio, la foto de etiqueta se llama "Evidencia 1" */}
         <EvidenciaCard
-          label="Foto Etiqueta"
-          isEtiqueta
+          label={fueraDeServicio ? 'Evidencia 1' : 'Foto Etiqueta'}
+          isEtiqueta={!fueraDeServicio}
           value={evidencias.etiqueta || null}
           onAdd={() => etiquetaInputRef.current?.click()}
           onRemove={evidencias.etiqueta ? handleRemoveEtiqueta : null}
@@ -460,7 +466,7 @@ const EvidenciasSection = ({ evidencias, onChange }) => {
                 <span className="text-[10px] text-gray-400">Agregar</span>
               </button>
             )}
-            <p className="text-[10px] text-gray-500 text-center mt-1">Foto {idx + 1}</p>
+            <p className="text-[10px] text-gray-500 text-center mt-1">{fueraDeServicio ? `Evidencia ${idx + 2}` : `Foto ${idx + 1}`}</p>
           </div>
         ))}
 
@@ -489,12 +495,15 @@ const EvidenciasSection = ({ evidencias, onChange }) => {
  *   Evidencias actuales del dispositivo (gestionadas por el padre)
  * @param {function} props.onDeviceEvidenciasChange  - (patch) => void
  * @param {string}   [props.codigoEtiquetaInicial]   - Código de etiqueta existente (si ya fue guardado)
- * @param {boolean}  [props.fueraDeServicio]          - Si el técnico marcó el dispositivo como fuera de servicio
- * @param {string}   [props.observacionFinalDevice]   - Observación/motivo del estado fuera de servicio (intervencion.observacion_final)
- * @param {function} [props.onFueraDeServicioChange]  - ({ active, observacion }) => void
+ * @param {boolean}  [props.fueraDeServicio]           - Si el técnico marcó el dispositivo como fuera de servicio
+ * @param {string}   [props.motivoFueraDeServicio]     - Motivo por el que está fuera de servicio
+ * @param {string}   [props.observacionFinalDevice]    - Observación final general del dispositivo
+ * @param {function} [props.onFueraDeServicioChange]   - ({ active, motivo }) => void
+ * @param {function} [props.onObservacionFinalChange]  - (observacion: string) => void
  */
 const DeviceChecklistCard = ({
   device,
+  intervencionId = null,
   steps = [],
   ejecucionPasos = {},
   ejecucionActividades = {},
@@ -507,18 +516,26 @@ const DeviceChecklistCard = ({
   codigoEtiquetaInicial = '',
   onEtiquetaChange,
   fueraDeServicio = false,
+  motivoFueraDeServicio = '',
   observacionFinalDevice = '',
   onFueraDeServicioChange,
+  onObservacionFinalChange,
 }) => {
   const [open, setOpen] = useState(!isLocked);
   const [codigoEtiqueta, setCodigoEtiqueta] = useState(codigoEtiquetaInicial);
 
+  // Construye la key compuesta para ejecucionActividades/ejecucionPasos.
+  // Si aún no hay intervencionId (dispositivo no iniciado), usa solo el id del protocolo
+  // para que la UI muestre estado vacío correctamente.
+  const actKey  = (actId)  => intervencionId ? `${intervencionId}:${actId}`  : actId;
+  const pasoKey = (pasoId) => intervencionId ? `${intervencionId}:${pasoId}` : pasoId;
+
   // Compute overall device completion — completada u omitida cuenta como resuelta
-  const isActResuelta  = (a) => { const e = ejecucionActividades[a.id]?.estado; return e === 'completada' || e === 'omitida'; };
+  const isActResuelta  = (a) => { const e = ejecucionActividades[actKey(a.id)]?.estado; return e === 'completada' || e === 'omitida'; };
   const allActividades = steps.flatMap(p => p.actividades || []);
   const totalActs      = allActividades.length;
   const doneActs       = allActividades.filter(isActResuelta).length;
-  const omitadasTotal  = allActividades.filter(a => ejecucionActividades[a.id]?.estado === 'omitida').length;
+  const omitadasTotal  = allActividades.filter(a => ejecucionActividades[actKey(a.id)]?.estado === 'omitida').length;
   const pct            = totalActs > 0 ? Math.round((doneActs / totalActs) * 100) : 0;
 
   const allDone = steps.length > 0 && steps.every(paso =>
@@ -528,9 +545,14 @@ const DeviceChecklistCard = ({
 
   const allDoneWithOmit = allDone && omitadasTotal > 0;
 
+  // Un dispositivo fuera de servicio guardado tiene su propia paleta de color (rojo)
+  const isFds = fueraDeServicio && viewMode;
+
   return (
     <div className={`border rounded-lg overflow-hidden transition-all bg-white ${
-      allDoneWithOmit ? 'border-amber-300' : allDone ? 'border-green-300' : 'border-gray-200'
+      isFds           ? 'border-red-300'   :
+      allDoneWithOmit ? 'border-amber-300' :
+      allDone         ? 'border-green-300' : 'border-gray-200'
     }`}>
       {/* Card header */}
       <button
@@ -538,6 +560,7 @@ const DeviceChecklistCard = ({
         onClick={() => setOpen(o => !o)}
         className={`w-full flex items-center justify-between p-4 text-left ${
           isLocked        ? 'bg-gray-50'   :
+          isFds           ? 'bg-red-50'    :
           allDoneWithOmit ? 'bg-amber-50'  :
           allDone         ? 'bg-green-50'  : 'bg-white'
         }`}
@@ -545,11 +568,13 @@ const DeviceChecklistCard = ({
         <div className="flex items-center gap-3 min-w-0">
           {isLocked
             ? <Lock          size={18} className="shrink-0 text-gray-300" />
-            : allDoneWithOmit
-              ? <AlertTriangle size={20} className="shrink-0 text-amber-500" />
-              : allDone
-                ? <CheckCircle2  size={20} className="shrink-0 text-green-500" />
-                : <Circle        size={20} className="shrink-0 text-gray-300" />
+            : isFds
+              ? <Wrench        size={20} className="shrink-0 text-red-500" />
+              : allDoneWithOmit
+                ? <AlertTriangle size={20} className="shrink-0 text-amber-500" />
+                : allDone
+                  ? <CheckCircle2  size={20} className="shrink-0 text-green-500" />
+                  : <Circle        size={20} className="shrink-0 text-gray-300" />
           }
           <div className="min-w-0">
             <p className="text-sm font-bold text-gray-900 truncate">{device.label || device.id}</p>
@@ -563,8 +588,8 @@ const DeviceChecklistCard = ({
             ? <span className="text-xs text-gray-400 italic">Completa el anterior primero</span>
             : <>
                 <div className="text-right">
-                  <span className={`text-xs font-bold ${allDoneWithOmit ? 'text-amber-600' : allDone ? 'text-green-600' : 'text-gray-600'}`}>
-                    {doneActs}/{totalActs}
+                  <span className={`text-xs font-bold ${isFds ? 'text-red-600' : allDoneWithOmit ? 'text-amber-600' : allDone ? 'text-green-600' : 'text-gray-600'}`}>
+                    {isFds ? 'FUERA DE SERVICIO' : `${doneActs}/${totalActs}`}
                   </span>
                   <span className="text-xs text-gray-400 ml-1">
                     {omitadasTotal > 0 ? `· ${omitadasTotal} omitida${omitadasTotal !== 1 ? 's' : ''}` : 'actividades'}
@@ -580,8 +605,8 @@ const DeviceChecklistCard = ({
       {!isLocked && (
         <div className="h-1.5 bg-gray-100">
           <div
-            className={`h-full transition-all ${allDoneWithOmit ? 'bg-amber-400' : allDone ? 'bg-green-500' : 'bg-[#D32F2F]'}`}
-            style={{ width: `${pct}%` }}
+            className={`h-full transition-all ${isFds ? 'bg-red-500' : allDoneWithOmit ? 'bg-amber-400' : allDone ? 'bg-green-500' : 'bg-[#D32F2F]'}`}
+            style={{ width: isFds ? '100%' : `${pct}%` }}
           />
         </div>
       )}
@@ -594,14 +619,16 @@ const DeviceChecklistCard = ({
           )}
           {steps.map((paso, pasoIdx) => {
             const isPasoLocked = !viewMode && steps.slice(0, pasoIdx).some(prev =>
-              (prev.actividades || []).some(a => { const e = ejecucionActividades[a.id]?.estado; return e !== 'completada' && e !== 'omitida'; })
+              (prev.actividades || []).some(a => { const e = ejecucionActividades[actKey(a.id)]?.estado; return e !== 'completada' && e !== 'omitida'; })
             );
             return (
               <PasoSection
                 key={paso.id}
                 paso={paso}
-                execPaso={ejecucionPasos[paso.id] || {}}
+                execPaso={ejecucionPasos[pasoKey(paso.id)] || {}}
                 ejecucionActividades={ejecucionActividades}
+                actKey={actKey}
+                pasoKey={pasoKey}
                 onPasoChange={onPasoChange}
                 onActividadChange={onActividadChange}
                 viewMode={viewMode}
@@ -610,7 +637,21 @@ const DeviceChecklistCard = ({
             );
           })}
 
-          {/* Fuera de servicio — solo en modo edición, visible siempre (no bloquea el guardado) */}
+          {/* Observación final — siempre visible en modo edición */}
+          {!viewMode && !isLocked && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Observación final</p>
+              <textarea
+                value={observacionFinalDevice}
+                onChange={e => onObservacionFinalChange?.(e.target.value)}
+                rows={2}
+                placeholder="Observación general del dispositivo (opcional)..."
+                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white resize-none focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all"
+              />
+            </div>
+          )}
+
+          {/* Fuera de servicio — solo en modo edición */}
           {!viewMode && !isLocked && (
             <div className={`rounded-lg border p-3 space-y-2 transition-all ${fueraDeServicio ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50/50'}`}>
               <div className="flex items-center justify-between">
@@ -622,7 +663,7 @@ const DeviceChecklistCard = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => onFueraDeServicioChange?.({ active: !fueraDeServicio, observacion: observacionFinalDevice })}
+                  onClick={() => onFueraDeServicioChange?.({ active: !fueraDeServicio, motivo: motivoFueraDeServicio })}
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 ${fueraDeServicio ? 'bg-red-500 border-red-500' : 'bg-gray-200 border-gray-200'}`}
                   role="switch"
                   aria-checked={fueraDeServicio}
@@ -631,20 +672,36 @@ const DeviceChecklistCard = ({
                 </button>
               </div>
               {fueraDeServicio && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
-                    Motivo <span className="text-red-500">*</span>
-                  </p>
-                  <textarea
-                    autoFocus
-                    value={observacionFinalDevice}
-                    onChange={e => onFueraDeServicioChange?.({ active: true, observacion: e.target.value })}
-                    rows={2}
-                    placeholder="Describe por qué el dispositivo no pudo ser reparado..."
-                    className="w-full px-2 py-1.5 text-xs border border-red-300 rounded-md bg-white resize-none focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400 transition-all"
-                  />
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
+                      Motivo <span className="text-red-500">*</span>
+                    </p>
+                    <textarea
+                      autoFocus
+                      value={motivoFueraDeServicio}
+                      onChange={e => onFueraDeServicioChange?.({ active: true, motivo: e.target.value })}
+                      rows={2}
+                      placeholder="Describe por qué el dispositivo no pudo ser reparado..."
+                      className="w-full px-2 py-1.5 text-xs border border-red-300 rounded-md bg-white resize-none focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400 transition-all"
+                    />
+                  </div>
+                  <div className="flex items-start gap-2 px-2 py-1.5 rounded-md bg-amber-50 border border-amber-200">
+                    <span className="text-amber-500 mt-0.5 shrink-0">⚠</span>
+                    <p className="text-[11px] text-amber-700 leading-relaxed">
+                      Para reportar el estado del dispositivo debes agregar al menos una <strong>foto de evidencia</strong>.
+                    </p>
+                  </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Observación final en modo lectura */}
+          {viewMode && observacionFinalDevice && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Observación final</p>
+              <p className="text-xs text-gray-700">{observacionFinalDevice}</p>
             </div>
           )}
 
@@ -655,8 +712,8 @@ const DeviceChecklistCard = ({
                 <Wrench size={13} className="text-red-500" />
                 <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">Fuera de servicio</span>
               </div>
-              {observacionFinalDevice && (
-                <p className="text-xs text-red-700 px-2 py-1 bg-red-100 rounded-md">{observacionFinalDevice}</p>
+              {motivoFueraDeServicio && (
+                <p className="text-xs text-red-700 px-2 py-1 bg-red-100 rounded-md">{motivoFueraDeServicio}</p>
               )}
             </div>
           )}
@@ -664,29 +721,32 @@ const DeviceChecklistCard = ({
           {/* Código de etiqueta + evidencias */}
           {!viewMode ? (
             <>
-              {/* Código de etiqueta — editable en ejecución */}
-              <div className="flex items-center gap-2 px-1">
-                <Tag size={13} className="text-gray-400 shrink-0" />
-                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">
-                  Código Etiqueta
-                </label>
-                <input
-                  type="text"
-                  value={codigoEtiqueta}
-                  onChange={e => {
-                    const raw = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 8);
-                    const formatted = raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw;
-                    setCodigoEtiqueta(formatted);
-                    onEtiquetaChange?.(device.id, formatted);
-                  }}
-                  placeholder="XXXX-XXXX"
-                  maxLength={9}
-                  className="flex-1 h-8 px-2 text-xs border border-gray-200 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] font-mono tracking-widest uppercase transition-all"
-                />
-              </div>
+              {/* Código de etiqueta — solo cuando NO está fuera de servicio */}
+              {!fueraDeServicio && (
+                <div className="flex items-center gap-2 px-1">
+                  <Tag size={13} className="text-gray-400 shrink-0" />
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">
+                    Código Etiqueta
+                  </label>
+                  <input
+                    type="text"
+                    value={codigoEtiqueta}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 8);
+                      const formatted = raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw;
+                      setCodigoEtiqueta(formatted);
+                      onEtiquetaChange?.(device.id, formatted);
+                    }}
+                    placeholder="XXXX-XXXX"
+                    maxLength={9}
+                    className="flex-1 h-8 px-2 text-xs border border-gray-200 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] font-mono tracking-widest uppercase transition-all"
+                  />
+                </div>
+              )}
               <EvidenciasSection
                 evidencias={deviceEvidencias}
                 onChange={onDeviceEvidenciasChange}
+                fueraDeServicio={fueraDeServicio}
               />
             </>
           ) : (
@@ -710,18 +770,20 @@ const DeviceChecklistCard = ({
                   <div className="flex flex-wrap gap-3">
                     {deviceEvidencias.etiqueta && (
                       <div className="flex flex-col items-center gap-1">
-                        <div className="w-24 h-24 rounded-lg overflow-hidden border border-blue-200">
-                          <SecureImage path={deviceEvidencias.etiqueta.preview} alt="Etiqueta" className="object-cover w-full h-full" />
+                        <div className={`w-24 h-24 rounded-lg overflow-hidden border ${fueraDeServicio ? 'border-gray-200' : 'border-blue-200'}`}>
+                          <SecureImage path={deviceEvidencias.etiqueta.preview} alt="Evidencia" className="object-cover w-full h-full" />
                         </div>
-                        <p className="text-[10px] text-blue-600 font-semibold">Foto Etiqueta</p>
+                        <p className={`text-[10px] font-semibold ${fueraDeServicio ? 'text-gray-500' : 'text-blue-600'}`}>
+                          {fueraDeServicio ? 'Evidencia 1' : 'Foto Etiqueta'}
+                        </p>
                       </div>
                     )}
                     {(deviceEvidencias.fotos || []).map((foto, idx) => foto && (
                       <div key={idx} className="flex flex-col items-center gap-1">
                         <div className="w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
-                          <SecureImage path={foto.preview} alt={`Foto ${idx + 1}`} className="object-cover w-full h-full" />
+                          <SecureImage path={foto.preview} alt={`Evidencia ${idx + 2}`} className="object-cover w-full h-full" />
                         </div>
-                        <p className="text-[10px] text-gray-500">Foto {idx + 1}</p>
+                        <p className="text-[10px] text-gray-500">{fueraDeServicio ? `Evidencia ${idx + 2}` : `Foto ${idx + 1}`}</p>
                       </div>
                     ))}
                   </div>

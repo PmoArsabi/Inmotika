@@ -9,7 +9,6 @@ import { useNotify } from '../../../context/NotificationContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useCatalog } from '../../../hooks/useCatalog';
 import { saveSucursal } from '../../../api/sucursalApi';
-import { supabase } from '../../../utils/supabase';
 
 const BranchNavigator = ({
   setAssociateContactsModal, setAssociateContactsSelected, setAssociateContactsSearch,
@@ -42,38 +41,17 @@ const BranchNavigator = ({
         associatedContactIds: (currentBranch.contactos || []).map(c => String(c.id)),
         associatedDeviceIds: (data?.dispositivos || []).filter(d =>
           compareIds(d.branchId, currentBranch.id)
-        ).map(d => String(d.id))
+        ).map(d => String(d.id)),
+        associatedCoordinadorIds: (currentBranch.coordinadorIds || []),
       };
     }
     return emptyBranchDraft();
   };
 
-  // Seed draft into context on mount. Para sucursales existentes, carga también
-  // los coordinadores ya asignados desde BD.
+  // Seed draft en contexto al montar solo si aún no existe.
   useEffect(() => {
-    if (!route.branchId) return;
-    if (drafts[key]) return;
-    const base = getDraft();
-
-    const isExisting = route.branchId &&
-      !route.branchId.startsWith('S-') &&
-      !route.branchId.startsWith('NEW-') &&
-      !route.branchId.startsWith('new-') &&
-      route.branchId.length > 20;
-
-    if (isExisting) {
-      supabase
-        .from('sucursal_coordinador')
-        .select('coordinador_id')
-        .eq('sucursal_id', route.branchId)
-        .eq('activo', true)
-        .then(({ data }) => {
-          const ids = (data || []).map(r => String(r.coordinador_id));
-          setDrafts(prev => ({ ...prev, [key]: { ...base, associatedCoordinadorIds: ids } }));
-        });
-    } else {
-      setDrafts(prev => ({ ...prev, [key]: base }));
-    }
+    if (!route.branchId || drafts[key]) return;
+    setDrafts(prev => ({ ...prev, [key]: getDraft() }));
   }, [route.branchId, key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draft = getDraft();
@@ -116,8 +94,8 @@ const BranchNavigator = ({
       });
 
       setSaveState({ isSaving: false, savedAt: Date.now() });
-      // Limpiar draft para que al re-abrir se re-lea desde data actualizado
-      setDrafts(prev => { const next = { ...prev }; delete next[key]; return next; });
+      // Actualizar draft con id final y preservar associatedCoordinadorIds para el contador
+      setDrafts(prev => ({ ...prev, [entityKey('branch', sucursalId)]: { ...finalDraft } }));
       setStack(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, mode: 'view', branchId: sucursalId } : s));
       notify('success', 'Sucursal guardada con éxito');
     } catch (err) {
