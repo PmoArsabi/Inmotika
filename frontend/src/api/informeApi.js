@@ -631,6 +631,100 @@ export async function updateComentarioPaso(intervencionId, pasoProtocoloId, come
   if (error) throw new Error(`Error al actualizar comentario: ${error.message}`);
 }
 
+/**
+ * Actualiza la observación de una actividad específica (ejecucion_actividad).
+ * @param {string} ejecucionActividadId - id de ejecucion_actividad
+ * @param {string|null} observacion
+ * @returns {Promise<void>}
+ */
+export async function updateObservacionActividad(ejecucionActividadId, observacion) {
+  const { error } = await supabase
+    .from('ejecucion_actividad')
+    .update({ observacion })
+    .eq('id', ejecucionActividadId);
+  if (error) throw new Error(`Error al actualizar observación de actividad: ${error.message}`);
+}
+
+/**
+ * Actualiza la observación final de una intervención (comentario a nivel de dispositivo).
+ * @param {string} intervencionId
+ * @param {string|null} observacionFinal
+ * @returns {Promise<void>}
+ */
+export async function updateObservacionIntervencion(intervencionId, observacionFinal) {
+  const { error } = await supabase
+    .from('intervencion')
+    .update({ observacion_final: observacionFinal })
+    .eq('id', intervencionId);
+  if (error) throw new Error(`Error al actualizar observación de intervención: ${error.message}`);
+}
+
+/**
+ * Soft-delete de una evidencia (foto o etiqueta) del informe.
+ * @param {string} evidenciaId - id de evidencia_intervencion
+ * @returns {Promise<void>}
+ */
+export async function deleteEvidenciaInforme(evidenciaId) {
+  const { error } = await supabase
+    .from('evidencia_intervencion')
+    .update({ activo: false })
+    .eq('id', evidenciaId);
+  if (error) throw new Error(`Error al eliminar evidencia: ${error.message}`);
+}
+
+/**
+ * Sube una nueva foto de evidencia para una intervención del informe.
+ * Reutiliza uploadEvidencia de visitaApi pero accesible desde aquí.
+ *
+ * @param {string} visitaId
+ * @param {string} dispositivoId
+ * @param {string} intervencionId
+ * @param {File} file
+ * @param {boolean} esEtiqueta
+ * @param {number} fotoNumber - ignorado si esEtiqueta=true
+ * @returns {Promise<{ id: string, url: string, signedUrl: string|null }>}
+ */
+export async function uploadEvidenciaInforme(visitaId, dispositivoId, intervencionId, file, esEtiqueta, fotoNumber) {
+  const ext = file.name.split('.').pop() || 'jpg';
+  const fileName = esEtiqueta ? `etiqueta.${ext}` : `foto_${fotoNumber}.${ext}`;
+  const storagePath = `evidencias/${visitaId}/${dispositivoId}/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('inmotika')
+    .upload(storagePath, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) throw new Error(`Error al subir foto: ${uploadError.message}`);
+
+  // Si es etiqueta, marcar previas como inactivas
+  if (esEtiqueta) {
+    await supabase
+      .from('evidencia_intervencion')
+      .update({ activo: false })
+      .eq('intervencion_id', intervencionId)
+      .eq('es_etiqueta', true);
+  }
+
+  const { data: inserted, error: dbError } = await supabase
+    .from('evidencia_intervencion')
+    .insert({
+      intervencion_id: intervencionId,
+      url: storagePath,
+      numero_foto: esEtiqueta ? null : fotoNumber,
+      es_etiqueta: esEtiqueta,
+      activo: true,
+    })
+    .select('id, url')
+    .single();
+
+  if (dbError) throw new Error(`Error al registrar evidencia: ${dbError.message}`);
+
+  const { data: signed } = await supabase.storage
+    .from('inmotika')
+    .createSignedUrl(storagePath, 3600);
+
+  return { id: inserted.id, url: inserted.url, signedUrl: signed?.signedUrl || null };
+}
+
 // ─── Observación coordinador en el informe (va al PDF) ───────────────────────
 
 /**
@@ -761,7 +855,9 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
   const { data: ejecActividades, error: eaErr } = await supabase
     .from('ejecucion_actividad')
     .select(`
+      id,
       intervencion_id,
+      actividad_id,
       estado_id,
       catalogo:estado_id(codigo),
       observacion,
@@ -774,7 +870,7 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
   // ── 5. Evidencias ─────────────────────────────────────────────────────────
   const { data: evidencias, error: evErr } = await supabase
     .from('evidencia_intervencion')
-    .select('intervencion_id, url, es_etiqueta, numero_foto')
+    .select('id, intervencion_id, url, es_etiqueta, numero_foto')
     .in('intervencion_id', intervencionIds)
     .eq('activo', true)
     .order('numero_foto', { ascending: true });
@@ -807,15 +903,15 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
     pasosByIntervencion.set(ep.intervencion_id, list);
   }
 
-  /** @type {Map<string, { etiqueta: string|null, fotos: string[] }>} */
+  /** @type {Map<string, { etiqueta: { id: string, url: string, signedUrl: string|null }|null, fotos: { id: string, url: string, signedUrl: string|null, numero_foto: number }[] }>} */
   const evidenciasByIntervencion = new Map();
   for (const ev of (evidencias || [])) {
     const entry = evidenciasByIntervencion.get(ev.intervencion_id) || { etiqueta: null, fotos: [] };
     const signed = signedMap[ev.url] || null;
     if (ev.es_etiqueta) {
-      entry.etiqueta = signed;
-    } else if (signed) {
-      entry.fotos.push(signed);
+      entry.etiqueta = { id: ev.id, url: ev.url, signedUrl: signed };
+    } else {
+      entry.fotos.push({ id: ev.id, url: ev.url, signedUrl: signed, numero_foto: ev.numero_foto });
     }
     evidenciasByIntervencion.set(ev.intervencion_id, entry);
   }
@@ -861,6 +957,9 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
         .sort((a, b) => (a.actividad?.orden ?? 0) - (b.actividad?.orden ?? 0))
         .map(ea => ({
           id: ea.actividad?.id || '',
+          ejecucion_id: ea.id || null,        // id de ejecucion_actividad para editar observacion
+          actividad_id: ea.actividad_id || null,
+          intervencion_id: ea.intervencion_id || null,
           descripcion: ea.actividad?.descripcion || '',
           orden: ea.actividad?.orden ?? 0,
           estado: ea.estado,
@@ -889,7 +988,9 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
       fuera_de_servicio: interv.fuera_de_servicio ?? false,
       motivo_fuera_de_servicio: interv.motivo_fuera_de_servicio || null,
       pasos,
+      // fotos: array de objetos { id, url, signedUrl, numero_foto }
       fotos: evidenciaEntry.fotos,
+      // foto_etiqueta: objeto { id, url, signedUrl } o null
       foto_etiqueta: evidenciaEntry.etiqueta,
     };
 

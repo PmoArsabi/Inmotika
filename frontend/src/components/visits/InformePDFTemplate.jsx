@@ -43,40 +43,66 @@ const BLUET = '#1e40af';
 
 /**
  * Fila de la tabla de actividades.
- * @param {{ act: object, isLast: boolean }} props
+ * @param {{ act: object, isLast: boolean, renderComentarioActividad: Function|null }} props
  */
-function ActRow({ act, isLast }) {
+function ActRow({ act, isLast, renderComentarioActividad }) {
   const { label, bg, color } = badgeEstado(act.estado);
+
+  const hasObsGuardada = !!act.observacion;
+  const hasStaticObs   = !renderComentarioActividad && act.observacion && act.estado === 'omitida';
+  const showObsRow     = renderComentarioActividad ? hasObsGuardada : hasStaticObs;
+  const hasExtra       = showObsRow;
+
   return (
     <React.Fragment>
       <tr>
         <td style={{
           padding: '8px 10px',
-          borderBottom: isLast && !act.observacion ? 'none' : `1px solid ${LBORD}`,
-          fontSize: '9.5px',
-          color: DARK,
-          lineHeight: '1.4',
+          borderBottom: isLast && !hasExtra ? 'none' : `1px solid ${LBORD}`,
+          fontSize: '9.5px', color: DARK, lineHeight: '1.4',
         }}>
-          {act.descripcion}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <span>{act.descripcion}</span>
+            {renderComentarioActividad && !hasObsGuardada && (
+              <span style={{ flexShrink: 0 }}>
+                {renderComentarioActividad(act)}
+              </span>
+            )}
+          </div>
         </td>
         <td style={{
           padding: '8px 10px',
-          borderBottom: isLast && !act.observacion ? 'none' : `1px solid ${LBORD}`,
-          textAlign: 'center',
-          width: '80px',
+          borderBottom: isLast && !hasExtra ? 'none' : `1px solid ${LBORD}`,
+          textAlign: 'center', width: '80px',
         }}>
           <span style={{ background: bg, color, padding: '2px 8px', borderRadius: '10px', fontSize: '7.5px', fontWeight: '700' }}>
             {label}
           </span>
         </td>
       </tr>
-      {act.observacion && act.estado === 'omitida' && (
+
+      {showObsRow && renderComentarioActividad && (
         <tr>
           <td colSpan={2} style={{
-            padding: '4px 10px 8px',
-            fontSize: '8.5px',
-            color: '#991b1b',
-            fontStyle: 'italic',
+            padding: '2px 10px 6px',
+            borderBottom: isLast ? 'none' : `1px solid ${LBORD}`,
+            background: '#f0fdf4',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+              <span style={{ fontSize: '7px', fontWeight: '800', color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', marginTop: '1px' }}>
+                Obs. actividad:
+              </span>
+              {renderComentarioActividad(act)}
+            </div>
+          </td>
+        </tr>
+      )}
+
+      {hasStaticObs && (
+        <tr>
+          <td colSpan={2} style={{
+            padding: '4px 10px 8px', fontSize: '8.5px',
+            color: '#991b1b', fontStyle: 'italic',
             borderBottom: isLast ? 'none' : `1px solid ${LBORD}`,
           }}>
             ↳ {act.observacion}
@@ -89,19 +115,20 @@ function ActRow({ act, isLast }) {
 
 /**
  * Bloque de paso dentro de un dispositivo.
- * @param {{ paso: object, intervencionId: string, renderComentarioPaso: Function|null }} props
+ *
+ * @param {{
+ *   paso: object,
+ *   intervencionId: string,
+ *   renderComentarioPaso: Function|null,
+ *   renderComentarioActividad: Function|null,
+ * }} props
  */
-function PasoBlock({ paso, intervencionId, renderComentarioPaso }) {
+function PasoBlock({ paso, intervencionId, renderComentarioPaso, renderComentarioActividad }) {
   const completadas = paso.actividades.filter(a => a.estado === 'completada').length;
   const total       = paso.actividades.length;
 
-  const comentarioNode = renderComentarioPaso
-    ? renderComentarioPaso(intervencionId, paso.id, paso.paso_protocolo_id, paso.comentarios)
-    : null;
-
   return (
     <div style={{ marginBottom: '12px' }}>
-      {/* Encabezado del paso */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
         <div style={{
           width: '18px', height: '18px',
@@ -120,9 +147,8 @@ function PasoBlock({ paso, intervencionId, renderComentarioPaso }) {
         </span>
       </div>
 
-      {/* Tabla de actividades */}
       {paso.actividades.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: comentarioNode || paso.comentarios ? '0' : '0' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: BGRAY }}>
               <th style={{ padding: '6px 10px', fontSize: '8px', color: GRAY, textTransform: 'uppercase', textAlign: 'left', fontWeight: '700' }}>
@@ -139,46 +165,89 @@ function PasoBlock({ paso, intervencionId, renderComentarioPaso }) {
                 key={act.id}
                 act={act}
                 isLast={idx === paso.actividades.length - 1}
+                renderComentarioActividad={renderComentarioActividad}
               />
             ))}
           </tbody>
         </table>
       )}
 
-      {/* Comentario técnico: editable (render prop) o estático */}
-      {comentarioNode && (
-        <div style={{ background: BLUE, padding: '8px 12px', borderRadius: '0 0 4px 4px', fontSize: '9px', color: BLUET, lineHeight: '1.5' }}>
-          <strong>Obs. técnico:</strong> {comentarioNode}
+      {renderComentarioPaso ? (
+        <div style={{ background: BLUE, padding: '6px 12px', borderRadius: '0 0 4px 4px', fontSize: '9px', color: BLUET, lineHeight: '1.5', display: 'flex', alignItems: paso.comentarios ? 'baseline' : 'center', gap: '6px' }}>
+          {paso.comentarios && (
+            <span style={{ fontSize: '7px', fontWeight: '800', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+              Obs. paso:
+            </span>
+          )}
+          {renderComentarioPaso(intervencionId, paso.id, paso.paso_protocolo_id, paso.comentarios)}
         </div>
-      )}
-      {!comentarioNode && paso.comentarios && (
-        <div style={{ background: BLUE, padding: '8px 12px', borderRadius: '0 0 4px 4px', fontSize: '9px', color: BLUET, lineHeight: '1.5' }}>
-          <strong>Obs. técnico:</strong> {paso.comentarios}
+      ) : paso.comentarios ? (
+        <div style={{ background: BLUE, padding: '6px 12px', borderRadius: '0 0 4px 4px', fontSize: '9px', color: BLUET, lineHeight: '1.5', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+          <span style={{ fontSize: '7px', fontWeight: '800', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+            Obs. paso:
+          </span>
+          <span>{paso.comentarios}</span>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
 /**
  * Tarjeta de un dispositivo.
- * @param {{ dispositivo: object, index: number, renderComentarioPaso: Function|null }} props
+ *
+ * @param {{
+ *   dispositivo: object,
+ *   index: number,
+ *   renderComentarioPaso: Function|null,
+ *   renderComentarioActividad: Function|null,
+ *   renderObservacionIntervencion: Function|null,
+ *   renderEtiquetaValor: Function|null,
+ *   renderEvidencias: Function|null,
+ * }} props
  */
-function DispositivoBlock({ dispositivo: d, index, renderComentarioPaso }) {
+function DispositivoBlock({
+  dispositivo: d,
+  index,
+  renderComentarioPaso,
+  renderComentarioActividad,
+  renderObservacionIntervencion,
+  renderEtiquetaValor,
+  renderEvidencias,
+}) {
   const fueraDeServicio = !!d.fuera_de_servicio;
 
   const headerBg    = fueraDeServicio ? RED   : DARK;
   const wrapperBord = fueraDeServicio ? '#fee2e2' : BORD;
   const bodyBg      = fueraDeServicio ? '#fff1f2' : WHITE;
 
+  const dispositivoNombre = [d.modelo, d.marca_nombre].filter(Boolean).join(' · ')
+    || d.codigo_unico
+    || d.categoria_nombre
+    || `Dispositivo ${index + 1}`;
+
   const infoFields = [
-    { label: 'Modelo',      value: d.modelo },
+    { label: 'ID Inmotika',  value: d.id_inmotika },
+    { label: 'Cód. Único',  value: d.codigo_unico },
     { label: 'Serial',      value: d.serial },
     { label: 'Línea',       value: d.linea },
-    { label: 'Marca',       value: d.marca_nombre },
     { label: 'MAC Address', value: d.mac_address },
-    { label: 'Cód. Único',  value: d.codigo_unico },
+    { label: 'Categoría',   value: d.categoria_nombre },
   ].filter(f => !!f.value);
+
+  const obsIntervencionNode = renderObservacionIntervencion
+    ? renderObservacionIntervencion(d.intervencion_id, d.observacion_final)
+    : null;
+
+  const evidenciasNode = renderEvidencias ? renderEvidencias(d) : null;
+
+  const fotoEtiquetaUrl = d.foto_etiqueta?.signedUrl || (typeof d.foto_etiqueta === 'string' ? d.foto_etiqueta : null);
+  const fotosUrls = (d.fotos || []).map(f => (typeof f === 'string' ? f : f?.signedUrl)).filter(Boolean);
+
+  // Valor de la etiqueta: nodo editable o texto estático
+  const etiquetaValorNode = renderEtiquetaValor
+    ? renderEtiquetaValor(d.intervencion_id, d.codigo_etiqueta)
+    : null;
 
   return (
     <div style={{
@@ -206,21 +275,37 @@ function DispositivoBlock({ dispositivo: d, index, renderComentarioPaso }) {
           }}>
             {String(index + 1).padStart(2, '0')}
           </span>
-          <span style={{ fontWeight: '700', fontSize: '11px' }}>
-            {d.nombre || `Dispositivo ${index + 1}`}
-          </span>
+          <div>
+            <span style={{ fontWeight: '700', fontSize: '11px', display: 'block' }}>
+              {dispositivoNombre}
+            </span>
+            {d.categoria_nombre && (
+              <span style={{ fontSize: '8px', color: fueraDeServicio ? '#ffcccc' : LGRAY, fontWeight: '400' }}>
+                {d.categoria_nombre}
+              </span>
+            )}
+          </div>
         </div>
         {fueraDeServicio
           ? <span style={{ fontSize: '8.5px', color: '#ffcccc', fontWeight: '700' }}>⚠ FUERA DE SERVICIO</span>
-          : <span style={{ fontSize: '8.5px', color: LGRAY, fontFamily: 'monospace' }}>
-              {[d.id_inmotika && `ID: ${d.id_inmotika}`, d.marca_nombre].filter(Boolean).join(' / ')}
+          : (
+            <span style={{ fontSize: '8.5px', color: LGRAY, fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {d.codigo_etiqueta !== undefined ? (
+                <>
+                  <span style={{ color: LGRAY }}>ETQ:</span>
+                  {etiquetaValorNode || <span>{d.codigo_etiqueta || '—'}</span>}
+                  {d.id_inmotika && <span style={{ color: LGRAY }}>· ID: {d.id_inmotika}</span>}
+                </>
+              ) : (
+                [d.codigo_etiqueta && `ETQ: ${d.codigo_etiqueta}`, d.id_inmotika && `ID: ${d.id_inmotika}`].filter(Boolean).join(' · ')
+              )}
             </span>
+          )
         }
       </div>
 
       {/* Cuerpo */}
       <div style={{ padding: '16px', background: bodyBg }}>
-        {/* Info técnica */}
         {infoFields.length > 0 && (
           <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', paddingBottom: '12px', borderBottom: `1px dashed ${BORD}` }}>
             {infoFields.map(f => (
@@ -232,44 +317,58 @@ function DispositivoBlock({ dispositivo: d, index, renderComentarioPaso }) {
           </div>
         )}
 
-        {/* Notas técnicas */}
         {d.notas_tecnicas && (
           <div style={{ background: BGRAY, border: `1px solid ${BORD}`, padding: '8px 12px', borderRadius: '4px', fontSize: '9px', color: GRAY, marginBottom: '12px' }}>
             <strong>Notas técnicas:</strong> {d.notas_tecnicas}
           </div>
         )}
 
-        {/* Fuera de servicio */}
         {fueraDeServicio ? (
           <p style={{ margin: '0', color: '#991b1b', fontSize: '10px', lineHeight: '1.5' }}>
             <strong>Diagnóstico de falla:</strong> {d.motivo_fuera_de_servicio || d.observacion_final || '—'}
           </p>
         ) : (
-          /* Pasos */
-          d.pasos.map(paso => (
-            <PasoBlock
-              key={paso.id}
-              paso={paso}
-              intervencionId={d.intervencion_id}
-              renderComentarioPaso={renderComentarioPaso}
-            />
-          ))
+          <>
+            {d.pasos.map(paso => (
+              <PasoBlock
+                key={paso.id}
+                paso={paso}
+                intervencionId={d.intervencion_id}
+                renderComentarioPaso={renderComentarioPaso}
+                renderComentarioActividad={renderComentarioActividad}
+              />
+            ))}
+
+            {obsIntervencionNode ? (
+              <div style={{ marginTop: '8px', background: BLUE, padding: '8px 12px', borderRadius: '4px', fontSize: '9px', color: BLUET, lineHeight: '1.5' }}>
+                {obsIntervencionNode}
+              </div>
+            ) : d.observacion_final ? (
+              <div style={{ marginTop: '8px', background: BLUE, padding: '8px 12px', borderRadius: '4px', fontSize: '9px', color: BLUET, lineHeight: '1.5' }}>
+                <strong>Obs. del técnico:</strong> {d.observacion_final}
+              </div>
+            ) : null}
+          </>
         )}
 
         {/* Evidencias */}
-        {(d.fotos.length > 0 || d.foto_etiqueta) && (
+        {evidenciasNode ? (
+          <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: `1px dashed ${BORD}` }}>
+            {evidenciasNode}
+          </div>
+        ) : (fotoEtiquetaUrl || fotosUrls.length > 0) ? (
           <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: `1px dashed ${BORD}` }}>
             <p style={{ fontSize: '7.5px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: GRAY, margin: '0 0 8px' }}>
               Evidencia fotográfica
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {d.foto_etiqueta && (
+              {fotoEtiquetaUrl && (
                 <div style={{ width: '150px', border: `1px solid ${BORD}`, borderRadius: '6px', overflow: 'hidden' }}>
-                  <img src={d.foto_etiqueta} alt="Etiqueta" style={{ width: '100%', height: '100px', objectFit: 'cover', display: 'block' }} crossOrigin="anonymous" />
+                  <img src={fotoEtiquetaUrl} alt="Etiqueta" style={{ width: '100%', height: '100px', objectFit: 'cover', display: 'block' }} crossOrigin="anonymous" />
                   <div style={{ background: BGRAY, padding: '3px 6px', fontSize: '7.5px', color: GRAY, textAlign: 'center' }}>Foto Etiqueta</div>
                 </div>
               )}
-              {d.fotos.map((url, i) => (
+              {fotosUrls.map((url, i) => (
                 <div key={i} style={{ width: '150px', border: `1px solid ${BORD}`, borderRadius: '6px', overflow: 'hidden' }}>
                   <img src={url} alt={`Foto ${i + 1}`} style={{ width: '100%', height: '100px', objectFit: 'cover', display: 'block' }} crossOrigin="anonymous" />
                   <div style={{ background: BGRAY, padding: '3px 6px', fontSize: '7.5px', color: GRAY, textAlign: 'center' }}>Foto {i + 1}</div>
@@ -277,7 +376,7 @@ function DispositivoBlock({ dispositivo: d, index, renderComentarioPaso }) {
               ))}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -287,13 +386,31 @@ function DispositivoBlock({ dispositivo: d, index, renderComentarioPaso }) {
 
 /**
  * Template HTML del informe de mantenimiento.
- * Se renderiza offscreen y html2canvas + jsPDF lo convierte a PDF.
  *
- * @param {{ informe: import('../../api/informeApi').InformeVisita, renderComentarioPaso: Function|null }} props
+ * @param {{
+ *   informe: import('../../api/informeApi').InformeVisita & { observacion_coordinador?: string|null, coordinador_nombre?: string|null, director_nombre?: string|null },
+ *   renderComentarioPaso: Function|null,
+ *   renderComentarioActividad: Function|null,
+ *   renderObservacionIntervencion: Function|null,
+ *   renderEtiquetaValor: Function|null,
+ *   renderObsCoordinador: Function|null,
+ *   renderEvidencias: Function|null,
+ * }} props
  */
-export default function InformePDFTemplate({ informe, renderComentarioPaso }) {
-  const hoy         = fmtFecha(new Date().toISOString());
-  const totalDisp   = informe.categorias.reduce((s, c) => s + c.dispositivos.length, 0);
+export default function InformePDFTemplate({
+  informe,
+  renderComentarioPaso = null,
+  renderComentarioActividad = null,
+  renderObservacionIntervencion = null,
+  renderEtiquetaValor = null,
+  renderObsCoordinador = null,
+  renderEvidencias = null,
+}) {
+  const hoy       = fmtFecha(new Date().toISOString());
+  const totalDisp = informe.categorias.reduce((s, c) => s + c.dispositivos.length, 0);
+
+  // Obs coordinador: puede venir del prop o del campo en informe
+  const obsCoordinador = informe.observacion_coordinador || null;
 
   return (
     <div id="informe-pdf-root" style={{
@@ -301,7 +418,8 @@ export default function InformePDFTemplate({ informe, renderComentarioPaso }) {
       fontSize: '11px',
       color: DARK,
       background: WHITE,
-      width: '794px',
+      width: '100%',
+      maxWidth: '900px',
       minHeight: '1123px',
       margin: '0 auto',
       padding: '40px',
@@ -387,7 +505,7 @@ export default function InformePDFTemplate({ informe, renderComentarioPaso }) {
         </div>
       </div>
 
-      {/* ══ INSTRUCCIONES / OBSERVACIÓN COORDINADOR ══ */}
+      {/* ══ INSTRUCCIONES ══ */}
       {informe.instrucciones && (
         <div style={{
           background: '#fffbeb', borderLeft: `4px solid #f59e0b`,
@@ -427,23 +545,73 @@ export default function InformePDFTemplate({ informe, renderComentarioPaso }) {
               dispositivo={disp}
               index={idx}
               renderComentarioPaso={renderComentarioPaso}
+              renderComentarioActividad={renderComentarioActividad}
+              renderObservacionIntervencion={renderObservacionIntervencion}
+              renderEtiquetaValor={renderEtiquetaValor}
+              renderEvidencias={renderEvidencias}
             />
           ))}
         </div>
       ))}
 
+      {/* ══ OBSERVACIÓN DEL COORDINADOR (al final, antes de firmas) ══ */}
+      <div style={{ marginTop: '30px', marginBottom: '30px' }}>
+        <div style={{
+          borderLeft: `4px solid ${RED}`,
+          paddingLeft: '14px',
+          marginBottom: '8px',
+        }}>
+          <p style={{ margin: '0', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '1px', color: GRAY, fontWeight: '700' }}>
+            Observación del Coordinador
+          </p>
+        </div>
+        {renderObsCoordinador ? (
+          <div style={{ border: `1px solid ${BORD}`, borderRadius: '6px', padding: '12px 14px', background: BGRAY, fontSize: '9.5px', color: DARK, lineHeight: '1.6', minHeight: '50px' }}>
+            {renderObsCoordinador()}
+          </div>
+        ) : obsCoordinador ? (
+          <div style={{ border: `1px solid ${BORD}`, borderRadius: '6px', padding: '12px 14px', background: BGRAY, fontSize: '9.5px', color: DARK, lineHeight: '1.6' }}>
+            {obsCoordinador}
+          </div>
+        ) : (
+          <div style={{ border: `1px dashed ${BORD}`, borderRadius: '6px', padding: '12px 14px', background: BGRAY, fontSize: '9px', color: LGRAY, fontStyle: 'italic' }}>
+            Sin observación del coordinador.
+          </div>
+        )}
+      </div>
+
       {/* ══ FIRMAS ══ */}
-      <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'space-between', gap: '40px' }}>
-        <div style={{ flex: 1, textAlign: 'center' }}>
+      <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px' }}>
+        {/* Técnico(s) */}
+        <div style={{ textAlign: 'center' }}>
           <div style={{ borderBottom: `1px solid ${DARK}`, height: '40px', marginBottom: '10px' }} />
-          <p style={{ fontSize: '9px', fontWeight: '700', margin: '0' }}>{informe.tecnicos || 'Técnico Responsable'}</p>
+          <p style={{ fontSize: '9px', fontWeight: '700', margin: '0 0 2px' }}>{informe.tecnicos || 'Técnico Responsable'}</p>
           <p style={{ fontSize: '8px', color: GRAY, margin: '0' }}>Técnico(s) Responsable(s)</p>
         </div>
-        <div style={{ flex: 1, textAlign: 'center' }}>
+
+        {/* Coordinador que revisó */}
+        <div style={{ textAlign: 'center' }}>
           <div style={{ borderBottom: `1px solid ${DARK}`, height: '40px', marginBottom: '10px' }} />
-          <p style={{ fontSize: '9px', fontWeight: '700', margin: '0' }}>Firma de Aceptación Cliente</p>
+          <p style={{ fontSize: '9px', fontWeight: '700', margin: '0 0 2px' }}>{informe.coordinador_nombre || informe.coordinador || 'Coordinador'}</p>
+          <p style={{ fontSize: '8px', color: GRAY, margin: '0' }}>Coordinador Revisor</p>
+        </div>
+
+        {/* Director que aprobó */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ borderBottom: `1px solid ${DARK}`, height: '40px', marginBottom: '10px' }} />
+          <p style={{ fontSize: '9px', fontWeight: '700', margin: '0 0 2px' }}>{informe.director_nombre || 'Director'}</p>
+          <p style={{ fontSize: '8px', color: GRAY, margin: '0' }}>Director Aprobador</p>
+        </div>
+      </div>
+
+      {/* Cliente */}
+      <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ borderBottom: `1px solid ${DARK}`, height: '40px', marginBottom: '10px' }} />
+          <p style={{ fontSize: '9px', fontWeight: '700', margin: '0 0 2px' }}>Firma de Aceptación Cliente</p>
           <p style={{ fontSize: '8px', color: GRAY, margin: '0' }}>Recibido a conformidad</p>
         </div>
+        <div />
       </div>
 
       {/* ══ FOOTER ══ */}
