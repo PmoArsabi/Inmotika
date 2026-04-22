@@ -27,6 +27,7 @@ import {
   uploadEvidenciaInforme,
 } from '../../api/informeApi';
 import { supabase } from '../../utils/supabase';
+import { listDocumentos, openDocumentoSignedUrl } from '../../api/usuarioDocumentoApi';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -135,7 +136,7 @@ const ComentarioEditor = ({ value, onSave, saving }) => {
     return (
       <button type="button" onClick={() => { setDraft(''); setEditing(true); }}
         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '7.5px', color: '#9ca3af' }}
-        onMouseEnter={e => e.currentTarget.style.color = '#3b82f6'}
+        onMouseEnter={e => e.currentTarget.style.color = '#16a34a'}
         onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}>
         <Plus size={9} /> Agregar obs. paso
       </button>
@@ -177,26 +178,44 @@ const ComentarioEditor = ({ value, onSave, saving }) => {
  * Editor de observación de una actividad. Guarda al confirmar.
  * @param {{ act: object, onSave: Function, saving: boolean }} props
  */
-const ActividadObsEditor = ({ act, onSave, saving }) => {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft]     = useState(act.observacion || '');
+/**
+ * Trigger/display inline para la obs de actividad (fuera del modo edición).
+ * El modo edición se maneja en ActRow para poder usar colSpan=2.
+ */
+const ActividadObsEditor = ({ act, onSave, saving, editing, onStartEdit, onCancelEdit }) => {
+  const [draft, setDraft] = useState(act.observacion || '');
 
-  if (!act.observacion && !editing) {
+  if (editing) {
     return (
-      <button type="button" onClick={() => { setDraft(''); setEditing(true); }}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '7.5px', color: '#9ca3af' }}
-        onMouseEnter={e => e.currentTarget.style.color = '#3b82f6'}
-        onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}>
-        <Plus size={9} /> Agregar obs. actividad
-      </button>
+      <div style={{ padding: '8px 10px', background: '#f0fdf4' }}>
+        <textarea
+          autoFocus
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          rows={3}
+          onKeyDown={e => { if (e.key === 'Escape') { onCancelEdit(); } }}
+          style={{ width: '100%', fontSize: '9px', border: '1px solid #86efac', borderRadius: '4px', padding: '6px 10px', resize: 'vertical', outline: 'none', background: 'white', minHeight: '64px', boxSizing: 'border-box' }}
+          placeholder="Observación sobre esta actividad…"
+        />
+        <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', marginTop: '4px' }}>
+          <button type="button" onClick={() => { onCancelEdit(); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: '3px', color: '#9ca3af', fontSize: '9px' }}>
+            Cancelar
+          </button>
+          <button type="button" onClick={() => { onSave(draft.trim() || null); onCancelEdit(); }} disabled={saving}
+            style={{ background: '#22c55e', border: 'none', cursor: 'pointer', padding: '3px 12px', borderRadius: '3px', color: 'white', opacity: saving ? 0.5 : 1, fontSize: '9px', fontWeight: '700' }}>
+            {saving ? <Loader2 size={9} className="animate-spin" /> : 'Guardar'}
+          </button>
+        </div>
+      </div>
     );
   }
 
-  if (!editing) {
+  if (act.observacion) {
     return (
       <div className="group flex items-start gap-1.5">
         <span className="flex-1 text-[8px] text-green-800 leading-relaxed">{act.observacion}</span>
-        <button type="button" onClick={() => { setDraft(act.observacion || ''); setEditing(true); }}
+        <button type="button" onClick={() => { setDraft(act.observacion || ''); onStartEdit(); }}
           className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded hover:bg-green-100">
           <Edit3 size={9} className="text-green-600" />
         </button>
@@ -205,21 +224,12 @@ const ActividadObsEditor = ({ act, onSave, saving }) => {
   }
 
   return (
-    <div style={{ flex: 1 }}>
-      <textarea autoFocus value={draft} onChange={e => setDraft(e.target.value)} rows={3}
-        style={{ width: '100%', fontSize: '8.5px', border: '1px solid #86efac', borderRadius: '4px', padding: '5px 8px', resize: 'vertical', outline: 'none', background: 'white', minHeight: '60px' }}
-        placeholder="Observación sobre esta actividad…" />
-      <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', marginTop: '2px' }}>
-        <button type="button" onClick={() => { setDraft(act.observacion || ''); setEditing(false); }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', borderRadius: '3px', color: '#9ca3af' }}>
-          <X size={9} />
-        </button>
-        <button type="button" onClick={() => { onSave(draft.trim() || null); setEditing(false); }} disabled={saving}
-          style={{ background: '#22c55e', border: 'none', cursor: 'pointer', padding: '2px 8px', borderRadius: '3px', color: 'white', opacity: saving ? 0.5 : 1, fontSize: '9px' }}>
-          {saving ? <Loader2 size={9} className="animate-spin" /> : 'OK'}
-        </button>
-      </div>
-    </div>
+    <button type="button" onClick={() => { setDraft(''); onStartEdit(); }}
+      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '7.5px', color: '#9ca3af' }}
+      onMouseEnter={e => e.currentTarget.style.color = '#3b82f6'}
+      onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}>
+      <Plus size={9} /> Agregar obs. actividad
+    </button>
   );
 };
 
@@ -637,14 +647,15 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
   const [savingPasoId,   setSavingPasoId]   = useState(null);
   const [savingActId,    setSavingActId]    = useState(null);
   const [savingIntervId, setSavingIntervId] = useState(null);
-  const [savingObs,      setSavingObs]      = useState(false);
+  const [_savingObs,     setSavingObs]      = useState(false);
   const [resultModal,    setResultModal]    = useState(null);
   const [showRechazo,    setShowRechazo]    = useState(false);
   const [notaRechazo,    setNotaRechazo]    = useState('');
   const [savingAccion,   setSavingAccion]   = useState(false);
   const [localInforme,   setLocalInforme]   = useState(null);
   const [activeTab,      setActiveTab]      = useState('revision');
-  const [revisiones,     setRevisiones]     = useState({});
+  const [revisiones,           setRevisiones]           = useState({});
+  const [firmaCoordinadorUrl,  setFirmaCoordinadorUrl]  = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -659,10 +670,22 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
       const revMap = {};
       for (const r of revRows) revMap[r.intervencion_id] = { aprobado: r.aprobado, nota: r.nota };
       setRevisiones(revMap);
+
+      // Cargar firma del coordinador actual
+      if (userId) {
+        try {
+          const docs = await listDocumentos(userId);
+          const firma = docs.find(d => d.tipo === 'FIRMA' && d.url);
+          if (firma) {
+            const signedUrl = await openDocumentoSignedUrl(firma.url, 3600);
+            setFirmaCoordinadorUrl(signedUrl);
+          }
+        } catch { /* firma no crítica, ignorar */ }
+      }
     } catch (err) {
       setResultModal({ error: true, title: 'Error al cargar informe', errorMessage: err.message });
     } finally { setLoading(false); }
-  }, [informeBase.visita_id, informeBase.id]);
+  }, [informeBase.visita_id, informeBase.id, userId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -948,6 +971,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
             {informeFiltrado && (
               <InformePDFTemplate
                 informe={informeFiltrado}
+                firmaCoordinadorUrl={firmaCoordinadorUrl}
                 renderComentarioPaso={(intervencionId, pasoId, pasoProtocoloId, comentarioActual) => (
                   <ComentarioEditor
                     value={comentarioActual}
@@ -955,11 +979,14 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
                     onSave={(val) => handleSaveComentario(intervencionId, pasoProtocoloId, val)}
                   />
                 )}
-                renderComentarioActividad={(act) => (
+                renderComentarioActividad={(act, editCtx) => (
                   <ActividadObsEditor
                     act={act}
                     saving={savingActId === act.ejecucion_id}
                     onSave={(obs) => handleSaveActividadObs(act.ejecucion_id, act.intervencion_id, act.actividad_id, obs)}
+                    editing={editCtx?.editing ?? false}
+                    onStartEdit={editCtx?.onStartEdit ?? (() => {})}
+                    onCancelEdit={editCtx?.onCancelEdit ?? (() => {})}
                   />
                 )}
                 renderObservacionIntervencion={(intervencionId, obsActual) => (

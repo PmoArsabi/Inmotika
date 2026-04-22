@@ -46,11 +46,12 @@ const BLUET = '#1e40af';
  * @param {{ act: object, isLast: boolean, renderComentarioActividad: Function|null }} props
  */
 function ActRow({ act, isLast, renderComentarioActividad }) {
+  const [editingObs, setEditingObs] = React.useState(false);
   const { label, bg, color } = badgeEstado(act.estado);
 
   const hasObsGuardada = !!act.observacion;
   const hasStaticObs   = !renderComentarioActividad && act.observacion && act.estado === 'omitida';
-  const showObsRow     = renderComentarioActividad ? hasObsGuardada : hasStaticObs;
+  const showObsRow     = renderComentarioActividad ? (hasObsGuardada || editingObs) : hasStaticObs;
   const hasExtra       = showObsRow;
 
   return (
@@ -63,9 +64,9 @@ function ActRow({ act, isLast, renderComentarioActividad }) {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
             <span>{act.descripcion}</span>
-            {renderComentarioActividad && !hasObsGuardada && (
+            {renderComentarioActividad && !hasObsGuardada && !editingObs && (
               <span style={{ flexShrink: 0 }}>
-                {renderComentarioActividad(act)}
+                {renderComentarioActividad(act, { editing: false, onStartEdit: () => setEditingObs(true), onCancelEdit: () => setEditingObs(false) })}
               </span>
             )}
           </div>
@@ -84,16 +85,20 @@ function ActRow({ act, isLast, renderComentarioActividad }) {
       {showObsRow && renderComentarioActividad && (
         <tr>
           <td colSpan={2} style={{
-            padding: '2px 10px 6px',
+            padding: editingObs ? '0' : '2px 10px 6px',
             borderBottom: isLast ? 'none' : `1px solid ${LBORD}`,
             background: '#f0fdf4',
           }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-              <span style={{ fontSize: '7px', fontWeight: '800', color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', marginTop: '1px' }}>
-                Obs. actividad:
-              </span>
-              {renderComentarioActividad(act)}
-            </div>
+            {editingObs ? (
+              renderComentarioActividad(act, { editing: true, onStartEdit: () => setEditingObs(true), onCancelEdit: () => setEditingObs(false) })
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                <span style={{ fontSize: '7px', fontWeight: '800', color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', marginTop: '1px' }}>
+                  Obs. actividad:
+                </span>
+                {renderComentarioActividad(act, { editing: false, onStartEdit: () => setEditingObs(true), onCancelEdit: () => setEditingObs(false) })}
+              </div>
+            )}
           </td>
         </tr>
       )}
@@ -173,14 +178,18 @@ function PasoBlock({ paso, intervencionId, renderComentarioPaso, renderComentari
       )}
 
       {renderComentarioPaso ? (
-        <div style={{ background: BLUE, padding: '6px 12px', borderRadius: '0 0 4px 4px', fontSize: '9px', color: BLUET, lineHeight: '1.5', display: 'flex', alignItems: paso.comentarios ? 'baseline' : 'center', gap: '6px' }}>
-          {paso.comentarios && (
+        paso.comentarios ? (
+          <div style={{ background: BLUE, padding: '6px 12px', borderRadius: '0 0 4px 4px', fontSize: '9px', color: BLUET, lineHeight: '1.5', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
             <span style={{ fontSize: '7px', fontWeight: '800', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
               Obs. paso:
             </span>
-          )}
-          {renderComentarioPaso(intervencionId, paso.id, paso.paso_protocolo_id, paso.comentarios)}
-        </div>
+            {renderComentarioPaso(intervencionId, paso.id, paso.paso_protocolo_id, paso.comentarios)}
+          </div>
+        ) : (
+          <div style={{ padding: '4px 12px 6px' }}>
+            {renderComentarioPaso(intervencionId, paso.id, paso.paso_protocolo_id, paso.comentarios)}
+          </div>
+        )
       ) : paso.comentarios ? (
         <div style={{ background: BLUE, padding: '6px 12px', borderRadius: '0 0 4px 4px', fontSize: '9px', color: BLUET, lineHeight: '1.5', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
           <span style={{ fontSize: '7px', fontWeight: '800', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
@@ -286,22 +295,9 @@ function DispositivoBlock({
             )}
           </div>
         </div>
-        {fueraDeServicio
-          ? <span style={{ fontSize: '8.5px', color: '#ffcccc', fontWeight: '700' }}>⚠ FUERA DE SERVICIO</span>
-          : (
-            <span style={{ fontSize: '8.5px', color: LGRAY, fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {d.codigo_etiqueta !== undefined ? (
-                <>
-                  <span style={{ color: LGRAY }}>ETQ:</span>
-                  {etiquetaValorNode || <span>{d.codigo_etiqueta || '—'}</span>}
-                  {d.id_inmotika && <span style={{ color: LGRAY }}>· ID: {d.id_inmotika}</span>}
-                </>
-              ) : (
-                [d.codigo_etiqueta && `ETQ: ${d.codigo_etiqueta}`, d.id_inmotika && `ID: ${d.id_inmotika}`].filter(Boolean).join(' · ')
-              )}
-            </span>
-          )
-        }
+        {fueraDeServicio && (
+          <span style={{ fontSize: '8.5px', color: '#ffcccc', fontWeight: '700' }}>⚠ FUERA DE SERVICIO</span>
+        )}
       </div>
 
       {/* Cuerpo */}
@@ -351,14 +347,22 @@ function DispositivoBlock({
           </>
         )}
 
-        {/* Evidencias */}
+        {/* Valor de etiqueta — siempre visible si existe, independiente de las fotos */}
+        {(etiquetaValorNode || d.codigo_etiqueta) && (
+          <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: `1px dashed ${BORD}`, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '7.5px', color: LGRAY, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', fontWeight: '700' }}>Etiqueta:</span>
+            {etiquetaValorNode || <span style={{ fontSize: '9.5px', fontWeight: '700', color: DARK }}>{d.codigo_etiqueta}</span>}
+          </div>
+        )}
+
+        {/* Evidencias fotográficas */}
         {evidenciasNode ? (
           <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: `1px dashed ${BORD}` }}>
             {evidenciasNode}
           </div>
         ) : (fotoEtiquetaUrl || fotosUrls.length > 0) ? (
           <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: `1px dashed ${BORD}` }}>
-            <p style={{ fontSize: '7.5px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: GRAY, margin: '0 0 8px' }}>
+            <p style={{ fontSize: '7.5px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: GRAY, margin: '0 0 6px' }}>
               Evidencia fotográfica
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -405,6 +409,7 @@ export default function InformePDFTemplate({
   renderEtiquetaValor = null,
   renderObsCoordinador = null,
   renderEvidencias = null,
+  firmaCoordinadorUrl = null,
 }) {
   const hoy       = fmtFecha(new Date().toISOString());
   const totalDisp = informe.categorias.reduce((s, c) => s + c.dispositivos.length, 0);
@@ -422,7 +427,8 @@ export default function InformePDFTemplate({
       maxWidth: '900px',
       minHeight: '1123px',
       margin: '0 auto',
-      padding: '40px',
+      padding: '56px 64px',
+      boxSizing: 'border-box',
     }}>
 
       {/* ══ CABECERA ══ */}
@@ -581,37 +587,28 @@ export default function InformePDFTemplate({
       </div>
 
       {/* ══ FIRMAS ══ */}
-      <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px' }}>
-        {/* Técnico(s) */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ borderBottom: `1px solid ${DARK}`, height: '40px', marginBottom: '10px' }} />
-          <p style={{ fontSize: '9px', fontWeight: '700', margin: '0 0 2px' }}>{informe.tecnicos || 'Técnico Responsable'}</p>
-          <p style={{ fontSize: '8px', color: GRAY, margin: '0' }}>Técnico(s) Responsable(s)</p>
-        </div>
-
+      <div style={{ marginTop: '30px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '50px' }}>
         {/* Coordinador que revisó */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ borderBottom: `1px solid ${DARK}`, height: '40px', marginBottom: '10px' }} />
-          <p style={{ fontSize: '9px', fontWeight: '700', margin: '0 0 2px' }}>{informe.coordinador_nombre || informe.coordinador || 'Coordinador'}</p>
-          <p style={{ fontSize: '8px', color: GRAY, margin: '0' }}>Coordinador Revisor</p>
+          <div style={{ borderBottom: `1px solid ${DARK}`, height: '48px', marginBottom: '10px', position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+            {firmaCoordinadorUrl && (
+              <img
+                src={firmaCoordinadorUrl}
+                alt="Firma coordinador"
+                style={{ maxHeight: '44px', maxWidth: '140px', objectFit: 'contain', marginBottom: '4px' }}
+              />
+            )}
+          </div>
+          <p style={{ fontSize: '9.5px', fontWeight: '700', margin: '0 0 2px', color: DARK }}>{informe.coordinador_nombre || informe.coordinador || 'Coordinador'}</p>
+          <p style={{ fontSize: '8px', color: GRAY, margin: '0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Coordinador Revisor</p>
         </div>
 
         {/* Director que aprobó */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ borderBottom: `1px solid ${DARK}`, height: '40px', marginBottom: '10px' }} />
-          <p style={{ fontSize: '9px', fontWeight: '700', margin: '0 0 2px' }}>{informe.director_nombre || 'Director'}</p>
-          <p style={{ fontSize: '8px', color: GRAY, margin: '0' }}>Director Aprobador</p>
+          <div style={{ borderBottom: `1px solid ${DARK}`, height: '48px', marginBottom: '10px' }} />
+          <p style={{ fontSize: '9.5px', fontWeight: '700', margin: '0 0 2px', color: DARK }}>{informe.director_nombre || 'Director'}</p>
+          <p style={{ fontSize: '8px', color: GRAY, margin: '0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Director Aprobador</p>
         </div>
-      </div>
-
-      {/* Cliente */}
-      <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ borderBottom: `1px solid ${DARK}`, height: '40px', marginBottom: '10px' }} />
-          <p style={{ fontSize: '9px', fontWeight: '700', margin: '0 0 2px' }}>Firma de Aceptación Cliente</p>
-          <p style={{ fontSize: '8px', color: GRAY, margin: '0' }}>Recibido a conformidad</p>
-        </div>
-        <div />
       </div>
 
       {/* ══ FOOTER ══ */}

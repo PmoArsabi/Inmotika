@@ -14,13 +14,17 @@ import { uploadAndSyncFile, deleteFile } from '../utils/storageUtils';
  * @param {string} usuarioId
  * @param {string} tipo
  * @param {string} nombre  - nombre del documento (sin extensión)
+ * @param {File|null} [file] - archivo para inferir la extensión
  */
-function buildStoragePath(usuarioId, tipo, nombre) {
+function buildStoragePath(usuarioId, tipo, nombre, file) {
   const sanitize = (s) =>
     s.trim().toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
-  return `usuarios/${usuarioId}/documentos/${sanitize(tipo)}_${sanitize(nombre) || 'doc'}.pdf`;
+  const ext = file instanceof File && file.name.includes('.')
+    ? file.name.split('.').pop()
+    : 'pdf';
+  return `usuarios/${usuarioId}/documentos/${sanitize(tipo)}_${sanitize(nombre) || 'doc'}.${ext}`;
 }
 
 /**
@@ -42,9 +46,9 @@ export async function listDocumentos(usuarioId) {
 
 /**
  * Crea un documento (con subida opcional de archivo).
- * Si `file` es un File, lo sube y guarda la ruta. Si es string, usa la ruta existente.
+ * Si `file` es un File, lo sube y guarda la ruta.
  * @param {string} usuarioId
- * @param {{ nombre: string, tipo: string, file: File|string|null }} payload
+ * @param {{ nombre: string, tipo: string, file: File|null }} payload
  * @returns {Promise<UsuarioDocumento>}
  */
 export async function createDocumento(usuarioId, { nombre, tipo, file }) {
@@ -57,7 +61,7 @@ export async function createDocumento(usuarioId, { nombre, tipo, file }) {
 
   if (!file) return row;
 
-  const path = buildStoragePath(usuarioId, tipo, nombre);
+  const path = buildStoragePath(usuarioId, tipo, nombre, file);
   const finalUrl = await uploadAndSyncFile({
     file,
     fileName: path.split('/').pop(),
@@ -84,7 +88,7 @@ export async function updateDocumento(docId, usuarioId, patch) {
   if (patch.file instanceof File) {
     const nombre = patch.nombre || '';
     const tipo   = patch.tipo   || 'OTRO';
-    const path   = buildStoragePath(usuarioId, tipo, nombre);
+    const path   = buildStoragePath(usuarioId, tipo, nombre, patch.file);
     url = await uploadAndSyncFile({
       file: patch.file,
       fileName: path.split('/').pop(),
