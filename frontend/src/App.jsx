@@ -26,6 +26,7 @@ import GestionVisitasPage from './pages/visits/GestionVisitasPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import ValidacionInformePage from './pages/informe/ValidacionInformePage';
 import InformeDirectorPage from './pages/informe/InformeDirectorPage';
+import MensajesPage from './pages/MensajesPage';
 
 /** Shown whenever the current user's role lacks permission for a route. */
 const AccessDenied = () => (
@@ -188,6 +189,14 @@ function App() {
         );
       }
 
+      if (visitsSubTab === 'mensajes') {
+        return (
+          <ProtectedRoute roles={[ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.TECNICO, ROLES.CLIENTE]} userRole={userRole}>
+            <MensajesPage />
+          </ProtectedRoute>
+        );
+      }
+
       // Handle configuration sub-tabs (Solo Admin Group)
       const configSubTab = getConfigurationSubTab(activeTab);
       if (configSubTab) {
@@ -253,6 +262,8 @@ function App() {
               <ClientVisitsPage />
             </ProtectedRoute>
           );
+
+
 
         default:
           // Default fallbacks by role

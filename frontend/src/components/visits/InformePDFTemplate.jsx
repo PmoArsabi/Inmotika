@@ -223,11 +223,13 @@ function DispositivoBlock({
   renderObservacionIntervencion,
   renderEtiquetaValor,
   renderEvidencias,
+  isActive = false,
+  onActivate = null,
 }) {
   const fueraDeServicio = !!d.fuera_de_servicio;
 
   const headerBg    = fueraDeServicio ? RED   : DARK;
-  const wrapperBord = fueraDeServicio ? '#fee2e2' : BORD;
+  const wrapperBord = isActive ? '#3b82f6' : fueraDeServicio ? '#fee2e2' : BORD;
   const bodyBg      = fueraDeServicio ? '#fff1f2' : WHITE;
 
   const dispositivoNombre = [d.modelo, d.marca_nombre].filter(Boolean).join(' · ')
@@ -259,21 +261,30 @@ function DispositivoBlock({
     : null;
 
   return (
-    <div style={{
-      border: `1px solid ${wrapperBord}`,
-      borderRadius: '8px',
-      overflow: 'hidden',
-      marginBottom: '20px',
-    }}>
-      {/* Header */}
-      <div style={{
-        background: headerBg,
-        padding: '10px 16px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        color: WHITE,
-      }}>
+    <div
+      data-intervencion-id={d.intervencion_id}
+      style={{
+        border: `${isActive ? '2px' : '1px'} solid ${wrapperBord}`,
+        borderRadius: '8px',
+        overflow: 'hidden',
+        marginBottom: '20px',
+        boxShadow: isActive ? '0 0 0 3px rgba(59,130,246,0.15)' : 'none',
+        transition: 'box-shadow 0.2s, border-color 0.2s',
+      }}
+    >
+      {/* Header — click activa el resaltado bidireccional */}
+      <div
+        onClick={onActivate || undefined}
+        style={{
+          background: headerBg,
+          padding: '10px 16px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          color: WHITE,
+          cursor: onActivate ? 'pointer' : 'default',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{
             background: fueraDeServicio ? WHITE : RED,
@@ -392,13 +403,16 @@ function DispositivoBlock({
  * Template HTML del informe de mantenimiento.
  *
  * @param {{
- *   informe: import('../../api/informeApi').InformeVisita & { observacion_coordinador?: string|null, coordinador_nombre?: string|null, director_nombre?: string|null },
+ *   informe: import('../../api/informeApi').InformeVisita & { observacion_coordinador?: string|null, observacion_director?: string|null, coordinador_nombre?: string|null, director_nombre?: string|null },
  *   renderComentarioPaso: Function|null,
  *   renderComentarioActividad: Function|null,
  *   renderObservacionIntervencion: Function|null,
  *   renderEtiquetaValor: Function|null,
  *   renderObsCoordinador: Function|null,
+ *   renderObsDirector: Function|null,
  *   renderEvidencias: Function|null,
+ *   firmaCoordinadorUrl: string|null,
+ *   firmaDirectorUrl: string|null,
  * }} props
  */
 export default function InformePDFTemplate({
@@ -408,14 +422,18 @@ export default function InformePDFTemplate({
   renderObservacionIntervencion = null,
   renderEtiquetaValor = null,
   renderObsCoordinador = null,
+  renderObsDirector = null,
   renderEvidencias = null,
   firmaCoordinadorUrl = null,
+  firmaDirectorUrl = null,
+  activeIntervencionId = null,
+  onActivate = null,
 }) {
   const hoy       = fmtFecha(new Date().toISOString());
   const totalDisp = informe.categorias.reduce((s, c) => s + c.dispositivos.length, 0);
 
-  // Obs coordinador: puede venir del prop o del campo en informe
   const obsCoordinador = informe.observacion_coordinador || null;
+  const obsDirector    = informe.observacion_director    || null;
 
   return (
     <div id="informe-pdf-root" style={{
@@ -555,36 +573,52 @@ export default function InformePDFTemplate({
               renderObservacionIntervencion={renderObservacionIntervencion}
               renderEtiquetaValor={renderEtiquetaValor}
               renderEvidencias={renderEvidencias}
+              isActive={activeIntervencionId === disp.intervencion_id}
+              onActivate={onActivate ? () => onActivate(disp.intervencion_id) : null}
             />
           ))}
         </div>
       ))}
 
       {/* ══ OBSERVACIÓN DEL COORDINADOR (al final, antes de firmas) ══ */}
-      <div style={{ marginTop: '30px', marginBottom: '30px' }}>
-        <div style={{
-          borderLeft: `4px solid ${RED}`,
-          paddingLeft: '14px',
-          marginBottom: '8px',
-        }}>
-          <p style={{ margin: '0', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '1px', color: GRAY, fontWeight: '700' }}>
-            Observación del Coordinador
-          </p>
+      {(renderObsCoordinador || obsCoordinador) && (
+        <div style={{ marginTop: '30px', marginBottom: '16px' }}>
+          <div style={{ borderLeft: `4px solid ${RED}`, paddingLeft: '14px', marginBottom: '8px' }}>
+            <p style={{ margin: '0', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '1px', color: GRAY, fontWeight: '700' }}>
+              Observación del Coordinador
+            </p>
+          </div>
+          {renderObsCoordinador ? (
+            <div style={{ border: `1px solid ${BORD}`, borderRadius: '6px', padding: '12px 14px', background: BGRAY, fontSize: '9.5px', color: DARK, lineHeight: '1.6', minHeight: '50px' }}>
+              {renderObsCoordinador()}
+            </div>
+          ) : (
+            <div style={{ border: `1px solid ${BORD}`, borderRadius: '6px', padding: '12px 14px', background: BGRAY, fontSize: '9.5px', color: DARK, lineHeight: '1.6' }}>
+              {obsCoordinador}
+            </div>
+          )}
         </div>
-        {renderObsCoordinador ? (
-          <div style={{ border: `1px solid ${BORD}`, borderRadius: '6px', padding: '12px 14px', background: BGRAY, fontSize: '9.5px', color: DARK, lineHeight: '1.6', minHeight: '50px' }}>
-            {renderObsCoordinador()}
+      )}
+
+      {/* ══ OBSERVACIÓN DEL DIRECTOR ══ */}
+      {(renderObsDirector || obsDirector) && (
+        <div style={{ marginTop: '16px', marginBottom: '16px' }}>
+          <div style={{ borderLeft: `4px solid #1d4ed8`, paddingLeft: '14px', marginBottom: '8px' }}>
+            <p style={{ margin: '0', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '1px', color: GRAY, fontWeight: '700' }}>
+              Observación del Director
+            </p>
           </div>
-        ) : obsCoordinador ? (
-          <div style={{ border: `1px solid ${BORD}`, borderRadius: '6px', padding: '12px 14px', background: BGRAY, fontSize: '9.5px', color: DARK, lineHeight: '1.6' }}>
-            {obsCoordinador}
-          </div>
-        ) : (
-          <div style={{ border: `1px dashed ${BORD}`, borderRadius: '6px', padding: '12px 14px', background: BGRAY, fontSize: '9px', color: LGRAY, fontStyle: 'italic' }}>
-            Sin observación del coordinador.
-          </div>
-        )}
-      </div>
+          {renderObsDirector ? (
+            <div style={{ border: `1px solid #bfdbfe`, borderRadius: '6px', padding: '12px 14px', background: '#eff6ff', fontSize: '9.5px', color: DARK, lineHeight: '1.6', minHeight: '50px' }}>
+              {renderObsDirector()}
+            </div>
+          ) : (
+            <div style={{ border: `1px solid #bfdbfe`, borderRadius: '6px', padding: '12px 14px', background: '#eff6ff', fontSize: '9.5px', color: DARK, lineHeight: '1.6' }}>
+              {obsDirector}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ══ FIRMAS ══ */}
       <div style={{ marginTop: '30px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '50px' }}>
@@ -605,7 +639,15 @@ export default function InformePDFTemplate({
 
         {/* Director que aprobó */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ borderBottom: `1px solid ${DARK}`, height: '48px', marginBottom: '10px' }} />
+          <div style={{ borderBottom: `1px solid ${DARK}`, height: '48px', marginBottom: '10px', position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+            {firmaDirectorUrl && (
+              <img
+                src={firmaDirectorUrl}
+                alt="Firma director"
+                style={{ maxHeight: '44px', maxWidth: '140px', objectFit: 'contain', marginBottom: '4px' }}
+              />
+            )}
+          </div>
           <p style={{ fontSize: '9.5px', fontWeight: '700', margin: '0 0 2px', color: DARK }}>{informe.director_nombre || 'Director'}</p>
           <p style={{ fontSize: '8px', color: GRAY, margin: '0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Director Aprobador</p>
         </div>

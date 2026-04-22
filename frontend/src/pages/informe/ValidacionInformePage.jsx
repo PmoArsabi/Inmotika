@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ClipboardCheck, Building2, Calendar, Tag } from 'lucide-react';
+import { ClipboardCheck, Building2, Calendar, Tag, Eye, Edit2 } from 'lucide-react';
 import GenericListView from '../../components/shared/GenericListView';
 import FilterBar from '../../components/shared/FilterBar';
 import ActionResultModal from '../../components/ui/ActionResultModal';
@@ -19,8 +19,10 @@ const fmt = (iso) => {
 
 const EstadoBadge = ({ estado }) => {
   const cfg = {
-    EN_REVISION: { label: 'En revisión',           cls: 'bg-yellow-100 text-yellow-800' },
-    RECHAZADO:   { label: 'Rechazado por director', cls: 'bg-red-100 text-red-800'      },
+    EN_REVISION:    { label: 'En revisión',           cls: 'bg-yellow-100 text-yellow-800' },
+    RECHAZADO:      { label: 'Rechazado por director', cls: 'bg-red-100 text-red-800'      },
+    EN_APROBACION:  { label: 'En aprobación',          cls: 'bg-blue-100 text-blue-800'    },
+    APROBADO:       { label: 'Aprobado',               cls: 'bg-green-100 text-green-800'  },
   }[estado] || { label: estado, cls: 'bg-gray-100 text-gray-700' };
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${cfg.cls}`}>
@@ -51,7 +53,12 @@ const ValidacionInformePage = () => {
     const clientes   = [...new Map(informes.map(i => [i.cliente_nombre, i.cliente_nombre])).entries()].map(([v]) => ({ value: v, label: v }));
     const sucursales = [...new Map(informes.map(i => [i.sucursal_nombre, i.cliente_nombre])).entries()].map(([v, p]) => ({ value: v, label: v, parentValue: p }));
     return [
-      { key: 'estado',     label: 'Estado',       multi: true, options: [{ value: 'EN_REVISION', label: 'En revisión' }, { value: 'RECHAZADO', label: 'Rechazado' }] },
+      { key: 'estado', label: 'Estado', multi: true, options: [
+        { value: 'EN_REVISION',   label: 'En revisión'           },
+        { value: 'RECHAZADO',     label: 'Rechazado por director' },
+        { value: 'EN_APROBACION', label: 'En aprobación'          },
+        { value: 'APROBADO',      label: 'Aprobado'               },
+      ]},
       { key: 'cliente',    label: 'Cliente',       multi: true, options: clientes },
       { key: 'sucursal',   label: 'Sucursal',      multi: true, options: sucursales, dependsOn: 'cliente', dependsOnLabel: 'Cliente' },
       { key: 'fechaDesde', label: 'Fecha desde',   type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
@@ -145,14 +152,24 @@ const ValidacionInformePage = () => {
         columns={columns}
         loading={loading}
         loadingText="Cargando informes…"
-        emptyText="No hay informes pendientes de revisión"
+        emptyText="No hay informes registrados"
         emptyIcon={ClipboardCheck}
         searchPlaceholder="Buscar por cliente o sucursal…"
         filterFunction={(inf, q) =>
           inf.cliente_nombre.toLowerCase().includes(q) ||
           inf.sucursal_nombre.toLowerCase().includes(q)
         }
-        onEdit={inf => setSelected(inf)}
+        rowActions={inf => (
+          ['EN_REVISION', 'RECHAZADO'].includes(inf.estado) ? (
+            <button onClick={() => setSelected(inf)} className="p-1.5 rounded hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors" title="Editar">
+              <Edit2 size={16} />
+            </button>
+          ) : (
+            <button onClick={() => setSelected(inf)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="Ver">
+              <Eye size={16} />
+            </button>
+          )
+        )}
         activeFiltersCount={activeFiltersCount}
         filteredCount={informesFiltrados.length}
         totalItems={informes.length}

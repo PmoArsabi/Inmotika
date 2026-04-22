@@ -3,7 +3,7 @@ import {
   LayoutDashboard, ClipboardList, Settings, Calendar, Building2,
   Cpu, Eye, LogOut, Menu, ChevronUp, ChevronDown, Users,
   FileText, Wallet, BarChart, Bell, Phone, UserCog, Tag,
-  CalendarCheck, PlayCircle, List, ClipboardCheck
+  CalendarCheck, PlayCircle, List, ClipboardCheck, MessageSquare
 } from 'lucide-react';
 import { ROLES, isManagementRole } from '../../utils/constants';
 import { H3, TextSmall, Subtitle } from '../ui/Typography';
@@ -71,6 +71,7 @@ const Sidebar = ({
             ...(userRole === ROLES.DIRECTOR
               ? [{ id: 'visits-aprobacion-informes', label: 'Aprobar Informes', icon: ClipboardCheck }]
               : []),
+            { id: 'visits-mensajes', label: 'Mensajes', icon: MessageSquare },
           ],
         },
       ];
@@ -85,8 +86,9 @@ const Sidebar = ({
           hasSubItems: true,
           subItems: [
             { id: 'visits-gestion', label: 'Gestión Visitas', icon: PlayCircle },
+            { id: 'visits-mensajes', label: 'Mensajes',        icon: MessageSquare },
           ],
-        }
+        },
       ];
     }
     if (userRole === ROLES.CLIENTE) {
@@ -108,7 +110,8 @@ const Sidebar = ({
           icon: ClipboardList,
           hasSubItems: true,
           subItems: [
-            { id: 'visits-solicitudes', label: 'Solicitar Visita', icon: List }
+            { id: 'visits-solicitudes', label: 'Solicitar Visita', icon: List },
+            { id: 'visits-mensajes',    label: 'Mensajes',          icon: MessageSquare },
           ],
         },
       ];

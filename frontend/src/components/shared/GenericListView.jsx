@@ -35,6 +35,7 @@ const GenericListView = ({
   onView,
   onEdit,
   onDelete,
+  rowActions,
   newButtonLabel = "Nuevo Registro",
   searchPlaceholder = "Buscar...",
   filterFunction,
@@ -67,7 +68,7 @@ const GenericListView = ({
   const endIndex = startIndex + entriesPerPage;
   const paginatedItems = filteredItems.slice(startIndex, endIndex);
 
-  const hasActions = onView || onEdit || onDelete;
+  const hasActions = rowActions || onView || onEdit || onDelete;
 
   return (
     <div className="space-y-4 -mt-2">
@@ -225,20 +226,24 @@ const GenericListView = ({
                     {hasActions && (
                       <Td align="right">
                         <div className="flex items-center justify-end gap-2">
-                          {onView && (
-                            <button onClick={() => onView(item)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="Ver detalles">
-                              <Eye size={16} />
-                            </button>
-                          )}
-                          {onEdit && (
-                            <button onClick={() => onEdit(item)} className="p-1.5 rounded hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors" title="Editar">
-                              <Edit2 size={16} />
-                            </button>
-                          )}
-                          {onDelete && (
-                            <button onClick={() => onDelete(item)} className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="Eliminar">
-                              <Trash2 size={16} />
-                            </button>
+                          {rowActions ? rowActions(item) : (
+                            <>
+                              {onView && (
+                                <button onClick={() => onView(item)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="Ver detalles">
+                                  <Eye size={16} />
+                                </button>
+                              )}
+                              {onEdit && (
+                                <button onClick={() => onEdit(item)} className="p-1.5 rounded hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors" title="Editar">
+                                  <Edit2 size={16} />
+                                </button>
+                              )}
+                              {onDelete && (
+                                <button onClick={() => onDelete(item)} className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="Eliminar">
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       </Td>

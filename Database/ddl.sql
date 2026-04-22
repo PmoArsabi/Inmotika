@@ -344,9 +344,15 @@ alter table "public"."perfil_usuario" enable row level security;
     "motivo" text not null,
     "prioridad" character varying(20) default 'MEDIA',
     "estado_id" uuid,
+    "informe_id" uuid references public.informe(id) on delete set null,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now()
       );
+
+-- Garantiza máximo una solicitud correctiva por informe
+CREATE UNIQUE INDEX IF NOT EXISTS solicitud_visita_informe_unique
+  ON public.solicitud_visita (informe_id)
+  WHERE informe_id IS NOT NULL;
 
 alter table "public"."solicitud_visita" enable row level security;
 
@@ -3275,6 +3281,16 @@ with check ((auth.role() = 'authenticated'));
 -- --- intervencion: etiqueta constraint ---
 alter table "public"."intervencion" add constraint "intervencion_etiqueta_formato" CHECK (codigo_etiqueta IS NULL OR codigo_etiqueta ~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$');
 
+-- --- solicitud_visita: coordinadores y directores pueden gestionar solicitudes ---
+CREATE POLICY "management_all_solicitud_visita"
+  ON public.solicitud_visita FOR ALL TO authenticated
+  USING (is_management_staff()) WITH CHECK (is_management_staff());
+
+-- --- solicitud_dispositivo: coordinadores y directores pueden gestionar ---
+CREATE POLICY "management_all_solicitud_dispositivo"
+  ON public.solicitud_dispositivo FOR ALL TO authenticated
+  USING (is_management_staff()) WITH CHECK (is_management_staff());
+
 -- --- solicitud_visita: técnicos pueden ver solicitudes de visitas asignadas ---
 create policy "Tecnicos can view solicitudes of assigned visits"
 on "public"."solicitud_visita"
@@ -3624,12 +3640,15 @@ CREATE TABLE IF NOT EXISTS public.informe (
   id                       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   visita_id                uuid NOT NULL UNIQUE REFERENCES public.visita(id) ON DELETE CASCADE,
   estado                   varchar(20) NOT NULL DEFAULT 'EN_REVISION',
-    -- EN_REVISION | APROBADO | RECHAZADO
+    -- EN_REVISION | EN_APROBACION | APROBADO | RECHAZADO
   storage_path             text,
   generado_at              timestamptz,
   enviado_director_at      timestamptz,
   enviado_cliente_at       timestamptz,
   observacion_coordinador  text,
+  observacion_director     text,
+  finalizado_por           uuid REFERENCES public.perfil_usuario(id),
+  finalizado_at            timestamptz,
   created_at               timestamptz NOT NULL DEFAULT now(),
   updated_at               timestamptz NOT NULL DEFAULT now()
 );
@@ -3710,6 +3729,17 @@ CREATE POLICY "cliente_read_informe_aprobado"
     )
   );
 
+CREATE POLICY "tecnico_read_informe"
+  ON public.informe FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.visita_tecnico vt
+      JOIN public.tecnico tc ON tc.id = vt.tecnico_id
+      WHERE vt.visita_id = informe.visita_id
+        AND tc.usuario_id = auth.uid()
+    )
+  );
+
 CREATE POLICY "tecnico_insert_informe"
   ON public.informe FOR INSERT TO authenticated
   WITH CHECK (
@@ -3775,6 +3805,17 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.ejecucion_actividad;
 -- Campo editable por el coordinador que aparece en el PDF generado.
 ALTER TABLE public.informe
   ADD COLUMN IF NOT EXISTS observacion_coordinador text;
+
+-- ─── observacion_director en informe ─────────────────────────────────────────
+-- Campo editable por el director que aparece en el PDF generado.
+ALTER TABLE public.informe
+  ADD COLUMN IF NOT EXISTS observacion_director text;
+
+-- ─── finalizado_por / finalizado_at en informe ───────────────────────────────
+-- Registra quién aprobó finalmente el informe y cuándo.
+ALTER TABLE public.informe
+  ADD COLUMN IF NOT EXISTS finalizado_por uuid REFERENCES public.perfil_usuario(id),
+  ADD COLUMN IF NOT EXISTS finalizado_at  timestamptz;
 
 -- ─── Tabla: chat_informe ─────────────────────────────────────────────────────
 -- Comentarios internos de coordinación sobre un informe (no aparecen en el PDF).

@@ -78,12 +78,12 @@ const ActionResultModal = ({
                   <CheckCircle2 size={32} />
                 </div>
                 <H3 className="normal-case text-white font-black text-2xl tracking-tight">{title}</H3>
-                {subtitle && (
-                  <Subtitle className="text-white/80 text-sm mt-1">{subtitle}</Subtitle>
-                )}
               </div>
             </div>
             <div className="p-6 space-y-3">
+              {subtitle && (
+                <TextSmall className="text-gray-500 text-center block">{subtitle}</TextSmall>
+              )}
               {actions.map((action, i) => (
                 <Button
                   key={i}

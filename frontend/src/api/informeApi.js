@@ -1,5 +1,6 @@
 import { supabase } from '../utils/supabase';
 import { fireAndForgetEmail } from '../hooks/useEmail';
+import { syncSolicitudDispositivos } from './solicitudDispositivoApi';
 
 /**
  * @typedef {Object} ActividadEjecucion
@@ -204,7 +205,7 @@ export async function getInformesEnRevision() {
         sucursal:sucursal_id(nombre, ciudad)
       )
     `)
-    .in('estado', ['EN_REVISION', 'RECHAZADO'])
+    .in('estado', ['EN_REVISION', 'RECHAZADO', 'EN_APROBACION', 'APROBADO'])
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(`Error al obtener informes: ${error.message}`);
@@ -295,7 +296,7 @@ export async function getInformesEnRevision() {
 export async function enviarInformeADirector(informeId, ctx) {
   const { error } = await supabase
     .from('informe')
-    .update({ enviado_director_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update({ estado: 'EN_APROBACION', enviado_director_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('id', informeId);
   if (error) throw new Error(`Error al enviar informe al director: ${error.message}`);
 
@@ -353,6 +354,13 @@ export async function registrarRevisionDirector(informeId, directorUsuarioId, ac
     .update(patch)
     .eq('id', informeId);
   if (updErr) throw new Error(`Error al actualizar estado del informe: ${updErr.message}`);
+
+  // Notificar en el chat cuando el director rechaza con observación
+  if (accion === 'RECHAZADO' && observacion) {
+    try {
+      await sendChatInforme(informeId, directorUsuarioId, `❌ Informe rechazado\n\nMotivo: ${observacion}`);
+    } catch { /* chat no crítico */ }
+  }
 }
 
 /**
@@ -392,7 +400,7 @@ export async function getInformesPendientesDirector(directorUsuarioId) {
         sucursal:sucursal_id(nombre, ciudad)
       )
     `)
-    .eq('estado', 'EN_REVISION')
+    .eq('estado', 'EN_APROBACION')
     .not('enviado_director_at', 'is', null)
     .order('enviado_director_at', { ascending: true });
 
@@ -442,6 +450,63 @@ export async function getInformesPendientesDirector(directorUsuarioId) {
     return {
       id: inf.id,
       visita_id: inf.visita_id,
+      estado: inf.estado,
+      enviado_director_at: inf.enviado_director_at,
+      cliente_nombre: inf.visita?.cliente?.razon_social || '—',
+      sucursal_nombre: inf.visita?.sucursal?.nombre || '—',
+      sucursal_ciudad: inf.visita?.sucursal?.ciudad || null,
+      tipo_visita: inf.visita?.tipo_visita?.nombre || '—',
+      fecha_fin: inf.visita?.fecha_fin || null,
+      aprobadas: rev.aprobadas,
+      rechazadas: rev.rechazadas,
+      total: rev.total,
+    };
+  });
+}
+
+/**
+ * Retorna TODOS los informes visibles para el director (todos los estados) para trazabilidad.
+ * @returns {Promise<Array>}
+ */
+export async function getInformesDirectorTodos() {
+  const { data, error } = await supabase
+    .from('informe')
+    .select(`
+      id, visita_id, estado, enviado_director_at,
+      visita:visita_id(
+        fecha_fin,
+        tipo_visita:tipo_visita_id(nombre),
+        cliente:cliente_id(razon_social),
+        sucursal:sucursal_id(nombre, ciudad)
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`Error al obtener informes director: ${error.message}`);
+
+  const informeIds = (data || []).map(inf => inf.id);
+  if (!informeIds.length) return [];
+
+  const { data: revRows } = await supabase
+    .from('informe_coordinador')
+    .select('informe_id, aprobado')
+    .in('informe_id', informeIds);
+
+  const revMap = new Map();
+  for (const r of (revRows || [])) {
+    const entry = revMap.get(r.informe_id) || { aprobadas: 0, rechazadas: 0, total: 0 };
+    entry.total += 1;
+    if (r.aprobado) entry.aprobadas += 1;
+    else entry.rechazadas += 1;
+    revMap.set(r.informe_id, entry);
+  }
+
+  return (data || []).map(inf => {
+    const rev = revMap.get(inf.id) || { aprobadas: 0, rechazadas: 0, total: 0 };
+    return {
+      id: inf.id,
+      visita_id: inf.visita_id,
+      estado: inf.estado,
       enviado_director_at: inf.enviado_director_at,
       cliente_nombre: inf.visita?.cliente?.razon_social || '—',
       sucursal_nombre: inf.visita?.sucursal?.nombre || '—',
@@ -457,12 +522,11 @@ export async function getInformesPendientesDirector(directorUsuarioId) {
 
 /**
  * Genera el PDF del informe (solo intervenciones aprobadas por el coordinador),
- * sube al storage, actualiza el campo storage_path y envía email al cliente.
- * Llama a la Edge Function download-informe internamente para generar el PDF.
+ * sube al storage, actualiza los campos de aprobación y envía email al cliente.
  *
  * @param {string} informeId
  * @param {string} visitaId
- * @param {{ clienteEmails: string[], clienteNombre: string, sucursalNombre: string, tipoVisita: string, fechaFin: string|null, appUrl: string }} ctx
+ * @param {{ clienteEmails: string[], clienteNombre: string, sucursalNombre: string, tipoVisita: string, fechaFin: string|null, appUrl: string, finalizadoPor: string }} ctx
  * @returns {Promise<{pdfUrl: string}>}
  */
 export async function aprobarYGenerarPDF(informeId, visitaId, ctx) {
@@ -485,19 +549,22 @@ export async function aprobarYGenerarPDF(informeId, visitaId, ctx) {
     throw new Error(`Error al generar PDF: ${pdfErr?.message || 'sin URL'}`);
   }
 
-  // 3. Marcar informe como APROBADO con path del PDF
+  const ahora = new Date().toISOString();
+
+  // 3. Guardar path del PDF y campos de finalización
   const { error: updErr } = await supabase
     .from('informe')
     .update({
-      estado: 'APROBADO',
-      storage_path: pdfData.storagePath || null,
-      generado_at: new Date().toISOString(),
-      enviado_cliente_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      storage_path:      pdfData.storagePath || null,
+      generado_at:       ahora,
+      enviado_cliente_at: ctx.clienteEmails?.length ? ahora : null,
+      finalizado_por:    ctx.finalizadoPor || null,
+      finalizado_at:     ahora,
+      updated_at:        ahora,
     })
     .eq('id', informeId);
 
-  if (updErr) throw new Error(`Error al aprobar informe: ${updErr.message}`);
+  if (updErr) throw new Error(`Error al guardar PDF del informe: ${updErr.message}`);
 
   // 4. Notificar al cliente
   if (ctx.clienteEmails?.length) {
@@ -514,6 +581,76 @@ export async function aprobarYGenerarPDF(informeId, visitaId, ctx) {
   }
 
   return { pdfUrl: pdfData.pdfUrl };
+}
+
+// ─── Bandeja de conversaciones ───────────────────────────────────────────────
+
+/**
+ * @typedef {Object} Conversacion
+ * @property {string}      informe_id
+ * @property {string}      visita_id
+ * @property {string}      cliente_nombre
+ * @property {string}      sucursal_nombre
+ * @property {string|null} sucursal_ciudad
+ * @property {string}      tipo_visita
+ * @property {string}      informe_estado      - EN_REVISION | APROBADO | RECHAZADO
+ * @property {number}      total_mensajes
+ * @property {string|null} ultimo_mensaje
+ * @property {string|null} ultimo_mensaje_at
+ * @property {string|null} ultimo_autor_nombre
+ */
+
+/**
+ * Retorna todas las conversaciones (informes con chat) accesibles para el usuario actual.
+ * RLS garantiza que cada rol solo ve los informes que le corresponden.
+ * Ordena por último mensaje descendente.
+ *
+ * @returns {Promise<Conversacion[]>}
+ */
+export async function getConversaciones() {
+  // 1. Traer todos los informes accesibles con su visita y al menos 1 mensaje de chat
+  const { data: informes, error } = await supabase
+    .from('informe')
+    .select(`
+      id,
+      visita_id,
+      estado,
+      visita:visita_id(
+        tipo_visita:tipo_visita_id(nombre),
+        cliente:cliente_id(razon_social),
+        sucursal:sucursal_id(nombre, ciudad)
+      ),
+      chat_informe(id, mensaje, created_at, autor:autor_id(nombres, apellidos))
+    `)
+    .order('created_at', { referencedTable: 'chat_informe', ascending: false });
+
+  if (error) throw new Error(`Error al obtener conversaciones: ${error.message}`);
+
+  // Filtrar informes que tienen al menos un mensaje y construir el shape
+  return (informes || [])
+    .filter(inf => inf.chat_informe?.length > 0)
+    .map(inf => {
+      const msgs = [...(inf.chat_informe || [])].sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
+      const ultimo = msgs[0];
+      return {
+        informe_id:         inf.id,
+        visita_id:          inf.visita_id,
+        cliente_nombre:     inf.visita?.cliente?.razon_social || '—',
+        sucursal_nombre:    inf.visita?.sucursal?.nombre || '—',
+        sucursal_ciudad:    inf.visita?.sucursal?.ciudad || null,
+        tipo_visita:        inf.visita?.tipo_visita?.nombre || '—',
+        informe_estado:     inf.estado,
+        total_mensajes:     msgs.length,
+        ultimo_mensaje:     ultimo?.mensaje || null,
+        ultimo_mensaje_at:  ultimo?.created_at || null,
+        ultimo_autor_nombre: ultimo?.autor
+          ? `${ultimo.autor.nombres || ''} ${ultimo.autor.apellidos || ''}`.trim()
+          : null,
+      };
+    })
+    .sort((a, b) => new Date(b.ultimo_mensaje_at) - new Date(a.ultimo_mensaje_at));
 }
 
 // ─── Chat interno del informe ─────────────────────────────────────────────────
@@ -569,50 +706,91 @@ export async function sendChatInforme(informeId, autorId, mensaje) {
 // ─── Edición de comentarios de paso ──────────────────────────────────────────
 
 /**
- * Crea una solicitud de visita correctiva con los dispositivos rechazados.
- * Busca el tipo_visita 'CORRECTIVA' y el estado 'PENDIENTE' del catálogo.
+ * Crea o actualiza la solicitud de visita correctiva ligada a un informe.
+ * Garantiza una sola solicitud por informe (UNIQUE en informe_id).
+ *
+ * Si ya existe una solicitud para el informe:
+ *   - Actualiza motivo, fecha_sugerida y reemplaza los dispositivos.
+ * Si no existe:
+ *   - Inserta una nueva solicitud con informe_id.
  *
  * @param {{
+ *   informeId: string,
  *   clienteId: string,
  *   sucursalId: string,
  *   creadoPor: string,
  *   motivo: string,
  *   dispositivoIds: string[],
+ *   fechaSugerida?: string|null,
  * }} params
- * @returns {Promise<string>} id de la solicitud creada
+ * @returns {Promise<{ solicitudId: string, isNew: boolean }>}
  */
-export async function crearSolicitudCorrectiva({ clienteId, sucursalId, creadoPor, motivo, dispositivoIds }) {
-  // Obtener tipo_visita CORRECTIVA y estado PENDIENTE en paralelo
-  const [{ data: tipoData, error: tipoErr }, { data: estadoData }] = await Promise.all([
-    supabase.from('catalogo').select('id').eq('tipo', 'TIPO_VISITA').eq('codigo', 'CORRECTIVA').maybeSingle(),
-    supabase.from('catalogo').select('id').eq('tipo', 'ESTADO_SOLICITUD').eq('codigo', 'PENDIENTE').maybeSingle(),
+export async function upsertSolicitudCorrectiva({ informeId, clienteId, sucursalId, creadoPor, motivo, dispositivoIds, fechaSugerida = null }) {
+  // Resolver IDs de catálogo directamente para no depender de opciones pre-cargadas
+  const [{ data: tipoVisitaRow }, { data: estadoRow }] = await Promise.all([
+    supabase.from('catalogo').select('id').eq('tipo', 'TIPO_VISITA').eq('codigo', 'CORRECTIVO').maybeSingle(),
+    supabase.from('catalogo').select('id').eq('tipo', 'ESTADO_VISITA').eq('codigo', 'PENDIENTE').maybeSingle(),
   ]);
-  if (tipoErr) throw new Error(`Error buscando tipo CORRECTIVA: ${tipoErr.message}`);
-  if (!tipoData) throw new Error('Tipo de visita CORRECTIVA no encontrado en catálogo.');
+  if (!tipoVisitaRow?.id) throw new Error('Tipo de visita CORRECTIVO no encontrado en catálogo.');
+  const tipoVisitaId = tipoVisitaRow.id;
+  const estadoId     = estadoRow?.id || null;
 
-  const { data: inserted, error: insErr } = await supabase
-    .from('solicitud_visita')
-    .insert({
-      cliente_id: clienteId || null,
-      sucursal_id: sucursalId,
-      creado_por: creadoPor,
-      tipo_visita_id: tipoData.id,
-      motivo: motivo || 'Corrección de dispositivos rechazados en informe.',
-      prioridad: 'ALTA',
-      estado_id: estadoData?.id || null,
-    })
-    .select('id')
-    .single();
-  if (insErr) throw new Error(`Error al crear solicitud correctiva: ${insErr.message}`);
+  const { data: existente } = await supabase
+    .from('solicitud_visita').select('id').eq('informe_id', informeId).maybeSingle();
 
-  if (dispositivoIds.length > 0) {
-    const { error: devErr } = await supabase
-      .from('solicitud_dispositivo')
-      .insert(dispositivoIds.map(dId => ({ solicitud_id: inserted.id, dispositivo_id: dId, activo: true })));
-    if (devErr) throw new Error(`Error al vincular dispositivos a solicitud: ${devErr.message}`);
+  let solicitudId;
+
+  if (existente?.id) {
+    // Si no quedan dispositivos rechazados, cancelar la solicitud
+    if (dispositivoIds.length === 0) {
+      const { data: estadoCancelada } = await supabase
+        .from('catalogo').select('id').eq('tipo', 'ESTADO_VISITA').eq('codigo', 'CANCELADA').maybeSingle();
+      await supabase.from('solicitud_visita')
+        .update({ estado_id: estadoCancelada?.id || null, updated_at: new Date().toISOString() })
+        .eq('id', existente.id);
+      await syncSolicitudDispositivos(existente.id, []);
+      return { solicitudId: existente.id, isNew: false };
+    }
+
+    const { error: updErr } = await supabase
+      .from('solicitud_visita')
+      .update({
+        cliente_id:     clienteId || null,
+        sucursal_id:    sucursalId,
+        tipo_visita_id: tipoVisitaId,
+        estado_id:      estadoId || null,
+        motivo,
+        fecha_sugerida: fechaSugerida || null,
+        updated_at:     new Date().toISOString(),
+      })
+      .eq('id', existente.id);
+    if (updErr) throw new Error(`Error al actualizar solicitud correctiva: ${updErr.message}`);
+    solicitudId = existente.id;
+  } else {
+    if (dispositivoIds.length === 0) return { solicitudId: null, isNew: false };
+
+    const { data: inserted, error: insErr } = await supabase
+      .from('solicitud_visita')
+      .insert({
+        informe_id:     informeId,
+        cliente_id:     clienteId || null,
+        sucursal_id:    sucursalId,
+        creado_por:     creadoPor,
+        tipo_visita_id: tipoVisitaId,
+        motivo,
+        prioridad:      'ALTA',
+        estado_id:      estadoId || null,
+        fecha_sugerida: fechaSugerida || null,
+      })
+      .select('id')
+      .single();
+    if (insErr) throw new Error(`Error al crear solicitud correctiva: ${insErr.message}`);
+    solicitudId = inserted.id;
   }
 
-  return inserted.id;
+  await syncSolicitudDispositivos(solicitudId, dispositivoIds);
+
+  return { solicitudId, isNew: !existente?.id };
 }
 
 /**
@@ -742,6 +920,19 @@ export async function updateObservacionCoordinador(informeId, observacion) {
 }
 
 /**
+ * Actualiza la observación del director en el informe (aparecerá en el PDF).
+ * @param {string} informeId
+ * @param {string|null} observacion
+ */
+export async function updateObservacionDirector(informeId, observacion) {
+  const { error } = await supabase
+    .from('informe')
+    .update({ observacion_director: observacion, updated_at: new Date().toISOString() })
+    .eq('id', informeId);
+  if (error) throw new Error(`Error al actualizar observación del director: ${error.message}`);
+}
+
+/**
  * Retorna el informe completo incluyendo observacion_coordinador.
  * @param {string} informeId
  * @returns {Promise<{id:string, estado:string, observacion_coordinador:string|null}|null>}
@@ -749,7 +940,7 @@ export async function updateObservacionCoordinador(informeId, observacion) {
 export async function getInformeDetalle(informeId) {
   const { data, error } = await supabase
     .from('informe')
-    .select('id, estado, observacion_coordinador, visita_id, enviado_director_at')
+    .select('id, estado, observacion_coordinador, observacion_director, visita_id, enviado_director_at')
     .eq('id', informeId)
     .maybeSingle();
   if (error) throw new Error(`Error al obtener informe: ${error.message}`);
@@ -767,6 +958,8 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
     .from('visita')
     .select(`
       id,
+      cliente_id,
+      sucursal_id,
       fecha_programada,
       fecha_inicio,
       fecha_fin,
@@ -1005,19 +1198,21 @@ export async function fetchInformeData(visitaId, aprobadosIds = null) {
 
   /** @type {InformeVisita} */
   return {
-    visita_id: visita.id,
-    cliente_nombre: visita.cliente?.razon_social || '—',
-    cliente_nit: visita.cliente?.nit || null,
-    sucursal_nombre: visita.sucursal?.nombre || '—',
-    sucursal_ciudad: visita.sucursal?.ciudad || null,
+    visita_id:         visita.id,
+    cliente_id:        visita.cliente_id || null,
+    sucursal_id:       visita.sucursal_id || null,
+    cliente_nombre:    visita.cliente?.razon_social || '—',
+    cliente_nit:       visita.cliente?.nit || null,
+    sucursal_nombre:   visita.sucursal?.nombre || '—',
+    sucursal_ciudad:   visita.sucursal?.ciudad || null,
     sucursal_direccion: visita.sucursal?.direccion || null,
-    tipo_visita: visita.tipo_visita?.nombre || '—',
-    fecha_programada: visita.fecha_programada || null,
-    fecha_inicio: visita.fecha_inicio || null,
-    fecha_fin: visita.fecha_fin || null,
+    tipo_visita:       visita.tipo_visita?.nombre || '—',
+    fecha_programada:  visita.fecha_programada || null,
+    fecha_inicio:      visita.fecha_inicio || null,
+    fecha_fin:         visita.fecha_fin || null,
     tecnicos,
     coordinador,
-    instrucciones: visita.observaciones || null,
+    instrucciones:     visita.observaciones || null,
     observacion_final: visita.observacion_final || null,
     total_dispositivos: intervencionesFiltradas.length,
     categorias,
