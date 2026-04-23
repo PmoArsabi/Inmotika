@@ -502,7 +502,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
               {visitaVinculada.dispositivos?.length > 0 && (
                 <div className="pt-2 border-t border-gray-100">
                   <p className="text-2xs font-bold uppercase tracking-widest text-gray-400 mb-3">Avance de dispositivos</p>
-                  <VisitProgressPanel
+<VisitProgressPanel
                     dispositivos={visitaVinculada.dispositivos}
                     ejecucionPasos={visitaVinculada.ejecucionPasos}
                     ejecucionActividades={visitaVinculada.ejecucionActividades}
