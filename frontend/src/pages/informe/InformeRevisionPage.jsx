@@ -1456,9 +1456,39 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 gap-3">
-        <Loader2 size={20} className="animate-spin text-brand" />
-        <TextSmall className="text-gray-400">Cargando informe…</TextSmall>
+      <div className="flex flex-col items-center justify-center h-80 gap-6 animate-in fade-in duration-500">
+        {/* Círculo de progreso animado */}
+        <div className="relative w-16 h-16">
+          <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="#f3f4f6" strokeWidth="5" />
+            <circle
+              cx="32" cy="32" r="26" fill="none"
+              stroke="#D32F2F" strokeWidth="5"
+              strokeLinecap="round"
+              strokeDasharray="163.4"
+              strokeDashoffset="163.4"
+              style={{ animation: 'spin-dash 1.4s ease-in-out infinite' }}
+            />
+          </svg>
+          <style>{`
+            @keyframes spin-dash {
+              0%   { stroke-dashoffset: 163.4; }
+              50%  { stroke-dashoffset: 40; }
+              100% { stroke-dashoffset: 163.4; }
+            }
+          `}</style>
+        </div>
+        <div className="text-center space-y-1">
+          <TextSmall className="text-gray-700 font-semibold">Cargando informe</TextSmall>
+          <TextTiny className="text-gray-400">Esto puede tomar unos segundos…</TextTiny>
+        </div>
+        {/* Skeleton placeholders */}
+        <div className="w-full max-w-2xl space-y-3 px-4 animate-pulse">
+          <div className="h-4 bg-gray-100 rounded-full w-3/4 mx-auto" />
+          <div className="h-3 bg-gray-100 rounded-full w-1/2 mx-auto" />
+          <div className="mt-4 h-24 bg-gray-100 rounded-xl" />
+          <div className="h-16 bg-gray-100 rounded-xl" />
+        </div>
       </div>
     );
   }

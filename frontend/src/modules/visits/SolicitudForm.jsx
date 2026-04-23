@@ -466,6 +466,39 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                 </div>
               )}
 
+              {/* Informe aprobado — destacado antes del avance */}
+              {isCliente && informeStoragePath && (
+                <div className="pt-2 border-t border-gray-100">
+                  <div className="rounded-xl border border-brand/20 bg-linear-to-br from-red-50 to-rose-50 p-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-brand flex items-center justify-center shrink-0 shadow-sm">
+                        <FileDown size={16} className="text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-gray-900">Informe Técnico</p>
+                        <p className="text-2xs text-gray-500">Documento aprobado disponible</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleInforme('view')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark transition-colors text-xs font-bold shadow-sm"
+                      >
+                        <Eye size={12} /> Ver
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleInforme('download')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-xs font-bold"
+                      >
+                        <FileDown size={12} /> PDF
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {visitaVinculada.dispositivos?.length > 0 && (
                 <div className="pt-2 border-t border-gray-100">
                   <p className="text-2xs font-bold uppercase tracking-widest text-gray-400 mb-3">Avance de dispositivos</p>
@@ -474,6 +507,8 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                     ejecucionPasos={visitaVinculada.ejecucionPasos}
                     ejecucionActividades={visitaVinculada.ejecucionActividades}
                     deviceEvidencias={visitaVinculada.deviceEvidencias}
+                    dispositivoIntervencionMap={visitaVinculada.dispositivoIntervencionMap}
+                    dispositivoFdsMap={visitaVinculada.dispositivoFdsMap}
                   />
                 </div>
               )}
@@ -481,26 +516,6 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                 <div className="p-3 rounded-lg bg-green-50 border border-green-100">
                   <p className="text-2xs font-bold uppercase tracking-widest text-green-600 mb-1">Observación final</p>
                   <p className="text-sm text-green-900">{visitaVinculada.observacionFinal}</p>
-                </div>
-              )}
-
-              {isCliente && informeStoragePath && (
-                <div className="pt-3 border-t border-gray-100 flex items-center gap-3">
-                  <p className="text-2xs font-bold uppercase tracking-widest text-gray-400 flex-1">Informe de visita</p>
-                  <button
-                    type="button"
-                    onClick={() => handleInforme('view')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand/8 text-brand hover:bg-brand/15 transition-colors text-xs font-bold"
-                  >
-                    <Eye size={13} /> Ver
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleInforme('download')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors text-xs font-bold"
-                  >
-                    <FileDown size={13} /> PDF
-                  </button>
                 </div>
               )}
             </Card>
