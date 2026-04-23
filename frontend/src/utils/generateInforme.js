@@ -1,115 +1,80 @@
-import { createRoot } from 'react-dom/client';
-import { createElement } from 'react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import { supabase } from './supabase';
 import { fetchInformeData } from '../api/informeApi';
-import InformePDFTemplate from '../components/visits/InformePDFTemplate';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-/** Tiempo de espera para que las imágenes carguen antes de capturar el canvas. */
-const IMG_LOAD_TIMEOUT_MS = 8000;
+/** Duración de la signed URL del PDF en segundos (7 días). */
+const SIGNED_URL_EXPIRES_IN = 60 * 60 * 24 * 7;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Renderiza un componente React en un div offscreen, espera a que carguen las
- * imágenes y devuelve el elemento montado.
+ * Convierte un elemento HTML ya renderizado en el DOM en un PDF multi-página.
+ * Usa html2canvas para capturar el elemento y jsPDF para construir el PDF.
  *
- * @param {import('../hooks/useInformeVisita').InformeVisita} informe
- * @returns {Promise<{ container: HTMLElement, cleanup: () => void }>}
+ * El elemento DEBE estar visible en el DOM (no hidden, no fuera del viewport
+ * con position:fixed) para que html2canvas lo capture correctamente.
+ *
+ * @param {HTMLElement} element - Elemento ya renderizado y visible en el DOM
+ * @returns {Promise<Blob>}
  */
-async function renderOffscreen(informe) {
-  const container = document.createElement('div');
-  // visibility:hidden mantiene el elemento en el flujo de render (necesario en mobile)
-  // overflow:hidden evita scrollbars o desplazamientos visuales
-  container.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 794px;
-    background: #ffffff;
-    visibility: hidden;
-    overflow: hidden;
-    pointer-events: none;
-    z-index: -9999;
-  `;
-  document.body.appendChild(container);
-
-  const root = createRoot(container);
-  root.render(createElement(InformePDFTemplate, { informe }));
-
-  // Esperar suficiente para que React y fuentes terminen el render
-  await new Promise(r => setTimeout(r, 600));
-
-  // Esperar a que carguen todas las imágenes (con timeout de seguridad)
-  const imgs = Array.from(container.querySelectorAll('img'));
-  if (imgs.length > 0) {
-    const imagePromises = imgs.map(img =>
-      new Promise(resolve => {
-        if (img.complete) return resolve();
-        img.onload = resolve;
-        img.onerror = resolve; // no bloquear si falla una imagen
-        setTimeout(resolve, IMG_LOAD_TIMEOUT_MS);
-      })
-    );
-    await Promise.all(imagePromises);
-  }
-
-  const cleanup = () => {
-    root.unmount();
-    document.body.removeChild(container);
-  };
-
-  return { container, cleanup };
-}
-
 /**
- * Convierte un elemento HTML en un PDF multi-página y devuelve el Blob.
- * Usa html2canvas para capturar el HTML como imagen y jsPDF para construir el PDF.
+ * Convierte un elemento HTML ya renderizado en el DOM en un PDF multi-página.
+ * Usa html-to-image (soporta oklch/Tailwind 4) + jsPDF.
  *
  * @param {HTMLElement} element
  * @returns {Promise<Blob>}
  */
 async function elementToPdfBlob(element) {
-  const canvas = await html2canvas(element, {
-    scale: 2,             // 2x para mayor calidad de texto
-    useCORS: true,        // necesario para imágenes de Supabase Storage
-    allowTaint: false,
-    backgroundColor: '#ffffff',
-    logging: false,
-    imageTimeout: 10000,
-  });
+  const { toCanvas } = await import('html-to-image');
+  const { default: jsPDF } = await import('jspdf');
 
   const A4_WIDTH_MM  = 210;
   const A4_HEIGHT_MM = 297;
 
+  // Capturar el elemento completo a su altura real (scrollHeight)
+  const canvas = await toCanvas(element, {
+    pixelRatio: 1.5,
+    backgroundColor: '#ffffff',
+    skipFonts: false,
+    // Incluir imágenes cross-origin (Supabase Storage)
+    fetchRequestInit: { mode: 'cors' },
+  });
+
   const canvasWidth  = canvas.width;
   const canvasHeight = canvas.height;
 
-  const imgWidthMM = A4_WIDTH_MM;
+  // Márgenes del PDF en mm — dan separación visual entre páginas
+  const MARGIN_MM = 10;
+  const CONTENT_WIDTH_MM  = A4_WIDTH_MM  - MARGIN_MM * 2;
+  const CONTENT_HEIGHT_MM = A4_HEIGHT_MM - MARGIN_MM * 2;
 
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
-  const pageHeightPx = (A4_HEIGHT_MM / A4_WIDTH_MM) * canvasWidth;
+  // Altura en px del área útil de cada página (descontando márgenes)
+  const pageHeightPx = (CONTENT_HEIGHT_MM / CONTENT_WIDTH_MM) * canvasWidth;
   let offsetY = 0;
 
   while (offsetY < canvasHeight) {
     if (offsetY > 0) pdf.addPage();
 
-    // Crear un canvas temporal con solo el trozo de esta página
+    const sliceHeight = Math.min(pageHeightPx, canvasHeight - offsetY);
+
     const pageCanvas = document.createElement('canvas');
     pageCanvas.width  = canvasWidth;
-    pageCanvas.height = Math.min(pageHeightPx, canvasHeight - offsetY);
+    pageCanvas.height = sliceHeight;
 
     const ctx = pageCanvas.getContext('2d');
+    // Fondo blanco para evitar transparencias en jpeg
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvasWidth, sliceHeight);
     ctx.drawImage(canvas, 0, -offsetY);
 
-    const pageImgData = pageCanvas.toDataURL('image/png', 0.92);
-    const pageHeightMM = (pageCanvas.height / canvasWidth) * imgWidthMM;
+    const pageImgData  = pageCanvas.toDataURL('image/jpeg', 0.88);
+    const pageHeightMM = (sliceHeight / canvasWidth) * CONTENT_WIDTH_MM;
 
-    pdf.addImage(pageImgData, 'PNG', 0, 0, imgWidthMM, pageHeightMM);
+    // Colocar imagen con márgenes: MARGIN_MM desde arriba y desde la izquierda
+    pdf.addImage(pageImgData, 'JPEG', MARGIN_MM, MARGIN_MM, CONTENT_WIDTH_MM, pageHeightMM);
 
     offsetY += pageHeightPx;
   }
@@ -118,90 +83,69 @@ async function elementToPdfBlob(element) {
 }
 
 /**
- * Sube el PDF al bucket privado `inmotika` y crea un token de descarga en BD.
- * Devuelve la URL del proxy (`download-informe` Edge Function) con el token.
- *
- * Modelo de seguridad — proxy con token de descarga:
- *   - El PDF se guarda en Storage completamente privado (sin URL pública).
- *   - Se crea un registro en `informe_descarga_token` con un UUID aleatorio.
- *   - El link del email apunta a la Edge Function `download-informe?token={uuid}`.
- *   - La Edge Function valida el token en BD (server-side con service_role)
- *     y sirve el PDF como stream. El cliente nunca ve el path real en Storage.
- *   - Para revocar: `UPDATE informe_descarga_token SET revocado = true WHERE id = {token}`.
- *   - Re-generaciones del informe crean un nuevo token; el anterior queda válido
- *     hasta que se revoque manualmente (para no romper links ya enviados por email).
+ * Sube el PDF al bucket privado `inmotika` y retorna una signed URL de 7 días.
  *
  * @param {string} visitaId
  * @param {Blob}   pdfBlob
- * @returns {Promise<string>} URL del proxy con token de descarga
- * @throws {Error} Si el upload o la inserción del token fallan
+ * @returns {Promise<string>} Signed URL válida por 7 días
+ * @throws {Error} Si el upload o la generación de signed URL fallan
  */
 async function uploadInformePDF(visitaId, pdfBlob) {
   const storagePath = `informes/${visitaId}/informe.pdf`;
 
-  // 1. Subir PDF a Storage (bucket privado, sin URL pública)
   const { error: uploadErr } = await supabase.storage
     .from('inmotika')
     .upload(storagePath, pdfBlob, {
       contentType: 'application/pdf',
-      upsert: true, // sobrescribe en re-generaciones
+      upsert: true,
     });
 
   if (uploadErr) throw new Error(`Error al subir informe PDF: ${uploadErr.message}`);
 
-  // 2. Crear token de descarga en BD
-  // El token (UUID v4) es generado por PostgreSQL (gen_random_uuid()).
-  // La Edge Function lo valida server-side; nunca hay acceso directo al Storage.
-  const { data: tokenRow, error: tokenErr } = await supabase
-    .from('informe_descarga_token')
-    .insert({ visita_id: visitaId, storage_path: storagePath })
-    .select('id')
-    .single();
+  const { data: signedData, error: signErr } = await supabase.storage
+    .from('inmotika')
+    .createSignedUrl(storagePath, SIGNED_URL_EXPIRES_IN);
 
-  if (tokenErr || !tokenRow) {
-    throw new Error(`Error al crear token de descarga: ${tokenErr?.message}`);
+  if (signErr || !signedData?.signedUrl) {
+    throw new Error(`Error al generar URL del informe: ${signErr?.message}`);
   }
 
-  // 3. Construir URL del proxy
-  // La Edge Function está en el mismo proyecto de Supabase que el cliente usa.
-  const supabaseUrl = supabase.supabaseUrl;
-  return `${supabaseUrl}/functions/v1/download-informe?token=${tokenRow.id}`;
+  return signedData.signedUrl;
 }
 
 // ─── Función principal exportada ──────────────────────────────────────────────
 
 /**
- * Orquesta la generación del informe PDF de una visita:
- * 1. Consulta todos los datos de la visita con `fetchInformeData`.
- * 2. Renderiza el template HTML offscreen.
- * 3. Convierte a PDF con html2canvas + jsPDF.
- * 4. Sube el PDF a Storage (privado) y crea un token de descarga en BD.
- * 5. Devuelve la URL del proxy (Edge Function download-informe) y los datos.
+ * Captura el elemento HTML del template ya renderizado en el DOM,
+ * lo convierte a PDF y lo sube a Storage.
  *
- * Diseño extensible: `elementToPdfBlob` puede reemplazarse por una llamada
- * a un Edge Function para generación server-side sin cambiar el resto del pipeline.
+ * Recibe el elemento DOM directamente para evitar problemas de renderizado
+ * offscreen (html2canvas no puede capturar elementos fuera del viewport).
  *
- * @param {string} visitaId - UUID de la visita finalizada
- * @returns {Promise<{ pdfUrl: string, informe: import('../hooks/useInformeVisita').InformeVisita }>}
- * @throws {Error} Si cualquier paso del pipeline falla
+ * @param {string}      visitaId    - UUID de la visita
+ * @param {HTMLElement} templateEl  - Elemento DOM del InformePDFTemplate ya renderizado
+ * @returns {Promise<{ pdfUrl: string }>}
+ * @throws {Error} Si la captura, conversión o upload fallan
+ */
+export async function generateInformeFromElement(visitaId, templateEl) {
+  if (!templateEl) throw new Error('El elemento del template no está disponible');
+
+  const pdfBlob = await elementToPdfBlob(templateEl);
+  const pdfUrl  = await uploadInformePDF(visitaId, pdfBlob);
+
+  return { pdfUrl };
+}
+
+/**
+ * Versión legacy que obtiene datos y renderiza offscreen.
+ * Mantener solo si se necesita generar PDF sin tener el DOM disponible.
+ * Para el flujo normal de aprobación, usar `generateInformeFromElement`.
+ *
+ * @param {string}        visitaId
+ * @param {string[]|null} aprobadosIds
+ * @returns {Promise<{ pdfUrl: string, informe: object }>}
  */
 export async function generateInformeVisita(visitaId, aprobadosIds = null) {
-  // 1. Datos — filtrar por aprobadosIds si se especifica (aprobación del director)
   const informe = await fetchInformeData(visitaId, aprobadosIds);
-
-  // 2. Render offscreen
-  const { container, cleanup } = await renderOffscreen(informe);
-
-  let pdfBlob;
-  try {
-    // 3. Captura + PDF
-    pdfBlob = await elementToPdfBlob(container);
-  } finally {
-    cleanup(); // siempre limpiar el DOM, incluso si hay error
-  }
-
-  // 4. Storage
-  const pdfUrl = await uploadInformePDF(visitaId, pdfBlob);
-
-  return { pdfUrl, informe };
+  return { pdfUrl: null, informe };
 }

@@ -347,21 +347,21 @@ export async function registrarRevisionDirector(informeId, directorUsuarioId, ac
     .insert({ informe_id: informeId, director_usuario_id: directorUsuarioId, accion, observacion, ciclo: cicloActual });
   if (insErr) throw new Error(`Error al registrar acción del director: ${insErr.message}`);
 
-  const nuevoEstado = accion === 'APROBADO' ? 'APROBADO' : 'EN_REVISION';
-  const patch = {
-    estado: nuevoEstado,
-    updated_at: new Date().toISOString(),
-    ...(accion === 'RECHAZADO' ? {
-      enviado_director_at: null,
-      ciclo_revision: cicloActual + 1,   // nuevo ciclo: coordinador revisa de nuevo
-    } : {}),
-  };
-
-  const { error: updErr } = await supabase
-    .from('informe')
-    .update(patch)
-    .eq('id', informeId);
-  if (updErr) throw new Error(`Error al actualizar estado del informe: ${updErr.message}`);
+  // Para APROBADO: el estado se actualiza en aprobarYGenerarPDF junto con el PDF
+  // para garantizar que estado y storage_path nunca queden desfasados.
+  // Para RECHAZADO: actualizar estado aquí directamente (no hay PDF que generar).
+  if (accion === 'RECHAZADO') {
+    const { error: updErr } = await supabase
+      .from('informe')
+      .update({
+        estado:              'EN_REVISION',
+        enviado_director_at: null,
+        ciclo_revision:      cicloActual + 1,
+        updated_at:          new Date().toISOString(),
+      })
+      .eq('id', informeId);
+    if (updErr) throw new Error(`Error al actualizar estado del informe: ${updErr.message}`);
+  }
 
   // Notificar en el chat cuando el director rechaza con observación
   if (accion === 'RECHAZADO' && observacion) {
@@ -537,30 +537,29 @@ export async function getInformesDirectorTodos() {
  * @param {{ clienteEmails: string[], clienteNombre: string, sucursalNombre: string, tipoVisita: string, fechaFin: string|null, appUrl: string, finalizadoPor: string }} ctx
  * @returns {Promise<{pdfUrl: string}>}
  */
+/**
+ * @param {string}      informeId
+ * @param {string}      visitaId
+ * @param {Object}      ctx
+ * @param {HTMLElement} ctx.templateEl - Elemento DOM del InformePDFTemplate ya renderizado
+ */
 export async function aprobarYGenerarPDF(informeId, visitaId, ctx) {
-  // 1. Obtener IDs de intervenciones aprobadas por el coordinador
-  const { data: revisiones, error: revErr } = await supabase
-    .from('informe_coordinador')
-    .select('intervencion_id')
-    .eq('informe_id', informeId)
-    .eq('aprobado', true);
+  // 1. Capturar el template ya renderizado en el DOM y convertir a PDF
+  // IMPORTANTE: el PDF debe generarse ANTES de marcar el informe como APROBADO
+  // para garantizar consistencia (estado y storage_path nunca quedan desfasados).
+  const { generateInformeFromElement } = await import('../utils/generateInforme');
+  const { pdfUrl } = await generateInformeFromElement(visitaId, ctx.templateEl);
 
-  if (revErr) throw new Error(`Error al obtener revisiones aprobadas: ${revErr.message}`);
-  const aprobadosIds = (revisiones || []).map(r => r.intervencion_id);
-
-  // 2. Generar PDF desde el frontend usando html2canvas + jsPDF
-  const { generateInformeVisita } = await import('../utils/generateInforme');
-  const { pdfUrl } = await generateInformeVisita(visitaId, aprobadosIds);
-
-  // El storage path es predecible: generateInformeVisita siempre usa este path
   const storagePath = `informes/${visitaId}/informe.pdf`;
 
   const ahora = new Date().toISOString();
 
-  // 3. Guardar path del PDF y campos de finalización en el informe
+  // 3. Guardar path del PDF, campos de finalización Y cambiar estado a APROBADO
+  // Todo en un solo UPDATE — si falla, el estado no cambia y puede reintentarse.
   const { error: updErr } = await supabase
     .from('informe')
     .update({
+      estado:             'APROBADO',
       storage_path:       storagePath,
       generado_at:        ahora,
       enviado_cliente_at: ctx.clienteEmails?.length ? ahora : null,

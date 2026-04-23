@@ -1039,10 +1039,12 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
   const [revisiones,           setRevisiones]           = useState({});
   const [firmaCoordinadorUrl,  setFirmaCoordinadorUrl]  = useState(null);
   const [firmaDirectorUrl,     setFirmaDirectorUrl]     = useState(null);
+  const [coordinadorNombre,    setCoordinadorNombre]    = useState(null);
   const [directorNombre,       setDirectorNombre]       = useState(null);
   const [correctivaGuardada,   setCorrectivaGuardada]   = useState(false);
   const [revisionesVersion,    setRevisionesVersion]    = useState(0);
   const [activeIntervencionId, setActiveIntervencionId] = useState(null);
+  const pdfTemplateRef = useRef(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1058,18 +1060,24 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
       for (const r of revRows) revMap[r.intervencion_id] = { aprobado: r.aprobado, nota: r.nota };
       setRevisiones(revMap);
 
-      // Cargar firma del coordinador: director usa el coordinador_id de las revisiones
+      // Firma del coordinador: viene de informe_coordinador.coordinador_id
+      // (el coordinador que efectivamente revisó el informe, puede diferir del asignado a la visita)
       const coordFirmaUserId = isDirector
         ? (revRows[0]?.coordinador_id ?? null)
         : userId;
       if (coordFirmaUserId) {
         try {
-          const docs = await listDocumentos(coordFirmaUserId);
+          const [docs, perfilCoord] = await Promise.all([
+            listDocumentos(coordFirmaUserId),
+            supabase.from('perfil_usuario').select('nombres, apellidos').eq('id', coordFirmaUserId).maybeSingle(),
+          ]);
           const firma = docs.find(d => d.tipo === 'FIRMA' && d.url);
           if (firma) {
             const signedUrl = await openDocumentoSignedUrl(firma.url, 3600);
             setFirmaCoordinadorUrl(signedUrl);
           }
+          const p = perfilCoord.data;
+          if (p) setCoordinadorNombre(`${p.nombres || ''} ${p.apellidos || ''}`.trim() || null);
         } catch { /* firma no crítica */ }
       }
 
@@ -1330,39 +1338,46 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
           return;
         }
 
-        // Obtener emails del cliente para notificación
+        // Obtener fecha y cliente_id de la visita
         const { data: visitaRow } = await supabase
           .from('visita')
-          .select('fecha_fin, cliente:cliente_id(razon_social, contactos:cliente_contacto(email, principal))')
+          .select('fecha_fin, cliente_id')
           .eq('id', informeBase.visita_id)
           .maybeSingle();
 
-        const contactos = visitaRow?.cliente?.contactos || [];
-        const clienteEmails = contactos
-          .filter(c => c.email)
-          .sort((a, b) => (b.principal ? 1 : 0) - (a.principal ? 1 : 0))
-          .map(c => c.email);
+        // Obtener emails de contactos del cliente (tabla: contacto, FK: cliente_id)
+        const clienteId = visitaRow?.cliente_id || null;
+        let clienteEmails = [];
+        if (clienteId) {
+          const { data: contactos } = await supabase
+            .from('contacto')
+            .select('email')
+            .eq('cliente_id', clienteId)
+            .not('email', 'is', null);
+          clienteEmails = (contactos || []).map(c => c.email).filter(Boolean);
+        }
 
-        // Registrar decisión del director + generar PDF + notificar cliente
+        // 1. Registrar decisión en historial del director (sin cambiar estado aún)
         await registrarRevisionDirector(informeBase.id, userId, 'APROBADO', null);
 
-        try {
-          await aprobarYGenerarPDF(informeBase.id, informeBase.visita_id, {
-            clienteEmails,
-            clienteNombre:  informeBase.cliente_nombre,
-            sucursalNombre: informeBase.sucursal_nombre,
-            tipoVisita:     informeBase.tipo_visita,
-            fechaFin:       visitaRow?.fecha_fin || null,
-            appUrl:         import.meta.env.VITE_APP_URL || window.location.origin,
-            finalizadoPor:  userId,
-          });
-        } catch { /* PDF/email no crítico — el informe ya quedó APROBADO */ }
+        // 2. Generar PDF + cambiar estado a APROBADO + notificar cliente
+        // Si falla, el informe queda en EN_APROBACION (puede reintentarse).
+        await aprobarYGenerarPDF(informeBase.id, informeBase.visita_id, {
+          templateEl:     pdfTemplateRef.current,
+          clienteEmails,
+          clienteNombre:  informeBase.cliente_nombre,
+          sucursalNombre: informeBase.sucursal_nombre,
+          tipoVisita:     informeBase.tipo_visita,
+          fechaFin:       visitaRow?.fecha_fin || null,
+          appUrl:         import.meta.env.VITE_APP_URL || window.location.origin,
+          finalizadoPor:  userId,
+        });
 
         setResultModal({
           error: false,
           title: 'Informe aprobado',
           subtitle: clienteEmails.length
-            ? `PDF generado y notificado al cliente (${clienteEmails[0]}).`
+            ? `PDF generado y notificado al cliente.`
             : 'Informe aprobado. No hay email de contacto registrado para el cliente.',
         });
       } else {
@@ -1520,10 +1535,10 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
         {/* Informe — visor tipo documento: fondo gris, página A4 centrada con scroll */}
         <div className="flex-1 overflow-auto bg-gray-100 p-4 lg:p-6">
           <div className="mx-auto w-198.5">
-            <div className="w-198.5 bg-white shadow-xl rounded-sm ring-1 ring-gray-200 overflow-hidden">
+            <div ref={pdfTemplateRef} className="w-198.5 bg-white shadow-xl rounded-sm ring-1 ring-gray-200 overflow-hidden">
             {informeFiltrado && (
               <InformePDFTemplate
-                informe={informeFiltrado}
+                informe={coordinadorNombre ? { ...informeFiltrado, coordinador: coordinadorNombre } : informeFiltrado}
                 firmaCoordinadorUrl={firmaCoordinadorUrl}
                 firmaDirectorUrl={firmaDirectorUrl}
                 activeIntervencionId={activeIntervencionId}
