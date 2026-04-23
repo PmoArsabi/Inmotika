@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { CalendarDays, User, FileDown } from 'lucide-react';
+import { CalendarDays, User, FileDown, Eye } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import Card from '../components/ui/Card';
 import SectionHeader from '../components/ui/SectionHeader';
@@ -21,15 +21,24 @@ const ClientVisitsPage = () => {
   const loading = loadingData || loadingVisitas;
 
   /**
-   * Genera URL firmada temporal para descargar el PDF del informe.
+   * Genera URL firmada temporal para ver o descargar el PDF del informe.
    * @param {string} storagePath
+   * @param {'view'|'download'} mode
    */
-  const handleDescargarInforme = async (storagePath) => {
+  const handleInforme = async (storagePath, mode = 'view') => {
     if (!storagePath) return;
     const { data } = await supabase.storage
       .from('inmotika')
       .createSignedUrl(storagePath, 3600);
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+    if (!data?.signedUrl) return;
+    if (mode === 'download') {
+      const a = document.createElement('a');
+      a.href = data.signedUrl;
+      a.download = 'informe.pdf';
+      a.click();
+    } else {
+      window.open(data.signedUrl, '_blank');
+    }
   };
 
   /** Formatea fecha ISO a dd/mm/aaaa */
@@ -93,14 +102,24 @@ const ClientVisitsPage = () => {
                   <Td><StatusBadge status={v.estadoLabel || v.estadoCodigo} /></Td>
                   <Td>
                     {v.informeStoragePath ? (
-                      <button
-                        type="button"
-                        onClick={() => handleDescargarInforme(v.informeStoragePath)}
-                        className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors"
-                      >
-                        <FileDown size={14} />
-                        Descargar
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleInforme(v.informeStoragePath, 'view')}
+                          className="flex items-center gap-1 text-xs font-bold text-brand hover:text-brand-dark transition-colors"
+                          title="Ver informe"
+                        >
+                          <Eye size={14} /> Ver
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleInforme(v.informeStoragePath, 'download')}
+                          className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors"
+                          title="Descargar PDF"
+                        >
+                          <FileDown size={14} /> PDF
+                        </button>
+                      </div>
                     ) : (
                       <TextTiny className="text-gray-300">—</TextTiny>
                     )}
@@ -157,14 +176,22 @@ const ClientVisitsPage = () => {
                 {v.informeStoragePath && (
                   <div className="flex items-start gap-3 py-2.5 last:pb-0">
                     <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Informe</TextTiny>
-                    <button
-                      type="button"
-                      onClick={() => handleDescargarInforme(v.informeStoragePath)}
-                      className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors"
-                    >
-                      <FileDown size={13} />
-                      Descargar PDF
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleInforme(v.informeStoragePath, 'view')}
+                        className="flex items-center gap-1 text-xs font-bold text-brand hover:text-brand-dark transition-colors"
+                      >
+                        <Eye size={13} /> Ver
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleInforme(v.informeStoragePath, 'download')}
+                        className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors"
+                      >
+                        <FileDown size={13} /> PDF
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

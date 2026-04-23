@@ -1479,7 +1479,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
       ];
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-120px)] animate-in slide-in-from-right-8 duration-300">
+    <div className="flex flex-col lg:flex-row gap-4 lg:h-[calc(100vh-120px)] animate-in slide-in-from-right-8 duration-300">
 
       {/* ── Columna izquierda: informe ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden rounded-xl border border-gray-200 shadow-sm">
@@ -1517,9 +1517,10 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
           </div>
         )}
 
-        {/* Informe */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        {/* Informe — visor tipo documento: fondo gris, página A4 centrada con scroll */}
+        <div className="flex-1 overflow-auto bg-gray-100 p-4 lg:p-6">
+          <div className="mx-auto w-198.5">
+            <div className="w-198.5 bg-white shadow-xl rounded-sm ring-1 ring-gray-200 overflow-hidden">
             {informeFiltrado && (
               <InformePDFTemplate
                 informe={informeFiltrado}
@@ -1586,6 +1587,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
                 )}
               />
             )}
+            </div>
           </div>
         </div>
 
@@ -1638,18 +1640,18 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
       </div>
 
       {/* ── Columna derecha ── */}
-      <div className="w-72 shrink-0 rounded-xl border border-gray-200 shadow-sm bg-white overflow-hidden flex flex-col">
+      <div className="w-full lg:w-80 lg:shrink-0 rounded-xl border border-gray-200 shadow-sm bg-white overflow-hidden flex flex-col lg:h-auto">
         <div className="flex border-b border-gray-100 shrink-0">
           {TABS.map(tab => (
             <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2.5 text-2xs font-bold uppercase tracking-wide transition-colors ${
+              className={`flex-1 py-2.5 px-2 text-2xs font-bold uppercase tracking-wide transition-colors truncate ${
                 activeTab === tab.id ? 'text-brand border-b-2 border-brand' : 'text-gray-400 hover:text-gray-600'
               }`}>
               {tab.label}
             </button>
           ))}
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-100 lg:min-h-0 overflow-hidden flex flex-col">
           {activeTab === 'revision' && (
             <RevisionPanel
               localInforme={localInforme}

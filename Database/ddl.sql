@@ -3656,13 +3656,15 @@ ALTER TABLE public.informe ENABLE ROW LEVEL SECURITY;
 
 -- Tabla informe_coordinador: aprobación por dispositivo con trazabilidad
 CREATE TABLE IF NOT EXISTS public.informe_coordinador (
-  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  informe_id      uuid NOT NULL REFERENCES public.informe(id) ON DELETE CASCADE,
-  intervencion_id uuid NOT NULL REFERENCES public.intervencion(id) ON DELETE CASCADE,
-  coordinador_id  uuid NOT NULL REFERENCES public.perfil_usuario(id),
-  aprobado        boolean NOT NULL,
-  nota            text,
-  created_at      timestamptz NOT NULL DEFAULT now(),
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  informe_id       uuid NOT NULL REFERENCES public.informe(id) ON DELETE CASCADE,
+  intervencion_id  uuid NOT NULL REFERENCES public.intervencion(id) ON DELETE CASCADE,
+  coordinador_id   uuid NOT NULL REFERENCES public.perfil_usuario(id),
+  aprobado         boolean NOT NULL,
+  nota             text,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  actualizado_por  uuid REFERENCES public.perfil_usuario(id),
   UNIQUE(informe_id, intervencion_id)
 );
 ALTER TABLE public.informe_coordinador ENABLE ROW LEVEL SECURITY;
@@ -3690,6 +3692,65 @@ CREATE INDEX IF NOT EXISTS idx_coord_director_dir    ON public.coordinador_direc
 CREATE TRIGGER handle_informe_updated_at
   BEFORE UPDATE ON public.informe
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- Trigger updated_at en informe_coordinador
+DROP TRIGGER IF EXISTS handle_informe_coordinador_updated_at ON public.informe_coordinador;
+CREATE TRIGGER handle_informe_coordinador_updated_at
+  BEFORE UPDATE ON public.informe_coordinador
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- Función + trigger: sincroniza solicitud_dispositivo cuando cambia la revisión del coordinador
+-- Garantiza que los dispositivos en la solicitud correctiva siempre reflejen el estado de informe_coordinador
+CREATE OR REPLACE FUNCTION public.sync_correctiva_from_informe_coordinador()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_solicitud_id   uuid;
+  v_dispositivo_id uuid;
+  existing_rec     RECORD;
+BEGIN
+  SELECT sv.id INTO v_solicitud_id
+  FROM public.solicitud_visita sv
+  WHERE sv.informe_id = NEW.informe_id
+  LIMIT 1;
+
+  IF v_solicitud_id IS NULL THEN RETURN NEW; END IF;
+
+  SELECT i.dispositivo_id INTO v_dispositivo_id
+  FROM public.intervencion i
+  WHERE i.id = NEW.intervencion_id;
+
+  IF v_dispositivo_id IS NULL THEN RETURN NEW; END IF;
+
+  SELECT * INTO existing_rec
+  FROM public.solicitud_dispositivo sd
+  WHERE sd.solicitud_id = v_solicitud_id
+    AND sd.dispositivo_id = v_dispositivo_id;
+
+  IF NEW.aprobado = false THEN
+    IF existing_rec IS NULL THEN
+      INSERT INTO public.solicitud_dispositivo(solicitud_id, dispositivo_id, activo)
+      VALUES (v_solicitud_id, v_dispositivo_id, true);
+    ELSIF NOT existing_rec.activo THEN
+      UPDATE public.solicitud_dispositivo
+      SET activo = true
+      WHERE solicitud_id = v_solicitud_id AND dispositivo_id = v_dispositivo_id;
+    END IF;
+  ELSE
+    IF existing_rec IS NOT NULL AND existing_rec.activo THEN
+      UPDATE public.solicitud_dispositivo
+      SET activo = false
+      WHERE solicitud_id = v_solicitud_id AND dispositivo_id = v_dispositivo_id;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_correctiva_dispositivos ON public.informe_coordinador;
+CREATE TRIGGER trg_sync_correctiva_dispositivos
+  AFTER INSERT OR UPDATE OF aprobado ON public.informe_coordinador
+  FOR EACH ROW EXECUTE FUNCTION public.sync_correctiva_from_informe_coordinador();
 
 -- ── RLS policies ──────────────────────────────────────────────────────────────
 

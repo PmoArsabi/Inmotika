@@ -185,9 +185,9 @@ async function uploadInformePDF(visitaId, pdfBlob) {
  * @returns {Promise<{ pdfUrl: string, informe: import('../hooks/useInformeVisita').InformeVisita }>}
  * @throws {Error} Si cualquier paso del pipeline falla
  */
-export async function generateInformeVisita(visitaId) {
-  // 1. Datos
-  const informe = await fetchInformeData(visitaId);
+export async function generateInformeVisita(visitaId, aprobadosIds = null) {
+  // 1. Datos — filtrar por aprobadosIds si se especifica (aprobación del director)
+  const informe = await fetchInformeData(visitaId, aprobadosIds);
 
   // 2. Render offscreen
   const { container, cleanup } = await renderOffscreen(informe);

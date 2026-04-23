@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ArrowLeft, FileText, Edit2, Trash2, X,
   Calendar, Building2, Cpu, Clock, AlertCircle, Tag, Users, Phone, ChevronDown, ChevronUp,
+  Eye, FileDown,
 } from 'lucide-react';
+import { supabase } from '../../utils/supabase';
 import SecureImage from '../../components/ui/SecureImage';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -275,10 +277,42 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
   // Panel de técnicos expandido (tecnicoId seleccionado o null)
   const [selectedTecnico, setSelectedTecnico] = useState(null);
 
+  // Informe aprobado de la visita (solo para CLIENTE)
+  const [informeStoragePath, setInformeStoragePath] = useState(null);
+
+  useEffect(() => {
+    if (!isCliente || !visitaVinculada?.id) { setInformeStoragePath(null); return; }
+    let cancelled = false;
+    supabase
+      .from('informe')
+      .select('storage_path')
+      .eq('visita_id', visitaVinculada.id)
+      .eq('estado', 'APROBADO')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setInformeStoragePath(data?.storage_path || null);
+      });
+    return () => { cancelled = true; };
+  }, [isCliente, visitaVinculada?.id]);
+
   // Documentos de técnicos — solo se cargan si hay visita asignada y el viewer es CLIENTE
   const { documentos: docsTecnicos, loading: loadingDocs } = useDocumentosTecnicosVisita(
     isCliente && visitaVinculada ? visitaVinculada.id : null
   );
+
+  const handleInforme = async (mode = 'view') => {
+    if (!informeStoragePath) return;
+    const { data } = await supabase.storage.from('inmotika').createSignedUrl(informeStoragePath, 3600);
+    if (!data?.signedUrl) return;
+    if (mode === 'download') {
+      const a = document.createElement('a');
+      a.href = data.signedUrl;
+      a.download = 'informe.pdf';
+      a.click();
+    } else {
+      window.open(data.signedUrl, '_blank');
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
@@ -447,6 +481,26 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                 <div className="p-3 rounded-lg bg-green-50 border border-green-100">
                   <p className="text-2xs font-bold uppercase tracking-widest text-green-600 mb-1">Observación final</p>
                   <p className="text-sm text-green-900">{visitaVinculada.observacionFinal}</p>
+                </div>
+              )}
+
+              {isCliente && informeStoragePath && (
+                <div className="pt-3 border-t border-gray-100 flex items-center gap-3">
+                  <p className="text-2xs font-bold uppercase tracking-widest text-gray-400 flex-1">Informe de visita</p>
+                  <button
+                    type="button"
+                    onClick={() => handleInforme('view')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand/8 text-brand hover:bg-brand/15 transition-colors text-xs font-bold"
+                  >
+                    <Eye size={13} /> Ver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInforme('download')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors text-xs font-bold"
+                  >
+                    <FileDown size={13} /> PDF
+                  </button>
                 </div>
               )}
             </Card>

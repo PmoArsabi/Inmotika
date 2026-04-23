@@ -166,8 +166,10 @@ const InformeDirectorPage = () => {
           inf.cliente_nombre.toLowerCase().includes(q) ||
           inf.sucursal_nombre.toLowerCase().includes(q)
         }
-        rowActions={inf => (
-          inf.estado === 'EN_APROBACION' ? (
+        rowActions={inf => {
+          const puedeEditar = inf.estado === 'EN_APROBACION'
+            && !tiempoRestante(inf.enviado_director_at)?.vencido;
+          return puedeEditar ? (
             <button onClick={() => setSelected(inf)} className="p-1.5 rounded hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors" title="Revisar y aprobar">
               <Edit2 size={16} />
             </button>
@@ -175,8 +177,8 @@ const InformeDirectorPage = () => {
             <button onClick={() => setSelected(inf)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="Ver">
               <Eye size={16} />
             </button>
-          )
-        )}
+          );
+        }}
         activeFiltersCount={activeFiltersCount}
         filteredCount={informesFiltrados.length}
         totalItems={informes.length}

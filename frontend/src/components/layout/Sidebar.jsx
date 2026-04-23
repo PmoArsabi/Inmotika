@@ -95,8 +95,7 @@ const Sidebar = ({
           icon: ClipboardList,
           hasSubItems: true,
           subItems: [
-            { id: 'visits-solicitudes', label: 'Solicitar Visita', icon: List          },
-            { id: 'visits-mensajes',    label: 'Mensajes',         icon: MessageSquare },
+            { id: 'visits-solicitudes', label: 'Solicitar Visita', icon: List },
           ],
         },
       ];

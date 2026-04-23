@@ -159,7 +159,15 @@ export async function upsertRevisionCoordinador(informeId, intervencionId, coord
   const { data, error } = await supabase
     .from('informe_coordinador')
     .upsert(
-      { informe_id: informeId, intervencion_id: intervencionId, coordinador_id: coordinadorId, aprobado, nota },
+      {
+        informe_id:      informeId,
+        intervencion_id: intervencionId,
+        coordinador_id:  coordinadorId,
+        aprobado,
+        nota,
+        actualizado_por: coordinadorId,
+        updated_at:      new Date().toISOString(),
+      },
       { onConflict: 'informe_id,intervencion_id' }
     )
     .select()
@@ -530,7 +538,7 @@ export async function getInformesDirectorTodos() {
  * @returns {Promise<{pdfUrl: string}>}
  */
 export async function aprobarYGenerarPDF(informeId, visitaId, ctx) {
-  // 1. Obtener IDs de intervenciones aprobadas
+  // 1. Obtener IDs de intervenciones aprobadas por el coordinador
   const { data: revisiones, error: revErr } = await supabase
     .from('informe_coordinador')
     .select('intervencion_id')
@@ -540,47 +548,45 @@ export async function aprobarYGenerarPDF(informeId, visitaId, ctx) {
   if (revErr) throw new Error(`Error al obtener revisiones aprobadas: ${revErr.message}`);
   const aprobadosIds = (revisiones || []).map(r => r.intervencion_id);
 
-  // 2. Invocar la Edge Function de descarga de informe pasando los IDs aprobados
-  const { data: pdfData, error: pdfErr } = await supabase.functions.invoke('download-informe', {
-    body: { visitaId, aprobadosIds },
-  });
+  // 2. Generar PDF desde el frontend usando html2canvas + jsPDF
+  const { generateInformeVisita } = await import('../utils/generateInforme');
+  const { pdfUrl } = await generateInformeVisita(visitaId, aprobadosIds);
 
-  if (pdfErr || !pdfData?.pdfUrl) {
-    throw new Error(`Error al generar PDF: ${pdfErr?.message || 'sin URL'}`);
-  }
+  // El storage path es predecible: generateInformeVisita siempre usa este path
+  const storagePath = `informes/${visitaId}/informe.pdf`;
 
   const ahora = new Date().toISOString();
 
-  // 3. Guardar path del PDF y campos de finalización
+  // 3. Guardar path del PDF y campos de finalización en el informe
   const { error: updErr } = await supabase
     .from('informe')
     .update({
-      storage_path:      pdfData.storagePath || null,
-      generado_at:       ahora,
+      storage_path:       storagePath,
+      generado_at:        ahora,
       enviado_cliente_at: ctx.clienteEmails?.length ? ahora : null,
-      finalizado_por:    ctx.finalizadoPor || null,
-      finalizado_at:     ahora,
-      updated_at:        ahora,
+      finalizado_por:     ctx.finalizadoPor || null,
+      finalizado_at:      ahora,
+      updated_at:         ahora,
     })
     .eq('id', informeId);
 
   if (updErr) throw new Error(`Error al guardar PDF del informe: ${updErr.message}`);
 
-  // 4. Notificar al cliente
+  // 4. Notificar al cliente por email
   if (ctx.clienteEmails?.length) {
     const [primero, ...resto] = ctx.clienteEmails;
     fireAndForgetEmail('informe_cliente', {
-      destinatario: primero,
+      destinatario:  primero,
       clienteNombre: ctx.clienteNombre,
       sucursalNombre: ctx.sucursalNombre,
-      tipoVisita: ctx.tipoVisita,
-      fechaFin: ctx.fechaFin || '—',
-      pdfUrl: pdfData.pdfUrl,
-      appUrl: ctx.appUrl || '',
+      tipoVisita:    ctx.tipoVisita,
+      fechaFin:      ctx.fechaFin || '—',
+      pdfUrl,
+      appUrl:        ctx.appUrl || '',
     }, resto);
   }
 
-  return { pdfUrl: pdfData.pdfUrl };
+  return { pdfUrl };
 }
 
 // ─── Bandeja de conversaciones ───────────────────────────────────────────────
