@@ -277,11 +277,10 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
   // Panel de técnicos expandido (tecnicoId seleccionado o null)
   const [selectedTecnico, setSelectedTecnico] = useState(null);
 
-  // Informe aprobado de la visita (solo para CLIENTE)
   const [informeStoragePath, setInformeStoragePath] = useState(null);
 
   useEffect(() => {
-    if (!isCliente || !visitaVinculada?.id) { setInformeStoragePath(null); return; }
+    if (!visitaVinculada?.id) { setInformeStoragePath(null); return; }
     let cancelled = false;
     supabase
       .from('informe')
@@ -293,9 +292,8 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
         if (!cancelled) setInformeStoragePath(data?.storage_path || null);
       });
     return () => { cancelled = true; };
-  }, [isCliente, visitaVinculada?.id]);
+  }, [visitaVinculada?.id]);
 
-  // Documentos de técnicos — solo se cargan si hay visita asignada y el viewer es CLIENTE
   const { documentos: docsTecnicos, loading: loadingDocs } = useDocumentosTecnicosVisita(
     isCliente && visitaVinculada ? visitaVinculada.id : null
   );
@@ -467,7 +465,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
               )}
 
               {/* Informe aprobado — destacado antes del avance */}
-              {isCliente && informeStoragePath && (
+              {informeStoragePath && (
                 <div className="pt-2 border-t border-gray-100">
                   <div className="rounded-xl border border-brand/20 bg-linear-to-br from-red-50 to-rose-50 p-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
