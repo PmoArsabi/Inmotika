@@ -106,7 +106,7 @@ const FileUploader = ({
           className={`flex items-center gap-3 px-4 h-14 rounded-md ${
             isLoaded
               ? 'bg-green-50 text-green-700'
-              : dark ? 'bg-[#2A2A2A] text-gray-500' : 'bg-gray-50 text-gray-500'
+              : dark ? 'bg-canvas-raised text-gray-500' : 'bg-gray-50 text-gray-500'
           }`}
         >
           {isLoaded ? <CheckCircle2 size={16} /> : <UploadCloud size={16} />}
@@ -134,8 +134,8 @@ const FileUploader = ({
               isLoaded
                 ? 'border-green-500 bg-green-50 text-green-700 hover:bg-green-100'
                 : dark
-                  ? 'border-gray-600 bg-[#2A2A2A] text-gray-400 hover:border-[#D32F2F]'
-                  : 'border-gray-300 bg-gray-50 hover:border-[#D32F2F] hover:bg-gray-100 text-gray-500'
+                  ? 'border-gray-600 bg-canvas-raised text-gray-400 hover:border-brand'
+                  : 'border-gray-300 bg-gray-50 hover:border-brand hover:bg-gray-100 text-gray-500'
             }`}
           >
             {uploading ? (

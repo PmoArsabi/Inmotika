@@ -68,13 +68,13 @@ const NitInput = ({
 
   const focusRingClass = dark
     ? 'focus-within:ring-4 focus-within:ring-white/10'
-    : 'focus-within:ring-4 focus-within:ring-[#D32F2F]/5 focus-within:border-[#D32F2F] hover:border-gray-400';
+    : 'focus-within:ring-4 focus-within:ring-brand/5 focus-within:border-brand hover:border-gray-400';
 
-  const bgClass = dark ? 'bg-[#2A2A2A]' : 'bg-white';
+  const bgClass = dark ? 'bg-canvas-raised' : 'bg-white';
   const textClass = dark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400';
   const iconClass = dark
     ? 'text-gray-500 group-focus-within:text-white'
-    : 'text-gray-400 group-focus-within:text-[#D32F2F]';
+    : 'text-gray-400 group-focus-within:text-brand';
   const dividerClass = dark ? 'border-gray-600' : 'border-gray-200';
 
   return (
@@ -129,7 +129,7 @@ const NitInput = ({
               <>
                 <div className={`w-px self-stretch my-1.5 ${dividerClass} border-l`} />
                 <div className={`flex items-center px-3 flex-3 min-w-0 gap-1.5`}>
-                  <span className={`text-[10px] font-bold uppercase tracking-wide shrink-0 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  <span className={`text-2xs font-bold uppercase tracking-wide shrink-0 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
                     DV
                   </span>
                   <input

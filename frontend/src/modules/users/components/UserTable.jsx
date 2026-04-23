@@ -78,7 +78,7 @@ const UserTable = ({
               <Tr key={user.id}>
                 <Td>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-linear-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-linear-to-br from-brand to-brand-deeper flex items-center justify-center">
                       {user.avatar_url ? (
                         <SecureImage path={user.avatar_url} bucket="inmotika" alt={`${user.nombres || ''}`} className="w-full h-full object-cover" />
                       ) : (
@@ -154,7 +154,7 @@ const UserTable = ({
             <Card key={user.id} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
               <div className="divide-y divide-gray-50 mb-4">
                 <div className="flex items-start gap-3 py-2.5 first:pt-0">
-                  <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-linear-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-linear-to-br from-brand to-brand-deeper flex items-center justify-center">
                     {user.avatar_url ? (
                       <SecureImage path={user.avatar_url} bucket="inmotika" alt={fullName} className="w-full h-full object-cover" />
                     ) : (

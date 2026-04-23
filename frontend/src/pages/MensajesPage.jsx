@@ -39,16 +39,16 @@ const ESTADO_BADGE = {
 const ChatBubble = ({ msg, isMe }) => (
   <div className={`flex flex-col gap-0.5 ${isMe ? 'items-end' : 'items-start'}`}>
     <div className="flex items-center gap-1.5">
-      <TextTiny className={`font-bold text-[10px] ${isMe ? 'text-[#D32F2F]' : 'text-gray-500'}`}>
+      <TextTiny className={`font-bold text-2xs ${isMe ? 'text-brand' : 'text-gray-500'}`}>
         {isMe ? 'Tú' : msg.autor_nombre}
       </TextTiny>
       {msg.autor_rol && (
-        <span className="text-[9px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">{msg.autor_rol}</span>
+        <span className="text-2xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">{msg.autor_rol}</span>
       )}
-      <TextTiny className="text-gray-300 text-[9px]">{fmtHora(msg.created_at)}</TextTiny>
+      <TextTiny className="text-gray-300 text-2xs">{fmtHora(msg.created_at)}</TextTiny>
     </div>
     <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap wrap-break-word ${
-      isMe ? 'bg-[#D32F2F] text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'
+      isMe ? 'bg-brand text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'
     }`}>
       {msg.mensaje}
     </div>
@@ -129,7 +129,7 @@ const ChatActivo = ({ conv, userId, onBack }) => {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <TextSmall className="font-bold text-gray-900 truncate">{conv.cliente_nombre}</TextSmall>
-            <span className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${badge.color}`}>
+            <span className={`flex items-center gap-1 text-2xs font-bold px-1.5 py-0.5 rounded-full shrink-0 ${badge.color}`}>
               <BadgeIcon size={9} />
               {badge.label}
             </span>
@@ -180,7 +180,7 @@ const ChatActivo = ({ conv, userId, onBack }) => {
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Escribe un mensaje… (Enter para enviar)"
-            className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all min-h-9 max-h-24"
+            className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all min-h-9 max-h-24"
             style={{ height: 'auto' }}
             onInput={e => {
               e.target.style.height = 'auto';
@@ -191,7 +191,7 @@ const ChatActivo = ({ conv, userId, onBack }) => {
             type="button"
             onClick={handleSend}
             disabled={!input.trim() || sending}
-            className="p-2 bg-[#D32F2F] hover:bg-[#B71C1C] text-white rounded-xl transition-colors disabled:opacity-40 shrink-0"
+            className="p-2 bg-brand hover:bg-brand-dark text-white rounded-xl transition-colors disabled:opacity-40 shrink-0"
           >
             {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
@@ -210,27 +210,27 @@ const ConversacionItem = ({ conv, isActive, onClick }) => {
       type="button"
       onClick={onClick}
       className={`w-full text-left px-4 py-3 border-b border-gray-50 transition-colors ${
-        isActive ? 'bg-red-50 border-l-2 border-l-[#D32F2F]' : 'hover:bg-gray-50'
+        isActive ? 'bg-red-50 border-l-2 border-l-brand' : 'hover:bg-gray-50'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
             <p className="text-xs font-bold text-gray-900 truncate">{conv.cliente_nombre}</p>
-            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${badge.color}`}>
+            <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-full shrink-0 ${badge.color}`}>
               {badge.label}
             </span>
           </div>
-          <p className="text-[10px] text-gray-500 truncate">{conv.sucursal_nombre}{conv.sucursal_ciudad ? ` · ${conv.sucursal_ciudad}` : ''}</p>
+          <p className="text-2xs text-gray-500 truncate">{conv.sucursal_nombre}{conv.sucursal_ciudad ? ` · ${conv.sucursal_ciudad}` : ''}</p>
           {conv.ultimo_mensaje && (
-            <p className="text-[10px] text-gray-400 truncate mt-0.5">
+            <p className="text-2xs text-gray-400 truncate mt-0.5">
               {conv.ultimo_autor_nombre ? `${conv.ultimo_autor_nombre}: ` : ''}{conv.ultimo_mensaje}
             </p>
           )}
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <TextTiny className="text-gray-400 text-[9px]">{fmtRelativo(conv.ultimo_mensaje_at)}</TextTiny>
-          <span className="text-[8px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+          <TextTiny className="text-gray-400 text-2xs">{fmtRelativo(conv.ultimo_mensaje_at)}</TextTiny>
+          <span className="text-2xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
             {conv.total_mensajes} msg
           </span>
         </div>
@@ -295,7 +295,7 @@ const MensajesPage = () => {
         {/* Header lista */}
         <div className="px-4 py-4 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-2 mb-3">
-            <MessageSquare size={16} className="text-[#D32F2F]" />
+            <MessageSquare size={16} className="text-brand" />
             <H2 className="text-sm font-bold text-gray-900">Mensajes</H2>
           </div>
           <div className="relative">
@@ -305,7 +305,7 @@ const MensajesPage = () => {
               placeholder="Buscar conversación…"
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all"
+              className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all"
             />
           </div>
         </div>

@@ -365,7 +365,7 @@ const ProgramacionVisitaPage = () => {
       render: item => {
         const tipoCodigo = item.tipoVisitaCodigo || '';
         return tipoCodigo
-          ? <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${tipoCodigo === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+          ? <span className={`inline-flex px-2 py-0.5 rounded-full text-2xs font-bold uppercase whitespace-nowrap ${tipoCodigo === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
               {item.tipoVisitaLabel || tipoCodigo}
             </span>
           : <TextSmall className="text-gray-400">—</TextSmall>;

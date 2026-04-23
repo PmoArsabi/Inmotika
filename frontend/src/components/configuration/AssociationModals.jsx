@@ -152,14 +152,14 @@ const AssociationModals = ({
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <Card className="max-w-md w-full p-6 shadow-2xl">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-red-50 rounded-lg"><Users size={20} className="text-[#D32F2F]" /></div>
+                <div className="p-2 bg-red-50 rounded-lg"><Users size={20} className="text-brand" /></div>
                 <H3 className="normal-case">Asociar Contactos</H3>
               </div>
               <div className="space-y-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F] text-sm"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand text-sm"
                     placeholder="Buscar contacto por nombre o email..."
                     value={associateContactsSearch}
                     onChange={(e) => setAssociateContactsSearch(e.target.value)}
@@ -182,19 +182,19 @@ const AssociationModals = ({
                           prev.includes(String(ct.id)) ? prev.filter(id => id !== String(ct.id)) : [...prev, String(ct.id)]
                         )}
                         className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
-                          isSelected ? 'border-[#D32F2F] bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                          isSelected ? 'border-brand bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isSelected ? 'bg-[#D32F2F] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isSelected ? 'bg-brand text-white' : 'bg-gray-200 text-gray-500'}`}>
                             {(nombre[0] || 'C').toUpperCase()}
                           </div>
                           <div>
                             <TextSmall className="font-bold text-gray-900">{nombre}</TextSmall>
-                            {ct.email && <TextSmall className="text-gray-500 text-[10px]">{ct.email}</TextSmall>}
+                            {ct.email && <TextSmall className="text-gray-500 text-2xs">{ct.email}</TextSmall>}
                           </div>
                         </div>
-                        {isSelected && <CheckCircle2 size={18} className="text-[#D32F2F]" />}
+                        {isSelected && <CheckCircle2 size={18} className="text-brand" />}
                       </div>
                     );
                   })}
@@ -202,7 +202,7 @@ const AssociationModals = ({
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <Button
                     onClick={() => onConfirmContacts(associateContactsModal.branchKey, associateContactsSelected)}
-                    className="w-full bg-[#1A1A1A] hover:bg-[#D32F2F] text-white"
+                    className="w-full bg-canvas hover:bg-brand text-white"
                   >
                     Confirmar
                   </Button>
@@ -243,14 +243,14 @@ const AssociationModals = ({
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <Card className="max-w-md w-full p-6 shadow-2xl">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-red-50 rounded-lg"><Monitor size={20} className="text-[#D32F2F]" /></div>
+                <div className="p-2 bg-red-50 rounded-lg"><Monitor size={20} className="text-brand" /></div>
                 <H3 className="normal-case">Asociar Dispositivos</H3>
               </div>
               <div className="space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F] text-sm"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand text-sm"
                     placeholder="Buscar dispositivo por descripción o serial..."
                     value={associateDevicesSearch}
                     onChange={(e) => setAssociateDevicesSearch(e.target.value)}
@@ -284,19 +284,19 @@ const AssociationModals = ({
                           prev.includes(String(d.id)) ? prev.filter(id => id !== String(d.id)) : [...prev, String(d.id)]
                         )}
                         className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
-                          isSelected ? 'border-[#D32F2F] bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                          isSelected ? 'border-brand bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isSelected ? 'bg-[#D32F2F] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isSelected ? 'bg-brand text-white' : 'bg-gray-200 text-gray-500'}`}>
                             <Monitor size={14} />
                           </div>
                           <div>
                             <TextSmall className="font-bold text-gray-900">{label}</TextSmall>
-                            {categoriaNombre && <TextSmall className="text-gray-500 text-[10px]">{categoriaNombre}</TextSmall>}
+                            {categoriaNombre && <TextSmall className="text-gray-500 text-2xs">{categoriaNombre}</TextSmall>}
                           </div>
                         </div>
-                        {isSelected && <CheckCircle2 size={18} className="text-[#D32F2F]" />}
+                        {isSelected && <CheckCircle2 size={18} className="text-brand" />}
                       </div>
                     );
                   })}
@@ -304,7 +304,7 @@ const AssociationModals = ({
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <Button
                     onClick={() => onConfirmDevices(associateDevicesModal.branchKey, associateDevicesSelected)}
-                    className="w-full bg-[#1A1A1A] hover:bg-[#D32F2F] text-white"
+                    className="w-full bg-canvas hover:bg-brand text-white"
                   >
                     Confirmar
                   </Button>
@@ -322,7 +322,7 @@ const AssociationModals = ({
           <Card className="max-w-md w-full p-6 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-red-50 rounded-lg">
-                <Users size={20} className="text-[#D32F2F]" />
+                <Users size={20} className="text-brand" />
               </div>
               <H3 className="normal-case">Asociar Directores</H3>
             </div>
@@ -330,7 +330,7 @@ const AssociationModals = ({
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F] text-sm"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand text-sm"
                   placeholder="Buscar director por nombre..."
                   value={associateDirectorsSearch}
                   onChange={(e) => setAssociateDirectorsSearch(e.target.value)}
@@ -353,21 +353,21 @@ const AssociationModals = ({
                           );
                         }}
                         className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
-                          isSelected ? 'border-[#D32F2F] bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                          isSelected ? 'border-brand bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                            isSelected ? 'bg-[#D32F2F] text-white' : 'bg-gray-200 text-gray-500'
+                            isSelected ? 'bg-brand text-white' : 'bg-gray-200 text-gray-500'
                           }`}>
                             {(dir.nombres?.[0] || 'D').toUpperCase()}
                           </div>
                           <div>
                             <TextSmall className="font-bold text-gray-900">{dir.nombres} {dir.apellidos}</TextSmall>
-                            <TextSmall className="text-gray-500 text-[10px] break-all font-medium">{dir.email}</TextSmall>
+                            <TextSmall className="text-gray-500 text-2xs break-all font-medium">{dir.email}</TextSmall>
                           </div>
                         </div>
-                        {isSelected && <CheckCircle2 size={18} className="text-[#D32F2F]" />}
+                        {isSelected && <CheckCircle2 size={18} className="text-brand" />}
                       </div>
                     );
                   })}
@@ -382,7 +382,7 @@ const AssociationModals = ({
                 <Button
                   onClick={() => onConfirmDirectors(associateDirectorsModal.key, associateDirectorsSelected)}
                   variant="success"
-                  className="w-full bg-[#1A1A1A] hover:bg-[#D32F2F]"
+                  className="w-full bg-canvas hover:bg-brand"
                 >
                   Confirmar
                 </Button>
@@ -431,13 +431,13 @@ const AssociationModals = ({
             <Card className="max-w-lg w-full p-6 shadow-2xl">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-red-50 rounded-lg"><UserCircle2 size={20} className="text-[#D32F2F]" /></div>
+                  <div className="p-2 bg-red-50 rounded-lg"><UserCircle2 size={20} className="text-brand" /></div>
                   <h3 className="font-bold text-gray-900">Contactos del Cliente</h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => onCreateContact(clientId)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1A1A1A] hover:bg-[#D32F2F] text-white rounded-md text-xs font-bold uppercase tracking-wide transition-colors shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-canvas hover:bg-brand text-white rounded-md text-xs font-bold uppercase tracking-wide transition-colors shrink-0"
                 >
                   <Plus size={12} /> Crear contacto
                 </button>
@@ -447,7 +447,7 @@ const AssociationModals = ({
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
                     <input
-                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#D32F2F]"
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                       placeholder="Buscar por nombre, cargo o email..."
                       value={clientContactsSearch}
                       onChange={e => setClientContactsSearch(e.target.value)}
@@ -478,26 +478,26 @@ const AssociationModals = ({
                           prev.includes(String(ct.id)) ? prev.filter(id => id !== String(ct.id)) : [...prev, String(ct.id)]
                         )}
                         className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
-                          isSelected ? 'border-[#D32F2F] bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                          isSelected ? 'border-brand bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${isSelected ? 'bg-[#D32F2F] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${isSelected ? 'bg-brand text-white' : 'bg-gray-200 text-gray-500'}`}>
                             {(nombre[0] || 'C').toUpperCase()}
                           </div>
                           <div className="min-w-0">
                             <TextSmall className="font-semibold text-gray-900 truncate">{nombre}</TextSmall>
                             <div className="flex flex-wrap gap-2 mt-0.5">
-                              {ct.cargo && <span className="text-[10px] text-gray-400">{ct.cargo}</span>}
+                              {ct.cargo && <span className="text-2xs text-gray-400">{ct.cargo}</span>}
                               {ct.branchName && (
-                                <span className="flex items-center gap-0.5 text-[10px] text-gray-400">
+                                <span className="flex items-center gap-0.5 text-2xs text-gray-400">
                                   <GitBranch size={9} />{ct.branchName}
                                 </span>
                               )}
                             </div>
                           </div>
                         </div>
-                        {isSelected && <CheckCircle2 size={18} className="text-[#D32F2F] shrink-0" />}
+                        {isSelected && <CheckCircle2 size={18} className="text-brand shrink-0" />}
                       </div>
                     );
                   })}
@@ -505,7 +505,7 @@ const AssociationModals = ({
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <Button
                     onClick={() => onConfirmClientContacts(clientKey, clientContactsSelected)}
-                    className="w-full bg-[#1A1A1A] hover:bg-[#D32F2F] text-white"
+                    className="w-full bg-canvas hover:bg-brand text-white"
                   >
                     Confirmar
                   </Button>
@@ -556,13 +556,13 @@ const AssociationModals = ({
             <Card className="max-w-lg w-full p-6 shadow-2xl">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-red-50 rounded-lg"><Monitor size={20} className="text-[#D32F2F]" /></div>
+                  <div className="p-2 bg-red-50 rounded-lg"><Monitor size={20} className="text-brand" /></div>
                   <h3 className="font-bold text-gray-900">Dispositivos del Cliente</h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => onCreateDevice(clientId)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1A1A1A] hover:bg-[#D32F2F] text-white rounded-md text-xs font-bold uppercase tracking-wide transition-colors shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-canvas hover:bg-brand text-white rounded-md text-xs font-bold uppercase tracking-wide transition-colors shrink-0"
                 >
                   <Plus size={12} /> Agregar
                 </button>
@@ -572,7 +572,7 @@ const AssociationModals = ({
                   <div className="relative sm:col-span-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
                     <input
-                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#D32F2F]"
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                       placeholder="Buscar..."
                       value={clientDevicesSearch}
                       onChange={e => setClientDevicesSearch(e.target.value)}
@@ -616,23 +616,23 @@ const AssociationModals = ({
                           prev.includes(String(d.id)) ? prev.filter(id => id !== String(d.id)) : [...prev, String(d.id)]
                         )}
                         className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
-                          isSelected ? 'border-[#D32F2F] bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                          isSelected ? 'border-brand bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#D32F2F]' : 'bg-gray-200'}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isSelected ? 'bg-brand' : 'bg-gray-200'}`}>
                             <Monitor size={14} className={isSelected ? 'text-white' : 'text-gray-500'} />
                           </div>
                           <div className="min-w-0">
                             <TextSmall className="font-semibold text-gray-900 truncate">{label}</TextSmall>
                             <div className="flex flex-wrap gap-2 mt-0.5">
-                              {cat && <span className="flex items-center gap-0.5 text-[10px] text-gray-400"><Tag size={9} />{cat}</span>}
-                              {sedeName && <span className="flex items-center gap-0.5 text-[10px] text-gray-400"><GitBranch size={9} />{sedeName}</span>}
-                              {isAvailable && <span className="text-[10px] text-emerald-600 font-medium">Disponible</span>}
+                              {cat && <span className="flex items-center gap-0.5 text-2xs text-gray-400"><Tag size={9} />{cat}</span>}
+                              {sedeName && <span className="flex items-center gap-0.5 text-2xs text-gray-400"><GitBranch size={9} />{sedeName}</span>}
+                              {isAvailable && <span className="text-2xs text-emerald-600 font-medium">Disponible</span>}
                             </div>
                           </div>
                         </div>
-                        {isSelected && <CheckCircle2 size={18} className="text-[#D32F2F] shrink-0" />}
+                        {isSelected && <CheckCircle2 size={18} className="text-brand shrink-0" />}
                       </div>
                     );
                   })}
@@ -640,7 +640,7 @@ const AssociationModals = ({
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <Button
                     onClick={() => onConfirmClientDevices(clientKey, clientDevicesSelected)}
-                    className="w-full bg-[#1A1A1A] hover:bg-[#D32F2F] text-white"
+                    className="w-full bg-canvas hover:bg-brand text-white"
                   >
                     Confirmar
                   </Button>
@@ -667,7 +667,7 @@ const AssociationModals = ({
             <Card className="max-w-md w-full p-6 shadow-2xl">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-red-50 rounded-lg">
-                  <UserCircle2 size={20} className="text-[#D32F2F]" />
+                  <UserCircle2 size={20} className="text-brand" />
                 </div>
                 <H3 className="normal-case">Asociar Coordinadores</H3>
               </div>
@@ -675,7 +675,7 @@ const AssociationModals = ({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F] text-sm"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand text-sm"
                     placeholder="Buscar coordinador por nombre o email..."
                     value={associateCoordinadoresSearch}
                     onChange={e => setAssociateCoordinadoresSearch(e.target.value)}
@@ -700,19 +700,19 @@ const AssociationModals = ({
                             : [...prev, String(c.coordinadorId)]
                         )}
                         className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
-                          isSelected ? 'border-[#D32F2F] bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                          isSelected ? 'border-brand bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isSelected ? 'bg-[#D32F2F] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isSelected ? 'bg-brand text-white' : 'bg-gray-200 text-gray-500'}`}>
                             {(nombre[0] || 'C').toUpperCase()}
                           </div>
                           <div>
                             <TextSmall className="font-bold text-gray-900">{nombre}</TextSmall>
-                            {c.email && <TextSmall className="text-gray-500 text-[10px]">{c.email}</TextSmall>}
+                            {c.email && <TextSmall className="text-gray-500 text-2xs">{c.email}</TextSmall>}
                           </div>
                         </div>
-                        {isSelected && <CheckCircle2 size={18} className="text-[#D32F2F]" />}
+                        {isSelected && <CheckCircle2 size={18} className="text-brand" />}
                       </div>
                     );
                   })}
@@ -720,7 +720,7 @@ const AssociationModals = ({
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <Button
                     onClick={() => onConfirmCoordinadores(associateCoordinadoresModal.branchKey, associateCoordinadoresSelected)}
-                    className="w-full bg-[#1A1A1A] hover:bg-[#D32F2F] text-white"
+                    className="w-full bg-canvas hover:bg-brand text-white"
                   >
                     Confirmar
                   </Button>

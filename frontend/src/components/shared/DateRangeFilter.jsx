@@ -22,14 +22,14 @@ const DateRangeFilter = ({
   const inputClass = `w-full h-10 px-3 border rounded-md bg-white text-sm text-gray-600
     focus:outline-none transition-all cursor-pointer
     ${hasValue
-      ? 'border-[#D32F2F] ring-2 ring-[#D32F2F]/10'
-      : 'border-gray-300 hover:border-gray-400 focus:border-[#D32F2F] focus:ring-2 focus:ring-[#D32F2F]/10'
+      ? 'border-brand ring-2 ring-brand/10'
+      : 'border-gray-300 hover:border-gray-400 focus:border-brand focus:ring-2 focus:ring-brand/10'
     }`;
 
   return (
     <>
       <div className="flex flex-col gap-0.5 flex-1 min-w-35">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
+        <span className="text-2xs font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
           {desdeLabel}
         </span>
         <input
@@ -42,7 +42,7 @@ const DateRangeFilter = ({
         />
       </div>
       <div className="flex flex-col gap-0.5 flex-1 min-w-35">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
+        <span className="text-2xs font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
           {hastaLabel}
         </span>
         <input

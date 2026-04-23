@@ -266,7 +266,7 @@ const DeviceForm = ({
       {onBack && (
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#D32F2F] transition-colors mb-4"
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-brand transition-colors mb-4"
         >
           <ArrowLeft size={16} />
           Volver a Dispositivos
@@ -278,14 +278,14 @@ const DeviceForm = ({
         <div className="lg:col-span-1">
           <Card className="p-6 space-y-6 h-full">
             <div className="flex items-center gap-4 mb-2">
-              <div className="w-14 h-14 bg-linear-to-br from-[#D32F2F] to-[#8B0000] rounded-2xl flex items-center justify-center shadow-lg shrink-0 rotate-3">
+              <div className="w-14 h-14 bg-linear-to-br from-brand to-brand-deeper rounded-2xl flex items-center justify-center shadow-lg shrink-0 rotate-3">
                 <Monitor size={24} className="text-white -rotate-3" />
               </div>
               <div className="min-w-0">
                 <h3 className="text-base font-black text-gray-900 truncate tracking-tight">
                   {draft.serial || 'NUEVO EQUIPO'}
                 </h3>
-                <p className="text-[10px] font-bold text-[#D32F2F] uppercase tracking-widest opacity-80">
+                <p className="text-2xs font-bold text-brand uppercase tracking-widest opacity-80">
                   {categorias.find(c => c.value === draft.categoriaId)?.label || 'Sin categoría'}
                 </p>
               </div>
@@ -342,12 +342,12 @@ const DeviceForm = ({
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-1.5 text-gray-400">
                         <AlertTriangle size={11} className={`shrink-0 ${vencido ? 'text-red-500' : proximo ? 'text-orange-400' : ''}`} />
-                        <span className="text-[9px] font-bold uppercase tracking-wider">Caducidad</span>
+                        <span className="text-2xs font-bold uppercase tracking-wider">Caducidad</span>
                       </div>
-                      <span className={`text-[11px] font-semibold leading-none ${vencido ? 'text-red-600' : proximo ? 'text-orange-500' : 'text-gray-700'}`}>
+                      <span className={`text-xs font-semibold leading-none ${vencido ? 'text-red-600' : proximo ? 'text-orange-500' : 'text-gray-700'}`}>
                         {cad.toLocaleDateString('es-CO')}
-                        {vencido && <span className="ml-1 text-[9px] font-bold uppercase">· Vencido</span>}
-                        {proximo && !vencido && <span className="ml-1 text-[9px] font-bold uppercase">· {diasRestantes}d</span>}
+                        {vencido && <span className="ml-1 text-2xs font-bold uppercase">· Vencido</span>}
+                        {proximo && !vencido && <span className="ml-1 text-2xs font-bold uppercase">· {diasRestantes}d</span>}
                       </span>
                     </div>
                   );
@@ -360,20 +360,20 @@ const DeviceForm = ({
               <div className="pt-4 border-t border-gray-200 space-y-2">
                 <div className="flex items-center gap-1.5 text-gray-400 mb-1">
                   <Activity size={11} className="shrink-0" />
-                  <span className="text-[9px] font-bold uppercase tracking-wider">Trazabilidad</span>
+                  <span className="text-2xs font-bold uppercase tracking-wider">Trazabilidad</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex flex-col items-center p-2 bg-green-50 rounded-md">
                     <span className="text-lg font-black text-green-700">
                       {visitaHistory.filter(v => v.visita?.tipo_visita?.codigo === 'PREVENTIVO').length}
                     </span>
-                    <span className="text-[9px] text-green-600 font-semibold uppercase tracking-wide">Prev.</span>
+                    <span className="text-2xs text-green-600 font-semibold uppercase tracking-wide">Prev.</span>
                   </div>
                   <div className="flex flex-col items-center p-2 bg-orange-50 rounded-md">
                     <span className="text-lg font-black text-orange-700">
                       {visitaHistory.filter(v => v.visita?.tipo_visita?.codigo === 'CORRECTIVO').length}
                     </span>
-                    <span className="text-[9px] text-orange-600 font-semibold uppercase tracking-wide">Corr.</span>
+                    <span className="text-2xs text-orange-600 font-semibold uppercase tracking-wide">Corr.</span>
                   </div>
                 </div>
               </div>
@@ -405,11 +405,11 @@ const DeviceForm = ({
                   <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                     <div className="flex items-center gap-2">
                       <Tag size={15} className="text-gray-500" />
-                      <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Clasificación Técnica</span>
+                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Clasificación Técnica</span>
                     </div>
                     {isEditing && (
                       <Button onClick={onSave} disabled={isSaving}
-                        className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0 shrink-0">
+                        className="bg-linear-to-r from-brand to-brand-deeper text-white border-0 shrink-0">
                         {isSaving ? 'Guardando...' : 'Guardar Equipo'}
                       </Button>
                     )}
@@ -425,7 +425,7 @@ const DeviceForm = ({
                       action={isEditing && (
                         <button type="button"
                           onClick={() => pushRoute({ type: 'categoria', mode: 'create', originKey: currentKey, originField: 'categoriaId' })}
-                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-[#D32F2F] transition-colors" title="Crear nueva categoría">
+                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-brand transition-colors" title="Crear nueva categoría">
                           <Plus size={12} />
                         </button>
                       )}
@@ -439,7 +439,7 @@ const DeviceForm = ({
                       action={isEditing && (
                         <button type="button"
                           onClick={() => pushRoute({ type: 'proveedor', mode: 'create', originKey: currentKey, originField: 'proveedorId' })}
-                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-[#D32F2F] transition-colors" title="Crear nuevo proveedor">
+                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-brand transition-colors" title="Crear nuevo proveedor">
                           <Plus size={12} />
                         </button>
                       )}
@@ -455,7 +455,7 @@ const DeviceForm = ({
                       action={isEditing && draft.proveedorId && (
                         <button type="button"
                           onClick={() => pushRoute({ type: 'marca', mode: 'create', originKey: currentKey, originField: 'marcaId', proveedorId: draft.proveedorId })}
-                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-[#D32F2F] transition-colors" title="Crear nueva marca">
+                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-brand transition-colors" title="Crear nueva marca">
                           <Plus size={12} />
                         </button>
                       )}
@@ -551,7 +551,7 @@ const DeviceForm = ({
                           value={draft.frecuenciaMantenimientoMeses || ''}
                           onChange={e => handleFrecuenciaChange(e.target.value)}
                           placeholder="Ej: 6"
-                          className="w-full h-10 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] text-sm font-semibold transition-all"
+                          className="w-full h-10 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand text-sm font-semibold transition-all"
                         />
                       ) : (
                         <div className="w-full h-10 px-3 text-sm font-semibold text-gray-900 flex items-center">
@@ -571,7 +571,7 @@ const DeviceForm = ({
                     <Label>Observación</Label>
                     {isEditing ? (
                       <textarea
-                        className="w-full p-3 border border-gray-300 rounded-md text-sm font-semibold min-h-20 resize-y focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
+                        className="w-full p-3 border border-gray-300 rounded-md text-sm font-semibold min-h-20 resize-y focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand transition-all"
                         value={draft.notasTecnicas || ''}
                         onChange={e => updateDraft({ notasTecnicas: e.target.value })}
                         placeholder="Observaciones técnicas del equipo..."
@@ -604,7 +604,7 @@ const DeviceForm = ({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <ArrowRightLeft size={15} className="text-gray-400" />
-                    <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Historial de Traslados</span>
+                    <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Historial de Traslados</span>
                   </div>
                   {canManageTraslados && draft.id && !String(draft.id).startsWith('new-') && (
                     <Button onClick={() => setShowTrasladoModal(true)} className="flex items-center gap-1.5 text-xs">
@@ -672,8 +672,8 @@ const DeviceForm = ({
                       <Card key={t.id} className="p-4 border border-gray-200 shadow-sm rounded-2xl">
                         <div className="divide-y divide-gray-50">
                           <div className="flex items-start gap-3 pb-2.5">
-                            <div className="p-2 rounded-lg bg-[#D32F2F]/10 shrink-0">
-                              <ArrowRightLeft size={14} className="text-[#D32F2F]" />
+                            <div className="p-2 rounded-lg bg-brand/10 shrink-0">
+                              <ArrowRightLeft size={14} className="text-brand" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <TextSmall className="font-bold text-gray-900 whitespace-nowrap">{fecha}</TextSmall>

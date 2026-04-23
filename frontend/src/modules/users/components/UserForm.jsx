@@ -115,7 +115,7 @@ const AvatarUpload = ({ userId, avatarUrl, nombres, isView, isCreating, onChange
       <div className="relative">
         <div
           onClick={handleClick}
-          className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-md border-2 border-gray-200 bg-linear-to-br from-[#D32F2F] to-[#8B0000] ${canEdit ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+          className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-md border-2 border-gray-200 bg-linear-to-br from-brand to-brand-deeper ${canEdit ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
         >
           {avatarUrl ? (
             <SecureImage path={avatarUrl} bucket="inmotika" alt="Avatar" className="w-full h-full object-cover" />
@@ -244,7 +244,7 @@ const UserForm = ({
         <div className="flex items-center gap-4">
           <button
             onClick={onCancel}
-            className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"
+            className="p-2 bg-gray-50 hover:bg-brand hover:text-white rounded-md transition-all shadow-sm"
           >
             <ArrowLeft size={16} />
           </button>

@@ -141,8 +141,8 @@ const PhoneInput = ({
       <div className={`relative flex w-full rounded-md border transition-all
         focus-within:ring-4
         ${dark
-          ? 'border-[#3A3A3A] focus-within:ring-white/10 focus-within:border-white/30'
-          : `border-gray-300 hover:border-gray-400 focus-within:border-[#D32F2F] focus-within:ring-[#D32F2F]/5 ${shownError ? 'border-red-500 ring-4 ring-red-500/10' : ''}`
+          ? 'border-canvas-overlay focus-within:ring-white/10 focus-within:border-white/30'
+          : `border-gray-300 hover:border-gray-400 focus-within:border-brand focus-within:ring-brand/5 ${shownError ? 'border-red-500 ring-4 ring-red-500/10' : ''}`
         }`}
       >
         {/* Country trigger */}
@@ -151,7 +151,7 @@ const PhoneInput = ({
           onClick={() => setOpen(o => !o)}
           className={`flex items-center gap-1.5 pl-3 pr-2 h-10 shrink-0 rounded-l-md border-r transition-colors
             ${dark
-              ? 'border-[#3A3A3A] hover:bg-white/5'
+              ? 'border-canvas-overlay hover:bg-white/5'
               : 'border-gray-300 hover:bg-gray-50'
             }`}
         >
@@ -174,7 +174,7 @@ const PhoneInput = ({
           <Phone
             size={15}
             className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors
-              ${dark ? 'text-gray-500 group-focus-within:text-white' : 'text-gray-400 group-focus-within:text-[#D32F2F]'}`}
+              ${dark ? 'text-gray-500 group-focus-within:text-white' : 'text-gray-400 group-focus-within:text-brand'}`}
           />
           <input
             ref={inputRef}
@@ -193,7 +193,7 @@ const PhoneInput = ({
         {/* ── Dropdown ── */}
         {open && (
           <div className={`absolute left-0 top-full mt-1.5 z-60 w-72 rounded-xl shadow-2xl border overflow-hidden
-            ${dark ? 'bg-[#2A2A2A] border-white/10' : 'bg-white border-gray-200'}`}
+            ${dark ? 'bg-canvas-raised border-white/10' : 'bg-white border-gray-200'}`}
           >
             {/* Search box */}
             <div className={`p-2 border-b ${dark ? 'border-white/10' : 'border-gray-100'}`}>
@@ -205,8 +205,8 @@ const PhoneInput = ({
                   placeholder="Buscar país o código..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className={`w-full h-8 pl-8 pr-3 text-xs rounded-md border focus:outline-none focus:border-[#D32F2F] transition-colors
-                    ${dark ? 'bg-[#3A3A3A] border-white/10 text-white placeholder-gray-500' : 'border-gray-200 text-gray-900'}`}
+                  className={`w-full h-8 pl-8 pr-3 text-xs rounded-md border focus:outline-none focus:border-brand transition-colors
+                    ${dark ? 'bg-canvas-overlay border-white/10 text-white placeholder-gray-500' : 'border-gray-200 text-gray-900'}`}
                 />
               </div>
             </div>
@@ -223,7 +223,7 @@ const PhoneInput = ({
                     onClick={() => handleSelect(c.value)}
                     className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors text-left
                       ${c.value === iso
-                        ? (dark ? 'bg-white/10 text-white' : 'bg-red-50 text-[#D32F2F]')
+                        ? (dark ? 'bg-white/10 text-white' : 'bg-red-50 text-brand')
                         : (dark ? 'hover:bg-white/5 text-gray-300' : 'hover:bg-gray-50 text-gray-700')
                       }`}
                   >

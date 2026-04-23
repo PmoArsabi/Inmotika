@@ -159,7 +159,7 @@ const SignaturePadModal = forwardRef(({ onConfirm, onCancel, title = 'Dibujar Fi
 
       {/* Canvas */}
       <div className="px-3 pt-3 pb-1">
-        <p className="text-[10px] text-gray-400 mb-1.5">Firma con el mouse o dedo dentro del recuadro</p>
+        <p className="text-2xs text-gray-400 mb-1.5">Firma con el mouse o dedo dentro del recuadro</p>
         <div className="relative border-2 border-dashed border-gray-200 rounded-lg bg-gray-50 overflow-hidden">
           <canvas
             ref={canvasRef}
@@ -181,7 +181,7 @@ const SignaturePadModal = forwardRef(({ onConfirm, onCancel, title = 'Dibujar Fi
         </div>
         <div className="relative mt-1 mx-1">
           <div className="border-t border-gray-300" />
-          <span className="absolute -top-2 left-0 text-[9px] text-gray-400 bg-white px-1">línea de firma</span>
+          <span className="absolute -top-2 left-0 text-2xs text-gray-400 bg-white px-1">línea de firma</span>
         </div>
       </div>
 
@@ -191,7 +191,7 @@ const SignaturePadModal = forwardRef(({ onConfirm, onCancel, title = 'Dibujar Fi
           <button
             type="button"
             onClick={handleClear}
-            className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
           >
             <RotateCcw size={11} /> Limpiar
           </button>
@@ -199,7 +199,7 @@ const SignaturePadModal = forwardRef(({ onConfirm, onCancel, title = 'Dibujar Fi
             <button
               type="button"
               onClick={onCancel}
-              className="px-3 py-1.5 text-[11px] text-gray-500 hover:text-gray-700 rounded transition-colors"
+              className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 rounded transition-colors"
             >
               Cancelar
             </button>
@@ -207,7 +207,7 @@ const SignaturePadModal = forwardRef(({ onConfirm, onCancel, title = 'Dibujar Fi
               type="button"
               onClick={handleConfirm}
               disabled={!hasDrawn}
-              className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold text-white bg-[#D32F2F] hover:bg-[#B71C1C] rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-brand hover:bg-brand-dark rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Check size={11} /> Guardar firma
             </button>
@@ -221,12 +221,12 @@ const SignaturePadModal = forwardRef(({ onConfirm, onCancel, title = 'Dibujar Fi
           <button
             type="button"
             onClick={handleClear}
-            className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
           >
             <RotateCcw size={11} /> Limpiar
           </button>
           {hasDrawn && (
-            <span className="text-[11px] text-green-600 font-semibold flex items-center gap-1">
+            <span className="text-xs text-green-600 font-semibold flex items-center gap-1">
               <Check size={11} /> Lista para guardar
             </span>
           )}

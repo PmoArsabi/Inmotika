@@ -37,7 +37,7 @@ const SolicitudForm = ({
         <div className="flex items-center gap-4">
           <button
             onClick={onCancel}
-            className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"
+            className="p-2 bg-gray-50 hover:bg-brand hover:text-white rounded-md transition-all shadow-sm"
           >
             <ArrowLeft size={16} />
           </button>
@@ -121,7 +121,7 @@ const SolicitudForm = ({
                   type="datetime-local"
                   value={draft.fechaSugerida}
                   onChange={e => updateDraft({ fechaSugerida: e.target.value })}
-                  className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm font-semibold bg-white focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
+                  className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm font-semibold bg-white focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand transition-all"
                 />
               </div>
             </div>
@@ -136,7 +136,7 @@ const SolicitudForm = ({
                   <button
                     type="button"
                     onClick={() => updateDraft({ dispositivoIds: [], dispositivosNombres: [] })}
-                    className="text-[10px] text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                    className="text-2xs text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
                   >
                     <X size={10} /> Limpiar selección
                   </button>
@@ -152,7 +152,7 @@ const SolicitudForm = ({
                   !draft.sucursalId
                     ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
                     : draft.dispositivoIds.length > 0
-                      ? 'border-[#D32F2F] bg-white text-gray-700 hover:bg-red-50'
+                      ? 'border-brand bg-white text-gray-700 hover:bg-red-50'
                       : 'border-gray-300 bg-white text-gray-400 hover:border-gray-400'
                 }`}
               >
@@ -166,7 +166,7 @@ const SolicitudForm = ({
                   }
                 </span>
                 {draft.dispositivoIds.length > 0 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full bg-[#D32F2F] text-white text-[10px] font-bold leading-none">
+                  <span className="shrink-0 px-2 py-0.5 rounded-full bg-brand text-white text-2xs font-bold leading-none">
                     {draft.dispositivoIds.length}
                   </span>
                 )}
@@ -185,7 +185,7 @@ const SolicitudForm = ({
                     });
                     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([cat, items]) => (
                       <div key={cat}>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1 flex items-center gap-1">
+                        <p className="text-2xs font-bold uppercase tracking-wider text-gray-400 mb-1 flex items-center gap-1">
                           <Tag size={9} /> {cat}
                         </p>
                         <ul className="space-y-1">
@@ -224,7 +224,7 @@ const SolicitudForm = ({
                 onChange={e => updateDraft({ motivo: e.target.value })}
                 rows={3}
                 placeholder="Describe el motivo o detalles adicionales de la solicitud..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-semibold resize-y focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-semibold resize-y focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand transition-all"
               />
             </div>
           </Card>
@@ -286,7 +286,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"
+            className="p-2 bg-gray-50 hover:bg-brand hover:text-white rounded-md transition-all shadow-sm"
           >
             <ArrowLeft size={16} />
           </button>
@@ -322,7 +322,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
             </div>
             {sol.dispositivosNombres?.length > 0 && (
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-1">
+                <p className="text-2xs font-bold uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-1">
                   <Cpu size={11} /> Dispositivos solicitados
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -336,7 +336,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
             )}
             {sol.motivo && (
               <div className="p-3 rounded-lg bg-gray-50 border border-gray-100">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Observación del solicitante</p>
+                <p className="text-2xs font-bold uppercase tracking-widest text-gray-400 mb-1">Observación del solicitante</p>
                 <p className="text-sm text-gray-700">{sol.motivo}</p>
               </div>
             )}
@@ -366,7 +366,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
               {/* Técnicos asignados — misma vista para todos los roles */}
               {visitaVinculada.tecnicosNombres?.length > 0 && (
                 <div className="pt-2 border-t border-gray-100">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-1.5">
+                  <p className="text-2xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-1.5">
                     <Users size={11} /> Técnicos asignados
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -393,7 +393,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <div className="w-full h-full bg-[#D32F2F] text-white flex items-center justify-center text-sm font-black">
+                                <div className="w-full h-full bg-brand text-white flex items-center justify-center text-sm font-black">
                                   {initial}
                                 </div>
                               )}
@@ -401,7 +401,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-bold text-gray-900 truncate">{fullName}</p>
                               {tec?.telefono && (
-                                <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
+                                <p className="text-2xs text-gray-400 flex items-center gap-1 mt-0.5">
                                   <Phone size={9} /> {tec.telefono}
                                 </p>
                               )}
@@ -413,7 +413,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                           </button>
                           {isOpen && (
                             <div className="px-3 py-2.5 border-t border-gray-100 bg-white">
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Documentos</p>
+                              <p className="text-2xs font-bold uppercase tracking-widest text-gray-400 mb-2">Documentos</p>
                               {loadingDocs ? (
                                 <div className="space-y-1.5">
                                   {[1, 2].map(i => <div key={i} className="h-7 bg-gray-100 rounded animate-pulse" />)}
@@ -434,7 +434,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
 
               {visitaVinculada.dispositivos?.length > 0 && (
                 <div className="pt-2 border-t border-gray-100">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Avance de dispositivos</p>
+                  <p className="text-2xs font-bold uppercase tracking-widest text-gray-400 mb-3">Avance de dispositivos</p>
                   <VisitProgressPanel
                     dispositivos={visitaVinculada.dispositivos}
                     ejecucionPasos={visitaVinculada.ejecucionPasos}
@@ -445,7 +445,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
               )}
               {visitaVinculada.observacionFinal && (
                 <div className="p-3 rounded-lg bg-green-50 border border-green-100">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-green-600 mb-1">Observación final</p>
+                  <p className="text-2xs font-bold uppercase tracking-widest text-green-600 mb-1">Observación final</p>
                   <p className="text-sm text-green-900">{visitaVinculada.observacionFinal}</p>
                 </div>
               )}
@@ -485,7 +485,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
               ].map((step, i) => (
                 <li key={i} className="relative">
                   <span className={`absolute -left-7.5 top-1 w-3 h-3 rounded-full border-2 ${
-                    step.active ? 'bg-[#D32F2F] border-[#D32F2F]' : 'bg-white border-gray-300'
+                    step.active ? 'bg-brand border-brand' : 'bg-white border-gray-300'
                   }`} />
                   <p className={`text-sm font-semibold ${step.active ? 'text-gray-900' : 'text-gray-400'}`}>
                     {step.label}

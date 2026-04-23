@@ -44,7 +44,7 @@ const TechnicianForm = ({
           <Button
             onClick={onSave}
             disabled={isSaving}
-            className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+            className="bg-linear-to-r from-brand to-brand-deeper hover:from-brand-dark hover:to-brand-deeper text-white border-0"
           >
             {isSaving ? 'Guardando...' : 'Guardar Técnico'}
           </Button>
@@ -54,7 +54,7 @@ const TechnicianForm = ({
       {/* 1. Información Personal */}
       <Card className="p-5 space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
-          <Label className="text-[11px] text-gray-700 tracking-wide font-bold">1. INFORMACIÓN PERSONAL</Label>
+          <Label className="text-xs text-gray-700 tracking-wide font-bold">1. INFORMACIÓN PERSONAL</Label>
           <TextTiny className="text-gray-400">Datos básicos del usuario</TextTiny>
         </div>
         <PersonalInfoSection
@@ -73,7 +73,7 @@ const TechnicianForm = ({
       <Card className="p-5 space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
           <IdCard size={16} className="text-gray-500" />
-          <Label className="text-[11px] text-gray-700 tracking-wide font-bold">2. IDENTIFICACIÓN</Label>
+          <Label className="text-xs text-gray-700 tracking-wide font-bold">2. IDENTIFICACIÓN</Label>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select
@@ -102,7 +102,7 @@ const TechnicianForm = ({
       <Card className="p-5 space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
           <ShieldCheck size={16} className="text-gray-500" />
-          <Label className="text-[11px] text-gray-700 tracking-wide font-bold">3. ESTADO</Label>
+          <Label className="text-xs text-gray-700 tracking-wide font-bold">3. ESTADO</Label>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select
@@ -122,7 +122,7 @@ const TechnicianForm = ({
         <Card className="p-5 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
             <FileText size={16} className="text-gray-500" />
-            <Label className="text-[11px] text-gray-700 tracking-wide font-bold">4. DOCUMENTOS</Label>
+            <Label className="text-xs text-gray-700 tracking-wide font-bold">4. DOCUMENTOS</Label>
           </div>
           <DocumentUploadManager
             usuarioId={draft.usuarioId}

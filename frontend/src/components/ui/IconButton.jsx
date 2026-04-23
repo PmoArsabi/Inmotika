@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 
-const IconButton = ({ icon, onClick, className = "", size = 18, color = "text-gray-400", hoverColor = "hover:text-[#D32F2F]", ...props }) => {
+const IconButton = ({ icon, onClick, className = "", size = 18, color = "text-gray-400", hoverColor = "hover:text-brand", ...props }) => {
   return (
     <button
       type="button"

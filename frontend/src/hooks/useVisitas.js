@@ -104,9 +104,8 @@ export const useVisitas = () => {
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
   const notify = useNotify();
-  // Ref estable para notify — evita que fetchVisitas se recree en cada render
   const notifyRef = useRef(notify);
-  notifyRef.current = notify;
+  useEffect(() => { notifyRef.current = notify; });
   const userId = user?.id ?? null;
 
   // ── Fetch (2 pasos para evitar ambigüedad PostgREST en joins anidados) ───────

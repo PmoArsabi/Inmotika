@@ -44,7 +44,7 @@ const VisitaHistorialCard = ({ intervencion }) => {
         <div className={`w-2 h-2 rounded-full shrink-0 ${esCorrectivo ? 'bg-orange-400' : 'bg-green-500'}`} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+            <span className={`text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
               esCorrectivo ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
             }`}>
               {visita?.tipo_visita?.nombre || tipo || 'Visita'}
@@ -54,12 +54,12 @@ const VisitaHistorialCard = ({ intervencion }) => {
             </span>
           </div>
           {tecnicos.length > 0 && (
-            <p className="text-[11px] text-gray-400 mt-0.5 truncate">Técnico(s): {tecnicos.join(', ')}</p>
+            <p className="text-xs text-gray-400 mt-0.5 truncate">Técnico(s): {tecnicos.join(', ')}</p>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {evidencias.length > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-gray-400">
+            <span className="flex items-center gap-1 text-2xs text-gray-400">
               <ImageIcon size={11} /> {evidencias.length}
             </span>
           )}
@@ -73,13 +73,13 @@ const VisitaHistorialCard = ({ intervencion }) => {
         <div className="border-t border-gray-100 p-3 bg-gray-50 space-y-3">
           {intervencion.observacion_final && (
             <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Observación final</p>
+              <p className="text-2xs font-bold text-gray-500 uppercase tracking-wide mb-1">Observación final</p>
               <p className="text-xs text-gray-700 leading-relaxed">{intervencion.observacion_final}</p>
             </div>
           )}
           {evidencias.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">Evidencias fotográficas</p>
+              <p className="text-2xs font-bold text-gray-500 uppercase tracking-wide mb-2">Evidencias fotográficas</p>
               <div className="flex flex-wrap gap-2">
                 {evidencias.map(e => (
                   <div
@@ -151,14 +151,14 @@ const DeviceVisitasTab = ({ visitaHistory, loadingHistory }) => {
           <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-lg">
             <Shield size={18} className="text-green-600 shrink-0" />
             <div>
-              <p className="text-[10px] font-bold text-green-700 uppercase tracking-wide">Preventivos</p>
+              <p className="text-2xs font-bold text-green-700 uppercase tracking-wide">Preventivos</p>
               <p className="text-xl font-black text-green-800">{preventivos}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-3 bg-orange-50 border border-orange-100 rounded-lg">
             <Wrench size={18} className="text-orange-600 shrink-0" />
             <div>
-              <p className="text-[10px] font-bold text-orange-700 uppercase tracking-wide">Correctivos</p>
+              <p className="text-2xs font-bold text-orange-700 uppercase tracking-wide">Correctivos</p>
               <p className="text-xl font-black text-orange-800">{correctivos}</p>
             </div>
           </div>
@@ -175,7 +175,7 @@ const DeviceVisitasTab = ({ visitaHistory, loadingHistory }) => {
               value={visitaSearch}
               onChange={e => setVisitaSearch(e.target.value)}
               placeholder="Buscar por observación, técnico..."
-              className="w-full h-8 pl-7 pr-7 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all bg-white"
+              className="w-full h-8 pl-7 pr-7 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all bg-white"
             />
             {visitaSearch && (
               <button
@@ -192,7 +192,7 @@ const DeviceVisitasTab = ({ visitaHistory, loadingHistory }) => {
             <select
               value={visitaTipoFilter}
               onChange={e => setVisitaTipoFilter(e.target.value)}
-              className="h-8 pl-7 pr-6 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all bg-white appearance-none cursor-pointer font-medium text-gray-700"
+              className="h-8 pl-7 pr-6 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all bg-white appearance-none cursor-pointer font-medium text-gray-700"
             >
               <option value="">Todos los tipos</option>
               {tiposDisponibles.map(codigo => (
@@ -206,7 +206,7 @@ const DeviceVisitasTab = ({ visitaHistory, loadingHistory }) => {
           {hasActiveFilters && (
             <button
               onClick={() => { setVisitaTipoFilter(''); setVisitaSearch(''); }}
-              className="shrink-0 h-8 px-2.5 text-xs font-semibold text-[#D32F2F] border border-[#D32F2F]/30 rounded-md hover:bg-[#D32F2F]/5 transition-colors"
+              className="shrink-0 h-8 px-2.5 text-xs font-semibold text-brand border border-brand/30 rounded-md hover:bg-brand/5 transition-colors"
             >
               Limpiar
             </button>
@@ -231,7 +231,7 @@ const DeviceVisitasTab = ({ visitaHistory, loadingHistory }) => {
           <p className="text-xs italic text-gray-400">No hay visitas que coincidan con los filtros</p>
           <button
             onClick={() => { setVisitaTipoFilter(''); setVisitaSearch(''); }}
-            className="mt-2 text-xs font-semibold text-[#D32F2F] hover:underline"
+            className="mt-2 text-xs font-semibold text-brand hover:underline"
           >
             Limpiar filtros
           </button>
@@ -239,7 +239,7 @@ const DeviceVisitasTab = ({ visitaHistory, loadingHistory }) => {
       ) : (
         <div className="space-y-2">
           {hasActiveFilters && (
-            <p className="text-[10px] text-gray-400 font-medium px-0.5">
+            <p className="text-2xs text-gray-400 font-medium px-0.5">
               {filteredVisitas.length} de {visitaHistory.length} visita{visitaHistory.length !== 1 ? 's' : ''}
             </p>
           )}

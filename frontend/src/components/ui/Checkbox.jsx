@@ -16,11 +16,11 @@ const Checkbox = ({ label, checked, onChange, viewMode = false, className = '', 
               type="checkbox"
               checked={checked}
               onChange={(e) => onChange(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-[#D32F2F] focus:ring-[#D32F2F] focus:ring-2 cursor-pointer"
+              className="h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand focus:ring-2 cursor-pointer"
               {...props}
             />
             {label && (
-              <span className={`text-sm font-semibold ${checked ? 'text-[#D32F2F]' : 'text-gray-400'}`}>
+              <span className={`text-sm font-semibold ${checked ? 'text-brand' : 'text-gray-400'}`}>
                 {checked ? 'Sí' : 'No'}
               </span>
             )}

@@ -66,7 +66,7 @@ export const Tr = ({ children, onClick, className = "" }) => (
 
 export const Th = ({ children, narrow = false, className = "" }) => (
   <th className={`py-4 px-5 text-left ${narrow ? 'w-px whitespace-nowrap' : ''} ${className}`}>
-    <div className="text-[10px] font-bold tracking-wider text-(--table-head-text) uppercase">
+    <div className="text-2xs font-bold tracking-wider text-(--table-head-text) uppercase">
       {children}
     </div>
   </th>
@@ -74,7 +74,7 @@ export const Th = ({ children, narrow = false, className = "" }) => (
 
 export const Td = ({ children, narrow = false, className = "", align = 'left' }) => (
   <td className={`py-4 px-5 text-${align} ${narrow ? 'w-px whitespace-nowrap' : ''} ${className}`}>
-    <div className="text-[11px] font-medium text-gray-700 leading-relaxed">
+    <div className="text-xs font-medium text-gray-700 leading-relaxed">
       {children}
     </div>
   </td>

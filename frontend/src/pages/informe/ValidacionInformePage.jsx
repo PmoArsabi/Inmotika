@@ -25,7 +25,7 @@ const EstadoBadge = ({ estado }) => {
     APROBADO:       { label: 'Aprobado',               cls: 'bg-green-100 text-green-800'  },
   }[estado] || { label: estado, cls: 'bg-gray-100 text-gray-700' };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${cfg.cls}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold uppercase tracking-wide ${cfg.cls}`}>
       {cfg.label}
     </span>
   );
@@ -93,7 +93,7 @@ const ValidacionInformePage = () => {
     {
       header: 'Tipo',
       render: inf => (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[10px] font-bold">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-2xs font-bold">
           <Tag size={10} /> {inf.tipo_visita}
         </span>
       ),

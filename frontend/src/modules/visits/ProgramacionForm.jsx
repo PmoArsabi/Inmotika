@@ -67,7 +67,7 @@ export const ProgramacionForm = ({
         <div className="flex items-center gap-4">
           <button
             onClick={onCancel}
-            className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"
+            className="p-2 bg-gray-50 hover:bg-brand hover:text-white rounded-md transition-all shadow-sm"
           >
             <ArrowLeft size={16} />
           </button>
@@ -119,7 +119,7 @@ export const ProgramacionForm = ({
                 <button
                   type="button"
                   onClick={() => setDevicePickerOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#D32F2F] border border-[#D32F2F]/30 rounded-lg hover:bg-red-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand border border-brand/30 rounded-lg hover:bg-red-50 transition-colors"
                 >
                   <Plus size={12} /> Seleccionar
                 </button>
@@ -195,7 +195,7 @@ export const ProgramacionForm = ({
                 type="datetime-local"
                 value={draft.fechaProgramada}
                 onChange={e => updateDraft({ fechaProgramada: e.target.value })}
-                className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm font-semibold bg-white focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
+                className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm font-semibold bg-white focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand transition-all"
               />
               {!draft.fechaProgramada && (
                 <TextTiny className="text-red-500 mt-1">Este campo es obligatorio.</TextTiny>
@@ -213,7 +213,7 @@ export const ProgramacionForm = ({
               onChange={e => updateDraft({ observaciones: e.target.value })}
               rows={3}
               placeholder="Instrucciones adicionales, acceso al sitio, contacto en sitio..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-semibold resize-y focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-semibold resize-y focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand transition-all"
             />
           </Card>
         </div>
@@ -282,7 +282,7 @@ export const ProgramacionDetalle = ({ item, solicitudOrigen, onBack, onEdit }) =
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"
+            className="p-2 bg-gray-50 hover:bg-brand hover:text-white rounded-md transition-all shadow-sm"
           >
             <ArrowLeft size={16} />
           </button>

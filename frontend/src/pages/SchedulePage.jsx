@@ -68,7 +68,7 @@ const toDateOnly = (iso) => {
 const TipoBadge = ({ label }) => {
   if (!label) return null;
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600 uppercase tracking-wider">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-bold bg-gray-100 text-gray-600 uppercase tracking-wider">
       {label}
     </span>
   );
@@ -90,7 +90,7 @@ const VisitCard = ({ visita, onClick }) => {
       className={`w-full text-left rounded-xl border border-gray-100 bg-white shadow-sm p-5 transition-all duration-200 group cursor-pointer
         ${isCompleted
           ? 'opacity-70 hover:opacity-90 hover:shadow-md hover:border-gray-200'
-          : 'hover:shadow-md hover:-translate-y-px hover:border-[#D32F2F]/20'
+          : 'hover:shadow-md hover:-translate-y-px hover:border-brand/20'
         }`}
     >
       {/* Top row: tipo + estado + flecha */}
@@ -106,18 +106,18 @@ const VisitCard = ({ visita, onClick }) => {
           <TextSmall className="text-gray-300">{visita.id.slice(0, 8)}</TextSmall>
           <ChevronRight
             size={14}
-            className="text-gray-300 group-hover:text-[#D32F2F] transition-colors"
+            className="text-gray-300 group-hover:text-brand transition-colors"
           />
         </div>
       </div>
 
       {/* Client + branch */}
       <div className="mb-3">
-        <H2 className="text-base leading-tight text-gray-900 mb-0.5 normal-case tracking-normal group-hover:text-[#D32F2F] transition-colors">
+        <H2 className="text-base leading-tight text-gray-900 mb-0.5 normal-case tracking-normal group-hover:text-brand transition-colors">
           {visita.clienteNombre || '—'}
         </H2>
         <div className="flex items-center gap-1.5 text-xs text-gray-400 font-semibold">
-          <MapPin size={12} className="text-[#D32F2F] shrink-0" />
+          <MapPin size={12} className="text-brand shrink-0" />
           <span>{visita.sucursalNombre || 'Sin sucursal'}</span>
         </div>
       </div>
@@ -226,13 +226,13 @@ const SchedulePage = ({ onVisitClick }) => {
           <H1 className="mb-2 tracking-tighter leading-none">
             Hola, {firstName}
           </H1>
-          <div className="flex items-center gap-3 text-[10px] font-bold text-gray-400 uppercase">
+          <div className="flex items-center gap-3 text-2xs font-bold text-gray-400 uppercase">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-200" />
             Operación Activa
           </div>
         </div>
         <div className="text-right">
-          <Metric className="text-[#D32F2F] leading-none mb-1 text-xl block">
+          <Metric className="text-brand leading-none mb-1 text-xl block">
             {dayMonth}
           </Metric>
           <Label className="text-gray-300">{weekYear}</Label>

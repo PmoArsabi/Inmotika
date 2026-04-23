@@ -66,7 +66,7 @@ const ResetPasswordForm = ({ onUpdatePassword, onComplete, loading: externalLoad
   return (
     <Card className="bg-white shadow-2xl border-0 overflow-hidden">
       {/* Header con gradiente premium */}
-      <div className="bg-linear-to-r from-[#D32F2F] via-[#B71C1C] to-[#8B0000] px-8 py-10 relative overflow-hidden">
+      <div className="bg-linear-to-r from-brand via-brand-dark to-brand-deeper px-8 py-10 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
         <div className="relative z-10 text-center">
           <h1 className="text-white text-2xl font-bold mb-1">Configurar Acceso</h1>
@@ -96,13 +96,13 @@ const ResetPasswordForm = ({ onUpdatePassword, onComplete, loading: externalLoad
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading || externalLoading}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-[#D32F2F] outline-none transition-colors bg-transparent disabled:opacity-50"
+                className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-brand outline-none transition-colors bg-transparent disabled:opacity-50"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#D32F2F] transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand transition-colors"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -122,7 +122,7 @@ const ResetPasswordForm = ({ onUpdatePassword, onComplete, loading: externalLoad
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={loading || externalLoading}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-[#D32F2F] outline-none transition-colors bg-transparent disabled:opacity-50"
+                className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-brand outline-none transition-colors bg-transparent disabled:opacity-50"
                 required
               />
             </div>
@@ -131,7 +131,7 @@ const ResetPasswordForm = ({ onUpdatePassword, onComplete, loading: externalLoad
           <Button
             type="submit"
             disabled={loading || externalLoading}
-            className="w-full py-4 bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white font-bold rounded-full shadow-lg transition-all"
+            className="w-full py-4 bg-linear-to-r from-brand to-brand-deeper hover:from-brand-dark hover:to-brand-deeper text-white font-bold rounded-full shadow-lg transition-all"
           >
             {loading || externalLoading ? 'GUARDANDO...' : 'ACTIVAR CUENTA'}
           </Button>

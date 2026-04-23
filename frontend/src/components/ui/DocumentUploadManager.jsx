@@ -189,12 +189,12 @@ const DocumentUploadManager = ({ usuarioId, canManage = false, onSaved, onError 
             <li key={doc.id} className="rounded-lg border border-gray-100 overflow-hidden">
               <div className="flex items-center gap-2.5 px-3 py-2.5 bg-gray-50 group transition-colors">
                 {esFirma
-                  ? <PenLine size={13} className="text-[#D32F2F] shrink-0" />
+                  ? <PenLine size={13} className="text-brand shrink-0" />
                   : <FileText size={13} className="text-gray-400 shrink-0" />
                 }
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-gray-800 truncate">{doc.nombre}</p>
-                  <p className="text-[10px] text-gray-400">
+                  <p className="text-2xs text-gray-400">
                     {tipoOptions.find(t => t.codigo === doc.tipo)?.label || doc.tipo}
                   </p>
                 </div>
@@ -206,7 +206,7 @@ const DocumentUploadManager = ({ usuarioId, canManage = false, onSaved, onError 
                     onClick={() => handleOpen(doc)}
                     disabled={opening === doc.id}
                     title="Ver documento"
-                    className="p-1.5 rounded text-gray-400 hover:text-[#D32F2F] hover:bg-red-50 transition-colors disabled:opacity-50"
+                    className="p-1.5 rounded text-gray-400 hover:text-brand hover:bg-red-50 transition-colors disabled:opacity-50"
                   >
                     {opening === doc.id
                       ? <Loader2 size={13} className="animate-spin" />
@@ -222,7 +222,7 @@ const DocumentUploadManager = ({ usuarioId, canManage = false, onSaved, onError 
                     onClick={() => handleReplaceClick(doc)}
                     disabled={saving}
                     title={esFirma ? 'Redibujar firma' : 'Reemplazar archivo'}
-                    className="p-1.5 rounded text-gray-300 hover:text-[#D32F2F] hover:bg-red-50 transition-colors disabled:opacity-50"
+                    className="p-1.5 rounded text-gray-300 hover:text-brand hover:bg-red-50 transition-colors disabled:opacity-50"
                   >
                     <RefreshCw size={13} />
                   </button>
@@ -271,7 +271,7 @@ const DocumentUploadManager = ({ usuarioId, canManage = false, onSaved, onError 
               placeholder="Nombre del documento"
               value={draft.nombre}
               onChange={e => setDraft(p => ({ ...p, nombre: e.target.value }))}
-              className="col-span-2 h-9 px-3 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all"
+              className="col-span-2 h-9 px-3 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all"
             />
             <Select
               value={draft.tipo}
@@ -287,7 +287,7 @@ const DocumentUploadManager = ({ usuarioId, canManage = false, onSaved, onError 
                 <PenLine size={12} /> Dibuja abajo
               </div>
             ) : (
-              <label className="flex items-center justify-center h-9 px-2 text-xs border border-gray-300 rounded-md bg-white cursor-pointer hover:border-[#D32F2F] transition-colors truncate">
+              <label className="flex items-center justify-center h-9 px-2 text-xs border border-gray-300 rounded-md bg-white cursor-pointer hover:border-brand transition-colors truncate">
                 {draft.file ? draft.file.name : 'Adjuntar PDF…'}
                 <input
                   type="file"
@@ -311,7 +311,7 @@ const DocumentUploadManager = ({ usuarioId, canManage = false, onSaved, onError 
           )}
 
           {error && (
-            <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 rounded px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 rounded px-2.5 py-1.5">
               <AlertCircle size={12} /> {error}
             </div>
           )}
@@ -328,7 +328,7 @@ const DocumentUploadManager = ({ usuarioId, canManage = false, onSaved, onError 
               type="button"
               onClick={() => handleAdd()}
               disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#D32F2F] hover:bg-[#B71C1C] rounded-md transition-colors disabled:opacity-60"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-brand hover:bg-brand-dark rounded-md transition-colors disabled:opacity-60"
             >
               {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
               Guardar
@@ -339,7 +339,7 @@ const DocumentUploadManager = ({ usuarioId, canManage = false, onSaved, onError 
 
       {/* Error fuera del formulario */}
       {error && !adding && (
-        <div className="flex items-center gap-1.5 text-[11px] text-red-600 bg-red-50 rounded px-2.5 py-1.5">
+        <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 rounded px-2.5 py-1.5">
           <AlertCircle size={12} /> {error}
         </div>
       )}
@@ -348,7 +348,7 @@ const DocumentUploadManager = ({ usuarioId, canManage = false, onSaved, onError 
         <button
           type="button"
           onClick={() => { setAdding(true); setError(null); }}
-          className="flex items-center gap-1.5 text-xs font-semibold text-[#D32F2F] hover:text-[#B71C1C] transition-colors"
+          className="flex items-center gap-1.5 text-xs font-semibold text-brand hover:text-brand-dark transition-colors"
         >
           <Plus size={13} /> Agregar documento
         </button>

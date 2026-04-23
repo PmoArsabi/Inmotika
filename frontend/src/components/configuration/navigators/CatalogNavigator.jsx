@@ -75,7 +75,7 @@ const CatalogNavigator = () => {
     return (
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
         <header className="flex items-center gap-4 bg-white p-4 rounded-md border border-gray-100 shadow-sm">
-          <button onClick={goBack} className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all text-sm font-bold">
+          <button onClick={goBack} className="p-2 bg-gray-50 hover:bg-brand hover:text-white rounded-md transition-all text-sm font-bold">
             ←
           </button>
           <div>
@@ -91,7 +91,7 @@ const CatalogNavigator = () => {
             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nombre</label>
             <input 
               autoFocus
-              className="w-full h-11 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] text-sm font-semibold uppercase transition-all"
+              className="w-full h-11 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand text-sm font-semibold uppercase transition-all"
               placeholder={`Ej: ${isMarca ? 'GALAXY S24' : 'SAMSUNG'}`}
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -113,7 +113,7 @@ const CatalogNavigator = () => {
             <button 
               disabled={isSaving || !name.trim()}
               onClick={() => handleSimpleSave(isMarca ? 'marca' : 'proveedor', name, isMarca ? { proveedor_id: route.proveedorId } : {})}
-              className="flex-1 h-11 rounded-lg bg-[#D32F2F] text-white text-sm font-bold hover:bg-[#B71C1C] disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 h-11 rounded-lg bg-brand text-white text-sm font-bold hover:bg-brand-dark disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
             >
               {isSaving ? 'Guardando...' : 'Guardar'}
             </button>

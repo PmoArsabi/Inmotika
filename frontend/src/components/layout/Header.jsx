@@ -28,7 +28,7 @@ const getInitial = (user) => {
   return name.charAt(0).toUpperCase();
 };
 
-const Header = ({ user, onToggleMobileMenu }) => {
+const Header = ({ user, onToggleMobileMenu, onLogout }) => {
   const { refreshProfile } = useAuth();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
@@ -57,7 +57,7 @@ const Header = ({ user, onToggleMobileMenu }) => {
               className="flex items-center gap-2.5 rounded-xl px-2 py-1 hover:bg-gray-100 transition-colors cursor-pointer group"
               title="Editar perfil"
             >
-              <div className="w-9 h-9 rounded-xl overflow-hidden shadow-lg shadow-red-900/20 shrink-0 ring-2 ring-transparent group-hover:ring-[#D32F2F]/30 transition-all">
+              <div className="w-9 h-9 rounded-xl overflow-hidden shadow-lg shadow-red-900/20 shrink-0 ring-2 ring-transparent group-hover:ring-brand/30 transition-all">
                 {user?.avatar_url ? (
                   <SecureImage
                     path={user.avatar_url}
@@ -66,16 +66,16 @@ const Header = ({ user, onToggleMobileMenu }) => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-[#D32F2F] text-white flex items-center justify-center text-xs font-black">
+                  <div className="w-full h-full bg-brand text-white flex items-center justify-center text-xs font-black">
                     {getInitial(user)}
                   </div>
                 )}
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-[11px] font-black text-gray-900 uppercase tracking-wide leading-none">
+                <p className="text-xs font-semibold text-ink leading-none">
                   {displayName}
                 </p>
-                <TextSmall className="text-gray-400 uppercase mt-0.5">{user?.role}</TextSmall>
+                <TextSmall className="text-ink-muted mt-0.5">{user?.role}</TextSmall>
               </div>
             </button>
           </div>
@@ -88,6 +88,7 @@ const Header = ({ user, onToggleMobileMenu }) => {
         onClose={() => setProfileModalOpen(false)}
         user={user}
         onProfileUpdated={refreshProfile}
+        onLogout={onLogout}
       />
     </>
   );

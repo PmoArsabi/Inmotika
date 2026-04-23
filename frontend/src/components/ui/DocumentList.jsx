@@ -59,7 +59,7 @@ const DocumentList = ({ documentos = [], loading = false, emptyText = 'Sin docum
       {Object.entries(groups).map(([person, docs]) => (
         <div key={person}>
           {groupByUser && person && (
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">{person}</p>
+            <p className="text-2xs font-bold uppercase tracking-widest text-gray-400 mb-2">{person}</p>
           )}
           <ul className="space-y-1.5">
             {docs.map(doc => {
@@ -74,7 +74,7 @@ const DocumentList = ({ documentos = [], loading = false, emptyText = 'Sin docum
                   <FileText size={14} className="text-gray-400 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-gray-800 truncate">{doc.nombre}</p>
-                    <p className="text-[10px] text-gray-400">{tipoOptions.find(t => t.codigo === doc.tipo)?.label || doc.tipo}</p>
+                    <p className="text-2xs text-gray-400">{tipoOptions.find(t => t.codigo === doc.tipo)?.label || doc.tipo}</p>
                   </div>
                   {hasFile && (
                     <button
@@ -82,7 +82,7 @@ const DocumentList = ({ documentos = [], loading = false, emptyText = 'Sin docum
                       onClick={() => handleOpen(doc)}
                       disabled={isOpen}
                       title="Ver documento"
-                      className="shrink-0 p-1.5 rounded-md text-gray-400 hover:text-[#D32F2F] hover:bg-red-50 transition-colors disabled:opacity-50"
+                      className="shrink-0 p-1.5 rounded-md text-gray-400 hover:text-brand hover:bg-red-50 transition-colors disabled:opacity-50"
                     >
                       {isOpen
                         ? <Loader2 size={14} className="animate-spin" />
@@ -91,7 +91,7 @@ const DocumentList = ({ documentos = [], loading = false, emptyText = 'Sin docum
                     </button>
                   )}
                   {!hasFile && (
-                    <span className="text-[10px] text-gray-300 italic shrink-0">Sin archivo</span>
+                    <span className="text-2xs text-gray-300 italic shrink-0">Sin archivo</span>
                   )}
                 </li>
               );

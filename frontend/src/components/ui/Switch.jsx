@@ -28,7 +28,7 @@ const Switch = ({
               role="switch"
               aria-checked={checked}
               onClick={() => onChange(!checked)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:ring-offset-2 ${checked ? 'bg-[#D32F2F]' : 'bg-gray-200'}`}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 ${checked ? 'bg-brand' : 'bg-gray-200'}`}
               {...props}
             >
               <span
@@ -36,7 +36,7 @@ const Switch = ({
                 className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`}
               />
             </button>
-            <span className={`text-sm font-semibold ${checked ? 'text-[#D32F2F]' : 'text-gray-400'}`}>
+            <span className={`text-sm font-semibold ${checked ? 'text-brand' : 'text-gray-400'}`}>
               {statusLabel}
             </span>
           </>

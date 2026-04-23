@@ -124,7 +124,7 @@ const FilterDateInput = ({ filter, values, onChange, itemMinW }) => {
 
   return (
     <div className="flex flex-col gap-0.5 flex-1" style={{ minWidth: itemMinW }}>
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
+      <span className="text-2xs font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
         {filter.label}
       </span>
       <input
@@ -138,8 +138,8 @@ const FilterDateInput = ({ filter, values, onChange, itemMinW }) => {
           'w-full h-10 px-3 border rounded-md bg-white text-sm text-gray-600',
           'focus:outline-none transition-all cursor-pointer',
           hasValue
-            ? 'border-[#D32F2F] ring-2 ring-[#D32F2F]/10'
-            : 'border-gray-300 hover:border-gray-400 focus:border-[#D32F2F] focus:ring-2 focus:ring-[#D32F2F]/10',
+            ? 'border-brand ring-2 ring-brand/10'
+            : 'border-gray-300 hover:border-gray-400 focus:border-brand focus:ring-2 focus:ring-brand/10',
         ].join(' ')}
       />
     </div>
@@ -195,7 +195,7 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
   return (
     <div className="flex flex-col gap-0.5 flex-1" style={{ minWidth: itemMinW }}>
       {filter.label && (
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
+        <span className="text-2xs font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
           {filter.label}
         </span>
       )}
@@ -210,9 +210,9 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
           isDisabled
             ? 'opacity-50 cursor-not-allowed border-gray-200 text-gray-400 bg-gray-50'
             : isOpen
-              ? 'border-[#D32F2F] ring-2 ring-[#D32F2F]/10 bg-white text-gray-700'
+              ? 'border-brand ring-2 ring-brand/10 bg-white text-gray-700'
               : count > 0
-                ? 'border-[#D32F2F] bg-white text-gray-700'
+                ? 'border-brand bg-white text-gray-700'
                 : 'border-gray-300 bg-white text-gray-400 hover:border-gray-400',
         ].join(' ')}
       >
@@ -250,10 +250,10 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
                   onMouseDown={e => e.preventDefault()}
                   onClick={() => onSelect(filter.key, '__all__', opts)}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors border-b border-gray-100
-                    ${allSelected ? 'bg-red-50 text-[#D32F2F]' : 'text-gray-600 hover:bg-gray-50'}`}
+                    ${allSelected ? 'bg-red-50 text-brand' : 'text-gray-600 hover:bg-gray-50'}`}
                 >
                   <span className={`flex items-center justify-center w-4 h-4 rounded border shrink-0 transition-colors
-                    ${allSelected ? 'bg-[#D32F2F] border-[#D32F2F]' : 'border-gray-300 bg-white'}`}
+                    ${allSelected ? 'bg-brand border-brand' : 'border-gray-300 bg-white'}`}
                   >
                     {allSelected
                       ? <Check size={10} className="text-white" strokeWidth={3} />
@@ -274,10 +274,10 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
                       onMouseDown={e => e.preventDefault()}
                       onClick={() => onSelect(filter.key, opt.value, opts)}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
-                        ${isChecked ? 'bg-red-50 text-[#D32F2F]' : 'text-gray-700 hover:bg-gray-50'}`}
+                        ${isChecked ? 'bg-red-50 text-brand' : 'text-gray-700 hover:bg-gray-50'}`}
                     >
                       <span className={`flex items-center justify-center w-4 h-4 rounded border shrink-0 transition-colors
-                        ${isChecked ? 'bg-[#D32F2F] border-[#D32F2F]' : 'border-gray-300 bg-white'}`}
+                        ${isChecked ? 'bg-brand border-brand' : 'border-gray-300 bg-white'}`}
                       >
                         {isChecked && <Check size={10} className="text-white" strokeWidth={3} />}
                       </span>

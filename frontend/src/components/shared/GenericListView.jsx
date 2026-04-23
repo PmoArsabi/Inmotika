@@ -84,7 +84,7 @@ const GenericListView = ({
               ? React.cloneElement(extraFilters, {
                   leadingSlot: (
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
+                      <span className="text-2xs font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
                         Buscar
                       </span>
                       <div className="relative">
@@ -94,7 +94,7 @@ const GenericListView = ({
                           placeholder={searchPlaceholder}
                           value={searchQuery}
                           onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                          className="w-full h-10 pl-9 pr-3 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all text-gray-700 placeholder:text-gray-400"
+                          className="w-full h-10 pl-9 pr-3 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all text-gray-700 placeholder:text-gray-400"
                         />
                       </div>
                     </div>
@@ -103,7 +103,7 @@ const GenericListView = ({
               : (
                 <div className="grid gap-x-2 gap-y-3 items-end" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
+                    <span className="text-2xs font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
                       Buscar
                     </span>
                     <div className="relative">
@@ -113,7 +113,7 @@ const GenericListView = ({
                         placeholder={searchPlaceholder}
                         value={searchQuery}
                         onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                        className="w-full h-10 pl-9 pr-3 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all text-gray-700 placeholder:text-gray-400"
+                        className="w-full h-10 pl-9 pr-3 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all text-gray-700 placeholder:text-gray-400"
                       />
                     </div>
                   </div>
@@ -123,14 +123,14 @@ const GenericListView = ({
             {/* Footer: contador + limpiar — solo cuando hay filtros activos */}
             {activeFiltersCount > 0 && (
               <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                <span className="text-[11px] text-gray-400">
+                <span className="text-xs text-gray-400">
                   {filteredCount ?? '?'} de {totalItems ?? '?'} registros
                 </span>
                 {onClearFilters && (
                   <button
                     type="button"
                     onClick={onClearFilters}
-                    className="text-[11px] text-[#D32F2F] underline underline-offset-2 hover:text-[#B71C1C] transition-colors"
+                    className="text-xs text-brand underline underline-offset-2 hover:text-brand-dark transition-colors"
                   >
                     Limpiar filtros
                   </button>
@@ -145,7 +145,7 @@ const GenericListView = ({
       {filteredItems.length > 0 && (
         <div className="flex items-center justify-between pt-2 pb-2 border-t border-gray-200">
           <div className="flex items-center gap-1.5">
-            <TextSmall className="text-gray-600 text-[10px]">Mostrar</TextSmall>
+            <TextSmall className="text-gray-600 text-2xs">Mostrar</TextSmall>
             <Select
               value={entriesPerPage}
               onChange={(e) => {

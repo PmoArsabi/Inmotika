@@ -1,17 +1,31 @@
 import React from 'react';
-import { TextSmall } from './Typography';
 
 /**
- * Reusable Tabs component with 'pills' aesthetic.
- * @param {Array} tabs - Array of strings or objects { key, label, shortLabel? }.
- *   shortLabel is shown on small screens (< sm) in place of label.
- * @param {string} active - Currently active tab key/string.
- * @param {function} onChange - Callback when a tab is clicked.
- * @param {string} className - Optional container classes.
+ * Tabs — Segmented Control con pastilla deslizante animada (spring).
+ *
+ * @param {Array<string|{key:string, label:string, shortLabel?:string}>} tabs
+ * @param {string}   active    — clave del tab activo
+ * @param {Function} onChange  — callback(key)
+ * @param {string}   [className]
  */
 const Tabs = ({ tabs, active, onChange, className = '' }) => {
+  const activeIndex = tabs.findIndex((t) => (typeof t === 'string' ? t : t.key) === active);
+  const count = tabs.length;
+
   return (
-    <div className={`flex gap-1 bg-gray-100 p-1 rounded-xl w-full ${className}`}>
+    <div className={`relative flex bg-gray-100/80 p-1 rounded-2xl w-full ${className}`}>
+      {/* Pastilla deslizante — hardware-accelerated via transform */}
+      {activeIndex >= 0 && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-1 rounded-xl bg-white shadow-(--shadow-card) pointer-events-none transition-transform duration-(--transition-spring)"
+          style={{
+            width: `${100 / count}%`,
+            transform: `translateX(${activeIndex * 100}%)`,
+          }}
+        />
+      )}
+
       {tabs.map((tab) => {
         const key        = typeof tab === 'string' ? tab : tab.key;
         const label      = typeof tab === 'string' ? tab : tab.label;
@@ -21,17 +35,16 @@ const Tabs = ({ tabs, active, onChange, className = '' }) => {
         return (
           <button
             key={key}
+            type="button"
             onClick={() => onChange(key)}
-            className={`flex-1 px-3 py-2 rounded-lg transition-all duration-300 ${
-              isActive
-                ? 'bg-white text-primary shadow-sm scale-[1.02]'
-                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/50'
-            }`}
+            className={[
+              'relative z-10 flex-1 px-3 py-2 rounded-xl text-xs leading-tight select-none',
+              'transition-colors duration-(--transition-base)',
+              isActive ? 'text-ink font-semibold' : 'text-ink-muted font-medium hover:text-ink-secondary',
+            ].join(' ')}
           >
-            <TextSmall className={`uppercase font-bold leading-tight ${isActive ? 'text-primary' : 'text-gray-400'}`}>
-              <span className="hidden sm:inline">{label}</span>
-              <span className="sm:hidden">{shortLabel}</span>
-            </TextSmall>
+            <span className="hidden sm:inline">{label}</span>
+            <span className="sm:hidden">{shortLabel}</span>
           </button>
         );
       })}

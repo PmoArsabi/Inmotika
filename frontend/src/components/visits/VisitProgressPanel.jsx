@@ -30,7 +30,7 @@ const PasoProgressRow = ({ paso, ejecucionActividades }) => {
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-2">
-          <span className="text-[10px] text-gray-400">{doneActs}/{totalActs}</span>
+          <span className="text-2xs text-gray-400">{doneActs}/{totalActs}</span>
           {open ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
         </div>
       </button>
@@ -46,7 +46,7 @@ const PasoProgressRow = ({ paso, ejecucionActividades }) => {
                   ? <CheckCircle2 size={12} className="shrink-0 text-green-500 mt-0.5" />
                   : <Circle       size={12} className="shrink-0 text-gray-300 mt-0.5" />
                 }
-                <span className={`text-[11px] leading-relaxed ${done ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
+                <span className={`text-xs leading-relaxed ${done ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
                   {act.descripcion}
                 </span>
               </div>
@@ -121,18 +121,18 @@ const DeviceProgressCard = ({ device, ejecucionActividades, evidencias }) => {
           ))}
           {evidencias && (evidencias.etiqueta || evidencias.fotos?.length > 0) && (
             <div className="pt-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Evidencias</p>
+              <p className="text-2xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Evidencias</p>
               <div className="flex flex-wrap gap-2">
                 {evidencias.etiqueta && (
                   <div className="flex flex-col items-center gap-0.5">
                     <SecureImage path={evidencias.etiqueta.preview} alt="Etiqueta" className="w-16 h-16 rounded border border-blue-200 object-cover" />
-                    <span className="text-[9px] text-blue-600 font-semibold">Etiqueta</span>
+                    <span className="text-2xs text-blue-600 font-semibold">Etiqueta</span>
                   </div>
                 )}
                 {(evidencias.fotos || []).map((foto, i) => foto && (
                   <div key={i} className="flex flex-col items-center gap-0.5">
                     <SecureImage path={foto.preview} alt={`Foto ${i + 1}`} className="w-16 h-16 rounded border border-gray-200 object-cover" />
-                    <span className="text-[9px] text-gray-500">Foto {i + 1}</span>
+                    <span className="text-2xs text-gray-500">Foto {i + 1}</span>
                   </div>
                 ))}
               </div>

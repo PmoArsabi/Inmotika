@@ -85,7 +85,7 @@ const TrasladoModal = ({
       <div className="relative z-10 bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-lg max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-linear-to-r from-[#D32F2F] via-[#B71C1C] to-[#8B0000] shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-linear-to-r from-brand via-brand-dark to-brand-deeper shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-lg border border-white/30">
               <ArrowRightLeft size={16} className="text-white" />
@@ -114,8 +114,8 @@ const TrasladoModal = ({
           {/* Sucursal destino */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-2 shadow-sm">
             <div className="flex items-center gap-2 mb-1">
-              <Building2 size={14} className="text-[#D32F2F]" />
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+              <Building2 size={14} className="text-brand" />
+              <span className="text-2xs font-bold text-gray-500 uppercase tracking-wider">
                 Sucursal Destino <span className="text-red-500">*</span>
               </span>
             </div>
@@ -135,8 +135,8 @@ const TrasladoModal = ({
           {/* Fecha */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
-              <Calendar size={14} className="text-[#D32F2F]" />
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+              <Calendar size={14} className="text-brand" />
+              <span className="text-2xs font-bold text-gray-500 uppercase tracking-wider">
                 Fecha de Traslado <span className="text-red-500">*</span>
               </span>
             </div>
@@ -157,8 +157,8 @@ const TrasladoModal = ({
           {/* Motivo */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
-              <ClipboardList size={14} className="text-[#D32F2F]" />
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+              <ClipboardList size={14} className="text-brand" />
+              <span className="text-2xs font-bold text-gray-500 uppercase tracking-wider">
                 Motivo <span className="text-red-500">*</span>
               </span>
             </div>
@@ -167,7 +167,7 @@ const TrasladoModal = ({
               onChange={e => setForm(f => ({ ...f, motivo: e.target.value }))}
               rows={3}
               placeholder="Describe el motivo del traslado..."
-              className={`w-full px-3 py-2.5 border rounded-md text-sm font-semibold resize-none focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] hover:border-gray-400 transition-all bg-white ${errors.motivo ? 'border-red-400' : 'border-gray-300'}`}
+              className={`w-full px-3 py-2.5 border rounded-md text-sm font-semibold resize-none focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand hover:border-gray-400 transition-all bg-white ${errors.motivo ? 'border-red-400' : 'border-gray-300'}`}
             />
             {errors.motivo && (
               <p className="text-xs text-red-500 font-semibold flex items-center gap-1 mt-1">

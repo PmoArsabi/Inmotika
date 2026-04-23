@@ -23,9 +23,9 @@ const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdate
   <div className="pt-2 space-y-3">
     <div className="flex items-center gap-2">
       <ClipboardList size={15} className="text-gray-500" />
-      <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+      <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
         Protocolo de Mantenimiento
-        {categoriaId && <span className="ml-2 text-[#D32F2F] font-normal normal-case text-[10px]">(según categoría)</span>}
+        {categoriaId && <span className="ml-2 text-brand font-normal normal-case text-2xs">(según categoría)</span>}
       </span>
     </div>
 
@@ -34,7 +34,7 @@ const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdate
         {categoryPasos.map((paso, idx) => (
           <div key={paso.id || idx} className="flex flex-col gap-2 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
             <div className="flex items-start gap-3">
-              <div className="w-7 h-7 rounded-full bg-linear-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center text-white font-bold text-xs shrink-0">
+              <div className="w-7 h-7 rounded-full bg-linear-to-br from-brand to-brand-deeper flex items-center justify-center text-white font-bold text-xs shrink-0">
                 {idx + 1}
               </div>
               <div className="flex-1">
@@ -69,13 +69,13 @@ const ProtocoloPasos = ({ categoriaId, categoryPasos, pasos, isEditing, onUpdate
             <div className="flex items-center gap-3">
               <div className="flex flex-col gap-0.5 shrink-0">
                 {isEditing && (
-                  <button onClick={() => onMoveStep(idx, 'up')} disabled={idx === 0} className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-30">
+                  <button onClick={() => onMoveStep(idx, 'up')} disabled={idx === 0} className="text-gray-300 hover:text-brand disabled:opacity-30">
                     <ChevronUp size={13} />
                   </button>
                 )}
-                <span className="font-bold text-gray-400 text-[10px] text-center">{idx + 1}</span>
+                <span className="font-bold text-gray-400 text-2xs text-center">{idx + 1}</span>
                 {isEditing && (
-                  <button onClick={() => onMoveStep(idx, 'down')} disabled={idx === pasos.length - 1} className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-30">
+                  <button onClick={() => onMoveStep(idx, 'down')} disabled={idx === pasos.length - 1} className="text-gray-300 hover:text-brand disabled:opacity-30">
                     <ChevronDown size={13} />
                   </button>
                 )}

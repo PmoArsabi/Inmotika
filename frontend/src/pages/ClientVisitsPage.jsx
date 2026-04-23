@@ -96,7 +96,7 @@ const ClientVisitsPage = () => {
                       <button
                         type="button"
                         onClick={() => handleDescargarInforme(v.informeStoragePath)}
-                        className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                        className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors"
                       >
                         <FileDown size={14} />
                         Descargar
@@ -126,7 +126,7 @@ const ClientVisitsPage = () => {
               <div className="divide-y divide-gray-50">
                 <div className="flex items-start gap-3 py-2.5 first:pt-0">
                   <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Tipo</TextTiny>
-                  <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[10px] font-bold inline-block">
+                  <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-2xs font-bold inline-block">
                     {v.tipoVisitaLabel || '—'}
                   </span>
                 </div>
@@ -160,7 +160,7 @@ const ClientVisitsPage = () => {
                     <button
                       type="button"
                       onClick={() => handleDescargarInforme(v.informeStoragePath)}
-                      className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                      className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors"
                     >
                       <FileDown size={13} />
                       Descargar PDF

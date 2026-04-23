@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   ArrowLeft, Play, Eye, Edit2,
   Calendar, Building2, AlertCircle, Clock,
@@ -160,21 +160,6 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     };
   }, [activeVisita?.id, activeVisita?.estadoCodigo]);
 
-  // Auto-abrir la visita indicada desde el dashboard del técnico.
-  // consumedRef guarda el último ID procesado para evitar doble apertura
-  // cuando visitas se recarga en background, pero sí responde a un nuevo ID.
-  const consumedRef = useRef(null);
-  useEffect(() => {
-    if (!initialVisitaId || loadingVisitas) return;
-    if (consumedRef.current === initialVisitaId) return;
-    const target = visitas.find(v => v.id === initialVisitaId);
-    if (!target) return;
-    consumedRef.current = initialVisitaId;
-    onInitialVisitaConsumed?.();
-    handleOpenVisita(target);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialVisitaId, visitas, loadingVisitas]);
-
   // Base list: only relevant states for gestión
   const baseList = useMemo(() => visitas.filter(v =>
     v.estadoCodigo === 'PROGRAMADA' || v.estadoCodigo === 'EN_PROGRESO' || v.estadoCodigo === 'COMPLETADA',
@@ -279,6 +264,21 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     setObservacionFinal(visita.observacionFinal || '');
     setFueraDeServicioMap(fdsMap);
   };
+
+  // Auto-abrir la visita indicada desde el dashboard del técnico.
+  // consumedRef guarda el último ID procesado para evitar doble apertura
+  // cuando visitas se recarga en background, pero sí responde a un nuevo ID.
+  const consumedRef = useRef(null);
+  useEffect(() => {
+    if (!initialVisitaId || loadingVisitas) return;
+    if (consumedRef.current === initialVisitaId) return;
+    const target = visitas.find(v => v.id === initialVisitaId);
+    if (!target) return;
+    consumedRef.current = initialVisitaId;
+    onInitialVisitaConsumed?.();
+    handleOpenVisita(target);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialVisitaId, visitas, loadingVisitas]);
 
   const handleCloseVisita = () => {
     localChangesRef.current = { actividades: new Set(), pasos: new Set() };
@@ -503,18 +503,17 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   };
 
   // ── All done: toda actividad resuelta (completada u omitida) ─────────────
-  const makeActKey = (deviceId, actId) => {
+  const makeActKey = useCallback((deviceId, actId) => {
     const intervencionId = localIntervencionMapRef.current[deviceId];
     return intervencionId ? `${intervencionId}:${actId}` : actId;
-  };
+  }, []);
 
-  const isActResueltaForDevice = (deviceId, a) => {
+  const isActResueltaForDevice = useCallback((deviceId, a) => {
     const e = ejecucionActividades[makeActKey(deviceId, a.id)]?.estado;
     return e === 'completada' || e === 'omitida';
-  };
+  }, [ejecucionActividades, makeActKey]);
 
-  const isDeviceDone = (device) => {
-    // Un dispositivo fuera de servicio guardado se considera completo
+  const isDeviceDone = useCallback((device) => {
     const esFds = fueraDeServicioMap[device.id]?.active || activeVisita?.dispositivoFdsMap?.[device.id]?.fueraDeServicio;
     if (esFds && savedDeviceIds.has(device.id)) return true;
     return (device.pasos || []).length > 0 &&
@@ -522,13 +521,12 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
         (paso.actividades || []).length === 0 ||
         (paso.actividades || []).every(a => isActResueltaForDevice(device.id, a))
       );
-  };
+  }, [fueraDeServicioMap, activeVisita, savedDeviceIds, isActResueltaForDevice]);
 
   const allDevicesDone = useMemo(() => {
     if (!activeVisita?.dispositivos?.length) return false;
     return activeVisita.dispositivos.every(device => isDeviceDone(device));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeVisita, ejecucionActividades, fueraDeServicioMap, savedDeviceIds]);
+  }, [activeVisita, isDeviceDone]);
 
   // ══════════════════════════════════════════════════════════════════════════
   // EXECUTION VIEW
@@ -567,7 +565,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
           <div className="flex items-center gap-4">
             <button
               onClick={handleCloseVisita}
-              className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"
+              className="p-2 bg-gray-50 hover:bg-brand hover:text-white rounded-md transition-all shadow-sm"
             >
               <ArrowLeft size={16} />
             </button>
@@ -648,7 +646,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
                             type="button"
                             disabled={!!savingDeviceId}
                             onClick={() => handleGuardarDispositivo(device, completadosHastaAqui, totalDevices)}
-                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase rounded-md transition-all shadow-sm text-white bg-[#1A1A1A] hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase rounded-md transition-all shadow-sm text-white bg-canvas hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <Save size={12} />
                             {isSavingThis ? 'Guardando...' : 'Guardar avance'}
@@ -752,7 +750,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
               </div>
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#D32F2F] rounded-full transition-all"
+                  className="h-full bg-brand rounded-full transition-all"
                   style={{ width: totalDevices > 0 ? `${(completedDevices / totalDevices) * 100}%` : '0%' }}
                 />
               </div>
@@ -878,7 +876,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     {
       header: 'Tipo',
       render: visita => visita.tipoVisitaLabel || visita.tipoVisitaCodigo
-        ? <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${visita.tipoVisitaCodigo === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+        ? <span className={`inline-flex px-2 py-0.5 rounded-full text-2xs font-bold uppercase whitespace-nowrap ${visita.tipoVisitaCodigo === 'PREVENTIVO' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
             {visita.tipoVisitaLabel || visita.tipoVisitaCodigo}
           </span>
         : <TextSmall className="text-gray-400">—</TextSmall>,
@@ -912,7 +910,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
             {total > 0 ? (
               <>
                 <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#D32F2F] rounded-full" style={{ width: `${(completed / total) * 100}%` }} />
+                  <div className="h-full bg-brand rounded-full" style={{ width: `${(completed / total) * 100}%` }} />
                 </div>
                 <TextTiny className="text-gray-400 whitespace-nowrap shrink-0">{completed}/{total}</TextTiny>
               </>

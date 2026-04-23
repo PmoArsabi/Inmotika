@@ -40,7 +40,7 @@ const SignaturePad = ({ label }) => {
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
-        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+        <label className="text-2xs font-bold text-gray-400 uppercase tracking-widest ml-1">
           {label || 'Firma del Responsable'}
         </label>
       </div>

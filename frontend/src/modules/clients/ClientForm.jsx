@@ -100,7 +100,7 @@ const ClientForm = ({
                 onClick={handleLogoClick}
                 className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-lg border-2 border-gray-200 ${
                   isEditing ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
-                  } bg-linear-to-br from-[#D32F2F] to-[#8B0000]`}
+                  } bg-linear-to-br from-brand to-brand-deeper`}
               >
                 <SecureImage
                   path={typeof draft.logoUrl === 'string' ? draft.logoUrl : (draft.logoUrl ? URL.createObjectURL(draft.logoUrl) : null)}
@@ -180,7 +180,7 @@ const ClientForm = ({
           <div className="pt-4 border-t border-gray-200">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-2xl font-bold text-[#D32F2F]">{totalSucursales}</p>
+                <p className="text-2xl font-bold text-brand">{totalSucursales}</p>
                 <TextSmall className="text-gray-500 mt-1">Sucursales</TextSmall>
               </div>
               <div>
@@ -221,7 +221,7 @@ const ClientForm = ({
                     <Button
                       onClick={onSave}
                       disabled={isSaving}
-                      className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0"
+                      className="bg-linear-to-r from-brand to-brand-deeper hover:from-brand-dark hover:to-brand-deeper text-white border-0"
                     >
                       {isSaving ? 'Guardando...' : 'Guardar'}
                     </Button>
@@ -417,13 +417,13 @@ const ClientForm = ({
                         placeholder="Buscar sucursal..."
                         value={branchSearchQuery}
                         onChange={e => setBranchSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F] text-sm"
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand text-sm"
                       />
                     </div>
                     {isEditing && onNewBranch && (
                       <Button
                         onClick={onNewBranch}
-                        className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0 shrink-0"
+                        className="bg-linear-to-r from-brand to-brand-deeper text-white border-0 shrink-0"
                       >
                         <Plus size={16} className="mr-2" /> Nueva Sucursal
                       </Button>
@@ -480,26 +480,26 @@ const AssocButton = ({ label, count, emptyHint, icon, isEditing, onClick, disabl
       ${disabled
         ? 'bg-gray-50 border border-gray-100 opacity-50 cursor-not-allowed'
         : isEditing
-          ? 'bg-gray-50 border border-gray-200 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer'
+          ? 'bg-gray-50 border border-gray-200 hover:bg-white hover:border-brand hover:shadow-sm cursor-pointer'
           : 'bg-gray-50 border border-gray-100 cursor-pointer hover:bg-white'
       }`}
   >
     <div className="flex items-center gap-3 min-w-0">
-      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-gray-500 group-hover:bg-red-50 group-hover:text-[#D32F2F] transition-colors">
+      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-gray-500 group-hover:bg-red-50 group-hover:text-brand transition-colors">
         {icon}
       </div>
       <div className="min-w-0">
-        <TextSmall className="font-semibold text-gray-900 group-hover:text-[#D32F2F] transition-colors">{label}</TextSmall>
+        <TextSmall className="font-semibold text-gray-900 group-hover:text-brand transition-colors">{label}</TextSmall>
         <TextSmall className="text-gray-400 mt-0.5 truncate">
           {disabled
             ? 'Disponible después de guardar el cliente'
             : count > 0
-              ? <span className="text-[#D32F2F] font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
+              ? <span className="text-brand font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
               : emptyHint}
         </TextSmall>
       </div>
     </div>
-    <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-[#D32F2F] transition-colors shadow-sm">
+    <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-canvas text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-brand transition-colors shadow-sm">
       {isEditing ? <><Link2 size={11} /> Gestionar</> : <><Eye size={11} /> Ver</>}
     </div>
   </button>

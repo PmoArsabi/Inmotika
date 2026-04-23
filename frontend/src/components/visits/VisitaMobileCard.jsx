@@ -52,7 +52,7 @@ const VisitaMobileCard = ({
           <div className="flex items-start gap-3 py-2.5">
             <TextTiny className="text-gray-400 shrink-0 pt-px w-28 font-bold uppercase tracking-wide leading-tight">Tipo</TextTiny>
             <div className="flex-1 min-w-0">
-              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${tipoBgClass}`}>
+              <span className={`inline-flex px-2 py-0.5 rounded-full text-2xs font-bold uppercase ${tipoBgClass}`}>
                 {tipoLabel || tipoCodigo}
               </span>
             </div>
@@ -95,7 +95,7 @@ const VisitaMobileCard = ({
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#D32F2F] rounded-full transition-all"
+                  className="h-full bg-brand rounded-full transition-all"
                   style={{ width: `${((completedDevices ?? 0) / totalDevices) * 100}%` }}
                 />
               </div>

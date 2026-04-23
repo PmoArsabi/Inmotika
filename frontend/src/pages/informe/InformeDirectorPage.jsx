@@ -33,7 +33,7 @@ const EstadoBadge = ({ estado }) => {
     RECHAZADO:      { label: 'Rechazado',       cls: 'bg-red-100 text-red-800'      },
   }[estado] || { label: estado, cls: 'bg-gray-100 text-gray-700' };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${cfg.cls}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold uppercase tracking-wide ${cfg.cls}`}>
       {cfg.label}
     </span>
   );
@@ -44,7 +44,7 @@ const TiempoBadge = ({ enviado_director_at, estado }) => {
   const restante = tiempoRestante(enviado_director_at);
   if (!restante) return null;
   return (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-bold ${restante.vencido ? 'text-red-600' : 'text-amber-600'}`}>
+    <span className={`inline-flex items-center gap-1 text-2xs font-bold ${restante.vencido ? 'text-red-600' : 'text-amber-600'}`}>
       <Clock size={10} />
       {restante.label}
     </span>
@@ -113,7 +113,7 @@ const InformeDirectorPage = () => {
     {
       header: 'Tipo',
       render: inf => (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[10px] font-bold">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-2xs font-bold">
           <Tag size={10} /> {inf.tipo_visita}
         </span>
       ),

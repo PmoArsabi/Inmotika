@@ -53,7 +53,7 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
         {label && (
           <div className="flex items-center gap-2 mb-1">
             <Clock size={16} className="text-gray-400" />
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{label}</span>
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{label}</span>
           </div>
         )}
         
@@ -66,7 +66,7 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
                   {/* Day Label - Consistent 84px */}
                   <div className="flex items-center gap-2.5 shrink-0 w-21">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                    <span className="text-[14px] font-bold text-gray-900 tracking-tight">
+                    <span className="text-sm font-bold text-gray-900 tracking-tight">
                       {day.full}
                     </span>
                   </div>
@@ -98,7 +98,7 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
 
         {openDays.length > 0 && (
           <div className="flex justify-center mt-2">
-            <div className="inline-flex items-center gap-1.5 text-green-600 font-bold text-[10px] uppercase tracking-wider bg-green-50 px-3 py-1 rounded-full border border-green-100">
+            <div className="inline-flex items-center gap-1.5 text-green-600 font-bold text-2xs uppercase tracking-wider bg-green-50 px-3 py-1 rounded-full border border-green-100">
               <CheckCircle2 size={12} />
               Disponibilidad Activa
             </div>
@@ -118,7 +118,7 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
             <Calendar size={16} className="text-gray-400" />
             <Label>{label}</Label>
           </div>
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-100 px-2 py-0.5 rounded-full">
+          <span className="text-2xs font-bold text-gray-400 uppercase tracking-widest bg-gray-100 px-2 py-0.5 rounded-full">
             {selectedCount} Días
           </span>
         </div>
@@ -133,9 +133,9 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
               key={day.key}
               type="button"
               onClick={() => handleDayToggle(day.key)}
-              className={`w-10 h-10 rounded-full flex items-center justify-center text-[11px] font-extrabold transition-all border-2
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-extrabold transition-all border-2
                 ${isActive 
-                  ? 'bg-[#D32F2F] border-[#D32F2F] text-white shadow-[0_4px_12px_rgba(211,47,47,0.3)] scale-105' 
+                  ? 'bg-brand border-brand text-white shadow-[0_4px_12px_rgba(211,47,47,0.3)] scale-105' 
                   : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200 hover:text-gray-600 hover:bg-gray-50'
                 }`}
             >
@@ -168,7 +168,7 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
                     type="time"
                     value={d.start}
                     onChange={(e) => handleTimeChange(day.key, 'start', e.target.value)}
-                    className="h-10 w-30 px-2 bg-gray-50/50 border border-gray-200 rounded-xl text-[13.5px] font-bold focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all"
+                    className="h-10 w-30 px-2 bg-gray-50/50 border border-gray-200 rounded-xl text-[13.5px] font-bold focus:outline-none focus:ring-4 focus:ring-brand/10 focus:border-brand transition-all"
                   />
                 </div>
                 
@@ -179,7 +179,7 @@ const SchedulePicker = ({ label, value, onChange, viewMode = false, className = 
                     type="time"
                     value={d.end}
                     onChange={(e) => handleTimeChange(day.key, 'end', e.target.value)}
-                    className="h-10 w-30 px-2 bg-gray-50/50 border border-gray-200 rounded-xl text-[13.5px] font-bold focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all"
+                    className="h-10 w-30 px-2 bg-gray-50/50 border border-gray-200 rounded-xl text-[13.5px] font-bold focus:outline-none focus:ring-4 focus:ring-brand/10 focus:border-brand transition-all"
                   />
                 </div>
               </div>

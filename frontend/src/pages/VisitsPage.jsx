@@ -226,7 +226,7 @@ const VisitsPage = ({ data, setData }) => {
       <div className="space-y-4 animate-in slide-in-from-right-12 duration-500 pb-20">
         <header className="flex items-center justify-between bg-white p-4 rounded-md border border-gray-100 shadow-sm">
           <div className="flex items-center gap-4">
-            <button onClick={() => setSelectedVisit(null)} className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all shadow-sm"><ArrowLeft size={16} /></button>
+            <button onClick={() => setSelectedVisit(null)} className="p-2 bg-gray-50 hover:bg-brand hover:text-white rounded-md transition-all shadow-sm"><ArrowLeft size={16} /></button>
             <div>
               <div className="flex items-center gap-2 mb-0.5"><Subtitle>{selectedVisit.id}</Subtitle></div>
               <H2>Detalle de Visita</H2>
@@ -265,9 +265,9 @@ const VisitsPage = ({ data, setData }) => {
           </Card>
         </div>
 
-        <Card className="p-6 space-y-6 border-l-4 border-[#D32F2F]">
+        <Card className="p-6 space-y-6 border-l-4 border-brand">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3"><div className="p-2 bg-gray-100 rounded-md text-[#D32F2F]"><Activity size={20} /></div><H2 className="text-lg">Estado de la Visita</H2></div>
+            <div className="flex items-center gap-3"><div className="p-2 bg-gray-100 rounded-md text-brand"><Activity size={20} /></div><H2 className="text-lg">Estado de la Visita</H2></div>
             <StatusBadge status={selectedVisit.estado} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-gray-100">
@@ -275,7 +275,7 @@ const VisitsPage = ({ data, setData }) => {
             <DataField label="# Dispositivos Terminados" value={executionData.dispositivosTerminados || 0} icon={CheckCircle2} />
             <div className="col-span-2 space-y-1">
               <TextTiny className="text-gray-400 block ml-1">Comentarios del Técnico</TextTiny>
-              <div className="p-3 bg-gray-50 rounded-md text-[11px] font-bold text-gray-700 border border-gray-100 uppercase">{executionData.observacionesTecnico || 'Sin reporte de campo aún.'}</div>
+              <div className="p-3 bg-gray-50 rounded-md text-xs font-bold text-gray-700 border border-gray-100 uppercase">{executionData.observacionesTecnico || 'Sin reporte de campo aún.'}</div>
             </div>
           </div>
         </Card>
@@ -288,7 +288,7 @@ const VisitsPage = ({ data, setData }) => {
     return (
       <div className="space-y-6 animate-in slide-in-from-right-12 duration-500 pb-20">
         {/* Modern Header */}
-        <header className="bg-linear-to-r from-[#D32F2F] to-[#B71C1C] rounded-xl shadow-lg p-6 text-white">
+        <header className="bg-linear-to-r from-brand to-brand-dark rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button 
@@ -313,7 +313,7 @@ const VisitsPage = ({ data, setData }) => {
               <Button 
                 variant="default" 
                 onClick={handleAssign}
-                className="bg-white text-[#D32F2F] hover:bg-gray-100 shadow-lg"
+                className="bg-white text-brand hover:bg-gray-100 shadow-lg"
               >
                 Confirmar
               </Button>
@@ -328,7 +328,7 @@ const VisitsPage = ({ data, setData }) => {
             <Card className="p-6 bg-white shadow-md border border-gray-100">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 bg-linear-to-br from-red-50 to-red-100 rounded-xl">
-                  <MapPin size={24} className="text-[#D32F2F]" />
+                  <MapPin size={24} className="text-brand" />
                 </div>
                 <div>
                   <Label className="text-lg font-bold text-gray-900">Localización y Sede</Label>
@@ -392,14 +392,14 @@ const VisitsPage = ({ data, setData }) => {
                         onClick={() => handleToggleDevice(device.code)} 
                         className={`flex flex-col p-4 rounded-xl border-2 transition-all group text-left ${
                           isSelected
-                            ? 'bg-linear-to-br from-[#1A1A1A] to-gray-900 border-[#1A1A1A] text-white shadow-lg scale-[1.02]' 
-                            : 'bg-white border-gray-200 hover:border-[#D32F2F] hover:shadow-md text-gray-700'
+                            ? 'bg-linear-to-br from-canvas to-gray-900 border-canvas text-white shadow-lg scale-[1.02]' 
+                            : 'bg-white border-gray-200 hover:border-brand hover:shadow-md text-gray-700'
                         }`}
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <Cpu size={16} className={isSelected ? 'text-[#D32F2F]' : 'text-gray-400'} />
+                              <Cpu size={16} className={isSelected ? 'text-brand' : 'text-gray-400'} />
                               <TextSmall className={`font-bold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
                                 {device.displayName}
                               </TextSmall>
@@ -411,9 +411,9 @@ const VisitsPage = ({ data, setData }) => {
                             )}
                           </div>
                           {isSelected ? (
-                            <CheckCircle2 size={20} className="text-[#D32F2F] bg-white rounded-full shrink-0" />
+                            <CheckCircle2 size={20} className="text-brand bg-white rounded-full shrink-0" />
                           ) : (
-                            <Plus size={18} className="opacity-0 group-hover:opacity-100 text-[#D32F2F] transition-opacity shrink-0" />
+                            <Plus size={18} className="opacity-0 group-hover:opacity-100 text-brand transition-opacity shrink-0" />
                           )}
                         </div>
                         <div className="mt-2 pt-2 border-t border-gray-200/20">
@@ -454,7 +454,7 @@ const VisitsPage = ({ data, setData }) => {
                 </div>
               </div>
               <textarea 
-                className="w-full h-40 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/10 focus:bg-white focus:border-[#D32F2F] transition-all text-sm font-medium resize-none leading-relaxed" 
+                className="w-full h-40 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-brand/10 focus:bg-white focus:border-brand transition-all text-sm font-medium resize-none leading-relaxed" 
                 placeholder="Escriba aquí las instrucciones especiales, requisitos técnicos o cualquier información relevante para la visita..."
                 maxLength={1000} 
                 value={newVisit.observaciones} 
@@ -465,10 +465,10 @@ const VisitsPage = ({ data, setData }) => {
 
           {/* Sidebar - Agenda */}
           <aside className="lg:col-span-4 space-y-6">
-            <Card className="p-6 bg-linear-to-br from-[#1A1A1A] to-gray-900 text-white shadow-2xl border-0">
+            <Card className="p-6 bg-linear-to-br from-canvas to-gray-900 text-white shadow-2xl border-0">
               <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
                 <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm">
-                  <CalendarDays size={24} className="text-[#D32F2F]" />
+                  <CalendarDays size={24} className="text-brand" />
                 </div>
                 <div>
                   <Label className="text-white text-lg font-bold">Agenda</Label>
@@ -790,7 +790,7 @@ const VisitsPage = ({ data, setData }) => {
                                     <TextSmall className="font-bold text-white">
                                       {formatTime(visit.hora)}
                                     </TextSmall>
-                                    <StatusBadge status={visit.estado} className="text-[10px] px-1.5 py-0.5" />
+                                    <StatusBadge status={visit.estado} className="text-2xs px-1.5 py-0.5" />
                                   </div>
                                   <H3 className="text-sm font-bold text-white mb-1 line-clamp-1">
                                     {visit.cliente}
@@ -838,7 +838,7 @@ const VisitsPage = ({ data, setData }) => {
                           <div key={dayIdx} className="flex-1 border-r border-gray-200 relative last:border-r-0">
                             {/* Day Header */}
                             <div className={`h-16 border-b border-gray-200 sticky top-0 z-10 flex flex-col items-center justify-center px-2 ${isToday ? 'bg-blue-50' : 'bg-white'}`}>
-                              <TextTiny className="text-gray-500 uppercase text-[10px]">
+                              <TextTiny className="text-gray-500 uppercase text-2xs">
                                 {day.toLocaleDateString('es-ES', { weekday: 'short' })}
                               </TextTiny>
                               <H3 className={`text-xl font-bold ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
@@ -882,18 +882,18 @@ const VisitsPage = ({ data, setData }) => {
                                   >
                                     <div className="p-2 h-full flex flex-col justify-between">
                                       <div>
-                                        <TextTiny className="font-bold text-white text-[10px]">
+                                        <TextTiny className="font-bold text-white text-2xs">
                                           {formatTime(visit.hora)}
                                         </TextTiny>
                                         <H3 className="text-xs font-bold text-white mb-0.5 line-clamp-1">
                                           {visit.cliente}
                                         </H3>
-                                        <TextTiny className="text-white/90 line-clamp-1 text-[10px]">
+                                        <TextTiny className="text-white/90 line-clamp-1 text-2xs">
                                           {visit.sucursal || 'Sin sucursal'}
                                         </TextTiny>
                                       </div>
                                       {visit.tecnico_asignado && (
-                                        <TextTiny className="text-white/80 truncate text-[9px] mt-1">
+                                        <TextTiny className="text-white/80 truncate text-2xs mt-1">
                                           {visit.tecnico_asignado}
                                         </TextTiny>
                                       )}
@@ -1096,7 +1096,7 @@ const VisitsPage = ({ data, setData }) => {
             <input
               type="text"
               placeholder="Buscar por cliente, sucursal o solicitante..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] text-sm"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm"
             />
           </div>
         </div>
@@ -1131,7 +1131,7 @@ const VisitsPage = ({ data, setData }) => {
             return (
               <Card 
                 key={visit.id} 
-                className="p-6 hover:shadow-lg transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-[#D32F2F]"
+                className="p-6 hover:shadow-lg transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-brand"
                 onClick={() => handleVisitClick(visit)}
               >
                 <div className="flex flex-col lg:flex-row gap-6">

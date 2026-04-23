@@ -6,10 +6,10 @@ import { H3, Label, TextSmall, TextTiny } from '../ui/Typography';
 
 const DeviceReportCard = ({ device, onStatusChange, onObservationChange }) => {
   return (
-    <Card className="p-4 border-l-4 border-gray-200 hover:border-[#D32F2F] transition-all group">
+    <Card className="p-4 border-l-4 border-gray-200 hover:border-brand transition-all group">
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-start gap-3">
-          <div className="p-2 bg-gray-100 rounded-md text-gray-500 group-hover:text-[#D32F2F] group-hover:bg-red-50 transition-colors">
+          <div className="p-2 bg-gray-100 rounded-md text-gray-500 group-hover:text-brand group-hover:bg-red-50 transition-colors">
             <Camera size={20} />
           </div>
           <div>
@@ -54,7 +54,7 @@ const DeviceReportCard = ({ device, onStatusChange, onObservationChange }) => {
             value={device.observaciones || ''}
             onChange={(e) => onObservationChange(device.id, e.target.value)}
             placeholder="Describa el estado del dispositivo o hallazgos importantes..."
-            className="w-full text-xs font-medium bg-white border border-gray-200 rounded-md p-2 h-20 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] resize-none placeholder:text-gray-300"
+            className="w-full text-xs font-medium bg-white border border-gray-200 rounded-md p-2 h-20 focus:outline-none focus:ring-2 focus:ring-brand/10 focus:border-brand resize-none placeholder:text-gray-300"
           />
         </div>
 
@@ -64,7 +64,7 @@ const DeviceReportCard = ({ device, onStatusChange, onObservationChange }) => {
             <Label>Evidencia Fotográfica</Label>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2">
-            <button className="shrink-0 w-16 h-16 border-2 border-dashed border-gray-200 rounded-md flex flex-col items-center justify-center gap-1 text-gray-300 hover:border-[#D32F2F] hover:text-[#D32F2F] hover:bg-red-50 transition-all">
+            <button className="shrink-0 w-16 h-16 border-2 border-dashed border-gray-200 rounded-md flex flex-col items-center justify-center gap-1 text-gray-300 hover:border-brand hover:text-brand hover:bg-red-50 transition-all">
               <Camera size={16} />
               <TextTiny>Agregar</TextTiny>
             </button>

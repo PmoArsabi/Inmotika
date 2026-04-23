@@ -68,16 +68,16 @@ const ChatBubble = ({ msg, isMe }) => (
   <div className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
     <div className={`flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
       <ChatAvatar nombre={isMe ? 'Tú' : msg.autor_nombre} rol={msg.autor_rol} />
-      <TextTiny className={`font-bold text-[10px] ${isMe ? 'text-[#D32F2F]' : 'text-gray-600'}`}>
+      <TextTiny className={`font-bold text-2xs ${isMe ? 'text-brand' : 'text-gray-600'}`}>
         {isMe ? 'Tú' : msg.autor_nombre}
       </TextTiny>
       {msg.autor_rol && (
-        <span className="text-[8px] text-gray-400">{msg.autor_rol}</span>
+        <span className="text-2xs text-gray-400">{msg.autor_rol}</span>
       )}
-      <TextTiny className="text-gray-300 text-[8px]">{fmtHora(msg.created_at)}</TextTiny>
+      <TextTiny className="text-gray-300 text-2xs">{fmtHora(msg.created_at)}</TextTiny>
     </div>
     <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap ${
-      isMe ? 'bg-[#D32F2F] text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'
+      isMe ? 'bg-brand text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'
     }`}>
       {msg.mensaje}
     </div>
@@ -128,14 +128,14 @@ const ChatPanel = ({ informeId, userId }) => {
       <div className="px-4 py-3 border-t border-gray-100 shrink-0">
         <div className="flex gap-2 items-end">
           <textarea
-            className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all min-h-9 max-h-24"
+            className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all min-h-9 max-h-24"
             placeholder="Escribe un comentario interno…"
             rows={1} value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
           />
           <button type="button" disabled={!input.trim() || sending} onClick={handleSend}
-            className="p-2 rounded-xl bg-[#D32F2F] text-white hover:bg-[#B71C1C] disabled:opacity-40 transition-colors shrink-0">
+            className="p-2 rounded-xl bg-brand text-white hover:bg-brand-dark disabled:opacity-40 transition-colors shrink-0">
             {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
           </button>
         </div>
@@ -236,7 +236,7 @@ const ActividadObsEditor = ({ act, onSave, saving, editing, onStartEdit, onCance
   if (act.observacion) {
     return (
       <div className="group flex items-start gap-1.5">
-        <span className="flex-1 text-[8px] text-green-800 leading-relaxed">{act.observacion}</span>
+        <span className="flex-1 text-2xs text-green-800 leading-relaxed">{act.observacion}</span>
         <button type="button" onClick={() => { setDraft(act.observacion || ''); onStartEdit(); }}
           className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded hover:bg-green-100">
           <Edit3 size={9} className="text-green-600" />
@@ -289,13 +289,13 @@ const IntervencionObsEditor = ({ value, onSave, saving, onStartEdit }) => {
   return (
     <div className="space-y-1">
       <textarea autoFocus value={draft} onChange={e => setDraft(e.target.value)} rows={3}
-        className="w-full text-[9px] border border-blue-300 rounded px-2 py-2 resize-y focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+        className="w-full text-2xs border border-blue-300 rounded px-2 py-2 resize-y focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
         style={{ minHeight: '64px' }} placeholder="Observación general sobre este dispositivo…" />
       <div className="flex gap-1 justify-end">
         <button type="button" onClick={() => { setDraft(value || ''); setEditing(false); }}
           className="p-1 rounded hover:bg-gray-100 text-gray-400"><X size={10} /></button>
         <button type="button" onClick={() => { onSave(draft.trim() || null); setEditing(false); }} disabled={saving}
-          className="px-2 py-1 rounded bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-40 text-[9px]">
+          className="px-2 py-1 rounded bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-40 text-2xs">
           {saving ? <Loader2 size={10} className="animate-spin" /> : 'OK'}
         </button>
       </div>
@@ -607,10 +607,10 @@ const DispositivoRevisionCard = ({
         }`}
         onClick={onSelect}
       >
-        {aprobado  && <span className="flex items-center gap-1 text-[9px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full shrink-0"><ThumbsUp size={9} /> Aprobado</span>}
-        {rechazado && <span className="flex items-center gap-1 text-[9px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full shrink-0"><ThumbsDown size={9} /> Rechazado</span>}
-        {!aprobado && !rechazado && <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">Sin revisar</span>}
-        <p className="flex-1 min-w-0 text-[10px] font-bold text-gray-800 truncate">{nombre}</p>
+        {aprobado  && <span className="flex items-center gap-1 text-2xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full shrink-0"><ThumbsUp size={9} /> Aprobado</span>}
+        {rechazado && <span className="flex items-center gap-1 text-2xs font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full shrink-0"><ThumbsDown size={9} /> Rechazado</span>}
+        {!aprobado && !rechazado && <span className="text-2xs font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">Sin revisar</span>}
+        <p className="flex-1 min-w-0 text-2xs font-bold text-gray-800 truncate">{nombre}</p>
         {!isReadOnly && (
           <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
             {saving ? <Loader2 size={13} className="animate-spin text-gray-400" /> : (
@@ -633,15 +633,15 @@ const DispositivoRevisionCard = ({
 
       {showRechazo && !isReadOnly && (
         <div className="px-3 py-2 border-t border-red-100 bg-red-50/60 space-y-2">
-          <TextTiny className="font-bold text-red-700 uppercase tracking-wide text-[8px]">Motivo del rechazo</TextTiny>
+          <TextTiny className="font-bold text-red-700 uppercase tracking-wide text-2xs">Motivo del rechazo</TextTiny>
           <textarea autoFocus value={notaDraft} onChange={e => onNotaChange(e.target.value)} rows={2}
             placeholder="¿Qué debe corregir el técnico?"
-            className="w-full text-[11px] border border-red-200 rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-red-300 bg-white" />
+            className="w-full text-xs border border-red-200 rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-red-300 bg-white" />
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={() => onToggleRechazo(false)}
-              className="px-2 py-1 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
+              className="px-2 py-1 text-2xs font-bold text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
             <button type="button" disabled={saving} onClick={handleConfirmarRechazo}
-              className="px-2 py-1 text-[10px] font-bold bg-red-500 hover:bg-red-600 text-white rounded-lg disabled:opacity-40">
+              className="px-2 py-1 text-2xs font-bold bg-red-500 hover:bg-red-600 text-white rounded-lg disabled:opacity-40">
               {saving ? 'Guardando…' : 'Confirmar'}
             </button>
           </div>
@@ -651,7 +651,7 @@ const DispositivoRevisionCard = ({
       {rechazado && !showRechazo && revision?.nota && (
         <div className="px-3 py-1.5 border-t border-red-100 bg-red-50/40 flex items-start gap-1.5">
           <ClipboardEdit size={10} className="text-red-400 mt-0.5 shrink-0" />
-          <TextTiny className="text-red-600 italic text-[9px]">{revision.nota}</TextTiny>
+          <TextTiny className="text-red-600 italic text-2xs">{revision.nota}</TextTiny>
         </div>
       )}
     </div>
@@ -849,12 +849,12 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
       {/* Header con contadores */}
       <div className="px-4 pt-3 pb-0 border-b border-gray-100 shrink-0">
         <div className="flex items-center gap-2 mb-2.5">
-          <ClipboardEdit size={14} className="text-[#D32F2F]" />
+          <ClipboardEdit size={14} className="text-brand" />
           <TextSmall className="font-bold text-gray-800">Revisión de dispositivos</TextSmall>
           <TextTiny className="ml-auto text-gray-400">{revisados}/{total} revisados</TextTiny>
         </div>
         {revisados < total && (
-          <div className="mb-2 text-[9px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+          <div className="mb-2 text-2xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
             Debes revisar todos los dispositivos antes de enviar al director.
           </div>
         )}
@@ -868,7 +868,7 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
                 key={key}
                 type="button"
                 onClick={() => setTabActiva(key)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold border-b-2 transition-colors ${
+                className={`flex items-center gap-1.5 px-3 py-2 text-2xs font-bold border-b-2 transition-colors ${
                   isActive
                     ? tabColorActive[color] + ' bg-transparent'
                     : 'border-transparent text-gray-400 hover:text-gray-600'
@@ -876,7 +876,7 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
               >
                 {label}
                 {count > 0 && (
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isActive ? tabBadge[color] : 'bg-gray-100 text-gray-500'}`}>
+                  <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? tabBadge[color] : 'bg-gray-100 text-gray-500'}`}>
                     {count}
                   </span>
                 )}
@@ -918,7 +918,7 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
               <div className="space-y-3">
                 {/* Bloque global de visita correctiva — PRIMERO */}
                 <div className="border border-red-200 rounded-xl bg-red-50/60 p-3 space-y-2.5">
-                  <TextTiny className="font-bold text-red-700 uppercase tracking-wide text-[8px]">
+                  <TextTiny className="font-bold text-red-700 uppercase tracking-wide text-2xs">
                     Visita correctiva — {dispRechazados.length} dispositivo(s)
                   </TextTiny>
 
@@ -926,14 +926,14 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
                     /* Solo lectura: mostrar resumen sin formulario */
                     <div className="space-y-1.5">
                       {fechaCorrectiva && (
-                        <p className="text-[10px] text-gray-600">
-                          <span className="font-bold uppercase tracking-wide text-[8px] text-gray-500 block">Fecha sugerida</span>
+                        <p className="text-2xs text-gray-600">
+                          <span className="font-bold uppercase tracking-wide text-2xs text-gray-500 block">Fecha sugerida</span>
                           {new Date(fechaCorrectiva).toLocaleString('es-CO', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       )}
                       {comentarioCorrectiva && (
-                        <p className="text-[10px] text-gray-600 whitespace-pre-wrap">
-                          <span className="font-bold uppercase tracking-wide text-[8px] text-gray-500 block">Observación</span>
+                        <p className="text-2xs text-gray-600 whitespace-pre-wrap">
+                          <span className="font-bold uppercase tracking-wide text-2xs text-gray-500 block">Observación</span>
                           {comentarioCorrectiva}
                         </p>
                       )}
@@ -944,7 +944,7 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
                   ) : (
                     <>
                       <div>
-                        <label className="block text-[9px] font-bold text-gray-600 uppercase tracking-wide mb-1">
+                        <label className="block text-2xs font-bold text-gray-600 uppercase tracking-wide mb-1">
                           Fecha y hora sugerida <span className="text-gray-400 normal-case font-normal">(opcional)</span>
                         </label>
                         <input
@@ -952,12 +952,12 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
                           value={fechaCorrectiva}
                           onChange={e => { setFechaCorrectiva(e.target.value); }}
                           min={new Date().toISOString().slice(0, 16)}
-                          className="w-full text-[11px] border border-red-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-300 bg-white"
+                          className="w-full text-xs border border-red-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-300 bg-white"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[9px] font-bold text-gray-600 uppercase tracking-wide mb-1">
+                        <label className="block text-2xs font-bold text-gray-600 uppercase tracking-wide mb-1">
                           Observación / Motivo <span className="text-red-500">*</span>
                         </label>
                         <textarea
@@ -965,12 +965,12 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
                           value={comentarioCorrectiva}
                           onChange={e => { setComentarioCorrectiva(e.target.value); setErrorCorrectiva(''); }}
                           placeholder="Describe el motivo o instrucciones para la visita correctiva…"
-                          className={`w-full text-[11px] border rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:ring-1 bg-white transition-colors ${
+                          className={`w-full text-xs border rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:ring-1 bg-white transition-colors ${
                             errorCorrectiva ? 'border-red-400 focus:ring-red-300' : 'border-red-200 focus:ring-red-300'
                           }`}
                         />
                         {errorCorrectiva && (
-                          <p className="flex items-center gap-1 text-[9px] text-red-600 mt-0.5">
+                          <p className="flex items-center gap-1 text-2xs text-red-600 mt-0.5">
                             <AlertCircle size={9} /> {errorCorrectiva}
                           </p>
                         )}
@@ -985,7 +985,7 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
                             type="button"
                             disabled={savingCorrectiva || sinCambios}
                             onClick={handleCrearCorrectiva}
-                            className="w-full py-1.5 text-[11px] font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
+                            className="w-full py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
                           >
                             {savingCorrectiva ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
                             {correctivaCreada ? 'Actualizar visita correctiva' : 'Crear visita correctiva'}
@@ -993,7 +993,7 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
                         );
                       })()}
                       {correctivaCreada && (
-                        <div className="flex items-center gap-1.5 text-[10px] text-green-700 font-semibold">
+                        <div className="flex items-center gap-1.5 text-2xs text-green-700 font-semibold">
                           <CheckCircle2 size={12} /> Solicitud correctiva guardada — el técnico fue notificado en el chat
                         </div>
                       )}
@@ -1002,7 +1002,7 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
                 </div>
 
                 {/* Lista de rechazados debajo del formulario */}
-                <p className="text-[8px] font-bold uppercase tracking-wide text-red-600 px-1">
+                <p className="text-2xs font-bold uppercase tracking-wide text-red-600 px-1">
                   Dispositivos rechazados ({dispRechazados.length})
                 </p>
                 {dispRechazados.map(renderCard)}
@@ -1438,7 +1438,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 gap-3">
-        <Loader2 size={20} className="animate-spin text-[#D32F2F]" />
+        <Loader2 size={20} className="animate-spin text-brand" />
         <TextSmall className="text-gray-400">Cargando informe…</TextSmall>
       </div>
     );
@@ -1485,7 +1485,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden rounded-xl border border-gray-200 shadow-sm">
 
         {/* Header */}
-        <div className="bg-linear-to-r from-[#D32F2F] via-[#B71C1C] to-[#8B0000] px-5 py-3 relative overflow-hidden shrink-0">
+        <div className="bg-linear-to-r from-brand via-brand-dark to-brand-deeper px-5 py-3 relative overflow-hidden shrink-0">
           <div className="absolute inset-0 opacity-10">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl" />
           </div>
@@ -1498,7 +1498,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
               <p className="text-white font-bold text-sm leading-tight truncate">{informeBase.cliente_nombre}</p>
               <p className="text-white/70 text-xs">{informeBase.sucursal_nombre} · {informeBase.tipo_visita}</p>
             </div>
-            <span className={`text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full shrink-0 ${
+            <span className={`text-2xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full shrink-0 ${
               estadoCodigo === 'APROBADO'      ? 'bg-green-400/30 text-green-100 border border-green-400/40' :
               estadoCodigo === 'RECHAZADO'     ? 'bg-red-300/30 text-red-100 border border-red-400/40' :
               estadoCodigo === 'EN_APROBACION' ? 'bg-blue-400/30 text-blue-100 border border-blue-400/40' :
@@ -1591,7 +1591,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
 
         {/* Footer */}
         <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-3 shrink-0 bg-white">
-          <TextTiny className={`text-[10px] ${correctivaPendiente ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
+          <TextTiny className={`text-2xs ${correctivaPendiente ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
             {correctivaPendiente
               ? '⚠ Hay cambios en dispositivos rechazados. Actualiza la visita correctiva antes de continuar.'
               : !isDirector && !isReadOnly
@@ -1612,7 +1612,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
             <button type="button"
               disabled={savingAccion || estadoCodigo === 'APROBADO' || isReadOnly || (!isDirector && !todosRevisados) || correctivaPendiente}
               onClick={handleAprobar}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-[#D32F2F] hover:bg-[#B71C1C] text-white disabled:opacity-40 transition-colors">
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-brand hover:bg-brand-dark text-white disabled:opacity-40 transition-colors">
               {savingAccion ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
               {isDirector ? 'Aprobar' : estadoCodigo === 'EN_APROBACION' ? 'En revisión por director' : 'Enviar al director'}
             </button>
@@ -1621,15 +1621,15 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
 
         {showRechazo && isDirector && (
           <div className="px-4 pb-4 border-t border-red-100 bg-red-50/50 space-y-2 shrink-0">
-            <TextTiny className="font-bold text-red-700 uppercase tracking-wide text-[9px] pt-3">Motivo del rechazo (opcional)</TextTiny>
+            <TextTiny className="font-bold text-red-700 uppercase tracking-wide text-2xs pt-3">Motivo del rechazo (opcional)</TextTiny>
             <textarea autoFocus value={notaRechazo} onChange={e => setNotaRechazo(e.target.value)} rows={2}
               placeholder="Describe qué debe corregir el coordinador…"
               className="w-full text-xs border border-red-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-red-300/30 focus:border-red-400 bg-white" />
             <div className="flex gap-2 justify-end">
               <button type="button" onClick={() => { setShowRechazo(false); setNotaRechazo(''); }}
-                className="px-3 py-1.5 text-[11px] font-bold text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
               <button type="button" disabled={savingAccion} onClick={handleRechazar}
-                className="px-3 py-1.5 text-[11px] font-bold bg-red-500 hover:bg-red-600 text-white rounded-lg disabled:opacity-40">
+                className="px-3 py-1.5 text-xs font-bold bg-red-500 hover:bg-red-600 text-white rounded-lg disabled:opacity-40">
                 {savingAccion ? 'Rechazando…' : 'Confirmar rechazo'}
               </button>
             </div>
@@ -1642,8 +1642,8 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
         <div className="flex border-b border-gray-100 shrink-0">
           {TABS.map(tab => (
             <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2.5 text-[9px] font-bold uppercase tracking-wide transition-colors ${
-                activeTab === tab.id ? 'text-[#D32F2F] border-b-2 border-[#D32F2F]' : 'text-gray-400 hover:text-gray-600'
+              className={`flex-1 py-2.5 text-2xs font-bold uppercase tracking-wide transition-colors ${
+                activeTab === tab.id ? 'text-brand border-b-2 border-brand' : 'text-gray-400 hover:text-gray-600'
               }`}>
               {tab.label}
             </button>

@@ -46,7 +46,7 @@ export const BranchForm = (props) => {
           <Button
             onClick={onSaveNewBranch}
             disabled={isSaving}
-            className={`${!isEditing ? 'hidden' : ''} bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0`}
+            className={`${!isEditing ? 'hidden' : ''} bg-linear-to-r from-brand to-brand-deeper text-white border-0`}
           >
             {isSaving ? 'Guardando...' : (editingBranchId ? 'Guardar Cambios' : 'Crear Sucursal')}
           </Button>
@@ -149,20 +149,20 @@ export const BranchForm = (props) => {
               onClick={onClick}
               disabled={!isEditing && (!count || count === 0)}
               className={`flex items-center justify-between p-4 rounded-lg transition-all text-left w-full group
-                ${isEditing ? "bg-gray-50 border border-gray-200 hover:bg-white hover:border-[#D32F2F] hover:shadow-sm cursor-pointer" : 
+                ${isEditing ? "bg-gray-50 border border-gray-200 hover:bg-white hover:border-brand hover:shadow-sm cursor-pointer" : 
                   (count > 0 ? "bg-white border-0 cursor-pointer" : "bg-gray-50 opacity-70 border border-gray-100 cursor-not-allowed")}`}
             >
               <div className="flex-1 min-w-0">
-                <TextSmall className={`font-semibold text-gray-900 transition-colors ${isEditing || count > 0 ? "group-hover:text-[#D32F2F]" : ""}`}>{label}</TextSmall>
+                <TextSmall className={`font-semibold text-gray-900 transition-colors ${isEditing || count > 0 ? "group-hover:text-brand" : ""}`}>{label}</TextSmall>
                 <TextSmall className="text-gray-500 mt-0.5">
                   {count > 0
-                    ? <span className="text-[#D32F2F] font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
+                    ? <span className="text-brand font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
                     : sub
                   }
                 </TextSmall>
               </div>
               {(isEditing || count > 0) && (
-                <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-[#D32F2F] transition-colors shadow-sm">
+                <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-canvas text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-brand transition-colors shadow-sm">
                   {isEditing ? <><Link2 size={12} /> Asociar</> : <><Eye size={12} /> Ver</>}
                 </div>
               )}
@@ -213,7 +213,7 @@ export const BranchForm = (props) => {
                     type="date"
                     value={item.fechaInicio || ''}
                     onChange={e => updateRow({ fechaInicio: e.target.value || '' })}
-                    className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                    className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-brand focus:ring-1 focus:ring-brand"
                   />
                 </div>
                 <div>
@@ -222,7 +222,7 @@ export const BranchForm = (props) => {
                     type="date"
                     value={item.fechaFin || ''}
                     onChange={e => updateRow({ fechaFin: e.target.value || '' })}
-                    className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                    className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-brand focus:ring-1 focus:ring-brand"
                   />
                 </div>
               </div>
@@ -242,7 +242,7 @@ export const BranchForm = (props) => {
                     updateRow({ numVisitasPreventivas: n, fechasPreventivas: fechas });
                   }}
                   placeholder="Ej: 3"
-                  className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                  className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-brand focus:ring-1 focus:ring-brand"
                 />
               </div>
 
@@ -250,8 +250,8 @@ export const BranchForm = (props) => {
               {(item.numVisitasPreventivas ?? 0) > 0 && (
                 <div className="space-y-3 pt-1">
                   <div className="flex items-center gap-2">
-                    <CalendarClock size={14} className="text-[#D32F2F]" />
-                    <Label className="text-xs text-[#D32F2F] font-semibold">Fechas de visitas preventivas</Label>
+                    <CalendarClock size={14} className="text-brand" />
+                    <Label className="text-xs text-brand font-semibold">Fechas de visitas preventivas</Label>
                   </div>
                   {Array.from({ length: item.numVisitasPreventivas ?? 0 }).map((_, idx) => {
                     const slot = (item.fechasPreventivas || [])[idx] || { inicio: '', fin: '' };
@@ -275,7 +275,7 @@ export const BranchForm = (props) => {
                             min={item.fechaInicio || undefined}
                             max={slot.fin || item.fechaFin || undefined}
                             onChange={e => updateSlot({ inicio: e.target.value || '' })}
-                            className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                            className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-brand focus:ring-1 focus:ring-brand"
                           />
                         </div>
                         <div>
@@ -286,7 +286,7 @@ export const BranchForm = (props) => {
                             min={slot.inicio || item.fechaInicio || undefined}
                             max={item.fechaFin || undefined}
                             onChange={e => updateSlot({ fin: e.target.value || '' })}
-                            className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-[#D32F2F] focus:ring-1 focus:ring-[#D32F2F]"
+                            className="w-full h-10 px-3 rounded-md border border-gray-300 text-sm focus:border-brand focus:ring-1 focus:ring-brand"
                           />
                         </div>
                       </div>
@@ -317,8 +317,8 @@ export const BranchForm = (props) => {
               {(item.numVisitasPreventivas > 0) && (
                 <div className="w-full space-y-1 mt-1">
                   <span className="flex items-center gap-1.5">
-                    <CalendarClock size={14} className="text-[#D32F2F]" />
-                    <span className="text-[#D32F2F] text-xs font-semibold">{item.numVisitasPreventivas} visita{item.numVisitasPreventivas !== 1 ? 's' : ''} preventiva{item.numVisitasPreventivas !== 1 ? 's' : ''}</span>
+                    <CalendarClock size={14} className="text-brand" />
+                    <span className="text-brand text-xs font-semibold">{item.numVisitasPreventivas} visita{item.numVisitasPreventivas !== 1 ? 's' : ''} preventiva{item.numVisitasPreventivas !== 1 ? 's' : ''}</span>
                   </span>
                   {(item.fechasPreventivas || []).map((f, i) => {
                     const s = f || {};

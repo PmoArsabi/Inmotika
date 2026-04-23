@@ -46,7 +46,7 @@ const ContactAvatarBlock = ({ hasAccess, usuarioId, avatarPreview, nombres, isEd
       <div className="relative">
         <div
           onClick={handleClick}
-          className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-md border-2 border-gray-200 bg-linear-to-br from-[#D32F2F] to-[#8B0000] ${canEdit ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+          className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-md border-2 border-gray-200 bg-linear-to-br from-brand to-brand-deeper ${canEdit ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
         >
           {hasAccess && avatarPath && !avatarPreview ? (
             <SecureImage path={avatarPath} bucket="inmotika" alt="Avatar" className="w-full h-full object-cover" fallback={<span className="text-white text-2xl font-black">{initials}</span>} />
@@ -117,7 +117,7 @@ const ContactForm = ({
           <Button
             onClick={onSave}
             disabled={isSaving}
-            className="bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white border-0 min-w-40"
+            className="bg-linear-to-r from-brand to-brand-deeper hover:from-brand-dark hover:to-brand-deeper text-white border-0 min-w-40"
           >
             {isSaving ? (
               savingStep === 'inviting' ? 'Enviando invitación...' : 'Guardando...'
@@ -132,7 +132,7 @@ const ContactForm = ({
       <div className="space-y-4">
         <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
           <Building2 size={15} className="text-gray-500" />
-          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Asignación</span>
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Asignación</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Cliente — single-select emulado con MultiSelectDropdown */}
@@ -170,7 +170,7 @@ const ContactForm = ({
       <div className="space-y-4">
         <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
           <User size={15} className="text-gray-500" />
-          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Datos Personales</span>
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Datos Personales</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
@@ -252,7 +252,7 @@ const ContactForm = ({
       <div className="space-y-4">
         <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
           <Mail size={15} className="text-gray-500" />
-          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Datos de Contacto</span>
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Datos de Contacto</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
@@ -281,7 +281,7 @@ const ContactForm = ({
       <div className="space-y-4">
         <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
           <Briefcase size={15} className="text-gray-500" />
-          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Cargo y Área</span>
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Cargo y Área</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select
@@ -307,7 +307,7 @@ const ContactForm = ({
       <div className="space-y-4">
         <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
           <Shield size={15} className="text-gray-500" />
-          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Acceso a la plataforma</span>
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Acceso a la plataforma</span>
         </div>
 
         {/* Avatar centrado — visible siempre que haya acceso (ver o editar) o cuando se va a dar acceso */}

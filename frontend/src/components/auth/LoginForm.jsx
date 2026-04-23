@@ -66,7 +66,7 @@ const LoginForm = ({ onSignIn, onResetPassword }) => {
   return (
     <Card className="bg-white shadow-2xl border-0 overflow-hidden">
       {/* Header con gradiente */}
-      <div className="bg-linear-to-r from-[#D32F2F] via-[#B71C1C] to-[#8B0000] px-8 py-12 relative overflow-hidden">
+      <div className="bg-linear-to-r from-brand via-brand-dark to-brand-deeper px-8 py-12 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
         <div className="relative z-10">
@@ -95,7 +95,7 @@ const LoginForm = ({ onSignIn, onResetPassword }) => {
                 onChange={handleEmailChange}
                 disabled={loading}
                 placeholder="usuario@inmotika.co"
-                className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-[#D32F2F] outline-none transition-colors bg-transparent disabled:opacity-50"
+                className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-brand outline-none transition-colors bg-transparent disabled:opacity-50"
                 required
               />
               {emailValid && email && (
@@ -121,13 +121,13 @@ const LoginForm = ({ onSignIn, onResetPassword }) => {
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={loading}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-[#D32F2F] outline-none transition-colors bg-transparent disabled:opacity-50"
+                    className="w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 focus:border-brand outline-none transition-colors bg-transparent disabled:opacity-50"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#D32F2F] transition-colors cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand transition-colors cursor-pointer"
                     disabled={loading}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -140,7 +140,7 @@ const LoginForm = ({ onSignIn, onResetPassword }) => {
                 <button
                   type="button"
                   onClick={() => setIsForgotMode(true)}
-                  className="text-sm text-gray-600 hover:text-[#D32F2F] transition-colors underline cursor-pointer"
+                  className="text-sm text-gray-600 hover:text-brand transition-colors underline cursor-pointer"
                   disabled={loading}
                 >
                   ¿Olvidaste tu contraseña?
@@ -154,7 +154,7 @@ const LoginForm = ({ onSignIn, onResetPassword }) => {
             <Button
               type="submit"
               disabled={loading || !emailValid || (!isForgotMode && !password)}
-              className="w-full py-4 bg-linear-to-r from-[#D32F2F] to-[#8B0000] hover:from-[#B71C1C] hover:to-[#8B0000] text-white font-bold text-base uppercase rounded-full shadow-lg transition-all"
+              className="w-full py-4 bg-linear-to-r from-brand to-brand-deeper hover:from-brand-dark hover:to-brand-deeper text-white font-bold text-base uppercase rounded-full shadow-lg transition-all"
             >
               {loading ? 'Procesando...' : (isForgotMode ? 'ENVIAR ENLACE' : 'INGRESAR')}
             </Button>

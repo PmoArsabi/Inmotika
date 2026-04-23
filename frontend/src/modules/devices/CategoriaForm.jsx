@@ -51,7 +51,7 @@ const ActividadesList = ({ actividades, isEditing, onChange }) => {
     <div className="ml-8 mt-1.5 space-y-1">
       {visible.map((act, i) => (
         <div key={act.id || act.tempId} className="flex items-center gap-2 h-9 px-3 bg-gray-50 rounded border border-gray-100">
-          <span className="text-[10px] font-bold text-gray-400 w-4 shrink-0 text-center">{i + 1}</span>
+          <span className="text-2xs font-bold text-gray-400 w-4 shrink-0 text-center">{i + 1}</span>
           {isEditing ? (
             <input
               className="flex-1 min-w-0 bg-transparent text-xs text-gray-700 outline-none"
@@ -88,7 +88,7 @@ const ActividadesList = ({ actividades, isEditing, onChange }) => {
           />
           <div className="w-6 flex justify-center shrink-0">
             <button type="button" onClick={addActividad} disabled={!inputText.trim()}
-              className="w-5 h-5 flex items-center justify-center rounded bg-[#D32F2F] text-white text-sm font-bold disabled:opacity-40 hover:bg-[#B71C1C] transition-colors">
+              className="w-5 h-5 flex items-center justify-center rounded bg-brand text-white text-sm font-bold disabled:opacity-40 hover:bg-brand-dark transition-colors">
               +
             </button>
           </div>
@@ -104,14 +104,14 @@ const ActividadesList = ({ actividades, isEditing, onChange }) => {
       {isEditing && !showInput && (
         <div className="flex justify-end pr-1 pt-0.5">
           <button type="button" onClick={() => setShowInput(true)}
-            className="flex items-center gap-1 text-[10px] text-[#D32F2F] hover:text-[#B71C1C] font-semibold transition-colors">
+            className="flex items-center gap-1 text-2xs text-brand hover:text-brand-dark font-semibold transition-colors">
             <Plus size={11} /> Agregar actividad
           </button>
         </div>
       )}
 
       {!isEditing && visible.length === 0 && (
-        <p className="text-[10px] text-gray-400 italic ml-1">Sin actividades definidas</p>
+        <p className="text-2xs text-gray-400 italic ml-1">Sin actividades definidas</p>
       )}
     </div>
   );
@@ -264,7 +264,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
       {/* Header */}
       <header className="flex items-center gap-4 bg-white p-4 rounded-md border border-gray-100 shadow-sm">
         <button onClick={onCancel}
-          className="p-2 bg-gray-50 hover:bg-[#D32F2F] hover:text-white rounded-md transition-all">
+          className="p-2 bg-gray-50 hover:bg-brand hover:text-white rounded-md transition-all">
           <ArrowLeft size={16} />
         </button>
         <div className="flex-1 min-w-0">
@@ -286,7 +286,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
           <div className="flex items-center gap-3 shrink-0">
             {error && <TextSmall className="text-red-500">{error}</TextSmall>}
             <Button onClick={handleSave} disabled={!nombre.trim() || saving}
-              className="flex items-center gap-2 bg-linear-to-r from-[#D32F2F] to-[#8B0000] text-white border-0">
+              className="flex items-center gap-2 bg-linear-to-r from-brand to-brand-deeper text-white border-0">
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               {saving ? 'Guardando...' : (isCreating ? 'Crear Categoría' : 'Guardar Cambios')}
             </Button>
@@ -298,7 +298,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
       <Card className="p-6 space-y-4">
         <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
           <Tag size={14} className="text-gray-500" />
-          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Datos de la Categoría</span>
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Datos de la Categoría</span>
         </div>
         {isEditing ? (
           <>
@@ -313,7 +313,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
             <div className="flex flex-col gap-1.5">
               <Label>Descripción</Label>
               <textarea
-                className="w-full p-3 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-4 focus:ring-[#D32F2F]/5 focus:border-[#D32F2F] transition-all resize-none"
+                className="w-full p-3 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand transition-all resize-none"
                 rows={2} placeholder="Descripción opcional de la categoría"
                 value={desc} onChange={e => setDesc(e.target.value)}
               />
@@ -339,12 +339,12 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
       <Card className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ClipboardList size={15} className="text-[#D32F2F]" />
-            <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Protocolo de Mantenimiento</span>
+            <ClipboardList size={15} className="text-brand" />
+            <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Protocolo de Mantenimiento</span>
           </div>
           {isEditing && (
             <button type="button" onClick={() => setShowPasoInput(true)}
-              className="flex items-center gap-1 text-xs text-[#D32F2F] hover:text-[#B71C1C] font-semibold transition-colors">
+              className="flex items-center gap-1 text-xs text-brand hover:text-brand-dark font-semibold transition-colors">
               <Plus size={14} /> Agregar paso
             </button>
           )}
@@ -355,7 +355,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
           <div className="flex items-center gap-2 h-9 px-3 bg-gray-50 rounded-lg border border-gray-200">
             <input
               autoFocus
-              className="flex-1 min-w-0 bg-white border border-gray-300 rounded-md px-3 h-7 text-sm font-semibold text-gray-700 outline-none focus:border-[#D32F2F] transition-colors"
+              className="flex-1 min-w-0 bg-white border border-gray-300 rounded-md px-3 h-7 text-sm font-semibold text-gray-700 outline-none focus:border-brand transition-colors"
               placeholder="Nombre / sección del paso..."
               value={pasoText}
               onChange={e => setPasoText(e.target.value)}
@@ -366,7 +366,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
             />
             <div className="w-6 flex justify-center shrink-0">
               <button type="button" onClick={addPaso} disabled={!pasoText.trim()}
-                className="w-5 h-5 flex items-center justify-center rounded bg-[#D32F2F] text-white text-sm font-bold disabled:opacity-40 hover:bg-[#B71C1C] transition-colors">
+                className="w-5 h-5 flex items-center justify-center rounded bg-brand text-white text-sm font-bold disabled:opacity-40 hover:bg-brand-dark transition-colors">
                 +
               </button>
             </div>
@@ -404,17 +404,17 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
                     {isEditing ? (
                       <div className="flex flex-col items-center gap-0 shrink-0 w-5">
                         <button onClick={() => movePaso(realIdx, 'up')} disabled={visIdx === 0}
-                          className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-20 transition-colors leading-none">
+                          className="text-gray-300 hover:text-brand disabled:opacity-20 transition-colors leading-none">
                           <ChevronUp size={12} />
                         </button>
-                        <span className="font-bold text-gray-400 text-[10px] text-center leading-none">{visIdx + 1}</span>
+                        <span className="font-bold text-gray-400 text-2xs text-center leading-none">{visIdx + 1}</span>
                         <button onClick={() => movePaso(realIdx, 'down')} disabled={visIdx === visiblePasos.length - 1}
-                          className="text-gray-300 hover:text-[#D32F2F] disabled:opacity-20 transition-colors leading-none">
+                          className="text-gray-300 hover:text-brand disabled:opacity-20 transition-colors leading-none">
                           <ChevronDown size={12} />
                         </button>
                       </div>
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-linear-to-br from-[#D32F2F] to-[#8B0000] flex items-center justify-center text-white font-bold text-[10px] shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-linear-to-br from-brand to-brand-deeper flex items-center justify-center text-white font-bold text-2xs shrink-0">
                         {visIdx + 1}
                       </div>
                     )}
@@ -431,7 +431,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
                       ) : (
                         <TextSmall className="font-semibold text-gray-800">{paso.descripcion}</TextSmall>
                       )}
-                      <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                      <span className="text-2xs text-gray-400 flex items-center gap-0.5">
                         <List size={9} /> {actVisible.length} actividad{actVisible.length !== 1 ? 'es' : ''}
                       </span>
                     </div>

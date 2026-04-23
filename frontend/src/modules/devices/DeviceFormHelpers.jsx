@@ -12,7 +12,7 @@ import { TextSmall } from '../../components/ui/Typography';
 export const SectionHeader = ({ icon: SectionIcon, label }) => (
   <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
     <SectionIcon size={15} className="text-gray-500" />
-    <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">{label}</span>
+    <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">{label}</span>
   </div>
 );
 
@@ -24,9 +24,9 @@ export const CompactSummaryItem = ({ icon: ItemIcon, label, value }) => (
   <div className="flex flex-col gap-1">
     <div className="flex items-center gap-1.5 text-gray-400">
       <ItemIcon size={11} className="shrink-0" />
-      <span className="text-[9px] font-bold uppercase tracking-wider">{label}</span>
+      <span className="text-2xs font-bold uppercase tracking-wider">{label}</span>
     </div>
-    <span className="text-[11px] font-semibold text-gray-700 truncate leading-none">
+    <span className="text-xs font-semibold text-gray-700 truncate leading-none">
       {value || '—'}
     </span>
   </div>

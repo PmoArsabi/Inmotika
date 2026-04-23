@@ -57,14 +57,14 @@ const ClientDataPage = () => {
       <div className="space-y-4 animate-in slide-in-from-right-8 duration-300">
         <button
           onClick={() => setAsociacionModal(null)}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#D32F2F] transition-colors"
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-brand transition-colors"
         >
           <ArrowLeft size={16} />
           Volver a {sucursal.nombre}
         </button>
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-5">
-            {isContactos ? <Users size={18} className="text-[#D32F2F]" /> : <Cpu size={18} className="text-[#D32F2F]" />}
+            {isContactos ? <Users size={18} className="text-brand" /> : <Cpu size={18} className="text-brand" />}
             <Subtitle className="text-gray-800 normal-case tracking-normal">
               {isContactos ? 'Contactos asociados' : 'Dispositivos asociados'} — {sucursal.nombre}
             </Subtitle>
@@ -127,7 +127,7 @@ const ClientDataPage = () => {
       <div className="space-y-4 animate-in slide-in-from-right-8 duration-300 max-w-4xl mx-auto">
         <button
           onClick={() => setSelectedSucursal(null)}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#D32F2F] transition-colors"
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-brand transition-colors"
         >
           <ArrowLeft size={16} />
           Volver a Mis Datos
@@ -176,25 +176,25 @@ const ClientDataPage = () => {
           {/* Datos — grid compacto */}
           <div className="flex-1 min-w-0 grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
             <div className="min-w-0">
-              <Label className="text-gray-400 uppercase tracking-wider text-[10px] block mb-0.5">Razón Social</Label>
+              <Label className="text-gray-400 uppercase tracking-wider text-2xs block mb-0.5">Razón Social</Label>
               <TextSmall className="font-bold text-gray-900 truncate">{cliente.razon_social || '—'}</TextSmall>
             </div>
             <div className="min-w-0">
-              <Label className="text-gray-400 uppercase tracking-wider text-[10px] block mb-0.5">NIT / Identificación</Label>
+              <Label className="text-gray-400 uppercase tracking-wider text-2xs block mb-0.5">NIT / Identificación</Label>
               <TextSmall className="font-semibold text-gray-700">
                 {cliente.nit ? `${cliente.nit}${cliente.dv ? `-${cliente.dv}` : ''}` : '—'}
               </TextSmall>
             </div>
             <div className="min-w-0">
-              <Label className="text-gray-400 uppercase tracking-wider text-[10px] block mb-0.5">Tipo Documento</Label>
+              <Label className="text-gray-400 uppercase tracking-wider text-2xs block mb-0.5">Tipo Documento</Label>
               <TextSmall className="font-semibold text-gray-700">{cliente.tipo_documento || '—'}</TextSmall>
             </div>
             <div className="min-w-0">
-              <Label className="text-gray-400 uppercase tracking-wider text-[10px] block mb-0.5">Dirección</Label>
+              <Label className="text-gray-400 uppercase tracking-wider text-2xs block mb-0.5">Dirección</Label>
               <TextSmall className="font-semibold text-gray-700 truncate">{cliente.direccion || '—'}</TextSmall>
             </div>
             <div className="min-w-0 col-span-1 lg:col-span-2">
-              <Label className="text-gray-400 uppercase tracking-wider text-[10px] block mb-0.5">Ubicación</Label>
+              <Label className="text-gray-400 uppercase tracking-wider text-2xs block mb-0.5">Ubicación</Label>
               <TextSmall className="font-semibold text-gray-700">{formatUbicacion(cliente) || '—'}</TextSmall>
             </div>
           </div>
@@ -227,7 +227,7 @@ const ClientDataPage = () => {
                   return (
                     <Tr key={sucursal.id || idx}>
                       <Td>
-                        <Subtitle className="text-[#D32F2F] normal-case tracking-normal">
+                        <Subtitle className="text-brand normal-case tracking-normal">
                           {sucursal.nombre}
                           {sucursal.es_principal && <span className="ml-2 text-xs font-normal text-gray-400">(Principal)</span>}
                         </Subtitle>
@@ -250,7 +250,7 @@ const ClientDataPage = () => {
                         </div>
                       </Td>
                       <Td align="right">
-                        <IconButton icon={Eye} className="text-gray-300 hover:text-[#D32F2F]" onClick={() => setSelectedSucursal(sucursal)} />
+                        <IconButton icon={Eye} className="text-gray-300 hover:text-brand" onClick={() => setSelectedSucursal(sucursal)} />
                       </Td>
                     </Tr>
                   );
@@ -277,7 +277,7 @@ const ClientDataPage = () => {
                 <Card key={sucursal.id || idx} className="p-5 border border-gray-200 shadow-sm rounded-2xl">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="min-w-0">
-                      <Subtitle className="text-[#D32F2F] normal-case tracking-normal truncate">{sucursal.nombre}</Subtitle>
+                      <Subtitle className="text-brand normal-case tracking-normal truncate">{sucursal.nombre}</Subtitle>
                       {sucursal.es_principal && <TextTiny className="text-gray-400">(Principal)</TextTiny>}
                     </div>
                   </div>
@@ -303,7 +303,7 @@ const ClientDataPage = () => {
                   </div>
                   <button
                     onClick={() => setSelectedSucursal(sucursal)}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 hover:border-[#D32F2F] hover:text-[#D32F2F] text-gray-600 transition-colors text-xs font-semibold"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 hover:border-brand hover:text-brand text-gray-600 transition-colors text-xs font-semibold"
                   >
                     <Eye size={14} /> Ver detalle
                   </button>

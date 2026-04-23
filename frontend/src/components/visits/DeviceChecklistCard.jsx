@@ -78,7 +78,7 @@ const ActividadRow = ({ actividad, estado, observacion, onChange, viewMode, isBl
                          'text-gray-700'
         }`}>
           {actividad.descripcion}
-          {isOmitida && <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-600">· Omitida</span>}
+          {isOmitida && <span className="ml-1.5 text-2xs font-bold uppercase tracking-wide text-amber-600">· Omitida</span>}
         </span>
 
         {/* Acciones secundarias (solo en modo edición, actividad no bloqueada) */}
@@ -90,7 +90,7 @@ const ActividadRow = ({ actividad, estado, observacion, onChange, viewMode, isBl
                 type="button"
                 onClick={handleToggleObs}
                 title="Agregar comentario"
-                className={`p-1 rounded transition-colors ${showObs ? 'text-[#D32F2F] bg-red-50' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'}`}
+                className={`p-1 rounded transition-colors ${showObs ? 'text-brand bg-red-50' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'}`}
               >
                 <MessageSquare size={13} />
               </button>
@@ -113,7 +113,7 @@ const ActividadRow = ({ actividad, estado, observacion, onChange, viewMode, isBl
       {/* Formulario de omisión (inline, solo en modo edición) */}
       {showOmitForm && !viewMode && (
         <div className="px-3 pb-2 space-y-1.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">
+          <p className="text-2xs font-bold uppercase tracking-wide text-amber-600">
             ¿Por qué no se pudo realizar? <span className="text-red-500">*</span>
           </p>
           <textarea
@@ -129,14 +129,14 @@ const ActividadRow = ({ actividad, estado, observacion, onChange, viewMode, isBl
               type="button"
               onClick={handleConfirmOmitir}
               disabled={!obsLocal.trim()}
-              className="flex-1 py-1.5 text-[11px] font-bold bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-md transition-colors"
+              className="flex-1 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-md transition-colors"
             >
               Confirmar omisión
             </button>
             <button
               type="button"
               onClick={() => { setShowOmitForm(false); setObsLocal(observacion || ''); }}
-              className="px-3 py-1.5 text-[11px] font-bold text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
+              className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
             >
               Cancelar
             </button>
@@ -150,7 +150,7 @@ const ActividadRow = ({ actividad, estado, observacion, onChange, viewMode, isBl
           {viewMode || isOmitida ? (
             /* Lectura */
             observacion ? (
-              <p className={`text-[11px] px-2 py-1.5 rounded-md ${isOmitida ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>
+              <p className={`text-xs px-2 py-1.5 rounded-md ${isOmitida ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>
                 {observacion}
               </p>
             ) : null
@@ -164,7 +164,7 @@ const ActividadRow = ({ actividad, estado, observacion, onChange, viewMode, isBl
               }}
               rows={1}
               placeholder="Comentario opcional..."
-              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white resize-none focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all"
+              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white resize-none focus:outline-none focus:ring-2 focus:ring-brand/10 focus:border-brand transition-all"
             />
           )}
         </div>
@@ -215,7 +215,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, actKey, pasoKey, on
             ? <Lock          size={16} className="shrink-0 text-gray-300" />
             : pasoConOmitidas
               ? <AlertTriangle size={16} className="shrink-0 text-amber-500" />
-              : <span className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
+              : <span className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full text-2xs font-bold ${
                   pasoCerrado ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
                 }`}>{paso.orden}</span>
           }
@@ -227,7 +227,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, actKey, pasoKey, on
             }`}>
               {paso.orden}. {paso.descripcion}
             </p>
-            <p className="text-[10px] text-gray-400 mt-0.5">
+            <p className="text-2xs text-gray-400 mt-0.5">
               {isLocked
                 ? 'Completa el paso anterior primero'
                 : omitidas > 0
@@ -245,7 +245,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, actKey, pasoKey, on
       {/* Progress bar */}
       <div className="h-1 bg-gray-100">
         <div
-          className={`h-full transition-all ${pasoConOmitidas ? 'bg-amber-400' : pasoCerrado ? 'bg-green-500' : 'bg-[#D32F2F]'}`}
+          className={`h-full transition-all ${pasoConOmitidas ? 'bg-amber-400' : pasoCerrado ? 'bg-green-500' : 'bg-brand'}`}
           style={{ width: totalActs > 0 ? `${(doneActs / totalActs) * 100}%` : '0%' }}
         />
       </div>
@@ -289,7 +289,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, actKey, pasoKey, on
               rows={1}
               spellCheck="true"
               lang="es"
-              className="w-full mt-1 px-3 py-2 text-xs border border-gray-200 rounded-md bg-gray-50 resize-none focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all disabled:opacity-60"
+              className="w-full mt-1 px-3 py-2 text-xs border border-gray-200 rounded-md bg-gray-50 resize-none focus:outline-none focus:ring-2 focus:ring-brand/10 focus:border-brand transition-all disabled:opacity-60"
             />
           )}
         </div>
@@ -336,13 +336,13 @@ const EvidenciaCard = ({ label, isEtiqueta, value, onAdd, onRemove, inputRef, on
         <button
           type="button"
           onClick={onAdd}
-          className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-[#D32F2F] hover:bg-red-50 transition-all"
+          className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-brand hover:bg-red-50 transition-all"
         >
           <Camera size={20} className="text-gray-400" />
-          <span className="text-[10px] text-gray-400">Agregar</span>
+          <span className="text-2xs text-gray-400">Agregar</span>
         </button>
       )}
-      <p className={`text-[10px] text-center mt-1 ${isEtiqueta ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
+      <p className={`text-2xs text-center mt-1 ${isEtiqueta ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
         {label}
       </p>
     </div>
@@ -355,12 +355,12 @@ const AgregarFotoCard = ({ onClick }) => (
     <button
       type="button"
       onClick={onClick}
-      className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-[#D32F2F] hover:bg-red-50 transition-all"
+      className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-brand hover:bg-red-50 transition-all"
     >
       <Plus size={20} className="text-gray-400" />
-      <span className="text-[10px] text-gray-400">Agregar</span>
+      <span className="text-2xs text-gray-400">Agregar</span>
     </button>
-    <p className="text-[10px] text-gray-400 text-center mt-1">Nueva foto</p>
+    <p className="text-2xs text-gray-400 text-center mt-1">Nueva foto</p>
   </div>
 );
 
@@ -414,7 +414,7 @@ const EvidenciasSection = ({ evidencias, onChange, fueraDeServicio = false }) =>
       {/* Section header */}
       <div className="flex items-center gap-2 mb-3">
         <Camera size={13} className="text-gray-400 shrink-0" />
-        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Evidencias</span>
+        <span className="text-2xs font-bold uppercase tracking-widest text-gray-400">Evidencias</span>
       </div>
 
       {/* Photo grid */}
@@ -460,13 +460,13 @@ const EvidenciasSection = ({ evidencias, onChange, fueraDeServicio = false }) =>
               <button
                 type="button"
                 onClick={() => fotosInputRefs.current[idx]?.click()}
-                className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-[#D32F2F] hover:bg-red-50 transition-all"
+                className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-brand hover:bg-red-50 transition-all"
               >
                 <Camera size={20} className="text-gray-400" />
-                <span className="text-[10px] text-gray-400">Agregar</span>
+                <span className="text-2xs text-gray-400">Agregar</span>
               </button>
             )}
-            <p className="text-[10px] text-gray-500 text-center mt-1">{fueraDeServicio ? `Evidencia ${idx + 2}` : `Foto ${idx + 1}`}</p>
+            <p className="text-2xs text-gray-500 text-center mt-1">{fueraDeServicio ? `Evidencia ${idx + 2}` : `Foto ${idx + 1}`}</p>
           </div>
         ))}
 
@@ -605,7 +605,7 @@ const DeviceChecklistCard = ({
       {!isLocked && (
         <div className="h-1.5 bg-gray-100">
           <div
-            className={`h-full transition-all ${isFds ? 'bg-red-500' : allDoneWithOmit ? 'bg-amber-400' : allDone ? 'bg-green-500' : 'bg-[#D32F2F]'}`}
+            className={`h-full transition-all ${isFds ? 'bg-red-500' : allDoneWithOmit ? 'bg-amber-400' : allDone ? 'bg-green-500' : 'bg-brand'}`}
             style={{ width: isFds ? '100%' : `${pct}%` }}
           />
         </div>
@@ -640,13 +640,13 @@ const DeviceChecklistCard = ({
           {/* Observación final — siempre visible en modo edición */}
           {!viewMode && !isLocked && (
             <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Observación final</p>
+              <p className="text-2xs font-bold uppercase tracking-widest text-gray-400">Observación final</p>
               <textarea
                 value={observacionFinalDevice}
                 onChange={e => onObservacionFinalChange?.(e.target.value)}
                 rows={2}
                 placeholder="Observación general del dispositivo (opcional)..."
-                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white resize-none focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] transition-all"
+                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white resize-none focus:outline-none focus:ring-2 focus:ring-brand/10 focus:border-brand transition-all"
               />
             </div>
           )}
@@ -657,7 +657,7 @@ const DeviceChecklistCard = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Wrench size={13} className={fueraDeServicio ? 'text-red-500' : 'text-gray-400'} />
-                  <span className={`text-[10px] font-bold uppercase tracking-widest ${fueraDeServicio ? 'text-red-600' : 'text-gray-400'}`}>
+                  <span className={`text-2xs font-bold uppercase tracking-widest ${fueraDeServicio ? 'text-red-600' : 'text-gray-400'}`}>
                     Dispositivo fuera de servicio
                   </span>
                 </div>
@@ -674,7 +674,7 @@ const DeviceChecklistCard = ({
               {fueraDeServicio && (
                 <div className="space-y-2">
                   <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
+                    <p className="text-2xs font-bold uppercase tracking-wide text-red-600">
                       Motivo <span className="text-red-500">*</span>
                     </p>
                     <textarea
@@ -688,7 +688,7 @@ const DeviceChecklistCard = ({
                   </div>
                   <div className="flex items-start gap-2 px-2 py-1.5 rounded-md bg-amber-50 border border-amber-200">
                     <span className="text-amber-500 mt-0.5 shrink-0">⚠</span>
-                    <p className="text-[11px] text-amber-700 leading-relaxed">
+                    <p className="text-xs text-amber-700 leading-relaxed">
                       Para reportar el estado del dispositivo debes agregar al menos una <strong>foto de evidencia</strong>.
                     </p>
                   </div>
@@ -700,7 +700,7 @@ const DeviceChecklistCard = ({
           {/* Observación final en modo lectura */}
           {viewMode && observacionFinalDevice && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Observación final</p>
+              <p className="text-2xs font-bold uppercase tracking-widest text-gray-400">Observación final</p>
               <p className="text-xs text-gray-700">{observacionFinalDevice}</p>
             </div>
           )}
@@ -710,7 +710,7 @@ const DeviceChecklistCard = ({
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-1">
               <div className="flex items-center gap-2">
                 <Wrench size={13} className="text-red-500" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">Fuera de servicio</span>
+                <span className="text-2xs font-bold uppercase tracking-widest text-red-600">Fuera de servicio</span>
               </div>
               {motivoFueraDeServicio && (
                 <p className="text-xs text-red-700 px-2 py-1 bg-red-100 rounded-md">{motivoFueraDeServicio}</p>
@@ -725,7 +725,7 @@ const DeviceChecklistCard = ({
               {!fueraDeServicio && (
                 <div className="flex items-center gap-2 px-1">
                   <Tag size={13} className="text-gray-400 shrink-0" />
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">
+                  <label className="text-2xs font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">
                     Código Etiqueta
                   </label>
                   <input
@@ -739,7 +739,7 @@ const DeviceChecklistCard = ({
                     }}
                     placeholder="XXXX-XXXX"
                     maxLength={9}
-                    className="flex-1 h-8 px-2 text-xs border border-gray-200 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/10 focus:border-[#D32F2F] font-mono tracking-widest uppercase transition-all"
+                    className="flex-1 h-8 px-2 text-xs border border-gray-200 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand/10 focus:border-brand font-mono tracking-widest uppercase transition-all"
                   />
                 </div>
               )}
@@ -760,20 +760,20 @@ const DeviceChecklistCard = ({
                   {tieneCodigo && (
                     <div className="flex items-center gap-2">
                       <Tag size={13} className="text-gray-400 shrink-0" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Código Etiqueta</span>
+                      <span className="text-2xs font-bold uppercase tracking-widest text-gray-400">Código Etiqueta</span>
                       <span className="text-xs font-mono font-bold tracking-widest text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
                         {codigoEtiqueta}
                       </span>
                     </div>
                   )}
-                  {tieneEvidencias && <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Evidencias</p>}
+                  {tieneEvidencias && <p className="text-2xs font-bold uppercase tracking-widest text-gray-400">Evidencias</p>}
                   <div className="flex flex-wrap gap-3">
                     {deviceEvidencias.etiqueta && (
                       <div className="flex flex-col items-center gap-1">
                         <div className={`w-24 h-24 rounded-lg overflow-hidden border ${fueraDeServicio ? 'border-gray-200' : 'border-blue-200'}`}>
                           <SecureImage path={deviceEvidencias.etiqueta.preview} alt="Evidencia" className="object-cover w-full h-full" />
                         </div>
-                        <p className={`text-[10px] font-semibold ${fueraDeServicio ? 'text-gray-500' : 'text-blue-600'}`}>
+                        <p className={`text-2xs font-semibold ${fueraDeServicio ? 'text-gray-500' : 'text-blue-600'}`}>
                           {fueraDeServicio ? 'Evidencia 1' : 'Foto Etiqueta'}
                         </p>
                       </div>
@@ -783,7 +783,7 @@ const DeviceChecklistCard = ({
                         <div className="w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
                           <SecureImage path={foto.preview} alt={`Evidencia ${idx + 2}`} className="object-cover w-full h-full" />
                         </div>
-                        <p className="text-[10px] text-gray-500">{fueraDeServicio ? `Evidencia ${idx + 2}` : `Foto ${idx + 1}`}</p>
+                        <p className="text-2xs text-gray-500">{fueraDeServicio ? `Evidencia ${idx + 2}` : `Foto ${idx + 1}`}</p>
                       </div>
                     ))}
                   </div>

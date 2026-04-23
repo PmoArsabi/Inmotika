@@ -45,7 +45,7 @@ const DynamicDocumentList = ({
     <div className="mt-3 space-y-2">
       <div className="flex items-center justify-between">
         {title && (
-          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
             {title}
           </span>
         )}
@@ -53,7 +53,7 @@ const DynamicDocumentList = ({
           <button
             type="button"
             onClick={addRow}
-            className="flex items-center gap-1 text-xs font-semibold text-[#D32F2F] hover:text-[#B71C1C] transition-colors ml-auto"
+            className="flex items-center gap-1 text-xs font-semibold text-brand hover:text-brand-dark transition-colors ml-auto"
           >
             <Plus size={13} /> {addButtonLabel}
           </button>

@@ -109,7 +109,7 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
       <div className="relative z-10 bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-3xl max-h-[90vh] overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-linear-to-r from-[#D32F2F] via-[#B71C1C] to-[#8B0000] shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-linear-to-r from-brand via-brand-dark to-brand-deeper shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-lg border border-white/30">
               <Cpu size={16} className="text-white" />
@@ -140,7 +140,7 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
                 placeholder="Buscar por serial, modelo, categoría..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full h-9 pl-9 pr-3 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all placeholder:text-gray-400"
+                className="w-full h-9 pl-9 pr-3 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all placeholder:text-gray-400"
               />
               {search && (
                 <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -181,7 +181,7 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
             {hasFilters && (
               <button
                 onClick={clearAll}
-                className="h-9 px-3 text-xs text-gray-500 hover:text-[#D32F2F] border border-gray-200 rounded-lg hover:border-[#D32F2F]/30 transition-colors"
+                className="h-9 px-3 text-xs text-gray-500 hover:text-brand border border-gray-200 rounded-lg hover:border-brand/30 transition-colors"
               >
                 Limpiar
               </button>
@@ -206,7 +206,7 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
                     <button
                       onClick={toggleAll}
                       className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${
-                        allChecked   ? 'bg-[#D32F2F] border-[#D32F2F]' :
+                        allChecked   ? 'bg-brand border-brand' :
                         someChecked  ? 'bg-white border-gray-400'       :
                                        'bg-white border-gray-300 hover:border-gray-400'
                       }`}
@@ -215,10 +215,10 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
                       {someChecked && <span className="w-2 h-0.5 bg-gray-500 rounded-full block" />}
                     </button>
                   </th>
-                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500">Serial / ID</th>
-                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500 hidden sm:table-cell">Modelo</th>
-                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500 hidden md:table-cell">Categoría</th>
-                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500 hidden lg:table-cell">Marca</th>
+                  <th className="px-3 py-3 text-left text-2xs font-bold uppercase tracking-wider text-gray-500">Serial / ID</th>
+                  <th className="px-3 py-3 text-left text-2xs font-bold uppercase tracking-wider text-gray-500 hidden sm:table-cell">Modelo</th>
+                  <th className="px-3 py-3 text-left text-2xs font-bold uppercase tracking-wider text-gray-500 hidden md:table-cell">Categoría</th>
+                  <th className="px-3 py-3 text-left text-2xs font-bold uppercase tracking-wider text-gray-500 hidden lg:table-cell">Marca</th>
                   <th className="w-10 px-3 py-3" />
                 </tr>
               </thead>
@@ -238,7 +238,7 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
                           <button
                             onClick={() => toggle(d.value)}
                             className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${
-                              isChecked ? 'bg-[#D32F2F] border-[#D32F2F]' : 'bg-white border-gray-300 hover:border-[#D32F2F]/50'
+                              isChecked ? 'bg-brand border-brand' : 'bg-white border-gray-300 hover:border-brand/50'
                             }`}
                           >
                             {isChecked && <Check size={10} className="text-white" strokeWidth={3} />}
@@ -249,7 +249,7 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
                         <td className="px-3 py-3">
                           <p className="font-semibold text-gray-900 text-xs">{d.serial || d.label || '—'}</p>
                           {d.idInmotika && (
-                            <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+                            <p className="text-2xs text-gray-400 mt-0.5 flex items-center gap-1">
                               <Hash size={9} /> {d.idInmotika}
                             </p>
                           )}
@@ -263,7 +263,7 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
                         {/* Categoría */}
                         <td className="px-3 py-3 hidden md:table-cell">
                           {d.categoria ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-semibold">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-2xs font-semibold">
                               <Tag size={9} /> {d.categoria}
                             </span>
                           ) : <span className="text-gray-300 text-xs">—</span>}
@@ -276,7 +276,7 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
 
                         {/* Expand toggle */}
                         <td className="px-3 py-3" onClick={e => { e.stopPropagation(); setExpanded(isExpanded ? null : d.value); }}>
-                          <button className="p-1 rounded text-gray-400 hover:text-[#D32F2F] hover:bg-red-50 transition-colors">
+                          <button className="p-1 rounded text-gray-400 hover:text-brand hover:bg-red-50 transition-colors">
                             {isExpanded ? <ChevronUp size={14} /> : <Eye size={14} />}
                           </button>
                         </td>
@@ -309,7 +309,7 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
               {filtered.length} de {devices.length} dispositivo{devices.length !== 1 ? 's' : ''}
             </span>
             {draft.length > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-[#D32F2F]/10 text-[#D32F2F] text-xs font-bold">
+              <span className="px-2 py-0.5 rounded-full bg-brand/10 text-brand text-xs font-bold">
                 {draft.length} seleccionado{draft.length !== 1 ? 's' : ''}
               </span>
             )}
@@ -323,7 +323,7 @@ const DevicePickerModal = ({ isOpen, onClose, devices = [], selected = [], onCon
             </button>
             <button
               onClick={handleConfirm}
-              className="px-4 py-2 text-sm font-bold text-white bg-[#D32F2F] hover:bg-[#B71C1C] rounded-lg transition-colors shadow-sm disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold text-white bg-brand hover:bg-brand-dark rounded-lg transition-colors shadow-sm disabled:opacity-50"
             >
               Confirmar selección
             </button>
@@ -400,16 +400,16 @@ const PickerFilterSelect = ({ label, icon: Icon, options, selected, isOpen, onTo
         className={[
           'flex items-center gap-1.5 h-9 px-2.5 border rounded-lg text-xs font-medium transition-all select-none',
           isOpen
-            ? 'border-[#D32F2F] ring-2 ring-[#D32F2F]/20 bg-white text-[#D32F2F]'
+            ? 'border-brand ring-2 ring-brand/20 bg-white text-brand'
             : count > 0
-              ? 'border-[#D32F2F] bg-white text-[#D32F2F]'
+              ? 'border-brand bg-white text-brand'
               : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300',
         ].join(' ')}
       >
         <Icon size={12} className="shrink-0" />
         <span>{displayText}</span>
         {count > 0 && (
-          <span className="flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-[#D32F2F] text-white text-[10px] font-bold leading-none">
+          <span className="flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-brand text-white text-2xs font-bold leading-none">
             {count}
           </span>
         )}
@@ -441,10 +441,10 @@ const PickerFilterSelect = ({ label, icon: Icon, options, selected, isOpen, onTo
                 onMouseDown={e => e.preventDefault()}
                 onClick={toggleAll}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors border-b border-gray-100
-                  ${allSelected ? 'bg-red-50 text-[#D32F2F]' : 'text-gray-600 hover:bg-gray-50'}`}
+                  ${allSelected ? 'bg-red-50 text-brand' : 'text-gray-600 hover:bg-gray-50'}`}
               >
                 <span className={`flex items-center justify-center w-4 h-4 rounded border shrink-0 transition-colors
-                  ${allSelected ? 'bg-[#D32F2F] border-[#D32F2F]' : 'border-gray-300 bg-white'}`}>
+                  ${allSelected ? 'bg-brand border-brand' : 'border-gray-300 bg-white'}`}>
                   {allSelected
                     ? <Check size={10} className="text-white" strokeWidth={3} />
                     : someSelected
@@ -464,10 +464,10 @@ const PickerFilterSelect = ({ label, icon: Icon, options, selected, isOpen, onTo
                     onMouseDown={e => e.preventDefault()}
                     onClick={() => toggleOpt(opt.value)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
-                      ${isChecked ? 'bg-red-50 text-[#D32F2F]' : 'text-gray-700 hover:bg-gray-50'}`}
+                      ${isChecked ? 'bg-red-50 text-brand' : 'text-gray-700 hover:bg-gray-50'}`}
                   >
                     <span className={`flex items-center justify-center w-4 h-4 rounded border shrink-0 transition-colors
-                      ${isChecked ? 'bg-[#D32F2F] border-[#D32F2F]' : 'border-gray-300 bg-white'}`}>
+                      ${isChecked ? 'bg-brand border-brand' : 'border-gray-300 bg-white'}`}>
                       {isChecked && <Check size={10} className="text-white" strokeWidth={3} />}
                     </span>
                     <span className="truncate">{opt.label}</span>
@@ -482,7 +482,7 @@ const PickerFilterSelect = ({ label, icon: Icon, options, selected, isOpen, onTo
                 type="button"
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => { onChange([]); onClose(); }}
-                className="text-xs text-[#D32F2F] hover:underline font-medium"
+                className="text-xs text-brand hover:underline font-medium"
               >
                 Limpiar selección
               </button>
@@ -499,7 +499,7 @@ const PickerFilterSelect = ({ label, icon: Icon, options, selected, isOpen, onTo
  
 const DetailCell = ({ icon: IconComp, label, value }) => (
   <div className="flex flex-col gap-0.5">
-    <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-gray-400">
+    <span className="flex items-center gap-1 text-2xs font-bold uppercase tracking-wider text-gray-400">
       <IconComp size={9} /> {label}
     </span>
     <span className="text-xs font-semibold text-gray-700">{value || <span className="text-gray-300 font-normal">—</span>}</span>

@@ -79,13 +79,13 @@ const LocationPicker = ({
     return (
       <div className={`grid grid-cols-2 gap-4 ${className}`}>
         <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-bold text-gray-500 ml-1 uppercase">País</label>
+          <label className="text-2xs font-bold text-gray-500 ml-1 uppercase">País</label>
           <div className="flex items-center gap-2 h-10 pl-1 text-sm font-semibold text-gray-900">
             {countryLabel ? <><FlagImg isoCode={countryLabel.isoCode} name={countryLabel.name} />{countryLabel.name}</> : <span className="text-gray-400 italic">No especificado</span>}
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-bold text-gray-500 ml-1 uppercase">Estado / Depto</label>
+          <label className="text-2xs font-bold text-gray-500 ml-1 uppercase">Estado / Depto</label>
           <div className="flex items-center gap-2 h-10 pl-1 text-sm font-semibold text-gray-900">
             <Map size={16} className="text-gray-400 shrink-0" />
             {stateLabel || <span className="text-gray-400 italic">No especificado</span>}
@@ -93,7 +93,7 @@ const LocationPicker = ({
         </div>
         {!hideCity && (
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-gray-500 ml-1 uppercase">Ciudad</label>
+            <label className="text-2xs font-bold text-gray-500 ml-1 uppercase">Ciudad</label>
             <div className="flex items-center gap-2 h-10 pl-1 text-sm font-semibold text-gray-900">
               <MapPin size={16} className="text-gray-400 shrink-0" />
               {cityValue || <span className="text-gray-400 italic">No especificado</span>}

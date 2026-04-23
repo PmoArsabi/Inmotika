@@ -70,9 +70,9 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
               <H1>Ficha del Servicio</H1>
             </div>
             {activeVisit.prioridad === 'Alta' && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-red-50 text-[#D32F2F] rounded-md border border-red-100">
+              <div className="flex items-center gap-2 px-4 py-2 bg-red-50 text-brand rounded-md border border-red-100">
                 <AlertCircle size={16} />
-                <TextSmall className="font-bold text-[#D32F2F] uppercase">Prioridad Crítica</TextSmall>
+                <TextSmall className="font-bold text-brand uppercase">Prioridad Crítica</TextSmall>
               </div>
             )}
           </header>
@@ -103,9 +103,9 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
                 <DataField label="Contacto en Sitio" value={activeVisit.contactoNombre || detailedInfo.client?.email} icon={UserCog} />
                 <DataField label="Celular de Contacto" value={activeVisit.contactoCelular || detailedInfo.client?.telefono} icon={Phone} />
               </div>
-              <div className="p-4 bg-[#1A1A1A] rounded-md flex items-center justify-between text-white">
+              <div className="p-4 bg-canvas rounded-md flex items-center justify-between text-white">
                 <div className="flex items-center gap-3">
-                  <ShieldCheck size={20} className="text-[#D32F2F]" />
+                  <ShieldCheck size={20} className="text-brand" />
                   <div>
                     <TextSmall className="text-gray-400">Estado de Seguridad</TextSmall>
                     <TextSmall className="text-white">Cliente en Cumplimiento</TextSmall>
@@ -118,7 +118,7 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
           {/* Devices filter + list */}
           <div className="space-y-6 pt-4">
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 border-b border-gray-50 pb-6">
-              <div className="flex items-center gap-3 text-[#D32F2F]">
+              <div className="flex items-center gap-3 text-brand">
                 <Cpu size={20} />
                 <H3 className="text-xs">Equipos Asignados ({detailedInfo.devices.length}/{detailedInfo.totalDevices})</H3>
               </div>
@@ -131,9 +131,9 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Hash size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input type="text" placeholder="Número de Serial..." value={newDeviceSerial} onChange={(e) => setNewDeviceSerial(e.target.value)} className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border-2 border-gray-100 rounded-md text-[10px] font-bold focus:outline-none focus:border-[#D32F2F]" />
+                      <input type="text" placeholder="Número de Serial..." value={newDeviceSerial} onChange={(e) => setNewDeviceSerial(e.target.value)} className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border-2 border-gray-100 rounded-md text-2xs font-bold focus:outline-none focus:border-brand" />
                     </div>
-                    <button onClick={handleAddNewDevice} disabled={!newDeviceSerial} className="p-2.5 bg-gray-900 text-white rounded-md hover:bg-[#D32F2F] disabled:opacity-30 shadow-md transition-all"><Plus size={18} /></button>
+                    <button onClick={handleAddNewDevice} disabled={!newDeviceSerial} className="p-2.5 bg-gray-900 text-white rounded-md hover:bg-brand disabled:opacity-30 shadow-md transition-all"><Plus size={18} /></button>
                   </div>
                 </div>
               </div>
@@ -143,13 +143,13 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
               {detailedInfo.devices.map((dev, idx) => (
                 <div key={idx} className="p-6 border-2 border-gray-100 rounded-md bg-white overflow-hidden">
                   <div className="flex justify-between items-start mb-6">
-                    <TextSmall className="px-4 py-1.5 bg-[#1A1A1A] text-white rounded-md uppercase">{dev.tipo}</TextSmall>
+                    <TextSmall className="px-4 py-1.5 bg-canvas text-white rounded-md uppercase">{dev.tipo}</TextSmall>
                     <div className="flex gap-2"><button type="button" className="p-2.5 bg-gray-50 rounded-md text-gray-400 shadow-sm"><FileText size={16} /></button><button type="button" className="p-2.5 bg-gray-50 rounded-md text-gray-400 shadow-sm"><Activity size={16} /></button></div>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4 mb-8"><DataField label="Marca" value={dev.marca} /><DataField label="Modelo" value={dev.modelo} /><DataField label="Código Único" value={dev.codigoUnico} /><DataField label="Serial #" value={dev.serial} /><DataField label="Dirección MAC" value={dev.imac} /><DataField label="Mantenimiento" value={dev.frecuencia} /></div>
                   <div className="mt-4 pt-6 border-t border-gray-100 space-y-4">
-                    <div className="flex items-center gap-2"><History size={16} className="text-[#D32F2F]" /><Label>Bitácora Técnica</Label></div>
-                    <div className="overflow-hidden border border-gray-200 shadow-sm rounded-md"><Table><THead variant="light"><Tr><Th>Fecha</Th><Th>Técnico</Th><Th>Tipo</Th><Th>Observaciones</Th></Tr></THead><TBody>{dev.historial?.map((log, lIdx) => (<Tr key={lIdx}><Td>{log.fecha}</Td><Td>{log.tecnico}</Td><Td><StatusBadge status={log.tipo} className="text-[7px]" /></Td><Td><span className="italic">{log.observaciones}</span></Td></Tr>))}</TBody></Table></div>
+                    <div className="flex items-center gap-2"><History size={16} className="text-brand" /><Label>Bitácora Técnica</Label></div>
+                    <div className="overflow-hidden border border-gray-200 shadow-sm rounded-md"><Table><THead variant="light"><Tr><Th>Fecha</Th><Th>Técnico</Th><Th>Tipo</Th><Th>Observaciones</Th></Tr></THead><TBody>{dev.historial?.map((log, lIdx) => (<Tr key={lIdx}><Td>{log.fecha}</Td><Td>{log.tecnico}</Td><Td><StatusBadge status={log.tipo} className="text-2xs" /></Td><Td><span className="italic">{log.observaciones}</span></Td></Tr>))}</TBody></Table></div>
                   </div>
                 </div>
               ))}
@@ -181,14 +181,14 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
                 <Subtitle>Consolidado final</Subtitle>
               </div>
             </div>
-            <div className="text-right"><Label>Estatus</Label><Metric className="text-lg text-[#D32F2F]">{detailedInfo.allAssigned.length} Activos</Metric></div>
+            <div className="text-right"><Label>Estatus</Label><Metric className="text-lg text-brand">{detailedInfo.allAssigned.length} Activos</Metric></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {detailedInfo.allAssigned.map((dev, idx) => (
               <div key={`summary-${idx}`} className="bg-white border border-gray-100 rounded-md p-6 shadow-sm border-b-4 border-b-green-500">
                 <div className="flex justify-between items-start mb-3"><div className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div><Label>{dev.codigoUnico}</Label></div><CheckCircle2 size={16} className="text-green-500" /></div>
                 <H3 className="text-xs truncate mb-2">{dev.marca} {dev.modelo}</H3>
-                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-50"><div><Label className="mb-0.5">Estado</Label><StatusBadge status="Certificado" className="text-[8px] bg-green-50 text-green-600 border border-green-100" /></div><div className="text-right"><Label className="mb-0.5">Hora Cierre</Label><TextSmall className="text-gray-700">09:45 AM</TextSmall></div></div>
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-50"><div><Label className="mb-0.5">Estado</Label><StatusBadge status="Certificado" className="text-2xs bg-green-50 text-green-600 border border-green-100" /></div><div className="text-right"><Label className="mb-0.5">Hora Cierre</Label><TextSmall className="text-gray-700">09:45 AM</TextSmall></div></div>
               </div>
             ))}
           </div>
@@ -196,7 +196,7 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
 
         {/* Close visit */}
         <section className="pt-6">
-          <div className="p-8 bg-[#D32F2F] rounded-md text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-red-900/30 border-2 border-white">
+          <div className="p-8 bg-brand rounded-md text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-red-900/30 border-2 border-white">
             <div className="flex items-center gap-6">
               <div className="p-4 bg-white/10 rounded-md backdrop-blur-md border border-white/20">
                 <Zap size={32} className="animate-pulse" />
@@ -206,7 +206,7 @@ const VisitInfoPanel = ({ activeVisit, data, setData, onBack, onFinish, setActiv
                 <TextSmall className="text-red-100/70 mt-0.5">"Confirmo la finalización de todas las actividades."</TextSmall>
               </div>
             </div>
-            <button onClick={onFinish} className="w-full md:w-auto px-10 py-6 bg-white text-[#D32F2F] rounded-md font-bold text-xs uppercase hover:bg-gray-50 active:scale-[0.97] transition-all shadow-xl">Cerrar y Sincronizar</button>
+            <button onClick={onFinish} className="w-full md:w-auto px-10 py-6 bg-white text-brand rounded-md font-bold text-xs uppercase hover:bg-gray-50 active:scale-[0.97] transition-all shadow-xl">Cerrar y Sincronizar</button>
           </div>
         </section>
       </div>

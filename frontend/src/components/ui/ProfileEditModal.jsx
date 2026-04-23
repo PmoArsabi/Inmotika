@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Camera, Lock, CheckCircle, Loader2, AlertCircle, Mail, FileText } from 'lucide-react';
+import { Camera, Lock, CheckCircle, Loader2, AlertCircle, Mail, FileText, LogOut } from 'lucide-react';
 import Modal from './Modal';
 import Button from './Button';
 import SecureImage from './SecureImage';
@@ -17,7 +17,7 @@ import { isManagementRole } from '../../utils/constants';
  * @param {{ id: string, nombres: string, apellidos: string, avatar_url: string, email: string }} user
  * @param {Function} onProfileUpdated - Callback para refrescar el perfil en AuthContext
  */
-const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
+const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated, onLogout }) => {
   const { uploadAvatar, loading } = useUpdateProfile();
   const { resetPassword } = useAuth();
 
@@ -121,14 +121,14 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-[#D32F2F] text-white flex items-center justify-center text-3xl font-black">
+                  <div className="w-full h-full bg-brand text-white flex items-center justify-center text-3xl font-black">
                     {initial}
                   </div>
                 )}
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#1A1A1A] text-white rounded-xl flex items-center justify-center shadow-md hover:bg-[#D32F2F] transition-colors cursor-pointer"
+                className="absolute -bottom-2 -right-2 w-8 h-8 bg-canvas text-white rounded-xl flex items-center justify-center shadow-md hover:bg-brand transition-colors cursor-pointer"
                 title="Cambiar foto"
               >
                 <Camera size={14} />
@@ -175,7 +175,7 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
           {/* Cambiar contraseña */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
-              <Lock size={15} className="text-[#D32F2F]" />
+              <Lock size={15} className="text-brand" />
               <span className="text-xs font-black uppercase tracking-widest text-gray-700">Contraseña</span>
             </div>
 
@@ -216,7 +216,7 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
         {canManage && user?.id && (
           <div className="flex flex-col gap-3 flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <FileText size={15} className="text-[#D32F2F]" />
+              <FileText size={15} className="text-brand" />
               <span className="text-xs font-black uppercase tracking-widest text-gray-700">Mis Documentos</span>
             </div>
             <DocumentUploadManager
@@ -236,6 +236,19 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
         )}
 
       </div>
+
+      {/* Cerrar sesión */}
+      {onLogout && (
+        <div className="mt-6 pt-5 border-t border-gray-100">
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-2.5 text-xs font-medium text-gray-400 hover:text-red-600 transition-colors duration-(--transition-fast) group"
+          >
+            <LogOut size={14} className="group-hover:text-red-500 transition-colors" />
+            Cerrar sesión
+          </button>
+        </div>
+      )}
     </Modal>
 
     <UserSuccessModal
