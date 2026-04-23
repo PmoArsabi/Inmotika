@@ -529,26 +529,30 @@ export async function getInformesDirectorTodos() {
 }
 
 /**
- * Genera el PDF del informe (solo intervenciones aprobadas por el coordinador),
+ * Genera el PDF del informe con react-pdf (texto real, saltos de página correctos),
  * sube al storage, actualiza los campos de aprobación y envía email al cliente.
  *
  * @param {string} informeId
  * @param {string} visitaId
- * @param {{ clienteEmails: string[], clienteNombre: string, sucursalNombre: string, tipoVisita: string, fechaFin: string|null, appUrl: string, finalizadoPor: string }} ctx
+ * @param {Object} ctx
+ * @param {import('../api/informeApi').InformeVisita} ctx.informe              - Datos completos del informe
+ * @param {string|null}  [ctx.firmaCoordinadorUrl]  - Signed URL de la firma del coordinador
+ * @param {string|null}  [ctx.firmaDirectorUrl]     - Signed URL de la firma del director
+ * @param {string[]}     [ctx.clienteEmails]
+ * @param {string}       [ctx.clienteNombre]
+ * @param {string}       [ctx.sucursalNombre]
+ * @param {string}       [ctx.tipoVisita]
+ * @param {string|null}  [ctx.fechaFin]
+ * @param {string}       [ctx.appUrl]
+ * @param {string}       [ctx.finalizadoPor]
  * @returns {Promise<{pdfUrl: string}>}
  */
-/**
- * @param {string}      informeId
- * @param {string}      visitaId
- * @param {Object}      ctx
- * @param {HTMLElement} ctx.templateEl - Elemento DOM del InformePDFTemplate ya renderizado
- */
 export async function aprobarYGenerarPDF(informeId, visitaId, ctx) {
-  // 1. Capturar el template ya renderizado en el DOM y convertir a PDF
-  // IMPORTANTE: el PDF debe generarse ANTES de marcar el informe como APROBADO
-  // para garantizar consistencia (estado y storage_path nunca quedan desfasados).
-  const { generateInformeFromElement } = await import('../utils/generateInforme');
-  const { pdfUrl } = await generateInformeFromElement(visitaId, ctx.templateEl);
+  const { generateInformeFromData } = await import('../utils/generateInforme');
+  const { pdfUrl } = await generateInformeFromData(visitaId, ctx.informe, {
+    firmaCoordinadorUrl: ctx.firmaCoordinadorUrl ?? null,
+    firmaDirectorUrl:    ctx.firmaDirectorUrl    ?? null,
+  });
 
   const storagePath = `informes/${visitaId}/informe.pdf`;
 

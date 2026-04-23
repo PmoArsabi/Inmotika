@@ -1044,7 +1044,6 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
   const [correctivaGuardada,   setCorrectivaGuardada]   = useState(false);
   const [revisionesVersion,    setRevisionesVersion]    = useState(0);
   const [activeIntervencionId, setActiveIntervencionId] = useState(null);
-  const pdfTemplateRef = useRef(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1362,8 +1361,13 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
 
         // 2. Generar PDF + cambiar estado a APROBADO + notificar cliente
         // Si falla, el informe queda en EN_APROBACION (puede reintentarse).
+        const informeParaPDF = coordinadorNombre
+          ? { ...informeFiltrado, coordinador: coordinadorNombre }
+          : informeFiltrado;
         await aprobarYGenerarPDF(informeBase.id, informeBase.visita_id, {
-          templateEl:     pdfTemplateRef.current,
+          informe:             informeParaPDF,
+          firmaCoordinadorUrl: firmaCoordinadorUrl,
+          firmaDirectorUrl:    firmaDirectorUrl,
           clienteEmails,
           clienteNombre:  informeBase.cliente_nombre,
           sucursalNombre: informeBase.sucursal_nombre,
@@ -1535,7 +1539,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
         {/* Informe — visor tipo documento: fondo gris, página A4 centrada con scroll */}
         <div className="flex-1 overflow-auto bg-gray-100 p-4 lg:p-6">
           <div className="mx-auto w-198.5">
-            <div ref={pdfTemplateRef} className="w-198.5 bg-white shadow-xl rounded-sm ring-1 ring-gray-200 overflow-hidden">
+            <div className="w-198.5 bg-white shadow-xl rounded-sm ring-1 ring-gray-200 overflow-hidden">
             {informeFiltrado && (
               <InformePDFTemplate
                 informe={coordinadorNombre ? { ...informeFiltrado, coordinador: coordinadorNombre } : informeFiltrado}
