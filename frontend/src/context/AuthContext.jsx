@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { supabase } from '../utils/supabase';
 import { clearCatalogCache } from '../hooks/useCatalog';
 import { clearEstadoCache } from '../api/estadoApi';
+import { LoadingPage } from '../components/ui/SkeletonLoader';
 
 const AuthContext = createContext({});
 
@@ -195,16 +196,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {loading ? (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600 font-medium">Cargando Inmotika...</p>
-          </div>
-        </div>
-      ) : (
-        children
-      )}
+      {loading ? <LoadingPage /> : children}
     </AuthContext.Provider>
   );
 };

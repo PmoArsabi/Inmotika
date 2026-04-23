@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ROLES, isManagementRole } from './utils/constants';
 import { useAuth } from './context/AuthContext';
 import { useMasterData } from './context/MasterDataContext';
@@ -11,7 +10,6 @@ import Header from './components/layout/Header';
 // Pages
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import VisitsPage from './pages/VisitsPage';
 import ConfigurationPage from './pages/ConfigurationPage';
 import SchedulePage from './pages/SchedulePage';
 import ClientDashboardPage from './pages/ClientDashboardPage';
@@ -95,6 +93,20 @@ function App() {
 
   const handleToggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
+  };
+
+  // Tabs padre sin página propia → redirige al primer sub-item.
+  // Aplica cuando el sidebar está colapsado y el usuario pulsa un ítem con hijos.
+  const PARENT_TAB_REDIRECTS = {
+    'configuration': 'configuration-clientes',
+    'visits':        'visits-solicitudes',
+    'client-config': 'client-data',
+  };
+
+  const navigateTo = (tab) => {
+    const redirect = PARENT_TAB_REDIRECTS[tab];
+    setActiveTab(redirect ?? tab);
+    setMobileMenuOpen(false);
   };
 
   // Mostrar ResetPasswordPage si se detecta flujo de recuperación o invitación
@@ -228,7 +240,11 @@ function App() {
             </ProtectedRoute>
           );
         case 'visits':
-          return <VisitsPage data={data} setData={setData} />;
+        case 'configuration':
+        case 'client-config':
+          // Tabs padre sin página propia — no deberían llegar aquí gracias a navigateTo,
+          // pero como fallback redirigimos al primer sub-item.
+          return null;
         case 'schedule':
           return (
             <ProtectedRoute roles={[ROLES.DIRECTOR, ROLES.COORDINADOR, ROLES.TECNICO]} userRole={userRole}>
@@ -288,7 +304,7 @@ function App() {
         <Sidebar
           user={user}
           activeTab={activeTab}
-          setActiveTab={(tab) => { setActiveTab(tab); setMobileMenuOpen(false); }}
+          setActiveTab={navigateTo}
           collapsed={sidebarCollapsed}
           onToggleCollapsed={handleToggleSidebar}
         />
@@ -306,7 +322,7 @@ function App() {
             <Sidebar
               user={user}
               activeTab={activeTab}
-              setActiveTab={(tab) => { setActiveTab(tab); setMobileMenuOpen(false); }}
+              setActiveTab={navigateTo}
               onLogout={handleLogout}
               onToggleMobileMenu={() => setMobileMenuOpen(false)}
             />

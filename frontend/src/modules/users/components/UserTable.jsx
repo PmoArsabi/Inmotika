@@ -1,10 +1,11 @@
-import { Eye, Edit, Trash2, Mail, Phone, Shield, Clock, RefreshCw } from 'lucide-react';
+import { Eye, Edit, Trash2, Mail, Phone, Shield, Clock } from 'lucide-react';
 import { Table, THead, TBody, Tr, Th, Td } from '../../../components/ui/Table';
 import { Subtitle, TextSmall, TextTiny } from '../../../components/ui/Typography';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import Card from '../../../components/ui/Card';
 import SecureImage from '../../../components/ui/SecureImage';
 import { ROLES } from '../../../utils/constants';
+import { SkeletonTable } from '../../../components/ui/SkeletonLoader';
 
 const roleLabels = {
   [ROLES.DIRECTOR]:    'Director',
@@ -38,12 +39,7 @@ const UserTable = ({
   filterRole = 'Todos',
 }) => {
   if (loading) {
-    return (
-      <div className="py-12 text-center">
-        <RefreshCw className="animate-spin text-gray-400 mx-auto mb-2" size={24} />
-        <TextSmall className="text-gray-400">Cargando usuarios...</TextSmall>
-      </div>
-    );
+    return <SkeletonTable rows={6} cols={6} />;
   }
 
   if (users.length === 0) {

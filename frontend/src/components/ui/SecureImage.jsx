@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabase';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { SkeletonImage } from './SkeletonLoader';
 
 /**
  * SecureImage - Displays an image from a private Supabase Storage bucket
@@ -99,11 +100,7 @@ const SecureImage = ({
   }, [path, bucket, expiresIn]);
 
   if (loading) {
-    return (
-      <div className={`flex items-center justify-center bg-gray-50 ${className}`}>
-        <Loader2 size={16} className="animate-spin text-gray-400" />
-      </div>
-    );
+    return <SkeletonImage className={className} />;
   }
 
   if (error || (!path && fallback)) {

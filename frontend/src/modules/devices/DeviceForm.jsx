@@ -7,11 +7,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Building2, MapPin, Hash, Monitor, User, Activity,
-  ArrowRightLeft, Calendar, Plus, Loader2,
+  ArrowRightLeft, Calendar, Plus,
   Tag, Wrench, Navigation2, Layers, Barcode,
   ShoppingCart, AlertTriangle, ArrowLeft,
 } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
+import { LoadingTableCell, LoadingInline } from '../../components/ui/SkeletonLoader';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
@@ -624,7 +625,7 @@ const DeviceForm = ({
                       </THead>
                       <TBody>
                         {loadingTraslados ? (
-                          <tr><td colSpan={5} className="py-10 text-center"><Loader2 size={20} className="mx-auto animate-spin text-gray-300" /></td></tr>
+                          <LoadingTableCell cols={5} />
                         ) : traslados.length === 0 ? (
                           <tr><td colSpan={5} className="py-10 text-center">
                             <ArrowRightLeft size={28} className="mx-auto mb-2 text-gray-200" />
@@ -655,7 +656,7 @@ const DeviceForm = ({
                 {/* Mobile */}
                 <div className="flex flex-col gap-3 md:hidden">
                   {loadingTraslados ? (
-                    <div className="py-10 text-center"><Loader2 size={20} className="mx-auto animate-spin text-gray-300" /></div>
+                    <LoadingInline />
                   ) : traslados.length === 0 ? (
                     <div className="py-10 text-center">
                       <ArrowRightLeft size={28} className="mx-auto mb-2 text-gray-200" />

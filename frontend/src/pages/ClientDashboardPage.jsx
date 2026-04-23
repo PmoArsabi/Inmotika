@@ -9,6 +9,7 @@ import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
 import CardHeader from '../components/ui/CardHeader';
 import { useClienteData } from '../hooks/useClienteData';
 import { useVisitasCliente } from '../hooks/useVisitasCliente';
+import { SkeletonKpiCard, SkeletonLine } from '../components/ui/SkeletonLoader';
 
 const ClientDashboardPage = () => {
   const { cliente, sucursales, dispositivos, loading: loadingData } = useClienteData();
@@ -33,12 +34,12 @@ const ClientDashboardPage = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-8 bg-gray-100 rounded-lg w-64" />
+      <div className="space-y-6">
+        <SkeletonLine width="w-64" height="h-7" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-gray-100 rounded-2xl" />)}
+          {[1, 2, 3, 4].map(i => <SkeletonKpiCard key={i} />)}
         </div>
-        <div className="h-64 bg-gray-100 rounded-2xl" />
+        <div className="animate-pulse h-64 bg-gray-100 rounded-2xl" />
       </div>
     );
   }

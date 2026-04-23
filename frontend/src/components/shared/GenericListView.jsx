@@ -6,6 +6,7 @@ import Select from '../ui/Select';
 import { Table, THead, TBody, Tr, Th, Td } from '../ui/Table';
 import { Subtitle, TextSmall, TextTiny } from '../ui/Typography';
 import ModuleHeader from '../ui/ModuleHeader';
+import { SkeletonListView } from '../ui/SkeletonLoader';
 
 /**
  * @param {string}   title             - Título de la página
@@ -43,7 +44,7 @@ const GenericListView = ({
   emptyText = "No se encontraron registros",
   extraFilters,
   loading = false,
-  loadingText = "Cargando...",
+  loadingText: _loadingText = "Cargando...",
   renderMobileCard,
   filteredCount,
   totalItems,
@@ -186,9 +187,7 @@ const GenericListView = ({
 
       {/* Loading state */}
       {loading ? (
-        <Card className="p-12 text-center">
-          <TextSmall className="text-gray-400">{loadingText}</TextSmall>
-        </Card>
+        <SkeletonListView rows={6} cols={columns.length || 5} cards={3} />
 
       /* Empty state */
       ) : filteredItems.length === 0 ? (

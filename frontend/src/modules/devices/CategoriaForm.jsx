@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, ClipboardList, CheckCircle2, Plus, Trash2,
-  Loader2, ChevronUp, ChevronDown, Pencil, Tag, List, X,
+  ChevronUp, ChevronDown, Pencil, Tag, List, X,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { LoadingSpinner, LoadingInline } from '../../components/ui/SkeletonLoader';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
 import { H2, Label, TextSmall } from '../../components/ui/Typography';
@@ -287,7 +288,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
             {error && <TextSmall className="text-red-500">{error}</TextSmall>}
             <Button onClick={handleSave} disabled={!nombre.trim() || saving}
               className="flex items-center gap-2 bg-linear-to-r from-brand to-brand-deeper text-white border-0">
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              {saving ? <LoadingSpinner size="xs" /> : <Plus size={14} />}
               {saving ? 'Guardando...' : (isCreating ? 'Crear Categoría' : 'Guardar Cambios')}
             </Button>
           </div>
@@ -381,10 +382,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
 
         {/* Pasos list */}
         {loadingPasos ? (
-          <div className="flex items-center justify-center py-8 text-gray-400 gap-2">
-            <Loader2 size={16} className="animate-spin" />
-            <TextSmall>Cargando protocolo...</TextSmall>
-          </div>
+          <LoadingInline label="Cargando protocolo..." />
         ) : visiblePasos.length === 0 && !showPasoInput ? (
           <div className="p-6 border border-dashed border-gray-200 rounded-lg text-center">
             <TextSmall className="text-gray-400 italic">
