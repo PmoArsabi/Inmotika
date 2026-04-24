@@ -31,10 +31,7 @@ const s = StyleSheet.create({
 
   // Cabecera
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22 },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerAccent: { width: 3, height: 28, backgroundColor: RED, marginRight: 8 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', letterSpacing: -0.5, color: DARK },
-  headerSubtitle: { fontSize: 7, textTransform: 'uppercase', letterSpacing: 1.5, color: GRAY, marginTop: 2, marginLeft: 11 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center' },
   headerRight: { alignItems: 'flex-end' },
   headerBadge: { backgroundColor: DARK, color: WHITE, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 3, fontSize: 7.5, fontWeight: 'bold', marginBottom: 6 },
   headerDate: { fontSize: 8, color: GRAY },
@@ -405,11 +402,10 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
         {/* ══ CABECERA ══ */}
         <View style={s.header}>
           <View style={s.headerLeft}>
-            <View style={s.headerAccent} />
-            <View>
-              <Text style={s.headerTitle}>INMOTIKA</Text>
-              <Text style={s.headerSubtitle}>Acceso a un mundo diferente</Text>
-            </View>
+            <Image
+              src={import.meta.env.VITE_LOGO_URL}
+              style={{ width: 130, height: 40, objectFit: 'contain' }}
+            />
           </View>
           <View style={s.headerRight}>
             <Text style={s.headerBadge}>INFORME TÉCNICO</Text>

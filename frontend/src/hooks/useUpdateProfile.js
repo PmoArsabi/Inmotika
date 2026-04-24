@@ -18,7 +18,7 @@ export function useUpdateProfile() {
 
   /**
    * Sube una nueva foto de perfil y actualiza perfil_usuario.avatar_url.
-   * El path es fijo: `avatars/{userId}.{ext}` → upsert sobrescribe el archivo anterior.
+   * Path centralizado: `usuarios/{userId}/avatar` — mismo esquema que el resto del sistema.
    * @param {string} userId - UUID del usuario autenticado
    * @param {File} file - Archivo de imagen seleccionado
    * @returns {Promise<string>} path relativo guardado en avatar_url
@@ -28,8 +28,7 @@ export function useUpdateProfile() {
     setError(null);
 
     try {
-      const ext = file.name.split('.').pop().toLowerCase();
-      const path = `avatars/${userId}.${ext}`;
+      const path = `usuarios/${userId}/avatar`;
 
       // upsert: true → sobrescribe si ya existe, evita acumulación de archivos
       const { error: uploadError } = await supabase.storage
