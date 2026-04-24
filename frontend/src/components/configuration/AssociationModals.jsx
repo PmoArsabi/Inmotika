@@ -54,6 +54,7 @@ import { useConfirm } from '../../context/ConfirmContext';
  * @param {boolean} props.associateSuccess
  */
 const AssociationModals = ({
+  isViewMode = false,
   // contacts modal
   associateContactsModal,
   associateContactsSearch,
@@ -182,11 +183,13 @@ const AssociationModals = ({
                     return (
                       <div
                         key={ct.id}
-                        onClick={() => setAssociateContactsSelected(prev =>
+                        onClick={isViewMode ? undefined : () => setAssociateContactsSelected(prev =>
                           prev.includes(String(ct.id)) ? prev.filter(id => id !== String(ct.id)) : [...prev, String(ct.id)]
                         )}
-                        className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
-                          isSelected ? 'border-brand bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                          isViewMode
+                            ? isSelected ? 'border-brand bg-red-50 cursor-default' : 'border-gray-100 bg-gray-50 cursor-default opacity-40'
+                            : isSelected ? 'border-brand bg-red-50 cursor-pointer' : 'border-gray-100 hover:border-gray-200 bg-gray-50 cursor-pointer'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -203,14 +206,16 @@ const AssociationModals = ({
                     );
                   })}
                 </div>
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <Button
-                    onClick={() => onConfirmContacts(associateContactsModal.branchKey, associateContactsSelected)}
-                    className="w-full bg-canvas hover:bg-brand text-white"
-                  >
-                    Confirmar
-                  </Button>
-                  <Button onClick={onCloseContactsModal} variant="ghost" className="w-full">Cancelar</Button>
+                <div className={`grid gap-3 pt-2 ${isViewMode ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                  {!isViewMode && (
+                    <Button
+                      onClick={() => onConfirmContacts(associateContactsModal.branchKey, associateContactsSelected)}
+                      className="w-full bg-canvas hover:bg-brand text-white"
+                    >
+                      Confirmar
+                    </Button>
+                  )}
+                  <Button onClick={onCloseContactsModal} variant="ghost" className="w-full">Cerrar</Button>
                 </div>
               </div>
             </Card>
@@ -293,11 +298,13 @@ const AssociationModals = ({
                     return (
                       <div
                         key={d.id}
-                        onClick={() => setAssociateDevicesSelected(prev =>
+                        onClick={isViewMode ? undefined : () => setAssociateDevicesSelected(prev =>
                           prev.includes(String(d.id)) ? prev.filter(id => id !== String(d.id)) : [...prev, String(d.id)]
                         )}
-                        className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
-                          isSelected ? 'border-brand bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                          isViewMode
+                            ? isSelected ? 'border-brand bg-red-50 cursor-default' : 'border-gray-100 bg-gray-50 cursor-default opacity-40'
+                            : isSelected ? 'border-brand bg-red-50 cursor-pointer' : 'border-gray-100 hover:border-gray-200 bg-gray-50 cursor-pointer'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -314,14 +321,16 @@ const AssociationModals = ({
                     );
                   })}
                 </div>
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <Button
-                    onClick={() => onConfirmDevices(associateDevicesModal.branchKey, associateDevicesSelected)}
-                    className="w-full bg-canvas hover:bg-brand text-white"
-                  >
-                    Confirmar
-                  </Button>
-                  <Button onClick={onCloseDevicesModal} variant="ghost" className="w-full">Cancelar</Button>
+                <div className={`grid gap-3 pt-2 ${isViewMode ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                  {!isViewMode && (
+                    <Button
+                      onClick={() => onConfirmDevices(associateDevicesModal.branchKey, associateDevicesSelected)}
+                      className="w-full bg-canvas hover:bg-brand text-white"
+                    >
+                      Confirmar
+                    </Button>
+                  )}
+                  <Button onClick={onCloseDevicesModal} variant="ghost" className="w-full">Cerrar</Button>
                 </div>
               </div>
             </Card>
@@ -391,16 +400,18 @@ const AssociationModals = ({
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <Button
-                  onClick={() => onConfirmDirectors(associateDirectorsModal.key, associateDirectorsSelected)}
-                  variant="success"
-                  className="w-full bg-canvas hover:bg-brand"
-                >
-                  Confirmar
-                </Button>
+              <div className={`grid gap-3 pt-2 ${isViewMode ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                {!isViewMode && (
+                  <Button
+                    onClick={() => onConfirmDirectors(associateDirectorsModal.key, associateDirectorsSelected)}
+                    variant="success"
+                    className="w-full bg-canvas hover:bg-brand"
+                  >
+                    Confirmar
+                  </Button>
+                )}
                 <Button onClick={onCloseDirectorsModal} variant="ghost" className="w-full">
-                  Cancelar
+                  Cerrar
                 </Button>
               </div>
             </div>
@@ -719,13 +730,15 @@ const AssociationModals = ({
                     return (
                       <div
                         key={c.coordinadorId}
-                        onClick={() => setAssociateCoordinadoresSelected(prev =>
+                        onClick={isViewMode ? undefined : () => setAssociateCoordinadoresSelected(prev =>
                           prev.includes(String(c.coordinadorId))
                             ? prev.filter(id => id !== String(c.coordinadorId))
                             : [...prev, String(c.coordinadorId)]
                         )}
-                        className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
-                          isSelected ? 'border-brand bg-red-50' : 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                          isViewMode
+                            ? isSelected ? 'border-brand bg-red-50 cursor-default' : 'border-gray-100 bg-gray-50 cursor-default opacity-40'
+                            : isSelected ? 'border-brand bg-red-50 cursor-pointer' : 'border-gray-100 hover:border-gray-200 bg-gray-50 cursor-pointer'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -742,14 +755,16 @@ const AssociationModals = ({
                     );
                   })}
                 </div>
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <Button
-                    onClick={() => onConfirmCoordinadores(associateCoordinadoresModal.branchKey, associateCoordinadoresSelected)}
-                    className="w-full bg-canvas hover:bg-brand text-white"
-                  >
-                    Confirmar
-                  </Button>
-                  <Button onClick={onCloseCoordinadoresModal} variant="ghost" className="w-full">Cancelar</Button>
+                <div className={`grid gap-3 pt-2 ${isViewMode ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                  {!isViewMode && (
+                    <Button
+                      onClick={() => onConfirmCoordinadores(associateCoordinadoresModal.branchKey, associateCoordinadoresSelected)}
+                      className="w-full bg-canvas hover:bg-brand text-white"
+                    >
+                      Confirmar
+                    </Button>
+                  )}
+                  <Button onClick={onCloseCoordinadoresModal} variant="ghost" className="w-full">Cerrar</Button>
                 </div>
               </div>
             </Card>

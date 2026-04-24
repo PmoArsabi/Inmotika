@@ -520,6 +520,7 @@ const ConfigurationNavigator = ({ onClose }) => {
       )}
 
       <AssociationModals
+        isViewMode={route?.mode === 'view'}
         associateContactsModal={associateContactsModal}
         associateContactsSearch={associateContactsSearch}
         setAssociateContactsSearch={setAssociateContactsSearch}

@@ -212,8 +212,13 @@ const ClientNavigator = ({
     const bId = branch.id;
     const viewKey = entityKey('branch', `view-${bId}`);
 
-    // Para ver, siempre usamos la data más fresca
-    setDrafts(prev => ({ ...prev, [viewKey]: toBranchDraft(branch) }));
+    // Para ver, siempre usamos la data más fresca incluyendo asociaciones
+    setDrafts(prev => ({ ...prev, [viewKey]: {
+      ...toBranchDraft(branch),
+      associatedContactIds: (branch.contactos || []).map(c => String(c.id)),
+      associatedDeviceIds: (data?.dispositivos || []).filter(d => compareIds(d.branchId, branch.id)).map(d => String(d.id)),
+      associatedCoordinadorIds: branch.coordinadorIds || [],
+    } }));
 
     startEditingBranch(bId, 'view');
     if (route.activeTab !== 'branches') {

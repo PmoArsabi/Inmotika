@@ -139,32 +139,32 @@ export const BranchForm = (props) => {
         <Subtitle className="text-gray-700">Asociaciones</Subtitle>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { label: 'Asociar contactos',     sub: 'Relaciona contactos responsables a esta sucursal.', count: newBranchDraft?.associatedContactIds?.length,     onClick: onAssociateContacts,     disabled: false },
-            { label: 'Asociar dispositivos',  sub: 'Vincula los dispositivos instalados.',              count: newBranchDraft?.associatedDeviceIds?.length,      onClick: onAssociateDevices,      disabled: false },
-            { label: 'Asociar coordinadores', sub: 'Asigna coordinadores a cargo de esta sucursal.',    count: newBranchDraft?.associatedCoordinadorIds?.length,  onClick: onAssociateCoordinadores, disabled: disableCoordinadores },
-          ].map(({ label, sub, count, onClick, disabled }) => (
+            { label: 'Asociar contactos',     count: newBranchDraft?.associatedContactIds?.length,    onClick: onAssociateContacts,      disabled: false },
+            { label: 'Asociar dispositivos',  count: newBranchDraft?.associatedDeviceIds?.length,     onClick: onAssociateDevices,       disabled: false },
+            { label: 'Asociar coordinadores', count: newBranchDraft?.associatedCoordinadorIds?.length, onClick: onAssociateCoordinadores, disabled: disableCoordinadores },
+          ].map(({ label, count, onClick, disabled }) => (
             <button
               key={label}
               type="button"
               onClick={disabled ? undefined : onClick}
-              disabled={disabled || (!isEditing && (!count || count === 0))}
+              disabled={disabled}
               className={`flex items-center justify-between p-4 rounded-lg transition-all text-left w-full group
                 ${disabled ? "bg-gray-50 opacity-50 border border-gray-100 cursor-not-allowed" :
                   isEditing ? "bg-gray-50 border border-gray-200 hover:bg-white hover:border-brand hover:shadow-sm cursor-pointer" :
-                  (count > 0 ? "bg-white border-0 cursor-pointer" : "bg-gray-50 opacity-70 border border-gray-100 cursor-not-allowed")}`}
+                  "bg-gray-50 border border-gray-100 hover:border-brand hover:bg-white hover:shadow-sm cursor-pointer"}`}
             >
               <div className="flex-1 min-w-0">
-                <TextSmall className={`font-semibold text-gray-900 transition-colors ${isEditing || count > 0 ? "group-hover:text-brand" : ""}`}>{label}</TextSmall>
+                <TextSmall className={`font-semibold text-gray-900 transition-colors ${!disabled ? "group-hover:text-brand" : ""}`}>{label}</TextSmall>
                 <TextSmall className="text-gray-500 mt-0.5">
                   {disabled
                     ? <span className="text-amber-500 font-semibold">Requiere director asignado al cliente</span>
                     : count > 0
                       ? <span className="text-brand font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
-                      : sub
+                      : <span className="text-gray-400 italic">Sin asociaciones</span>
                   }
                 </TextSmall>
               </div>
-              {(isEditing || count > 0) && (
+              {!disabled && (
                 <div className="ml-3 flex items-center gap-1.5 shrink-0 px-3 py-1.5 bg-canvas text-white rounded-md text-xs font-bold uppercase tracking-wide group-hover:bg-brand transition-colors shadow-sm">
                   {isEditing ? <><Link2 size={12} /> Asociar</> : <><Eye size={12} /> Ver</>}
                 </div>
