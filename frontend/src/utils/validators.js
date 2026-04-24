@@ -84,7 +84,7 @@ export const validateBranch = (draft) => {
   return errors;
 };
 
-export const validateContact = (draft, selectedClientId) => {
+export const validateContact = (draft) => {
   const errors = {};
   if (!String(draft.nombres || '').trim()) errors.nombres = 'Requerido';
   if (!String(draft.apellidos || '').trim()) errors.apellidos = 'Requerido';
@@ -100,8 +100,6 @@ export const validateContact = (draft, selectedClientId) => {
     errors.identificacion = 'Número inválido (secuencia repetida o consecutiva)';
   }
   if (draft.email && !isEmailValid(draft.email)) errors.email = 'Email inválido';
-  // Cliente es obligatorio para poder asociar sucursales con coherencia
-  if (!String(selectedClientId || '').trim()) errors.clienteId = 'Requerido';
   return errors;
 };
 

@@ -21,7 +21,7 @@ export const BranchForm = (props) => {
     newBranchDraft, updateNewBranchDraft, newBranchErrors = {}, onSaveNewBranch,
     isEditing, isSaving, editingBranchId, onCancelEdit,
     onAssociateContacts, onAssociateDevices, onAssociateCoordinadores, showErrors,
-    activoId, inactivoId
+    activoId, inactivoId, disableCoordinadores = false,
   } = props;
 
   if (!newBranchDraft) return null;
@@ -139,25 +139,28 @@ export const BranchForm = (props) => {
         <Subtitle className="text-gray-700">Asociaciones</Subtitle>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { label: 'Asociar contactos',     sub: 'Relaciona contactos responsables a esta sucursal.', count: newBranchDraft?.associatedContactIds?.length,     onClick: onAssociateContacts },
-            { label: 'Asociar dispositivos',  sub: 'Vincula los dispositivos instalados.',              count: newBranchDraft?.associatedDeviceIds?.length,      onClick: onAssociateDevices },
-            { label: 'Asociar coordinadores', sub: 'Asigna coordinadores a cargo de esta sucursal.',    count: newBranchDraft?.associatedCoordinadorIds?.length,  onClick: onAssociateCoordinadores },
-          ].map(({ label, sub, count, onClick }) => (
+            { label: 'Asociar contactos',     sub: 'Relaciona contactos responsables a esta sucursal.', count: newBranchDraft?.associatedContactIds?.length,     onClick: onAssociateContacts,     disabled: false },
+            { label: 'Asociar dispositivos',  sub: 'Vincula los dispositivos instalados.',              count: newBranchDraft?.associatedDeviceIds?.length,      onClick: onAssociateDevices,      disabled: false },
+            { label: 'Asociar coordinadores', sub: 'Asigna coordinadores a cargo de esta sucursal.',    count: newBranchDraft?.associatedCoordinadorIds?.length,  onClick: onAssociateCoordinadores, disabled: disableCoordinadores },
+          ].map(({ label, sub, count, onClick, disabled }) => (
             <button
               key={label}
               type="button"
-              onClick={onClick}
-              disabled={!isEditing && (!count || count === 0)}
+              onClick={disabled ? undefined : onClick}
+              disabled={disabled || (!isEditing && (!count || count === 0))}
               className={`flex items-center justify-between p-4 rounded-lg transition-all text-left w-full group
-                ${isEditing ? "bg-gray-50 border border-gray-200 hover:bg-white hover:border-brand hover:shadow-sm cursor-pointer" : 
+                ${disabled ? "bg-gray-50 opacity-50 border border-gray-100 cursor-not-allowed" :
+                  isEditing ? "bg-gray-50 border border-gray-200 hover:bg-white hover:border-brand hover:shadow-sm cursor-pointer" :
                   (count > 0 ? "bg-white border-0 cursor-pointer" : "bg-gray-50 opacity-70 border border-gray-100 cursor-not-allowed")}`}
             >
               <div className="flex-1 min-w-0">
                 <TextSmall className={`font-semibold text-gray-900 transition-colors ${isEditing || count > 0 ? "group-hover:text-brand" : ""}`}>{label}</TextSmall>
                 <TextSmall className="text-gray-500 mt-0.5">
-                  {count > 0
-                    ? <span className="text-brand font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
-                    : sub
+                  {disabled
+                    ? <span className="text-amber-500 font-semibold">Requiere director asignado al cliente</span>
+                    : count > 0
+                      ? <span className="text-brand font-semibold">{count} asociado{count !== 1 ? 's' : ''}</span>
+                      : sub
                   }
                 </TextSmall>
               </div>

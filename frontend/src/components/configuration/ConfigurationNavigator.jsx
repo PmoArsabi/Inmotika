@@ -163,14 +163,35 @@ const ConfigurationNavigator = ({ onClose }) => {
 
   /**
    * Abre el modal de coordinadores para una sucursal.
-   * Carga los coordinadores activos desde BD y pre-selecciona los ya asignados.
+   * Solo muestra coordinadores relacionados a los directores del cliente (coordinador_director).
+   * @param {string} branchKey
+   * @param {string} sucursalId
+   * @param {string[]} directorIds - IDs de directores asignados al cliente
    */
-  const handleOpenCoordinadoresModal = useCallback(async (branchKey, sucursalId) => {
+  const handleOpenCoordinadoresModal = useCallback(async (branchKey, sucursalId, directorIds = []) => {
     try {
-      // Cargar todos los coordinadores activos con perfil
+      // Obtener coordinadores vinculados a los directores del cliente
+      const { data: cdRows, error: cdErr } = await supabase
+        .from('coordinador_director')
+        .select('coordinador_id')
+        .in('director_id', directorIds);
+
+      if (cdErr) console.error('[Coordinadores] Error cargando coordinador_director:', cdErr);
+
+      const coordinadorIds = [...new Set((cdRows || []).map(r => r.coordinador_id).filter(Boolean))];
+
+      if (coordinadorIds.length === 0) {
+        setAssociateCoordinadoresSelected([]);
+        setAssociateCoordinadoresSearch('');
+        setAssociateCoordinadoresModal({ branchKey, sucursalId, allCoordinadores: [] });
+        return;
+      }
+
+      // Cargar solo esos coordinadores activos
       const { data: rows, error: rowsErr } = await supabase
         .from('coordinador')
         .select('id, usuario_id, activo')
+        .in('id', coordinadorIds)
         .eq('activo', true);
 
       if (rowsErr) console.error('[Coordinadores] Error cargando coordinadores:', rowsErr);

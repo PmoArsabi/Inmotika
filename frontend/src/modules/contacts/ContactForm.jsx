@@ -9,6 +9,7 @@ import Select from '../../components/ui/Select';
 import Switch from '../../components/ui/Switch';
 import PhoneInput from '../../components/ui/PhoneInput';
 import MultiSelectDropdown from '../../components/ui/MultiSelectDropdown';
+import SearchableSelect from '../../components/ui/SearchableSelect';
 import SecureImage from '../../components/ui/SecureImage';
 import { TextTiny } from '../../components/ui/Typography';
 import { useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
@@ -135,21 +136,15 @@ const ContactForm = ({
           <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Asignación</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Cliente — single-select emulado con MultiSelectDropdown */}
-          <MultiSelectDropdown
+          {/* Cliente — single select */}
+          <SearchableSelect
             label="Cliente"
             options={clientOptions}
-            value={selectedClientId ? [String(selectedClientId)] : []}
-            onChange={(vals) => {
-              if (!isEditing) return;
-              // Solo permite una selección: si ya había uno y se desmarca → null
-              const previous = selectedClientId ? String(selectedClientId) : null;
-              const next = vals.find(v => v !== previous) || (vals.includes(previous) ? previous : null);
-              const opt = next ? (clientOptions.find(o => String(o.value) === next) || null) : null;
-              onClientChange(opt);
-            }}
+            value={selectedClientId ? (clientOptions.find(o => String(o.value) === String(selectedClientId)) || null) : null}
+            onChange={(opt) => { if (isEditing) onClientChange(opt || null); }}
             placeholder="Seleccionar cliente..."
-            disabled={!isEditing}
+            isDisabled={!isEditing}
+            isClearable
             error={clientError}
           />
 

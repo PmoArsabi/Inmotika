@@ -32,6 +32,8 @@ const BranchNavigator = ({
 
   const currentClient = (data?.clientes || []).find(c => compareIds(c.id, route?.clientId));
   const currentBranch = (currentClient?.sucursales || []).find(b => compareIds(b.id, route.branchId));
+  const clientDirectorIds = (currentClient?.associatedDirectorIds || []).map(String);
+  const hasDirectors = clientDirectorIds.length > 0;
 
   const getDraft = () => {
     if (drafts[key]) return drafts[key];
@@ -135,14 +137,14 @@ const BranchNavigator = ({
           setAssociateDevicesModal({ branchKey: key, clientId: route.clientId, branchId: route.branchId });
         }}
         onAssociateCoordinadores={() => {
-          console.log('[Coord] click – branchId:', route.branchId, 'handler:', typeof onOpenCoordinadoresModal);
           const fullDraft = drafts[key] ?? getDraft();
           if (!drafts[key]) setDrafts(prev => ({ ...prev, [key]: fullDraft }));
-          if (!onOpenCoordinadoresModal) { console.warn('[Coord] onOpenCoordinadoresModal es undefined'); return; }
-          onOpenCoordinadoresModal(key, route.branchId).catch(err => {
+          if (!onOpenCoordinadoresModal) return;
+          onOpenCoordinadoresModal(key, route.branchId, clientDirectorIds).catch(err => {
             console.error('[Coord] Error abriendo modal de coordinadores:', err);
           });
         }}
+        disableCoordinadores={!hasDirectors}
         estadoSelectOptions={[{value: 'est-1', label: 'ACTIVO'}, {value: 'est-2', label: 'INACTIVO'}]}
         activoId="est-1"
         inactivoId="est-2"

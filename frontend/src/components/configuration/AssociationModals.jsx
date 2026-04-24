@@ -119,30 +119,34 @@ const AssociationModals = ({
 <>
       {/* Associate Contacts Modal */}
       {associateContactsModal && (() => {
-        const clientId = associateContactsModal.clientId;
-        const clienteObj = (data?.clientes || []).find(c => String(c.id) === String(clientId));
-        const contactosPorCliente = (() => {
-          const seen = new Set();
-          const result = [];
-          (clienteObj?.sucursales || []).forEach(s => {
+        const { clientId } = associateContactsModal;
+        // Contactos disponibles para asociar a esta sucursal:
+        // - Sin cliente asignado (global)
+        // - Ya pertenecen al cliente de esta sucursal (pueden estar en varias sucursales)
+        // - Ya están en esta sucursal (para poder desasociarlos — aparecen seleccionados)
+        const seen = new Set();
+        const allContactos = [];
+        (data?.clientes || []).forEach(c => {
+          (c.sucursales || []).forEach(s => {
             (s.contactos || []).forEach(ct => {
               if (!seen.has(String(ct.id))) {
                 seen.add(String(ct.id));
-                result.push(ct);
+                const ctClientId = ct.clientId || ct.cliente_id;
+                if (!ctClientId || String(ctClientId) === String(clientId)) {
+                  allContactos.push(ct);
+                }
               }
             });
           });
-          (data?.contactos || []).forEach(ct => {
-            const ctClientId = ct.clientId || ct.cliente_id;
-            if (String(ctClientId) === String(clientId) && !seen.has(String(ct.id))) {
-              seen.add(String(ct.id));
-              result.push(ct);
-            }
-          });
-          return result;
-        })();
+        });
+        (data?.contactos || []).forEach(ct => {
+          if (seen.has(String(ct.id))) return;
+          const ctClientId = ct.clientId || ct.cliente_id || null;
+          const sinCliente = !ctClientId || ctClientId === 'null';
+          if (sinCliente) { seen.add(String(ct.id)); allContactos.push(ct); }
+        });
         const q = associateContactsSearch.toLowerCase();
-        const filtered = contactosPorCliente.filter(ct =>
+        const filtered = allContactos.filter(ct =>
           !q ||
           (ct.nombres || ct.nombre || '').toLowerCase().includes(q) ||
           (ct.apellidos || ct.apellido || '').toLowerCase().includes(q) ||
@@ -216,13 +220,22 @@ const AssociationModals = ({
 
       {/* Associate Devices Modal */}
       {associateDevicesModal && (() => {
-        const clienteId = associateDevicesModal.clientId;
-        const currentBranchId = associateDevicesModal.branchId;
+        const { clientId, branchId } = associateDevicesModal;
+        // Dispositivos disponibles para asociar a esta sucursal:
+        // - Sin cliente y sin sucursal → disponible para cualquiera
+        // - Con el cliente de esta sucursal pero sin sucursal aún → disponible
+        // - Ya en esta sucursal → aparece seleccionado (para desasociar)
         const dispositivos = (data?.dispositivos || []).filter(d => {
-          if (clienteId && String(d.clientId || d.cliente_id) !== String(clienteId)) return false;
-          const dBranchId = d.branchId || d.sucursal_id;
-          if (dBranchId && currentBranchId && String(dBranchId) !== String(currentBranchId)) return false;
-          return true;
+          const dClientId = d.clientId || d.cliente_id || null;
+          const dBranchId = d.branchId || d.sucursal_id || null;
+          const sinCliente = !dClientId || dClientId === 'null';
+          const sinSucursal = !dBranchId || dBranchId === 'null';
+          const mismoCliente = String(dClientId) === String(clientId);
+          const mismaSucursal = String(dBranchId) === String(branchId);
+          if (mismaSucursal) return true;           // ya en esta sucursal
+          if (mismoCliente && sinSucursal) return true; // del cliente, libre
+          if (sinCliente && sinSucursal) return true;   // completamente libre
+          return false;
         });
         const catOptions = [...new Map(
           dispositivos
@@ -400,10 +413,18 @@ const AssociationModals = ({
         const { clientKey, clientId, branches } = clientContactsModal;
         const allContacts = (() => {
           const seen = new Map();
+          // Ya asociados a sucursales de este cliente → seleccionados
           (branches || []).forEach(s => {
             (s.contactos || []).forEach(ct => {
               if (!seen.has(String(ct.id))) seen.set(String(ct.id), { ...ct, branchId: String(s.id), branchName: s.nombre });
             });
+          });
+          // Sin cliente asignado → disponibles; con otro cliente → NO se muestran
+          (data?.contactos || []).forEach(ct => {
+            if (seen.has(String(ct.id))) return;
+            const ctClientId = ct.clientId || ct.cliente_id || null;
+            const sinCliente = !ctClientId || ctClientId === 'null';
+            if (sinCliente) seen.set(String(ct.id), { ...ct, branchId: null, branchName: null });
           });
           return [...seen.values()];
         })();
@@ -520,9 +541,13 @@ const AssociationModals = ({
       {/* Client Devices Modal */}
       {clientDevicesModal && (() => {
         const { clientKey, clientId, branches } = clientDevicesModal;
+        // Dispositivos disponibles para asociar a este cliente:
+        // - Sin cliente asignado → disponible para cualquier cliente
+        // - Ya pertenecen a este cliente → aparecen seleccionados
         const allDevices = (data?.dispositivos || []).filter(d => {
-          const dClientId = String(d.clientId || d.cliente_id || '');
-          return dClientId === String(clientId) || !dClientId || dClientId === 'null' || dClientId === 'undefined';
+          const dClientId = d.clientId || d.cliente_id || null;
+          const sinCliente = !dClientId || dClientId === 'null';
+          return sinCliente || String(dClientId) === String(clientId);
         });
         const catOptions = [...new Map(
           allDevices.filter(d => d.categoriaId && (d.categoria?.nombre || d.categoriaNombre))

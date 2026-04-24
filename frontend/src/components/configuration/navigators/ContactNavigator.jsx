@@ -71,7 +71,7 @@ const ContactNavigator = () => {
   }, [route.contactId, data, key, setDrafts, setStack]);
 
   const currentDraft = draft || emptyContactDraft();
-  const errors = validateContact(currentDraft, route.clientId);
+  const errors = validateContact(currentDraft);
   const hasErrors = Object.keys(errors).length > 0;
   const isEditing = route.mode === 'edit';
 
