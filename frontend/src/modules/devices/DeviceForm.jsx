@@ -238,8 +238,8 @@ const DeviceForm = ({
 
   const activeClient     = (clients || []).find(c => String(c.id) === String(draft.clientId));
   const activeBranchOpts = (activeClient?.sucursales || []).map(b => ({ value: b.id, label: b.nombre }));
-  const activeClientName = activeClient?.nombre || '—';
-  const activeBranchName = activeClient?.sucursales?.find(b => String(b.id) === String(draft.branchId))?.nombre || '—';
+  const activeClientName = activeClient?.nombre || draft.clienteNombre || '—';
+  const activeBranchName = activeClient?.sucursales?.find(b => String(b.id) === String(draft.branchId))?.nombre || draft.sucursalNombre || '—';
 
   const pasos = (Array.isArray(draft.pasoAPaso) ? draft.pasoAPaso : [])
     .map((p, i) => typeof p === 'string' ? { descripcion: p, esObligatorio: true, orden: i + 1 } : p);

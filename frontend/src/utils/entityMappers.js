@@ -260,6 +260,8 @@ export const toDeviceDraft = (device, route = null) => ({
   id: device?.id || generateUUID(),
   clientId: device?.clientId || device?.cliente_id || route?.clientId || '',
   branchId: device?.branchId || device?.sucursal_id || route?.branchId || '',
+  clienteNombre: device?.cliente?.razon_social || device?.clienteNombre || '',
+  sucursalNombre: device?.sucursal?.nombre || device?.sucursalNombre || '',
   categoriaId: device?.categoriaId || device?.categoria_id || '',
   estadoId: device?.estadoId || device?.estado_id || '',
   imac: device?.imac || device?.macAddress || device?.mac_address || '',

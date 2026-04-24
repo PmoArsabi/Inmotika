@@ -4,6 +4,7 @@ import { TextSmall, Subtitle } from '../components/ui/Typography';
 import CategoriaForm from '../modules/devices/CategoriaForm';
 import GenericListView from '../components/shared/GenericListView';
 import FilterBar from '../components/shared/FilterBar';
+import ActionResultModal from '../components/ui/ActionResultModal';
 import { useMasterData } from '../context/MasterDataContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useNotify } from '../context/NotificationContext';
@@ -14,6 +15,7 @@ const CategoriasPage = () => {
   const confirm = useConfirm();
   const notify = useNotify();
   const [selected, setSelected] = useState(null); // { categoria, mode }
+  const [savedResult, setSavedResult] = useState(null); // { categoria, isNew }
 
   const allCategorias = useMemo(() => data?.categorias || [], [data?.categorias]);
   const [filters, setFilters] = useState({ fechaDesde: '', fechaHasta: '' });
@@ -53,21 +55,49 @@ const CategoriasPage = () => {
   };
 
   // ─── After save ──────────────────────────────────────────────────────────
-  const handleSaved = () => {
+  const handleSaved = (savedCategoria, isNew) => {
     refreshData();
-    setSelected(null);
+    setSavedResult({ categoria: savedCategoria, isNew });
   };
+
+  const resultModal = (
+    <ActionResultModal
+      open={!!savedResult}
+      title={savedResult?.isNew ? '¡Categoría creada!' : '¡Categoría actualizada!'}
+      subtitle={`"${savedResult?.categoria?.nombre}" guardada correctamente.`}
+      onBackdropClick={() => { setSavedResult(null); setSelected(null); }}
+      actions={[
+        {
+          label: 'Ver Categoría',
+          variant: 'success',
+          onClick: () => {
+            const cat = savedResult.categoria;
+            setSavedResult(null);
+            setSelected({ categoria: cat, mode: 'view' });
+          },
+        },
+        {
+          label: 'Volver a Categorías',
+          variant: 'outline',
+          onClick: () => { setSavedResult(null); setSelected(null); },
+        },
+      ]}
+    />
+  );
 
   // ─── Detail view ─────────────────────────────────────────────────────────
   if (selected) {
     return (
-      <CategoriaForm
-        mode={selected.mode}
-        categoria={selected.categoria}
-        onSave={handleSaved}
-        onCancel={() => setSelected(null)}
-        onModeChange={(newMode) => setSelected(prev => ({ ...prev, mode: newMode }))}
-      />
+      <>
+        <CategoriaForm
+          mode={selected.mode}
+          categoria={selected.categoria}
+          onSave={(cat) => handleSaved(cat, selected.mode === 'create')}
+          onCancel={() => setSelected(null)}
+          onModeChange={(newMode) => setSelected(prev => ({ ...prev, mode: newMode }))}
+        />
+        {resultModal}
+      </>
     );
   }
 
@@ -105,6 +135,8 @@ const CategoriasPage = () => {
 
   // ─── List view ───────────────────────────────────────────────────────────
   return (
+    <>
+    {resultModal}
     <div className="space-y-6 animate-in fade-in duration-500">
       <GenericListView
         title="Categorías de Dispositivos"
@@ -128,6 +160,7 @@ const CategoriasPage = () => {
         }
       />
     </div>
+    </>
   );
 };
 

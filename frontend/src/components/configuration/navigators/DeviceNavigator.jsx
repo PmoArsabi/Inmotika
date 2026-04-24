@@ -9,7 +9,7 @@ import DeviceForm from '../../../modules/devices/DeviceForm';
 
 const DeviceNavigator = ({ onBack }) => {
   const { route, drafts, setDrafts, updateDraft, openDeviceSuccess } = useConfigurationContext();
-  const { data, setData } = useMasterData();
+  const { data, setData, refreshData } = useMasterData();
   const notify = useNotify();
   const [showErrors, setShowErrors] = useState(false);
   const [saveState, setSaveState] = useState({ isSaving: false, savedAt: null });
@@ -44,13 +44,16 @@ const DeviceNavigator = ({ onBack }) => {
       const mapped = toDeviceDraft(saved);
       
       setData(prev => applyDeviceUpsert(
-        prev, 
-        route.originClientId || route.clientId, 
-        route.originBranchId || route.branchId, 
-        mapped.id, 
+        prev,
+        route.originClientId || route.clientId,
+        route.originBranchId || route.branchId,
+        mapped.id,
         mapped
       ));
-      
+
+      // Refrescar data para que cliente/sucursal estén correctamente resueltos en la vista
+      refreshData('dispositivos');
+
       setSaveState({ isSaving: false, savedAt: Date.now() });
       openDeviceSuccess({ isNew: isEditing && !currentDevice, deviceId: mapped.id });
     } catch (err) {

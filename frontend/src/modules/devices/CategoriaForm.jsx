@@ -133,7 +133,6 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
   const [pasoText,      setPasoText]      = useState('');
 
   const [saving,  setSaving]  = useState(false);
-  const [success, setSuccess] = useState('');
   const [error,   setError]   = useState('');
 
   // ── Load pasos + actividades (Supabase) ──────────────────────────────────
@@ -215,7 +214,8 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
       return;
     }
 
-    setError(''); setSaving(true);
+    setError('');
+    setSaving(true);
     try {
       const result = await saveCategoria({
         categoriaId: isCreating ? null : categoria?.id,
@@ -226,11 +226,7 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
         steps: pasos
       });
 
-      setSuccess(nombre.trim().toUpperCase());
-      setTimeout(() => { 
-        setSuccess(''); 
-        onSave?.({ ...categoria, id: result.categoriaId, nombre: nombre.trim().toUpperCase() }); 
-      }, 1800);
+      onSave?.({ ...categoria, id: result.categoriaId, nombre: nombre.trim().toUpperCase() });
     } catch (err) {
       console.error('Error guardando categoría:', err);
       setError('Ocurrió un error al guardar: ' + (err.message || 'Intente nuevamente.'));
@@ -245,22 +241,6 @@ const CategoriaForm = ({ mode = 'create', categoria = null, onSave, onCancel, on
   return (
     <div className="space-y-5 animate-in slide-in-from-right-4 duration-300">
 
-      {/* Success overlay */}
-      {success && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-8 flex flex-col items-center text-center gap-4 animate-in zoom-in-95 duration-300">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle2 size={40} className="text-green-600" />
-            </div>
-            <div>
-              <H2 className="text-gray-900 mb-2">
-                {isCreating ? '¡Categoría creada!' : '¡Categoría actualizada!'}
-              </H2>
-              <TextSmall className="text-gray-500">"{success}" guardada correctamente.</TextSmall>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Header */}
       <header className="flex items-center gap-4 bg-white p-4 rounded-md border border-gray-100 shadow-sm">
