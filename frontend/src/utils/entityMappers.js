@@ -263,6 +263,9 @@ export const toDeviceDraft = (device, route = null) => ({
   clienteNombre: device?.cliente?.razon_social || device?.clienteNombre || '',
   sucursalNombre: device?.sucursal?.nombre || device?.sucursalNombre || '',
   categoriaId: device?.categoriaId || device?.categoria_id || '',
+  categoria: device?.categoria?.nombre || (typeof device?.categoria === 'string' ? device.categoria : '') || device?.categoriaNombre || '',
+  marca: device?.marca?.nombre || (typeof device?.marca === 'string' ? device.marca : '') || device?.marcaNombre || '',
+  proveedor: device?.proveedor?.nombre || (typeof device?.proveedor === 'string' ? device.proveedor : '') || device?.proveedorNombre || '',
   estadoId: device?.estadoId || device?.estado_id || '',
   imac: device?.imac || device?.macAddress || device?.mac_address || '',
   identificacionCliente: '', // removido de BD pero se limpia del draft
