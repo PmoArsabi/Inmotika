@@ -354,7 +354,8 @@ const ClientNavigator = ({
   const handleOpenAssociateCoordinadores = () => {
     if (!activeBranchKey || !onOpenCoordinadoresModal) return;
     const sucursalId = activeBranchDraft?.id || editingBranchId || null;
-    onOpenCoordinadoresModal(activeBranchKey, sucursalId).catch(err => {
+    const directorIds = (draft.associatedDirectorIds || []).map(String);
+    onOpenCoordinadoresModal(activeBranchKey, sucursalId, directorIds).catch(err => {
       console.error('[Coord] Error abriendo modal:', err);
     });
   };
