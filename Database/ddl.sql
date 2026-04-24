@@ -2688,7 +2688,7 @@ BEGIN
 END;
 $$;
 
--- SELECT cron.schedule('apply-pending-traslados', '0 * * * *', 'SELECT apply_pending_traslados()');
+SELECT cron.schedule('apply-pending-traslados', '0 * * * *', 'SELECT apply_pending_traslados()');
 
 -- ═══════════════════════════════════════════════════════════════════
 -- CRON JOB 2: generate_preventive_visits
@@ -2767,7 +2767,7 @@ BEGIN
 END;
 $$;
 
--- SELECT cron.schedule('generate-preventive-visits', '0 6 * * *', 'SELECT generate_preventive_visits()');
+SELECT cron.schedule('generate-preventive-visits', '0 6 * * *', 'SELECT generate_preventive_visits()');
 
   create policy "Acceso completo usuarios autenticados 69tnde_0"
   on "storage"."objects"
