@@ -287,7 +287,7 @@ export const ProgramacionDetalle = ({ item, solicitudOrigen, onBack, onEdit }) =
             <ArrowLeft size={16} />
           </button>
           <div>
-            <H2>Detalle · {item.id.slice(0, 8)}...</H2>
+            <H2>{item.tipoVisitaLabel || item.tipoVisitaCodigo || 'Visita'}</H2>
             <TextSmall className="text-gray-500">
               {item.clienteNombre} — {item.sucursalNombre}
             </TextSmall>

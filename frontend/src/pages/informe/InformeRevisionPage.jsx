@@ -1368,6 +1368,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
           informe:             informeParaPDF,
           firmaCoordinadorUrl: firmaCoordinadorUrl,
           firmaDirectorUrl:    firmaDirectorUrl,
+          logoUrl:             import.meta.env.VITE_LOGO_URL || null,
           clienteEmails,
           clienteNombre:  informeBase.cliente_nombre,
           sucursalNombre: informeBase.sucursal_nombre,
@@ -1511,7 +1512,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
     ...localInforme,
     observacion_coordinador: informeDetalle?.observacion_coordinador || null,
     observacion_director:    informeDetalle?.observacion_director    || null,
-    coordinador_nombre: localInforme.coordinador,
+    coordinador_nombre: coordinadorNombre || (!isDirector && user?.nombres ? `${user.nombres} ${user.apellidos || ''}`.trim() : null) || localInforme.coordinador,
     director_nombre:    directorNombre,
     categorias: localInforme.categorias.map(cat => ({
       ...cat,
@@ -1575,6 +1576,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
                 informe={coordinadorNombre ? { ...informeFiltrado, coordinador: coordinadorNombre } : informeFiltrado}
                 firmaCoordinadorUrl={firmaCoordinadorUrl}
                 firmaDirectorUrl={firmaDirectorUrl}
+                logoUrl={import.meta.env.VITE_LOGO_URL}
                 activeIntervencionId={activeIntervencionId}
                 onActivate={setActiveIntervencionId}
                 renderComentarioPaso={isReadOnly ? null : (intervencionId, pasoId, pasoProtocoloId, comentarioActual) => (

@@ -426,6 +426,7 @@ export default function InformePDFTemplate({
   renderEvidencias = null,
   firmaCoordinadorUrl = null,
   firmaDirectorUrl = null,
+  logoUrl = null,
   activeIntervencionId = null,
   onActivate = null,
 }) {
@@ -450,22 +451,27 @@ export default function InformePDFTemplate({
     }}>
 
       {/* ══ CABECERA ══ */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', background: DARK, borderRadius: '8px', padding: '16px 24px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-            <div style={{ width: '4px', height: '32px', background: RED, flexShrink: 0 }} />
-            <h1 style={{ fontSize: '24px', fontWeight: '900', margin: '0', letterSpacing: '-1px', color: DARK }}>INMOTIKA</h1>
-          </div>
-          <p style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '2px', color: GRAY, margin: '0 0 0 14px' }}>
-            Acceso a un mundo diferente
-          </p>
+          {logoUrl ? (
+            <img src={logoUrl} alt="INMOTIKA" style={{ height: '44px', width: 'auto', objectFit: 'contain' }} />
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                <h1 style={{ fontSize: '24px', fontWeight: '900', margin: '0', letterSpacing: '-1px', color: WHITE }}>INMOTIKA</h1>
+              </div>
+              <p style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '2px', color: '#9ca3af', margin: '0' }}>
+                Acceso a un mundo diferente
+              </p>
+            </>
+          )}
         </div>
         <div style={{ textAlign: 'right' }}>
-          <span style={{ display: 'inline-block', background: DARK, color: WHITE, padding: '4px 12px', borderRadius: '4px', fontSize: '9px', fontWeight: '700', marginBottom: '8px' }}>
+          <span style={{ display: 'inline-block', background: RED, color: WHITE, padding: '4px 12px', borderRadius: '4px', fontSize: '9px', fontWeight: '700', marginBottom: '8px' }}>
             INFORME TÉCNICO
           </span>
-          <p style={{ fontSize: '10px', color: GRAY, margin: '0' }}>
-            Fecha: <span style={{ color: DARK, fontWeight: '700' }}>{hoy}</span>
+          <p style={{ fontSize: '10px', color: '#9ca3af', margin: '0' }}>
+            Fecha: <span style={{ color: WHITE, fontWeight: '700' }}>{hoy}</span>
           </p>
         </div>
       </div>

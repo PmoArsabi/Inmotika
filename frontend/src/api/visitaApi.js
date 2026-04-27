@@ -445,12 +445,20 @@ export async function uploadEvidencia(visitaId, dispositivoId, intervencionId, f
   }
 
   // Para fotos etiqueta: marcar previas como inactivas (soft-delete)
+  // Para fotos normales: marcar la previa con el mismo numero_foto como inactiva (evita duplicados al re-guardar)
   if (esEtiqueta) {
     await supabase
       .from('evidencia_intervencion')
       .update({ activo: false })
       .eq('intervencion_id', intervencionId)
       .eq('es_etiqueta', true);
+  } else {
+    await supabase
+      .from('evidencia_intervencion')
+      .update({ activo: false })
+      .eq('intervencion_id', intervencionId)
+      .eq('numero_foto', fotoNumber)
+      .eq('es_etiqueta', false);
   }
 
   // Guardar path relativo — las signed URLs se generan al mostrar con SecureImage

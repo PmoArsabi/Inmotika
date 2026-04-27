@@ -30,12 +30,12 @@ const s = StyleSheet.create({
   },
 
   // Cabecera
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22, backgroundColor: DARK, borderRadius: 6, paddingVertical: 14, paddingHorizontal: 20 },
   headerLeft: { flexDirection: 'row', alignItems: 'center' },
   headerRight: { alignItems: 'flex-end' },
-  headerBadge: { backgroundColor: DARK, color: WHITE, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 3, fontSize: 7.5, fontWeight: 'bold', marginBottom: 6 },
-  headerDate: { fontSize: 8, color: GRAY },
-  headerDateBold: { fontWeight: 'bold', color: DARK },
+  headerBadge: { backgroundColor: RED, color: WHITE, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 3, fontSize: 7.5, fontWeight: 'bold', marginBottom: 6 },
+  headerDate: { fontSize: 8, color: LGRAY },
+  headerDateBold: { fontWeight: 'bold', color: WHITE },
 
   // Datos cliente
   infoBox: { flexDirection: 'row', backgroundColor: BGRAY, borderRadius: 6, padding: 16, borderWidth: 1, borderColor: BORD, marginBottom: 20 },
@@ -391,7 +391,7 @@ function DispositivoBlock({ dispositivo: d, index }) {
  *   firmaDirectorUrl?: string|null,
  * }} props
  */
-export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null, firmaDirectorUrl = null }) {
+export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null, firmaDirectorUrl = null, logoUrl = null }) {
   const hoy       = fmtFecha(new Date().toISOString());
   const totalDisp = informe.categorias.reduce((s, c) => s + c.dispositivos.length, 0);
 
@@ -402,10 +402,17 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
         {/* ══ CABECERA ══ */}
         <View style={s.header}>
           <View style={s.headerLeft}>
-            <Image
-              src={import.meta.env.VITE_LOGO_URL}
-              style={{ width: 130, height: 40, objectFit: 'contain' }}
-            />
+            {logoUrl ? (
+              <Image
+                src={logoUrl}
+                style={{ width: 130, height: 40, objectFit: 'contain' }}
+              />
+            ) : (
+              <View style={{ flexDirection: 'column' }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#B71C1C', letterSpacing: -0.5 }}>INMOTIKA</Text>
+                <Text style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: 1.5, color: '#6b7280', marginTop: 2 }}>Acceso a un mundo diferente</Text>
+              </View>
+            )}
           </View>
           <View style={s.headerRight}>
             <Text style={s.headerBadge}>INFORME TÉCNICO</Text>
