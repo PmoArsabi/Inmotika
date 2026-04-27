@@ -43,7 +43,7 @@ const ClientInventoryPage = () => {
       header: 'Categoría',
       render: (dev) => (
         <TextSmall className="text-gray-700">
-          {getName(dev.categoria_dispositivo) || getName(dev.categoria) || '—'}
+          {getName(dev.categoria) || getName(dev.categoria_dispositivo) || '—'}
         </TextSmall>
       ),
     },

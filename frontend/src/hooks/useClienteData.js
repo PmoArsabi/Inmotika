@@ -34,7 +34,6 @@ export function useClienteData() {
           .eq('usuario_id', user.id)
           .maybeSingle();
 
-        console.log('[useClienteData] contacto query result:', { contactoRow, contactoErr, userId: user.id });
         if (contactoErr) throw contactoErr;
 
         if (!contactoRow) {
@@ -60,7 +59,7 @@ export function useClienteData() {
             .in('id', branchIds),
           supabase
             .from('dispositivo')
-            .select('*, categoria_dispositivo(nombre), catalogo_estado_gestion:estado_gestion_id(nombre, codigo)')
+            .select('*, categoria:categoria_id(nombre), marca:marca_id(nombre), proveedor:proveedor_id(nombre), catalogo_estado_gestion:estado_gestion_id(nombre, codigo)')
             .in('sucursal_id', branchIds),
           clienteId
             ? supabase.from('cliente').select('*').eq('id', clienteId).maybeSingle()
@@ -69,8 +68,6 @@ export function useClienteData() {
 
         if (cancelled) return;
 
-        console.log('[useClienteData] sucursalRes:', sucursalRes);
-        console.log('[useClienteData] dispositivoRes:', dispositivoRes);
 
         const cliente = clienteRes.data || null;
         // Solo mostrar sucursales que pertenezcan al mismo cliente del contacto

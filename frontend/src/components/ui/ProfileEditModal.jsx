@@ -101,11 +101,11 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated, onLogout })
   return (
     <>
     <Modal isOpen={isOpen} onClose={handleClose} title="Mi Perfil" maxWidth="max-w-2xl">
-      {/* Layout: 1 col móvil, 2 cols en md+ */}
-      <div className="flex flex-col md:flex-row md:gap-8 md:items-start gap-8">
+      {/* Layout: 1 col móvil, 2 cols en md+ (solo si hay documentos) */}
+      <div className={`flex flex-col gap-8 ${canManage ? 'md:flex-row md:gap-8 md:items-start' : 'items-center'}`}>
 
         {/* ── Columna izquierda: Foto + Contraseña ── */}
-        <div className="flex flex-col gap-8 md:w-64 md:shrink-0">
+        <div className={`flex flex-col gap-8 ${canManage ? 'md:w-64 md:shrink-0' : 'w-full max-w-sm'}`}>
 
           {/* Foto de perfil */}
           <div className="flex flex-col items-center gap-4">

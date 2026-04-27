@@ -155,6 +155,17 @@ alter table "public"."contacto_sucursal" enable row level security;
 
 alter table "public"."contrato" enable row level security;
 
+CREATE POLICY "Contactos can view contratos of their sucursales"
+ON public.contrato AS PERMISSIVE FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.contacto_sucursal cs
+    JOIN public.contacto c ON c.id = cs.contacto_id
+    WHERE cs.sucursal_id = contrato.sucursal_id
+      AND c.usuario_id = auth.uid()
+  )
+);
+
   create table "public"."coordinador" (
     "id" uuid not null default gen_random_uuid(),
     "usuario_id" uuid,

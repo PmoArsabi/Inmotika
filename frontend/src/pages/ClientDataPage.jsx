@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, MapPin, Hash, Briefcase, UserCircle2, Eye, Globe, ArrowLeft, X, Cpu, Users } from 'lucide-react';
+import { Building2, MapPin, UserCircle2, Eye, Globe, ArrowLeft, Cpu, Users, Search, CheckCircle2 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
 import IconButton from '../components/ui/IconButton';
@@ -9,6 +9,7 @@ import { BranchForm } from '../components/forms/BranchForm';
 import { Subtitle, TextSmall, TextTiny, Label } from '../components/ui/Typography';
 import SecureImage from '../components/ui/SecureImage';
 import { useClienteData } from '../hooks/useClienteData';
+import { useActivoInactivo } from '../hooks/useCatalog';
 import { toBranchDraft } from '../utils/entityMappers';
 
 /**
@@ -16,6 +17,7 @@ import { toBranchDraft } from '../utils/entityMappers';
  */
 const ClientDataPage = () => {
   const { cliente, sucursales, contacto, dispositivos, loading } = useClienteData();
+  const { activoId, inactivoId } = useActivoInactivo();
   const [selectedSucursal, setSelectedSucursal] = useState(null);
   /** @type {{ type: 'contactos'|'dispositivos', sucursal: object }|null} */
   const [asociacionModal, setAsociacionModal] = useState(null);
@@ -42,74 +44,60 @@ const ClientDataPage = () => {
   const formatUbicacion = (obj) =>
     [obj?.ciudad, obj?.estado_depto, obj?.pais].filter(Boolean).join(', ') || null;
 
-  // ── Modal de asociaciones (contactos / dispositivos de una sucursal) ───────
-  if (asociacionModal) {
+  // ── Modal de asociaciones inline ─────────────────────────────────────────
+  const renderAsociacionModal = () => {
+    if (!asociacionModal) return null;
     const { type, sucursal } = asociacionModal;
     const isContactos = type === 'contactos';
     const contactosList = (sucursal.contacto_sucursal || []).map(cs => cs.contacto).filter(Boolean);
     const dispositivosList = (dispositivos || []).filter(
       d => String(d.sucursal_id || d.branchId) === String(sucursal.id)
     );
-
     const items = isContactos ? contactosList : dispositivosList;
-
+    const Icon = isContactos ? Users : Cpu;
     return (
-      <div className="space-y-4 animate-in slide-in-from-right-8 duration-300">
-        <button
-          onClick={() => setAsociacionModal(null)}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-brand transition-colors"
-        >
-          <ArrowLeft size={16} />
-          Volver a {sucursal.nombre}
-        </button>
-        <Card className="p-6">
-          <div className="flex items-center gap-3 mb-5">
-            {isContactos ? <Users size={18} className="text-brand" /> : <Cpu size={18} className="text-brand" />}
-            <Subtitle className="text-gray-800 normal-case tracking-normal">
-              {isContactos ? 'Contactos asociados' : 'Dispositivos asociados'} — {sucursal.nombre}
-            </Subtitle>
+      <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <Card className="max-w-md w-full p-6 shadow-2xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-red-50 rounded-lg"><Icon size={20} className="text-brand" /></div>
+            <h3 className="font-bold text-gray-900">
+              {isContactos ? 'Contactos asociados' : 'Dispositivos asociados'}
+            </h3>
           </div>
-
-          {items.length === 0 ? (
-            <TextSmall className="text-gray-400 italic">Sin {isContactos ? 'contactos' : 'dispositivos'} asociados a esta sucursal.</TextSmall>
-          ) : isContactos ? (
-            <div className="divide-y divide-gray-100">
-              {items.map(c => (
-                <div key={c.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                    <UserCircle2 size={16} className="text-gray-400" />
+          <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+            {items.length === 0 ? (
+              <div className="text-center py-8">
+                <Icon size={32} className="mx-auto text-gray-300 mb-2" />
+                <TextSmall className="text-gray-400">Sin {isContactos ? 'contactos' : 'dispositivos'} asociados.</TextSmall>
+              </div>
+            ) : items.map((item, i) => {
+              const nombre = isContactos
+                ? [item.nombres, item.apellidos].filter(Boolean).join(' ') || item.email || 'Contacto'
+                : item.id_inmotika || item.serial || item.codigo_unico || String(item.id);
+              const sub = isContactos ? item.email : item.modelo;
+              return (
+                <div key={item.id || i} className="flex items-center gap-3 p-3 rounded-lg border border-brand bg-red-50">
+                  <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-xs font-bold text-white shrink-0">
+                    {(nombre[0] || '?').toUpperCase()}
                   </div>
-                  <div>
-                    <TextSmall className="font-semibold text-gray-900">
-                      {[c.nombres, c.apellidos].filter(Boolean).join(' ')}
-                    </TextSmall>
-                    {c.email && <TextTiny className="text-gray-500">{c.email}</TextTiny>}
-                    {c.telefono_movil && <TextTiny className="text-gray-500">{c.telefono_movil}</TextTiny>}
+                  <div className="min-w-0">
+                    <TextSmall className="font-bold text-gray-900 truncate">{nombre}</TextSmall>
+                    {sub && <TextSmall className="text-gray-500 text-2xs truncate">{sub}</TextSmall>}
                   </div>
+                  <CheckCircle2 size={18} className="text-brand shrink-0 ml-auto" />
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {items.map(d => (
-                <div key={d.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                    <Cpu size={15} className="text-gray-400" />
-                  </div>
-                  <div>
-                    <TextSmall className="font-semibold text-gray-900">
-                      {d.id_inmotika || d.serial || d.codigo_unico || String(d.id)}
-                    </TextSmall>
-                    {d.modelo && <TextTiny className="text-gray-500">{d.modelo}</TextTiny>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
+          <div className="pt-4">
+            <button onClick={() => setAsociacionModal(null)} className="w-full py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+              Cerrar
+            </button>
+          </div>
         </Card>
       </div>
     );
-  }
+  };
 
   // ── Vista de detalle de sucursal ──────────────────────────────────────────
   if (selectedSucursal) {
@@ -124,27 +112,32 @@ const ClientDataPage = () => {
         .map(d => String(d.id)),
     };
     return (
-      <div className="space-y-4 animate-in slide-in-from-right-8 duration-300 max-w-4xl mx-auto">
-        <button
-          onClick={() => setSelectedSucursal(null)}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-brand transition-colors"
-        >
-          <ArrowLeft size={16} />
-          Volver a Mis Datos
-        </button>
-        <Card className="p-6">
-          <BranchForm
-            newBranchDraft={draft}
-            updateNewBranchDraft={() => {}}
-            newBranchErrors={{}}
-            showErrors={false}
-            isEditing={false}
-            isSaving={false}
-            onAssociateContacts={() => setAsociacionModal({ type: 'contactos', sucursal: selectedSucursal })}
-            onAssociateDevices={() => setAsociacionModal({ type: 'dispositivos', sucursal: selectedSucursal })}
-          />
-        </Card>
-      </div>
+      <>
+        <div className="space-y-4 animate-in slide-in-from-right-8 duration-300 max-w-4xl mx-auto">
+          <button
+            onClick={() => setSelectedSucursal(null)}
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-brand transition-colors"
+          >
+            <ArrowLeft size={16} />
+            Volver a Mis Datos
+          </button>
+          <Card className="p-6">
+            <BranchForm
+              newBranchDraft={draft}
+              updateNewBranchDraft={() => {}}
+              newBranchErrors={{}}
+              showErrors={false}
+              isEditing={false}
+              isSaving={false}
+              activoId={activoId}
+              inactivoId={inactivoId}
+              onAssociateContacts={() => setAsociacionModal({ type: 'contactos', sucursal: selectedSucursal })}
+              onAssociateDevices={() => setAsociacionModal({ type: 'dispositivos', sucursal: selectedSucursal })}
+            />
+          </Card>
+        </div>
+        {renderAsociacionModal()}
+      </>
     );
   }
 
