@@ -3,7 +3,7 @@ import {
   Building2, Camera, Hash, MapPin, FileSignature, FileText, Plus, Briefcase, Edit2, Search, Calendar, Link2, Eye
 } from 'lucide-react';
 import SecureImage from '../../components/ui/SecureImage';
-import { Country } from 'country-state-city';
+import { ALL_COUNTRIES_OPTIONS, getCountryByCode } from '../../utils/locationData';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
@@ -19,11 +19,7 @@ import DynamicDocumentList from '../../components/ui/DynamicDocumentList';
 import { useEstados, useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
 import BranchForm from '../../components/forms/BranchForm';
 
-const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
-  value: c.isoCode,
-  label: c.name,
-  isoCode: c.isoCode,
-}));
+const ALL_COUNTRIES = ALL_COUNTRIES_OPTIONS;
 const ClientForm = ({
   draft, updateDraft, errors = {}, showErrors = false, isEditing = false,
   onSave, isSaving = false, activeTab, onTabChange,
@@ -44,7 +40,7 @@ const ClientForm = ({
   const [branchSearchQuery, setBranchSearchQuery] = useState('');
   const logoInputRef = useRef(null);
 
-  const getCountryName = (code) => ALL_COUNTRIES.find(c => c.value === code)?.label || code;
+  const getCountryName = (code) => getCountryByCode(code)?.name || code;
 
   const filteredBranches = useMemo(() => {
     if (!branchSearchQuery.trim()) return branches;

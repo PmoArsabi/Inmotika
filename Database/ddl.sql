@@ -2669,6 +2669,35 @@ CREATE TRIGGER trg_recalcular_mantenimiento
   FOR EACH ROW
   EXECUTE FUNCTION public.recalcular_proximo_mantenimiento();
 
+-- Trigger: recalcular fecha_proximo_mantenimiento cuando dispositivo vuelve de FDS a OPERATIVO
+CREATE OR REPLACE FUNCTION public.recalcular_mantenimiento_al_activar()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_codigo_anterior text;
+  v_codigo_nuevo    text;
+BEGIN
+  IF OLD.estado_gestion_id IS NOT DISTINCT FROM NEW.estado_gestion_id THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT codigo INTO v_codigo_anterior FROM catalogo WHERE id = OLD.estado_gestion_id LIMIT 1;
+  SELECT codigo INTO v_codigo_nuevo    FROM catalogo WHERE id = NEW.estado_gestion_id LIMIT 1;
+
+  IF v_codigo_anterior = 'FUERA_DE_SERVICIO' AND v_codigo_nuevo = 'OPERATIVO' THEN
+    IF NEW.frecuencia_mantenimiento_meses IS NOT NULL AND NEW.frecuencia_mantenimiento_meses > 0 THEN
+      NEW.fecha_proximo_mantenimiento := CURRENT_DATE + (NEW.frecuencia_mantenimiento_meses || ' months')::interval;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_recalcular_mantenimiento_al_activar
+  BEFORE UPDATE ON public.dispositivo
+  FOR EACH ROW
+  EXECUTE FUNCTION public.recalcular_mantenimiento_al_activar();
+
 -- ═══════════════════════════════════════════════════════════════════
 -- CRON JOB 1: apply_pending_traslados
 -- Aplica traslados programados cuya fecha ya llegó, actualizando

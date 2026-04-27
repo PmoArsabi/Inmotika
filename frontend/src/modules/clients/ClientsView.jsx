@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Eye, Edit2, Trash2, Building2, Navigation2, MapPin, Globe, Users } from 'lucide-react';
-import { Country } from 'country-state-city';
+import { ALL_COUNTRIES_OPTIONS, getCountryByCode } from '../../utils/locationData';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import IconButton from '../../components/ui/IconButton';
@@ -38,16 +38,11 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
-  value: c.isoCode,
-  label: c.name,
-  isoCode: c.isoCode,
-}));
+const ALL_COUNTRIES = ALL_COUNTRIES_OPTIONS;
 
 const getCountryName = (countryCode) => {
   if (!countryCode) return 'No especificado';
-  const country = ALL_COUNTRIES?.find(c => c.value === countryCode);
-  return country?.label || countryCode;
+  return getCountryByCode(countryCode)?.name || countryCode;
 };
 
 const ClientsView = ({ config, data }) => {

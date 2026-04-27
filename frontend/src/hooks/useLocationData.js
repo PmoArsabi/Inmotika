@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { City, State } from 'country-state-city';
+import { getStatesOfCountry, getCitiesOfState } from '../utils/locationData';
 
 /**
  * Hook that derives states and cities lists from parent-controlled countryValue/stateValue.
@@ -7,16 +7,12 @@ import { City, State } from 'country-state-city';
  */
 export const useLocationData = ({ countryValue, stateValue, onLocationChange }) => {
   const states = useMemo(
-    () => countryValue
-      ? State.getStatesOfCountry(countryValue).map(s => ({ value: s.isoCode, label: s.name }))
-      : [],
+    () => countryValue ? getStatesOfCountry(countryValue) : [],
     [countryValue]
   );
 
   const cities = useMemo(
-    () => countryValue && stateValue
-      ? City.getCitiesOfState(countryValue, stateValue).map(c => ({ value: c.name, label: c.name }))
-      : [],
+    () => countryValue && stateValue ? getCitiesOfState(countryValue, stateValue) : [],
     [countryValue, stateValue]
   );
 

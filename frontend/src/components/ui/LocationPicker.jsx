@@ -1,14 +1,9 @@
 import React, { useMemo } from 'react';
-import { Country, State, City } from 'country-state-city';
+import { ALL_COUNTRIES_OPTIONS, getCountryByCode, getStatesOfCountry, getCitiesOfState, getStateName } from '../../utils/locationData';
 import SearchableSelect from './SearchableSelect';
-import { Globe, Map, MapPin } from 'lucide-react';
+import { Map, MapPin } from 'lucide-react';
 
-// Module-level constant — built once, never rebuilt on re-render
-const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
-  value: c.isoCode,
-  label: c.name,
-  isoCode: c.isoCode,
-}));
+const ALL_COUNTRIES = ALL_COUNTRIES_OPTIONS;
 
 const FlagImg = ({ isoCode, name }) => (
   <img
@@ -48,12 +43,12 @@ const LocationPicker = ({
   className = ''
 }) => {
   const states = useMemo(
-    () => countryValue ? State.getStatesOfCountry(countryValue).map(s => ({ value: s.isoCode, label: s.name })) : [],
+    () => countryValue ? getStatesOfCountry(countryValue) : [],
     [countryValue]
   );
 
   const cities = useMemo(
-    () => countryValue && stateValue ? City.getCitiesOfState(countryValue, stateValue).map(c => ({ value: c.name, label: c.name })) : [],
+    () => countryValue && stateValue ? getCitiesOfState(countryValue, stateValue) : [],
     [countryValue, stateValue]
   );
 
@@ -66,14 +61,11 @@ const LocationPicker = ({
   const handleCityChange   = (opt) => onLocationChange({ country: countryValue, state: stateValue, city: opt?.value ?? '' });
 
   const countryLabel = useMemo(() => {
-    const c = Country.getCountryByCode(countryValue);
-    return c ? { name: c.name, isoCode: c.isoCode } : null;
+    const c = getCountryByCode(countryValue);
+    return c ? { name: c.name, isoCode: c.iso } : null;
   }, [countryValue]);
 
-  const stateLabel = useMemo(() => {
-    const s = State.getStateByCodeAndCountry(stateValue, countryValue);
-    return s?.name ?? stateValue;
-  }, [stateValue, countryValue]);
+  const stateLabel = useMemo(() => getStateName(stateValue, countryValue), [stateValue, countryValue]);
 
   if (viewMode) {
     return (

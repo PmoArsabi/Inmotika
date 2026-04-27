@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Country } from 'country-state-city';
+import { ALL_COUNTRIES_OPTIONS } from '../../utils/locationData';
 import { Label } from './Typography';
 import { Phone, ChevronDown, Search } from 'lucide-react';
 import { validatePhoneNumber as _validatePhoneNumber } from '../../utils/validators';
@@ -36,11 +36,7 @@ export const formatFullPhone = (countryCode, phoneNumber) => {
 // eslint-disable-next-line react-refresh/only-export-components
 export const validatePhoneNumber = _validatePhoneNumber;
 
-const ALL_COUNTRIES = Country.getAllCountries().map(c => ({
-  value: c.isoCode,
-  label: c.name,
-  isoCode: c.isoCode,
-}));
+const ALL_COUNTRIES = ALL_COUNTRIES_OPTIONS;
 
 // ─── Component ───────────────────────────────────────────────────────────────
 const PhoneInput = ({

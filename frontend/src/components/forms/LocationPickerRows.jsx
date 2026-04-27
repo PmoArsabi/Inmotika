@@ -1,12 +1,12 @@
 import React from 'react';
 import { Map, MapPin } from 'lucide-react';
-import { Country, State } from 'country-state-city';
+import { ALL_COUNTRIES_OPTIONS, getCountryByCode, getStateName } from '../../utils/locationData';
 import { useLocationData } from '../../hooks/useLocationData';
-import { Label, TextSmall } from '../ui/Typography';
+import { Label } from '../ui/Typography';
 import SearchableSelect from '../ui/SearchableSelect';
 import Input from '../ui/Input';
 
-const ALL_COUNTRIES_LIST = Country.getAllCountries().map(c => ({ value: c.isoCode, label: c.name }));
+const ALL_COUNTRIES_LIST = ALL_COUNTRIES_OPTIONS;
 const formatCountryOption = (option) => (
   <div className="flex items-center gap-2">
     <img src={`https://flagcdn.com/w20/${option.value.toLowerCase()}.png`} alt={option.label} className="w-5 h-3.5 object-cover rounded-sm" />
@@ -45,8 +45,8 @@ export const LocationPickerRows = ({
   const { states, cities, handleCountryChange, handleStateChange, handleCityChange } = useLocationData({
     countryValue, stateValue, onLocationChange
   });
-  const countryData = Country.getCountryByCode(countryValue);
-  const stateData   = State.getStateByCodeAndCountry(stateValue, countryValue);
+  const countryData = getCountryByCode(countryValue);
+  const stateName   = getStateName(stateValue, countryValue);
 
   const colSpan = twoColumns ? 'md:col-span-1' : 'md:col-span-1';
   const dirSpan = twoColumns ? 'md:col-span-1' : 'md:col-span-3';
@@ -55,10 +55,10 @@ export const LocationPickerRows = ({
     return (
       <>
         <ViewCell label="País">
-          {countryData && (<><FlagImg iso={countryData.isoCode} /> {countryData.name}</>)}
+          {countryData && (<><FlagImg iso={countryData.iso} /> {countryData.name}</>)}
         </ViewCell>
         <ViewCell label="Estado / Depto" icon={Map}>
-          {stateData?.name}
+          {stateName}
         </ViewCell>
         <ViewCell label="Ciudad" icon={MapPin}>
           {cityValue}
