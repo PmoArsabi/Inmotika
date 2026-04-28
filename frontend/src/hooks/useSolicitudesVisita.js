@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
-import { sendEmail, getSolicitudVisitaEmailRecipients, buildRecipients } from './useEmail';
+import { sendEmail } from './useEmail';
 import { syncSolicitudDispositivos } from '../api/solicitudDispositivoApi';
 
 /**
@@ -207,10 +207,8 @@ export const useSolicitudesVisita = () => {
         if (devError) throw devError;
       }
 
-      // Email fire-and-forget — no bloquea el retorno
+      // Email fire-and-forget — destinatarios resueltos en la Edge Function con service_role
       const newId = inserted.id;
-      const emailPayload = { ...payload };
-      const emailUser = { id: user?.id, role: user?.role };
       supabase
         .from('solicitud_visita')
         .select(`
@@ -225,29 +223,23 @@ export const useSolicitudesVisita = () => {
         .maybeSingle()
         .then(async ({ data: sol }) => {
           if (!sol) return;
-          const allEmails = await getSolicitudVisitaEmailRecipients({
-            actorId: emailUser.id,
-            actorRole: emailUser.role,
-            clienteId: emailPayload.clienteId,
-            sucursalId: emailPayload.sucursalId,
-          });
-          if (!allEmails.length) return;
           const solicitante = sol.creador
             ? `${sol.creador.nombres || ''} ${sol.creador.apellidos || ''}`.trim() || sol.creador.email
             : '—';
-          const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
+          // No se pasa destinatario — la Edge Function lo resuelve con service_role
           sendEmail('solicitud_visita', {
-            destinatario,
+            sucursalId:    payload.sucursalId,
+            clienteId:     payload.clienteId || null,
             clienteNombre: sol.cliente?.razon_social || '',
             sucursalNombre: sol.sucursal?.nombre || '',
-            tipoVisita: sol.tipo_visita?.nombre || '',
+            tipoVisita:    sol.tipo_visita?.nombre || '',
             fechaSugerida: sol.fecha_sugerida
               ? new Date(sol.fecha_sugerida).toLocaleDateString('es-ES')
               : '—',
-            motivo: sol.motivo || '',
+            motivo:     sol.motivo || '',
             solicitante,
             appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
-          }, cc);
+          });
         })
         .catch(emailErr => console.warn('[useSolicitudesVisita] email failed:', emailErr));
 

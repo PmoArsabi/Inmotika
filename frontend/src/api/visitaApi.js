@@ -1,5 +1,5 @@
 import { supabase } from '../utils/supabase';
-import { sendEmail, getVisitaEmailRecipients, getAvanceDispositivoRecipients, buildRecipients } from '../hooks/useEmail';
+import { sendEmail } from '../hooks/useEmail';
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -107,18 +107,10 @@ export function notificarVisitaProgramada(visitaId, payload, actor) {
         }
       }
 
-      const allEmails = await getVisitaEmailRecipients({
-        actorId: actor?.id,
-        actorRole: actor?.role,
-        clienteId: payload.clienteId,
-        sucursalId: payload.sucursalId,
-        visitaId,
-      });
-      if (!allEmails.length) return;
-
-      const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
       sendEmail('visita_programada', {
-        destinatario,
+        visitaId,
+        sucursalId: payload.sucursalId,
+        clienteId:  payload.clienteId || '',
         clienteNombre: v?.cliente?.razon_social || v?.solicitud?.cliente?.razon_social || '',
         sucursalNombre: v?.sucursal?.nombre || '',
         tipoVisita: v?.tipo_visita?.nombre || '',
@@ -128,7 +120,7 @@ export function notificarVisitaProgramada(visitaId, payload, actor) {
         tecnicos: tecnicos || '—',
         responsable: responsableNombre || '—',
         appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
-      }, cc);
+      });
     })
     .catch(err => console.error('[visitaApi] notificarVisitaProgramada falló:', err));
 }
@@ -214,15 +206,9 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
       const tipoVisita       = v.tipo_visita?.nombre || '';
       const appUrl           = import.meta.env.VITE_APP_URL || window.location.origin;
 
-      const allEmails = await getAvanceDispositivoRecipients({
-        sucursalId: v.sucursal_id,
-        responsableEmail,
-      });
-      if (!allEmails.length) return;
-
-      const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
       sendEmail('avance_dispositivo', {
-        destinatario,
+        sucursalId:      v.sucursal_id,
+        responsableEmail: responsableEmail || '',
         clienteNombre,
         sucursalNombre,
         tipoVisita,
@@ -235,7 +221,7 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
         responsable:     responsableNombre || '—',
         tecnico:         tecnicoNombre || '—',
         appUrl,
-      }, cc);
+      });
     })
     .catch(err => console.error('[visitaApi] notificarAvanceDispositivo falló:', err));
 }
@@ -293,12 +279,9 @@ export function notificarDispositivoFueraDeServicio(visitaId, dispositivoId, pro
       const intervencion   = intervenciones.find(i => i.dispositivo_id === dispositivoId) || intervenciones[0];
       const dispositivoSerial = intervencion?.codigo_etiqueta || device?.idInmotika || '—';
 
-      const allEmails = await getAvanceDispositivoRecipients({ sucursalId: v.sucursal_id, responsableEmail });
-      if (!allEmails.length) return;
-
-      const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
       sendEmail('dispositivo_fuera_de_servicio', {
-        destinatario,
+        sucursalId:              v.sucursal_id,
+        responsableEmail:        responsableEmail || '',
         clienteNombre:           v.cliente?.razon_social || '',
         sucursalNombre:          v.sucursal?.nombre || '',
         tipoVisita:              v.tipo_visita?.nombre || '',
@@ -311,7 +294,7 @@ export function notificarDispositivoFueraDeServicio(visitaId, dispositivoId, pro
         tecnico:                 tecnicoNombre || '—',
         responsable:             responsableNombre || '—',
         appUrl:                  import.meta.env.VITE_APP_URL || window.location.origin,
-      }, cc);
+      });
     })
     .catch(err => console.error('[visitaApi] notificarDispositivoFueraDeServicio falló:', err));
 }
@@ -330,7 +313,7 @@ export function notificarDispositivoFueraDeServicio(visitaId, dispositivoId, pro
  * @returns {Promise<void>}
  * @throws {Error} Si el catálogo no contiene EN_PROCESO o la actualización falla
  */
-export async function iniciarVisita(visitaId, actor = null) {
+export async function iniciarVisita(visitaId, _actor = null) {
   const estadoId = await getCatalogoId('ESTADO_VISITA', 'EN_PROGRESO');
   const fechaInicio = new Date().toISOString();
 
@@ -375,24 +358,16 @@ export async function iniciarVisita(visitaId, actor = null) {
       .filter(Boolean)
       .join(', ');
 
-    getVisitaEmailRecipients({
-      actorId: actor?.actorId,
-      actorRole: actor?.actorRole,
-      clienteId: visitaRow.cliente_id,
-      sucursalId: visitaRow.sucursal_id,
+    sendEmail('visita_iniciada', {
       visitaId,
-    }).then(allEmails => {
-      if (!allEmails.length) return;
-      const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
-      sendEmail('visita_iniciada', {
-        destinatario,
-        clienteNombre: visitaRow?.cliente?.razon_social || visitaRow?.solicitud?.cliente?.razon_social || '',
-        sucursalNombre: visitaRow?.sucursal?.nombre || visitaRow?.solicitud?.sucursal?.nombre || '',
-        tipoVisita: visitaRow?.tipo_visita?.nombre || '',
-        fechaInicio: new Date(fechaInicio).toLocaleString('es-ES'),
-        tecnicos: tecnicos || '—',
-        appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
-      }, cc);
+      sucursalId: visitaRow.sucursal_id,
+      clienteId:  visitaRow.cliente_id || '',
+      clienteNombre: visitaRow?.cliente?.razon_social || visitaRow?.solicitud?.cliente?.razon_social || '',
+      sucursalNombre: visitaRow?.sucursal?.nombre || visitaRow?.solicitud?.sucursal?.nombre || '',
+      tipoVisita: visitaRow?.tipo_visita?.nombre || '',
+      fechaInicio: new Date(fechaInicio).toLocaleString('es-ES'),
+      tecnicos: tecnicos || '—',
+      appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
     });
   }
 }
@@ -743,7 +718,7 @@ async function uploadEvidenciasDispositivo(visitaId, dispositivoId, intervencion
  * @returns {Promise<void>}
  * @throws {Error} Si el catálogo no contiene COMPLETADA o la actualización falla
  */
-export async function finalizarVisita(visitaId, observacionFinal, actor = null) {
+export async function finalizarVisita(visitaId, observacionFinal, _actor = null) {
   const estadoId = await getCatalogoId('ESTADO_VISITA', 'COMPLETADA');
   const fechaFin = new Date().toISOString();
 
@@ -816,28 +791,20 @@ export async function finalizarVisita(visitaId, observacionFinal, actor = null) 
     }
 
     // Enviar email de cierre al cliente: "informe listo en 24h"
-    getVisitaEmailRecipients({
-      actorId: actor?.actorId,
-      actorRole: actor?.actorRole,
-      clienteId: visitaRow.cliente_id,
-      sucursalId: visitaRow.sucursal_id,
+    sendEmail('visita_finalizada', {
       visitaId,
-    }).then(allEmails => {
-      if (!allEmails.length) return;
-      const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
-      sendEmail('visita_finalizada', {
-        destinatario,
-        clienteNombre,
-        sucursalNombre,
-        tipoVisita,
-        fechaFin: fechaFinStr,
-        tecnicos: tecnicos || '—',
-        observacionFinal: observacionFinal || '',
-        dispositivosCompletados: String(totalDispositivos),
-        dispositivosTotal: String(totalDispositivos),
-        pdfUrl: '',
-        appUrl,
-      }, cc);
-    }).catch(err => console.error('[finalizarVisita] Error enviando email cierre:', err));
+      sucursalId: visitaRow.sucursal_id,
+      clienteId:  visitaRow.cliente_id || '',
+      clienteNombre,
+      sucursalNombre,
+      tipoVisita,
+      fechaFin: fechaFinStr,
+      tecnicos: tecnicos || '—',
+      observacionFinal: observacionFinal || '',
+      dispositivosCompletados: String(totalDispositivos),
+      dispositivosTotal: String(totalDispositivos),
+      pdfUrl: '',
+      appUrl,
+    });
   }
 }

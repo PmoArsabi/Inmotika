@@ -95,7 +95,7 @@ const Select = ({
 
   if (viewMode) {
     return (
-      <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+      <div className={`flex flex-col gap-1.5 w-full min-w-0 ${className}`}>
         {label && (
           <Label className="ml-1">
             {label}{required && <span className="text-red-500 ml-0.5">*</span>}
@@ -112,7 +112,7 @@ const Select = ({
   }
 
   return (
-    <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+    <div className={`flex flex-col gap-1.5 w-full min-w-0 ${className}`}>
       {label && (
         <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
           {label}{required && <span className="text-red-500 ml-0.5">*</span>}

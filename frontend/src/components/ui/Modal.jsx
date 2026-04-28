@@ -86,7 +86,7 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-4xl', durat
             className="text-ink-muted hover:text-brand hover:bg-red-50 transition-colors"
           />
         </div>
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-9 py-8 -mx-1 custom-scrollbar">
           {children}
         </div>
       </div>

@@ -14,7 +14,7 @@ const Switch = ({
   const statusLabel = checked ? checkedLabel : uncheckedLabel;
 
   return (
-    <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+    <div className={`flex flex-col gap-1.5 w-full min-w-0 ${className}`}>
       {label && <Label className="ml-1">{label}</Label>}
       <div className="flex items-center gap-2 h-9.5 pl-1">
         {viewMode ? (

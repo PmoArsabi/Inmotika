@@ -40,23 +40,26 @@ const fmtHora = (iso) => {
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
-/** Color del avatar según nombre del rol (viene del campo rol_id.nombre en perfil_usuario) */
-const ROL_AVATAR_COLOR = {
-  'Administrador':      { bg: '#7c3aed', text: '#fff' },
-  'Director':           { bg: '#1d4ed8', text: '#fff' },
-  'Coordinador de Zona':{ bg: '#D32F2F', text: '#fff' },
-  'Técnico de Campo':   { bg: '#0f766e', text: '#fff' },
+/** Paleta por rol — avatar + badge + borde lateral de burbuja */
+const ROL_THEME = {
+  'Administrador':       { bg: '#7c3aed', light: '#f5f3ff', border: '#c4b5fd', badge: 'bg-violet-100 text-violet-700' },
+  'Director':            { bg: '#1d4ed8', light: '#eff6ff', border: '#93c5fd', badge: 'bg-blue-100 text-blue-700' },
+  'Coordinador de Zona': { bg: '#D32F2F', light: '#fff1f2', border: '#fca5a5', badge: 'bg-red-100 text-red-700' },
+  'Técnico de Campo':    { bg: '#0f766e', light: '#f0fdfa', border: '#5eead4', badge: 'bg-teal-100 text-teal-700' },
+  'Cliente':             { bg: '#b45309', light: '#fffbeb', border: '#fcd34d', badge: 'bg-amber-100 text-amber-700' },
 };
-const DEFAULT_AVATAR = { bg: '#6b7280', text: '#fff' };
+const DEFAULT_THEME = { bg: '#6b7280', light: '#f9fafb', border: '#d1d5db', badge: 'bg-gray-100 text-gray-600' };
+
+const getRolTheme = (rol) => ROL_THEME[rol] || DEFAULT_THEME;
 
 const ChatAvatar = ({ nombre, rol }) => {
-  const colors = ROL_AVATAR_COLOR[rol] || DEFAULT_AVATAR;
+  const theme = getRolTheme(rol);
   const inicial = (nombre || '?')[0].toUpperCase();
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
-      background: colors.bg, color: colors.text,
+      width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+      background: theme.bg, color: '#fff',
       fontSize: '10px', fontWeight: '700', lineHeight: 1,
     }}>
       {inicial}
@@ -64,25 +67,37 @@ const ChatAvatar = ({ nombre, rol }) => {
   );
 };
 
-const ChatBubble = ({ msg, isMe }) => (
-  <div className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
-    <div className={`flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-      <ChatAvatar nombre={isMe ? 'Tú' : msg.autor_nombre} rol={msg.autor_rol} />
-      <TextTiny className={`font-bold text-2xs ${isMe ? 'text-brand' : 'text-gray-600'}`}>
-        {isMe ? 'Tú' : msg.autor_nombre}
-      </TextTiny>
-      {msg.autor_rol && (
-        <span className="text-2xs text-gray-400">{msg.autor_rol}</span>
-      )}
-      <TextTiny className="text-gray-300 text-2xs">{fmtHora(msg.created_at)}</TextTiny>
+const ChatBubble = ({ msg, isMe }) => {
+  const theme = getRolTheme(msg.autor_rol);
+  return (
+    <div className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
+      {/* Header: avatar + nombre + badge rol + hora */}
+      <div className={`flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+        <ChatAvatar nombre={isMe ? 'Tú' : msg.autor_nombre} rol={msg.autor_rol} />
+        <TextTiny className="font-bold text-2xs text-gray-700">
+          {isMe ? 'Tú' : msg.autor_nombre}
+        </TextTiny>
+        {msg.autor_rol && (
+          <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded-full ${isMe ? 'bg-red-100 text-brand' : theme.badge}`}>
+            {msg.autor_rol}
+          </span>
+        )}
+        <TextTiny className="text-gray-300 text-2xs">{fmtHora(msg.created_at)}</TextTiny>
+      </div>
+
+      {/* Burbuja con borde lateral del color del rol */}
+      <div
+        className="max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap"
+        style={isMe
+          ? { background: '#D32F2F', color: '#fff', borderBottomRightRadius: '4px' }
+          : { background: theme.light, color: '#1f2937', borderTopLeftRadius: '4px', borderLeft: `3px solid ${theme.border}` }
+        }
+      >
+        {msg.mensaje}
+      </div>
     </div>
-    <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap ${
-      isMe ? 'bg-brand text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'
-    }`}>
-      {msg.mensaje}
-    </div>
-  </div>
-);
+  );
+};
 
 const ChatPanel = ({ informeId, userId }) => {
   const [mensajes, setMensajes] = useState([]);

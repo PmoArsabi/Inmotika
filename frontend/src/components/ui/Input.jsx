@@ -34,14 +34,14 @@ const Input = ({
   };
 
   return (
-    <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+    <div className={`flex flex-col gap-1.5 w-full min-w-0 ${className}`}>
       {label && (
         <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
           {label}
           {required && <span className="text-red-500 ml-0.5">*</span>}
         </Label>
       )}
-      <div className="relative group">
+      <div className="relative group isolate">
         {Icon && (
           <Icon
             size={15}
@@ -72,7 +72,7 @@ const Input = ({
                     'hover:bg-white hover:border-gray-200/80',
                     'focus:bg-white focus:border-brand/40 focus:ring-4 focus:ring-brand/10',
                     'focus:shadow-[0_0_0_4px_rgb(211_47_47/0.08)]',
-                    error ? 'border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-400/10 focus:shadow-[0_0_0_4px_rgb(220_38_38/0.08)]' : '',
+                    error ? 'border-red-400 bg-red-50/50 ring-4 ring-red-400/15 focus:border-red-400 focus:ring-red-400/20' : '',
                   ].join(' '),
             ].join(' ')}
             onChange={handleChange}

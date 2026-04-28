@@ -161,7 +161,7 @@ const SearchableSelect = ({
 
   if (viewMode) {
     return (
-      <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+      <div className={`flex flex-col gap-1.5 w-full min-w-0 ${className}`}>
         {label && (
           <div className="flex items-center justify-between">
             <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
@@ -190,7 +190,7 @@ const SearchableSelect = ({
   }
 
   return (
-    <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+    <div className={`flex flex-col gap-1.5 w-full min-w-0 ${className}`}>
       {label && (
         <div className="flex items-center justify-between">
           <Label className={dark ? 'text-gray-400 ml-1' : 'ml-1'}>
@@ -200,7 +200,7 @@ const SearchableSelect = ({
           {action && <div className="shrink-0">{action}</div>}
         </div>
       )}
-      <div className="relative group">
+      <div className="relative group isolate">
         {Icon && (
           <Icon
             size={15}

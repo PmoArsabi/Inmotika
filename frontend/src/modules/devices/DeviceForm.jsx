@@ -399,7 +399,7 @@ const DeviceForm = ({
 
             {/* ── Tab: Detalles ── */}
             {activeTab === 'details' && (
-              <div className="space-y-8 overflow-y-auto flex-1">
+              <div className="space-y-8 overflow-y-auto flex-1 px-1 -mx-1">
 
                 {/* Clasificación Técnica */}
                 <section className="space-y-4">

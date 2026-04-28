@@ -103,7 +103,7 @@ const TrasladoModal = ({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto bg-gray-50 p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-5 -mx-1 space-y-4">
           {errors.general && (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold">
               <AlertTriangle size={15} className="shrink-0" />
