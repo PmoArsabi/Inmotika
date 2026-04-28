@@ -26,6 +26,7 @@ async function informeToPdfBlob(informe, firmas = {}) {
     firmaCoordinadorUrl: firmas.firmaCoordinadorUrl ?? null,
     firmaDirectorUrl:    firmas.firmaDirectorUrl    ?? null,
     logoUrl:             firmas.logoUrl             ?? null,
+    fondoUrl:            firmas.fondoUrl            ?? null,
   });
 
   return pdf(element).toBlob();

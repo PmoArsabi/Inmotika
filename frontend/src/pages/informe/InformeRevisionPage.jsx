@@ -1039,6 +1039,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
   const [revisiones,           setRevisiones]           = useState({});
   const [firmaCoordinadorUrl,  setFirmaCoordinadorUrl]  = useState(null);
   const [firmaDirectorUrl,     setFirmaDirectorUrl]     = useState(null);
+  const [tecnicoFirmas,        setTecnicoFirmas]        = useState([]);
   const [coordinadorNombre,    setCoordinadorNombre]    = useState(null);
   const [directorNombre,       setDirectorNombre]       = useState(null);
   const [correctivaGuardada,   setCorrectivaGuardada]   = useState(false);
@@ -1115,6 +1116,34 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
           if (perfil) setDirectorNombre(`${perfil.nombres || ''} ${perfil.apellidos || ''}`.trim() || null);
         }
       } catch { /* firma director no crítica */ }
+
+      // Cargar firmas de técnicos de la visita
+      try {
+        const { data: tecnicoRows } = await supabase
+          .from('visita_tecnico')
+          .select('tecnico:tecnico_id(usuario_id, perfil:usuario_id(nombres, apellidos))')
+          .eq('visita_id', informeBase.visita_id);
+
+        const tecnicos = (tecnicoRows || [])
+          .map(vt => vt.tecnico)
+          .filter(Boolean);
+
+        const firmas = await Promise.all(tecnicos.map(async (t) => {
+          const nombre = t.perfil
+            ? `${t.perfil.nombres || ''} ${t.perfil.apellidos || ''}`.trim()
+            : 'Técnico';
+          try {
+            const docs = await listDocumentos(t.usuario_id);
+            const firma = docs.find(d => d.tipo === 'FIRMA' && d.url);
+            const firmaUrl = firma ? await openDocumentoSignedUrl(firma.url, 3600) : null;
+            return { nombre, firmaUrl };
+          } catch {
+            return { nombre, firmaUrl: null };
+          }
+        }));
+
+        setTecnicoFirmas(firmas);
+      } catch { /* firmas técnicos no críticas */ }
     } catch (err) {
       setResultModal({ error: true, title: 'Error al cargar informe', errorMessage: err.message });
     } finally { setLoading(false); }
@@ -1359,16 +1388,25 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
         // 1. Registrar decisión en historial del director (sin cambiar estado aún)
         await registrarRevisionDirector(informeBase.id, userId, 'APROBADO', null);
 
-        // 2. Generar PDF + cambiar estado a APROBADO + notificar cliente
+        // 2. Fetch fresco del informe para garantizar que las observaciones estén al día
+        const detalleActualizado = await getInformeDetalle(informeBase.id);
+
+        // 3. Generar PDF + cambiar estado a APROBADO + notificar cliente
         // Si falla, el informe queda en EN_APROBACION (puede reintentarse).
-        const informeParaPDF = coordinadorNombre
-          ? { ...informeFiltrado, coordinador: coordinadorNombre }
-          : informeFiltrado;
+        const informeParaPDF = {
+          ...informeFiltrado,
+          coordinador: coordinadorNombre || informeFiltrado.coordinador,
+          observacion_coordinador: detalleActualizado?.observacion_coordinador ?? informeFiltrado.observacion_coordinador ?? null,
+          observacion_director:    detalleActualizado?.observacion_director    ?? informeFiltrado.observacion_director    ?? null,
+          director_nombre:         directorNombre || informeFiltrado.director_nombre || null,
+          tecnico_firmas:          tecnicoFirmas,
+        };
         await aprobarYGenerarPDF(informeBase.id, informeBase.visita_id, {
           informe:             informeParaPDF,
           firmaCoordinadorUrl: firmaCoordinadorUrl,
           firmaDirectorUrl:    firmaDirectorUrl,
           logoUrl:             import.meta.env.VITE_LOGO_URL || null,
+          fondoUrl:            import.meta.env.VITE_FONDO_URL || null,
           clienteEmails,
           clienteNombre:  informeBase.cliente_nombre,
           sucursalNombre: informeBase.sucursal_nombre,
@@ -1514,6 +1552,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
     observacion_director:    informeDetalle?.observacion_director    || null,
     coordinador_nombre: coordinadorNombre || (!isDirector && user?.nombres ? `${user.nombres} ${user.apellidos || ''}`.trim() : null) || localInforme.coordinador,
     director_nombre:    directorNombre,
+    tecnico_firmas:     tecnicoFirmas,
     categorias: localInforme.categorias.map(cat => ({
       ...cat,
       dispositivos: cat.dispositivos.filter(d => revisiones[d.intervencion_id]?.aprobado !== false),
@@ -1576,6 +1615,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
                 informe={coordinadorNombre ? { ...informeFiltrado, coordinador: coordinadorNombre } : informeFiltrado}
                 firmaCoordinadorUrl={firmaCoordinadorUrl}
                 firmaDirectorUrl={firmaDirectorUrl}
+                tecnicoFirmas={tecnicoFirmas}
                 logoUrl={import.meta.env.VITE_LOGO_URL}
                 activeIntervencionId={activeIntervencionId}
                 onActivate={setActiveIntervencionId}

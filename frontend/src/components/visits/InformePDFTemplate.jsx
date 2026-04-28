@@ -426,6 +426,7 @@ export default function InformePDFTemplate({
   renderEvidencias = null,
   firmaCoordinadorUrl = null,
   firmaDirectorUrl = null,
+  tecnicoFirmas = [],
   logoUrl = null,
   activeIntervencionId = null,
   onActivate = null,
@@ -627,37 +628,29 @@ export default function InformePDFTemplate({
       )}
 
       {/* ══ FIRMAS ══ */}
-      <div style={{ marginTop: '30px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '50px' }}>
-        {/* Coordinador que revisó */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ borderBottom: `1px solid ${DARK}`, height: '48px', marginBottom: '10px', position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-            {firmaCoordinadorUrl && (
-              <img
-                src={firmaCoordinadorUrl}
-                alt="Firma coordinador"
-                style={{ maxHeight: '44px', maxWidth: '140px', objectFit: 'contain', marginBottom: '4px' }}
-              />
-            )}
+      {(() => {
+        const allFirmas = [
+          ...(tecnicoFirmas || []).map(tf => ({ nombre: tf.nombre, firmaUrl: tf.firmaUrl, rol: 'Técnico de Campo' })),
+          { nombre: informe.coordinador_nombre || informe.coordinador || 'Coordinador', firmaUrl: firmaCoordinadorUrl, rol: 'Coordinador Revisor' },
+          { nombre: informe.director_nombre || 'Director', firmaUrl: firmaDirectorUrl, rol: 'Director Aprobador' },
+        ];
+        const cols = allFirmas.length <= 2 ? '1fr 1fr' : allFirmas.length === 3 ? '1fr 1fr 1fr' : `repeat(${allFirmas.length}, 1fr)`;
+        return (
+          <div style={{ marginTop: '30px', display: 'grid', gridTemplateColumns: cols, gap: '30px' }}>
+            {allFirmas.map((f, i) => (
+              <div key={i} style={{ textAlign: 'center' }}>
+                <div style={{ borderBottom: `1px solid ${DARK}`, height: '48px', marginBottom: '10px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                  {f.firmaUrl && (
+                    <img src={f.firmaUrl} alt={`Firma ${f.rol}`} style={{ maxHeight: '44px', maxWidth: '120px', objectFit: 'contain', marginBottom: '4px' }} />
+                  )}
+                </div>
+                <p style={{ fontSize: '9.5px', fontWeight: '700', margin: '0 0 2px', color: DARK }}>{f.nombre}</p>
+                <p style={{ fontSize: '8px', color: GRAY, margin: '0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{f.rol}</p>
+              </div>
+            ))}
           </div>
-          <p style={{ fontSize: '9.5px', fontWeight: '700', margin: '0 0 2px', color: DARK }}>{informe.coordinador_nombre || informe.coordinador || 'Coordinador'}</p>
-          <p style={{ fontSize: '8px', color: GRAY, margin: '0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Coordinador Revisor</p>
-        </div>
-
-        {/* Director que aprobó */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ borderBottom: `1px solid ${DARK}`, height: '48px', marginBottom: '10px', position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-            {firmaDirectorUrl && (
-              <img
-                src={firmaDirectorUrl}
-                alt="Firma director"
-                style={{ maxHeight: '44px', maxWidth: '140px', objectFit: 'contain', marginBottom: '4px' }}
-              />
-            )}
-          </div>
-          <p style={{ fontSize: '9.5px', fontWeight: '700', margin: '0 0 2px', color: DARK }}>{informe.director_nombre || 'Director'}</p>
-          <p style={{ fontSize: '8px', color: GRAY, margin: '0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Director Aprobador</p>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* ══ FOOTER ══ */}
       <div style={{

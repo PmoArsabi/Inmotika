@@ -386,41 +386,65 @@ function DispositivoBlock({ dispositivo: d, index }) {
  *     observacion_director?: string|null,
  *     coordinador_nombre?: string|null,
  *     director_nombre?: string|null,
+ *     tecnico_firmas?: Array<{nombre: string, firmaUrl: string|null}>,
  *   },
  *   firmaCoordinadorUrl?: string|null,
  *   firmaDirectorUrl?: string|null,
+ *   logoUrl?: string|null,
+ *   fondoUrl?: string|null,
  * }} props
  */
-export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null, firmaDirectorUrl = null, logoUrl = null }) {
+export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null, firmaDirectorUrl = null, logoUrl = null, fondoUrl = null }) {
   const hoy       = fmtFecha(new Date().toISOString());
   const totalDisp = informe.categorias.reduce((s, c) => s + c.dispositivos.length, 0);
+  const tecnicoFirmas = informe.tecnico_firmas || [];
+
+  // Cuando hay fondo PNG (cabecera+pie incluidos), ajustar márgenes y omitir header/footer propios
+  const pageStyle = fondoUrl
+    ? { ...s.page, paddingTop: 105, paddingBottom: 85 }
+    : s.page;
 
   return (
     <Document title={`Informe Técnico — ${informe.cliente_nombre}`} author="Inmotika">
-      <Page size="A4" style={s.page}>
+      <Page size="A4" style={pageStyle}>
 
-        {/* ══ CABECERA ══ */}
-        <View style={s.header}>
-          <View style={s.headerLeft}>
-            {logoUrl ? (
-              <Image
-                src={logoUrl}
-                style={{ width: 130, height: 40, objectFit: 'contain' }}
-              />
-            ) : (
-              <View style={{ flexDirection: 'column' }}>
-                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#B71C1C', letterSpacing: -0.5 }}>INMOTIKA</Text>
-                <Text style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: 1.5, color: '#6b7280', marginTop: 2 }}>Acceso a un mundo diferente</Text>
-              </View>
-            )}
+        {/* ══ FONDO — se repite en cada página automáticamente ══ */}
+        {fondoUrl ? (
+          <Image
+            src={fondoUrl}
+            fixed
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+          />
+        ) : null}
+
+        {/* ══ CABECERA — solo si no hay fondo PNG ══ */}
+        {!fondoUrl ? (
+          <View style={s.header}>
+            <View style={s.headerLeft}>
+              {logoUrl ? (
+                <Image src={logoUrl} style={{ width: 130, height: 40, objectFit: 'contain' }} />
+              ) : (
+                <View style={{ flexDirection: 'column' }}>
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#B71C1C', letterSpacing: -0.5 }}>INMOTIKA</Text>
+                  <Text style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: 1.5, color: '#6b7280', marginTop: 2 }}>Acceso a un mundo diferente</Text>
+                </View>
+              )}
+            </View>
+            <View style={s.headerRight}>
+              <Text style={s.headerBadge}>INFORME TÉCNICO</Text>
+              <Text style={s.headerDate}>Fecha: <Text style={s.headerDateBold}>{hoy}</Text></Text>
+            </View>
           </View>
-          <View style={s.headerRight}>
-            <Text style={s.headerBadge}>INFORME TÉCNICO</Text>
-            <Text style={s.headerDate}>
-              Fecha: <Text style={s.headerDateBold}>{hoy}</Text>
-            </Text>
+        ) : null}
+
+        {/* Badge de tipo de documento — visible solo con fondo (reemplaza al header) */}
+        {fondoUrl ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 16 }}>
+            <View style={{ backgroundColor: RED, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 3 }}>
+              <Text style={{ color: WHITE, fontSize: 7.5, fontWeight: 'bold' }}>INFORME TÉCNICO</Text>
+            </View>
           </View>
-        </View>
+        ) : null}
 
         {/* ══ DATOS CLIENTE + CRONOGRAMA ══ */}
         <View style={s.infoBox}>
@@ -538,6 +562,18 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
 
         {/* ══ FIRMAS ══ */}
         <View style={s.signaturesRow} wrap={false}>
+          {/* Firmas de técnicos */}
+          {tecnicoFirmas.map((tf, i) => (
+            <View key={i} style={s.signatureCol} wrap={false}>
+              <View style={s.signatureImgBox}>
+                {tf.firmaUrl ? <Image src={tf.firmaUrl} style={s.signatureImg} /> : null}
+              </View>
+              <Text style={s.signatureName}>{tf.nombre || 'Técnico'}</Text>
+              <Text style={s.signatureRole}>Técnico de Campo</Text>
+            </View>
+          ))}
+
+          {/* Firma coordinador */}
           <View style={s.signatureCol} wrap={false}>
             <View style={s.signatureImgBox}>
               {firmaCoordinadorUrl ? (
@@ -550,6 +586,7 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
             <Text style={s.signatureRole}>Coordinador Revisor</Text>
           </View>
 
+          {/* Firma director */}
           <View style={s.signatureCol} wrap={false}>
             <View style={s.signatureImgBox}>
               {firmaDirectorUrl ? (
@@ -561,11 +598,13 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
           </View>
         </View>
 
-        {/* ══ FOOTER ══ */}
-        <View style={s.footer} fixed>
-          <Text style={s.footerText}>INMOTIKA S.A.S — Acceso a un mundo diferente</Text>
-          <Text style={s.footerText}>Generado el {hoy} · Documento de uso interno</Text>
-        </View>
+        {/* ══ FOOTER — solo si no hay fondo PNG ══ */}
+        {!fondoUrl ? (
+          <View style={s.footer} fixed>
+            <Text style={s.footerText}>INMOTIKA S.A.S — Acceso a un mundo diferente</Text>
+            <Text style={s.footerText}>Generado el {hoy} · Documento de uso interno</Text>
+          </View>
+        ) : null}
 
       </Page>
     </Document>
