@@ -45,7 +45,7 @@ const BLUET = '#1e40af';
  * Fila de la tabla de actividades.
  * @param {{ act: object, isLast: boolean, renderComentarioActividad: Function|null }} props
  */
-function ActRow({ act, isLast, renderComentarioActividad }) {
+function ActRow({ act, isLast, renderComentarioActividad, fueraDeServicio }) {
   const [editingObs, setEditingObs] = React.useState(false);
   const { label, bg, color } = badgeEstado(act.estado);
 
@@ -53,6 +53,11 @@ function ActRow({ act, isLast, renderComentarioActividad }) {
   const hasStaticObs   = !renderComentarioActividad && act.observacion && act.estado === 'omitida';
   const showObsRow     = renderComentarioActividad ? (hasObsGuardada || editingObs) : hasStaticObs;
   const hasExtra       = showObsRow;
+  // Cuando el dispositivo es FDS el fondo del cuerpo es rojo claro — usar colores neutros para obs
+  // FDS: amarillo suave para actividad (distinto del naranja del paso). Normal: ámbar/verde.
+  const obsBg    = fueraDeServicio ? '#fef9c3' : act.estado === 'omitida' ? '#fff7ed' : '#f0fdf4';
+  const obsColor = fueraDeServicio ? '#713f12' : act.estado === 'omitida' ? '#92400e' : '#166534';
+  const obsLabel = fueraDeServicio ? '#854d0e' : act.estado === 'omitida' ? '#b45309' : '#166534';
 
   return (
     <React.Fragment>
@@ -87,16 +92,16 @@ function ActRow({ act, isLast, renderComentarioActividad }) {
           <td colSpan={2} style={{
             padding: editingObs ? '0' : '2px 10px 6px',
             borderBottom: isLast ? 'none' : `1px solid ${LBORD}`,
-            background: '#f0fdf4',
+            background: obsBg,
           }}>
             {editingObs ? (
-              renderComentarioActividad(act, { editing: true, onStartEdit: () => setEditingObs(true), onCancelEdit: () => setEditingObs(false) })
+              renderComentarioActividad(act, { editing: true, onStartEdit: () => setEditingObs(true), onCancelEdit: () => setEditingObs(false), textColor: obsColor })
             ) : (
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                <span style={{ fontSize: '7px', fontWeight: '800', color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', marginTop: '1px' }}>
+                <span style={{ fontSize: '7px', fontWeight: '800', color: obsLabel, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', marginTop: '1px' }}>
                   Obs. actividad:
                 </span>
-                {renderComentarioActividad(act, { editing: false, onStartEdit: () => setEditingObs(true), onCancelEdit: () => setEditingObs(false) })}
+                {renderComentarioActividad(act, { editing: false, onStartEdit: () => setEditingObs(true), onCancelEdit: () => setEditingObs(false), textColor: obsColor })}
               </div>
             )}
           </td>
@@ -107,7 +112,7 @@ function ActRow({ act, isLast, renderComentarioActividad }) {
         <tr>
           <td colSpan={2} style={{
             padding: '4px 10px 8px', fontSize: '8.5px',
-            color: '#991b1b', fontStyle: 'italic',
+            color: obsColor, fontStyle: 'italic',
             borderBottom: isLast ? 'none' : `1px solid ${LBORD}`,
           }}>
             ↳ {act.observacion}
@@ -128,26 +133,37 @@ function ActRow({ act, isLast, renderComentarioActividad }) {
  *   renderComentarioActividad: Function|null,
  * }} props
  */
-function PasoBlock({ paso, intervencionId, renderComentarioPaso, renderComentarioActividad }) {
+function PasoBlock({ paso, intervencionId, fueraDeServicio, renderComentarioPaso, renderComentarioActividad }) {
   const completadas = paso.actividades.filter(a => a.estado === 'completada').length;
   const total       = paso.actividades.length;
+
+  // Paleta contextual: distinta si el dispositivo está FDS
+  const theadBg      = fueraDeServicio ? '#fce7e7' : BGRAY;   // rojo muy claro — neutro, no compite
+  const theadColor   = fueraDeServicio ? '#9b1c1c' : GRAY;
+  const numBg        = fueraDeServicio ? '#b91c1c' : DARK;
+  const titleColor   = fueraDeServicio ? '#7f1d1d' : DARK;
+  const countColor   = fueraDeServicio ? '#b91c1c' : LGRAY;
+  // FDS: naranja suave para obs. paso (distinto del amarillo de actividad). Normal: azul.
+  const obsPasoBg    = fueraDeServicio ? '#ffedd5' : BLUE;
+  const obsPasoColor = fueraDeServicio ? '#7c2d12' : BLUET;
+  const obsPasoLabel = fueraDeServicio ? '#9a3412' : '#1e40af';
 
   return (
     <div style={{ marginBottom: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
         <div style={{
           width: '18px', height: '18px',
-          background: DARK, color: WHITE,
+          background: numBg, color: WHITE,
           borderRadius: '50%', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '8px', fontWeight: '800',
         }}>
           {paso.orden}
         </div>
-        <span style={{ fontSize: '9.5px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.3px', flex: 1 }}>
+        <span style={{ fontSize: '9.5px', fontWeight: '700', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.3px', flex: 1 }}>
           {paso.descripcion}
         </span>
-        <span style={{ fontSize: '8px', color: LGRAY, whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: '8px', color: countColor, whiteSpace: 'nowrap' }}>
           {completadas}/{total} realizadas
         </span>
       </div>
@@ -155,11 +171,11 @@ function PasoBlock({ paso, intervencionId, renderComentarioPaso, renderComentari
       {paso.actividades.length > 0 && (
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: BGRAY }}>
-              <th style={{ padding: '6px 10px', fontSize: '8px', color: GRAY, textTransform: 'uppercase', textAlign: 'left', fontWeight: '700' }}>
+            <tr style={{ background: theadBg }}>
+              <th style={{ padding: '6px 10px', fontSize: '8px', color: theadColor, textTransform: 'uppercase', textAlign: 'left', fontWeight: '700' }}>
                 Actividad Realizada
               </th>
-              <th style={{ padding: '6px 10px', fontSize: '8px', color: GRAY, textTransform: 'uppercase', width: '80px', textAlign: 'center', fontWeight: '700' }}>
+              <th style={{ padding: '6px 10px', fontSize: '8px', color: theadColor, textTransform: 'uppercase', width: '80px', textAlign: 'center', fontWeight: '700' }}>
                 Estado
               </th>
             </tr>
@@ -170,6 +186,7 @@ function PasoBlock({ paso, intervencionId, renderComentarioPaso, renderComentari
                 key={act.id}
                 act={act}
                 isLast={idx === paso.actividades.length - 1}
+                fueraDeServicio={fueraDeServicio}
                 renderComentarioActividad={renderComentarioActividad}
               />
             ))}
@@ -179,20 +196,20 @@ function PasoBlock({ paso, intervencionId, renderComentarioPaso, renderComentari
 
       {renderComentarioPaso ? (
         paso.comentarios ? (
-          <div style={{ background: BLUE, padding: '6px 12px', borderRadius: '0 0 4px 4px', fontSize: '9px', color: BLUET, lineHeight: '1.5', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span style={{ fontSize: '7px', fontWeight: '800', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+          <div style={{ background: obsPasoBg, padding: '6px 12px', borderRadius: '0 0 4px 4px', fontSize: '9px', color: obsPasoColor, lineHeight: '1.5', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+            <span style={{ fontSize: '7px', fontWeight: '800', color: obsPasoLabel, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
               Obs. paso:
             </span>
-            {renderComentarioPaso(intervencionId, paso.id, paso.paso_protocolo_id, paso.comentarios)}
+            {renderComentarioPaso(intervencionId, paso.id, paso.paso_protocolo_id, paso.comentarios, obsPasoColor)}
           </div>
         ) : (
           <div style={{ padding: '4px 12px 6px' }}>
-            {renderComentarioPaso(intervencionId, paso.id, paso.paso_protocolo_id, paso.comentarios)}
+            {renderComentarioPaso(intervencionId, paso.id, paso.paso_protocolo_id, paso.comentarios, obsPasoColor)}
           </div>
         )
       ) : paso.comentarios ? (
-        <div style={{ background: BLUE, padding: '6px 12px', borderRadius: '0 0 4px 4px', fontSize: '9px', color: BLUET, lineHeight: '1.5', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-          <span style={{ fontSize: '7px', fontWeight: '800', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+        <div style={{ background: obsPasoBg, padding: '6px 12px', borderRadius: '0 0 4px 4px', fontSize: '9px', color: obsPasoColor, lineHeight: '1.5', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+          <span style={{ fontSize: '7px', fontWeight: '800', color: obsPasoLabel, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
             Obs. paso:
           </span>
           <span>{paso.comentarios}</span>
@@ -324,39 +341,39 @@ function DispositivoBlock({
           </div>
         )}
 
-        {d.notas_tecnicas && (
-          <div style={{ background: BGRAY, border: `1px solid ${BORD}`, padding: '8px 12px', borderRadius: '4px', fontSize: '9px', color: GRAY, marginBottom: '12px' }}>
-            <strong>Notas técnicas:</strong> {d.notas_tecnicas}
-          </div>
-        )}
-
-        {fueraDeServicio ? (
-          <p style={{ margin: '0', color: '#991b1b', fontSize: '10px', lineHeight: '1.5' }}>
-            <strong>Diagnóstico de falla:</strong> {d.motivo_fuera_de_servicio || d.observacion_final || '—'}
-          </p>
-        ) : (
-          <>
-            {d.pasos.map(paso => (
+        <>
+          {/* Solo pasos con al menos una actividad con estado registrado */}
+          {d.pasos
+            .filter(paso => paso.actividades.some(a => a.estado === 'completada' || a.estado === 'omitida'))
+            .map(paso => (
               <PasoBlock
                 key={paso.id}
                 paso={paso}
                 intervencionId={d.intervencion_id}
+                fueraDeServicio={fueraDeServicio}
                 renderComentarioPaso={renderComentarioPaso}
                 renderComentarioActividad={renderComentarioActividad}
               />
             ))}
 
-            {obsIntervencionNode ? (
-              <div style={{ marginTop: '8px', background: BLUE, padding: '8px 12px', borderRadius: '4px', fontSize: '9px', color: BLUET, lineHeight: '1.5' }}>
-                {obsIntervencionNode}
-              </div>
-            ) : d.observacion_final ? (
-              <div style={{ marginTop: '8px', background: BLUE, padding: '8px 12px', borderRadius: '4px', fontSize: '9px', color: BLUET, lineHeight: '1.5' }}>
-                <strong>Obs. del técnico:</strong> {d.observacion_final}
-              </div>
-            ) : null}
-          </>
-        )}
+          {/* Diagnóstico de falla — solo si FDS */}
+          {fueraDeServicio && (
+            <p style={{ margin: '8px 0 0', color: '#991b1b', fontSize: '10px', lineHeight: '1.5', background: '#fff1f2', padding: '8px 12px', borderRadius: '4px', border: '1px solid #fecaca' }}>
+              <strong>Diagnóstico de falla:</strong> {d.motivo_fuera_de_servicio || d.observacion_final || '—'}
+            </p>
+          )}
+
+          {/* Observación del técnico — solo si no FDS */}
+          {!fueraDeServicio && (obsIntervencionNode ? (
+            <div style={{ marginTop: '8px', background: BLUE, padding: '8px 12px', borderRadius: '4px', fontSize: '9px', color: BLUET, lineHeight: '1.5' }}>
+              {obsIntervencionNode}
+            </div>
+          ) : d.observacion_final ? (
+            <div style={{ marginTop: '8px', background: BLUE, padding: '8px 12px', borderRadius: '4px', fontSize: '9px', color: BLUET, lineHeight: '1.5' }}>
+              <strong>Obs. del dispositivo:</strong> {d.observacion_final}
+            </div>
+          ) : null)}
+        </>
 
         {/* Valor de etiqueta — siempre visible si existe, independiente de las fotos */}
         {(etiquetaValorNode || d.codigo_etiqueta) && (

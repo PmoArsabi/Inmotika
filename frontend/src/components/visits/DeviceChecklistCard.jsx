@@ -150,7 +150,11 @@ const ActividadRow = ({ actividad, estado, observacion, onChange, viewMode, isBl
           {viewMode || isOmitida ? (
             /* Lectura */
             observacion ? (
-              <p className={`text-xs px-2 py-1.5 rounded-md ${isOmitida ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>
+              <p className={`text-xs px-2 py-1.5 rounded-md border ${
+                isOmitida
+                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                  : 'bg-green-50 text-green-700 border-green-200'
+              }`}>
                 {observacion}
               </p>
             ) : null
@@ -164,7 +168,7 @@ const ActividadRow = ({ actividad, estado, observacion, onChange, viewMode, isBl
               }}
               rows={1}
               placeholder="Comentario opcional..."
-              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white resize-none focus:outline-none focus:ring-2 focus:ring-brand/10 focus:border-brand transition-all"
+              className="w-full px-2 py-1.5 text-xs border border-green-200 rounded-md bg-green-50 text-green-800 placeholder-green-400 resize-none focus:outline-none focus:ring-2 focus:ring-green-300/30 focus:border-green-400 transition-all"
             />
           )}
         </div>
@@ -278,7 +282,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, actKey, pasoKey, on
           {/* Observation textarea del paso */}
           {viewMode ? (
             execPaso?.comentarios ? (
-              <p className="mt-1 px-3 py-2 text-xs bg-gray-100 rounded-md text-gray-600">{execPaso.comentarios}</p>
+              <p className="mt-1 px-3 py-2 text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">{execPaso.comentarios}</p>
             ) : null
           ) : (
             <textarea
@@ -289,7 +293,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, actKey, pasoKey, on
               rows={1}
               spellCheck="true"
               lang="es"
-              className="w-full mt-1 px-3 py-2 text-xs border border-gray-200 rounded-md bg-gray-50 resize-none focus:outline-none focus:ring-2 focus:ring-brand/10 focus:border-brand transition-all disabled:opacity-60"
+              className="w-full mt-1 px-3 py-2 text-xs border border-emerald-200 rounded-md bg-emerald-50 text-emerald-800 placeholder-emerald-400 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-300/30 focus:border-emerald-400 transition-all disabled:opacity-60"
             />
           )}
         </div>

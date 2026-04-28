@@ -197,9 +197,12 @@ function badgeEstado(estado) {
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
 
-/** @param {{ act: import('../../api/informeApi').ActividadEjecucion, isLast: boolean }} props */
-function ActRow({ act, isLast }) {
+/** @param {{ act: import('../../api/informeApi').ActividadEjecucion, isLast: boolean, fueraDeServicio: boolean }} props */
+function ActRow({ act, isLast, fueraDeServicio }) {
   const { label, wrapStyle, textStyle } = badgeEstado(act.estado);
+  // FDS: amarillo suave para obs actividad. Normal: ámbar/verde.
+  const obsActBg    = fueraDeServicio ? '#fef9c3' : act.estado === 'omitida' ? '#fff7ed' : '#f0fdf4';
+  const obsActColor = fueraDeServicio ? '#713f12' : act.estado === 'omitida' ? '#92400e' : '#166534';
   return (
     <View wrap={false}>
       <View style={[s.tableRow, isLast ? s.tableRowLast : null]}>
@@ -208,18 +211,18 @@ function ActRow({ act, isLast }) {
           <View style={wrapStyle}><Text style={textStyle}>{label}</Text></View>
         </View>
       </View>
-      {act.estado === 'omitida' && act.observacion ? (
-        <View style={s.obsActRow}>
-          <Text style={s.obsActLabel}>Obs. actividad:</Text>
-          <Text style={s.obsActText}>{act.observacion}</Text>
+      {act.observacion ? (
+        <View style={[s.obsActRow, { backgroundColor: obsActBg }]}>
+          <Text style={[s.obsActLabel, { color: obsActColor }]}>Obs. actividad:</Text>
+          <Text style={[s.obsActText, { color: obsActColor }]}>{act.observacion}</Text>
         </View>
       ) : null}
     </View>
   );
 }
 
-/** @param {{ paso: import('../../api/informeApi').PasoEjecucion }} props */
-function PasoBlock({ paso }) {
+/** @param {{ paso: import('../../api/informeApi').PasoEjecucion, fueraDeServicio: boolean }} props */
+function PasoBlock({ paso, fueraDeServicio }) {
   const completadas = paso.actividades.filter(a => a.estado === 'completada').length;
   return (
     <View style={s.pasoWrap}>
@@ -241,7 +244,7 @@ function PasoBlock({ paso }) {
       </View>
 
       {paso.actividades.map((act, idx) => (
-        <ActRow key={act.id} act={act} isLast={idx === paso.actividades.length - 1} />
+        <ActRow key={act.id} act={act} isLast={idx === paso.actividades.length - 1} fueraDeServicio={fueraDeServicio} />
       ))}
 
       {paso.comentarios ? (
@@ -315,31 +318,28 @@ function DispositivoBlock({ dispositivo: d, index }) {
           </View>
         )}
 
-        {d.notas_tecnicas ? (
-          <View style={s.notaBox}>
-            <Text style={s.notaText}><Text style={{ fontWeight: 'bold' }}>Notas técnicas: </Text>{d.notas_tecnicas}</Text>
-          </View>
-        ) : null}
+        <>
+          {/* Solo pasos con al menos una actividad con estado registrado */}
+          {d.pasos
+            .filter(paso => paso.actividades.some(a => a.estado === 'completada' || a.estado === 'omitida'))
+            .map(paso => <PasoBlock key={paso.id} paso={paso} fueraDeServicio={fueraDeServicio} />)
+          }
 
-        {fueraDeServicio ? (
-          <Text style={s.oosDiag}>
-            <Text style={{ fontWeight: 'bold' }}>Diagnóstico de falla: </Text>
-            {d.motivo_fuera_de_servicio || d.observacion_final || '—'}
-          </Text>
-        ) : (
-          <>
-            {d.pasos.map(paso => <PasoBlock key={paso.id} paso={paso} />)}
-
-            {d.observacion_final ? (
-              <View style={s.obsIntBox}>
-                <Text style={s.obsIntText}>
-                  <Text style={{ fontWeight: 'bold' }}>Obs. del técnico: </Text>
-                  {d.observacion_final}
-                </Text>
-              </View>
-            ) : null}
-          </>
-        )}
+          {/* Diagnóstico de falla — solo si FDS */}
+          {fueraDeServicio ? (
+            <Text style={s.oosDiag}>
+              <Text style={{ fontWeight: 'bold' }}>Diagnóstico de falla: </Text>
+              {d.motivo_fuera_de_servicio || d.observacion_final || '—'}
+            </Text>
+          ) : d.observacion_final ? (
+            <View style={s.obsIntBox}>
+              <Text style={s.obsIntText}>
+                <Text style={{ fontWeight: 'bold' }}>Obs. del dispositivo: </Text>
+                {d.observacion_final}
+              </Text>
+            </View>
+          ) : null}
+        </>
 
         {/* Etiqueta */}
         {d.codigo_etiqueta ? (

@@ -165,7 +165,7 @@ const ChatPanel = ({ informeId, userId }) => {
  * Editor de comentario de un paso. Guarda al confirmar (no cache).
  * @param {{ value: string|null, onSave: Function, saving: boolean }} props
  */
-const ComentarioEditor = ({ value, onSave, saving, onStartEdit }) => {
+const ComentarioEditor = ({ value, onSave, saving, onStartEdit, textColor }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState(value || '');
 
@@ -183,7 +183,7 @@ const ComentarioEditor = ({ value, onSave, saving, onStartEdit }) => {
   if (!editing) {
     return (
       <div className="group flex items-start gap-2" style={{ flex: 1 }}>
-        <span className="flex-1 text-[8.5px] text-[#1e40af] leading-relaxed">{value}</span>
+        <span className="flex-1 text-[8.5px] leading-relaxed" style={{ color: textColor || '#1e40af' }}>{value}</span>
         <button type="button" onClick={() => { setDraft(value || ''); setEditing(true); onStartEdit?.(); }}
           className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded hover:bg-blue-100">
           <Edit3 size={9} className="text-blue-400" />
@@ -219,7 +219,7 @@ const ComentarioEditor = ({ value, onSave, saving, onStartEdit }) => {
  * Trigger/display inline para la obs de actividad (fuera del modo edición).
  * El modo edición se maneja en ActRow para poder usar colSpan=2.
  */
-const ActividadObsEditor = ({ act, onSave, saving, editing, onStartEdit, onCancelEdit }) => {
+const ActividadObsEditor = ({ act, onSave, saving, editing, onStartEdit, onCancelEdit, textColor }) => {
   const [draft, setDraft] = useState(act.observacion || '');
 
   if (editing) {
@@ -251,7 +251,7 @@ const ActividadObsEditor = ({ act, onSave, saving, editing, onStartEdit, onCance
   if (act.observacion) {
     return (
       <div className="group flex items-start gap-1.5">
-        <span className="flex-1 text-2xs text-green-800 leading-relaxed">{act.observacion}</span>
+        <span className="flex-1 text-2xs leading-relaxed" style={{ color: textColor || '#166534' }}>{act.observacion}</span>
         <button type="button" onClick={() => { setDraft(act.observacion || ''); onStartEdit(); }}
           className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded hover:bg-green-100">
           <Edit3 size={9} className="text-green-600" />
@@ -284,7 +284,7 @@ const IntervencionObsEditor = ({ value, onSave, saving, onStartEdit }) => {
         {value ? (
           <>
             <span className="flex-1 text-[8.5px] text-[#1e40af] leading-relaxed">
-              <strong>Obs. del técnico:</strong> {value}
+              <strong>Obs. del dispositivo:</strong> {value}
             </span>
             <button type="button" onClick={() => { setDraft(value); setEditing(true); onStartEdit?.(); }}
               className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded hover:bg-gray-100">
@@ -1634,12 +1634,13 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
                 logoUrl={import.meta.env.VITE_LOGO_URL}
                 activeIntervencionId={activeIntervencionId}
                 onActivate={setActiveIntervencionId}
-                renderComentarioPaso={isReadOnly ? null : (intervencionId, pasoId, pasoProtocoloId, comentarioActual) => (
+                renderComentarioPaso={isReadOnly ? null : (intervencionId, pasoId, pasoProtocoloId, comentarioActual, textColor) => (
                   <ComentarioEditor
                     value={comentarioActual}
                     saving={savingPasoId === pasoProtocoloId}
                     onSave={(val) => handleSaveComentario(intervencionId, pasoProtocoloId, val)}
                     onStartEdit={() => setActiveIntervencionId(intervencionId)}
+                    textColor={textColor}
                   />
                 )}
                 renderComentarioActividad={isReadOnly ? null : (act, editCtx) => (
@@ -1650,6 +1651,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
                     editing={editCtx?.editing ?? false}
                     onStartEdit={() => { setActiveIntervencionId(act.intervencion_id); editCtx?.onStartEdit?.(); }}
                     onCancelEdit={editCtx?.onCancelEdit ?? (() => {})}
+                    textColor={editCtx?.textColor}
                   />
                 )}
                 renderObservacionIntervencion={isReadOnly ? null : (intervencionId, obsActual) => (

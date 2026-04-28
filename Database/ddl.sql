@@ -3571,12 +3571,13 @@ CREATE TRIGGER set_updated_at_usuario_documento
 
 -- ── RLS Policies ─────────────────────────────────────────────────────────────
 
--- El propio usuario puede ver sus documentos activos
-CREATE POLICY "usuario_ve_sus_documentos"
+-- El propio usuario puede gestionar sus propios documentos (leer, subir firma, etc.)
+CREATE POLICY "usuario_gestiona_sus_documentos"
 ON public.usuario_documento
-FOR SELECT
+FOR ALL
 TO authenticated
-USING (usuario_id = auth.uid() AND activo = true);
+USING (usuario_id = auth.uid())
+WITH CHECK (usuario_id = auth.uid());
 
 -- Staff de gestión puede leer y gestionar todos los documentos
 CREATE POLICY "staff_gestiona_documentos"
