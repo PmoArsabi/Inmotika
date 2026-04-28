@@ -159,7 +159,6 @@ export async function getAvanceDispositivoRecipients({ sucursalId, responsableEm
     fetchContactoEmailsBySucursal(sucursalId),
     fetchCoordinadorEmailsBySucursal(sucursalId),
   ]);
-  console.log('[avance-recipients] sucursalId:', sucursalId, '| contactos:', contactEmails, '| coordinadores:', coordEmails, '| responsable:', responsableEmail);
   const all = [...contactEmails, ...coordEmails];
   if (responsableEmail) all.push(responsableEmail);
   return [...new Set(all.filter(Boolean))];
@@ -173,18 +172,11 @@ export async function getAvanceDispositivoRecipients({ sucursalId, responsableEm
  * @returns {Promise<string[]>}
  */
 export async function getSolicitudVisitaEmailRecipients(actor) {
-  const [coordRows, directorEmails, supervisorEmails] = await Promise.all([
-    supabase
-      .from('coordinador')
-      .select('perfil:usuario_id(email)')
-      .eq('activo', true)
-      .limit(20)
-      .then(r => r.data || []),
+  const [coordEmails, directorEmails] = await Promise.all([
+    fetchCoordinadorEmailsBySucursal(actor.sucursalId),
     fetchDirectorEmailsByCliente(actor.clienteId),
-    getSupervisorCCs(actor),
   ]);
-  const coordEmails = coordRows.map(c => c.perfil?.email).filter(Boolean);
-  return [...coordEmails, ...directorEmails, ...supervisorEmails];
+  return [...new Set([...coordEmails, ...directorEmails].filter(Boolean))];
 }
 
 // ─── Utilidades ───────────────────────────────────────────────────────────────

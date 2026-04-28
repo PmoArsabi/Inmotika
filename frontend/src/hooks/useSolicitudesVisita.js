@@ -229,6 +229,7 @@ export const useSolicitudesVisita = () => {
             actorId: emailUser.id,
             actorRole: emailUser.role,
             clienteId: emailPayload.clienteId,
+            sucursalId: emailPayload.sucursalId,
           });
           if (!allEmails.length) return;
           const solicitante = sol.creador

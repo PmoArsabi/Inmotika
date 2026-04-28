@@ -164,14 +164,10 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
     `)
     .eq('id', visitaId)
     .maybeSingle()
-    .then(async ({ data: v, error: vErr }) => {
-      console.log('[avance] visita query result:', { v, vErr, visitaId, dispositivoId });
-      if (!v) {
-        console.warn('[avance] visita no encontrada (posiblemente intervencion no existe aún)');
-        return;
-      }
+    .then(async ({ data: v }) => {
+      if (!v) return;
 
-      // Resolver responsable: coordinador asignado o, si no, buscar director asignado
+      // Resolver responsable: coordinador asignado o, si no, buscar director asignado al cliente
       let responsableNombre = '';
       let responsableEmail  = null;
 
@@ -179,9 +175,7 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
         const cp = v.coordinador_perfil;
         responsableNombre = `${cp.nombres || ''} ${cp.apellidos || ''}`.trim();
         responsableEmail  = cp.email || null;
-        console.log('[avance] responsable (coordinador):', responsableEmail);
       } else if (v?.coordinador_usuario_id === null) {
-        // Programado por un Director — buscar director asignado al cliente
         const { data: dirs } = await supabase
           .from('cliente_director')
           .select('director:director_id(perfil:usuario_id(nombres, apellidos, email))')
@@ -193,12 +187,7 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
         if (p) {
           responsableNombre = `${p.nombres || ''} ${p.apellidos || ''}`.trim();
           responsableEmail  = p.email || null;
-          console.log('[avance] responsable (director via cliente_director):', responsableEmail);
-        } else {
-          console.warn('[avance] sin responsable: coordinador_usuario_id=null y sin director en cliente_director');
         }
-      } else {
-        console.warn('[avance] coordinador_usuario_id existe pero coordinador_perfil es null:', v.coordinador_usuario_id);
       }
 
       // Resumen de observaciones de actividades del dispositivo
@@ -229,11 +218,7 @@ export function notificarAvanceDispositivo(visitaId, dispositivoId, progreso, ac
         sucursalId: v.sucursal_id,
         responsableEmail,
       });
-      console.log('[avance] allEmails para sucursal', v.sucursal_id, ':', allEmails);
-      if (!allEmails.length) {
-        console.warn('[avance] lista de emails vacía — no se envía correo');
-        return;
-      }
+      if (!allEmails.length) return;
 
       const { destinatario, cc } = buildRecipients(allEmails[0], allEmails.slice(1));
       sendEmail('avance_dispositivo', {
