@@ -867,6 +867,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path = ''
 AS $function$
 DECLARE
     target_role_id  UUID;
@@ -955,12 +956,13 @@ CREATE OR REPLACE FUNCTION public.is_admin_or_coordinator()
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path = ''
 AS $function$
 BEGIN
   RETURN EXISTS (
-    SELECT 1 FROM perfil_usuario p
-    JOIN catalogo_rol r ON p.rol_id = r.id
-    WHERE p.id = auth.uid() 
+    SELECT 1 FROM public.perfil_usuario p
+    JOIN public.catalogo_rol r ON p.rol_id = r.id
+    WHERE p.id = auth.uid()
     AND r.codigo IN ('DIRECTOR', 'COORDINADOR')
   );
 END;
@@ -971,6 +973,7 @@ CREATE OR REPLACE FUNCTION public.is_user_active()
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path = ''
 AS $function$
 BEGIN
   RETURN EXISTS (
@@ -987,6 +990,7 @@ CREATE OR REPLACE FUNCTION public.is_management_staff()
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path = ''
 AS $function$
 BEGIN
   RETURN EXISTS (
@@ -1003,6 +1007,7 @@ CREATE OR REPLACE FUNCTION public.is_assigned_director(check_cliente_id uuid)
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path = ''
 AS $function$
 BEGIN
   RETURN EXISTS (
@@ -1020,6 +1025,7 @@ CREATE OR REPLACE FUNCTION public.is_tecnico_asignado_visita(check_visita_id uui
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path = ''
 AS $function$
 BEGIN
   RETURN EXISTS (
@@ -1037,6 +1043,7 @@ CREATE OR REPLACE FUNCTION public.get_current_tecnico_id()
  RETURNS uuid
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path = ''
 AS $function$
 DECLARE
   result uuid;
@@ -1084,6 +1091,7 @@ CREATE OR REPLACE FUNCTION public.sync_specialized_role_tables()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path = ''
 AS $function$
 DECLARE
     old_role_code TEXT;
@@ -2227,13 +2235,20 @@ grant trigger on table "public"."marca" to "service_role";
 grant truncate on table "public"."marca" to "service_role";
 grant update on table "public"."marca" to "service_role";
 
-  create policy "allow_all_authenticated"
+create policy "select_authenticated"
+  on "public"."actividad_protocolo"
+  as permissive
+  for select
+  to authenticated
+  using (true);
+
+create policy "write_management"
   on "public"."actividad_protocolo"
   as permissive
   for all
   to authenticated
-using (true)
-with check (true);
+  using (public.is_admin_or_coordinator())
+  with check (public.is_admin_or_coordinator());
 
   create policy "Admins can manage administrators"
   on "public"."administrador"
@@ -2304,13 +2319,20 @@ using (((activo = true) OR public.is_admin_or_coordinator()));
   to authenticated
 using (public.is_admin_or_coordinator());
 
-  create policy "allow_all_authenticated"
+create policy "select_authenticated"
+  on "public"."categoria_dispositivo"
+  as permissive
+  for select
+  to authenticated
+  using (true);
+
+create policy "write_management"
   on "public"."categoria_dispositivo"
   as permissive
   for all
   to authenticated
-using (true)
-with check (true);
+  using (public.is_admin_or_coordinator())
+  with check (public.is_admin_or_coordinator());
 
    create policy "Access for admins and assigned directors"
    on "public"."cliente"
@@ -2420,13 +2442,20 @@ using ((public.is_management_staff() OR (usuario_id = auth.uid())));
   to public
 using ((public.is_management_staff() OR (usuario_id = auth.uid())));
 
-  create policy "allow_all_authenticated"
+create policy "select_authenticated"
+  on "public"."paso_protocolo"
+  as permissive
+  for select
+  to authenticated
+  using (true);
+
+create policy "write_management"
   on "public"."paso_protocolo"
   as permissive
   for all
   to authenticated
-using (true)
-with check (true);
+  using (public.is_admin_or_coordinator())
+  with check (public.is_admin_or_coordinator());
 
   create policy "Admin access"
   on "public"."perfil_usuario"
@@ -2622,18 +2651,22 @@ CREATE TRIGGER on_user_role_change AFTER UPDATE OF rol_id ON public.perfil_usuar
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
 BEGIN
     NEW.updated_at = now();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE TRIGGER set_updated_at_proveedor BEFORE UPDATE ON public.proveedor FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 CREATE TRIGGER set_updated_at_marca BEFORE UPDATE ON public.marca FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 CREATE OR REPLACE FUNCTION public.recalcular_proximo_mantenimiento()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 DECLARE
   v_frecuencia  integer;
   v_estado_code text;
@@ -2671,7 +2704,7 @@ CREATE TRIGGER trg_recalcular_mantenimiento
 
 -- Trigger: recalcular fecha_proximo_mantenimiento cuando dispositivo vuelve de FDS a OPERATIVO
 CREATE OR REPLACE FUNCTION public.recalcular_mantenimiento_al_activar()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 DECLARE
   v_codigo_anterior text;
   v_codigo_nuevo    text;
@@ -2708,6 +2741,7 @@ CREATE OR REPLACE FUNCTION public.apply_pending_traslados()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = ''
 AS $$
 BEGIN
   UPDATE dispositivo d
@@ -2742,6 +2776,7 @@ CREATE OR REPLACE FUNCTION public.generate_preventive_visits()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = ''
 AS $$
 DECLARE
   v_tipo_visita_id   uuid;
@@ -3386,6 +3421,8 @@ DROP FUNCTION IF EXISTS public.validate_contacto_sucursal_coherencia() CASCADE;
 CREATE OR REPLACE FUNCTION public.validate_contacto_sucursal_coherencia()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
 AS $$
 DECLARE
   v_cliente_id_contacto uuid;
@@ -3742,7 +3779,7 @@ CREATE TRIGGER handle_informe_coordinador_updated_at
 -- Función + trigger: sincroniza solicitud_dispositivo cuando cambia la revisión del coordinador
 -- Garantiza que los dispositivos en la solicitud correctiva siempre reflejen el estado de informe_coordinador
 CREATE OR REPLACE FUNCTION public.sync_correctiva_from_informe_coordinador()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   v_solicitud_id   uuid;
   v_dispositivo_id uuid;
@@ -3978,3 +4015,43 @@ GRANT ALL ON public.chat_informe TO service_role;
 
 ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_informe;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.ejecucion_paso;
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SECURITY HARDENING — aplicar search_path y revocar EXECUTE a anon/authenticated
+-- donde corresponde (funciones de trigger, cron, RLS helpers).
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- search_path fijo en funciones que no tienen CREATE OR REPLACE en este DDL
+ALTER FUNCTION public.is_contacto_of_sucursal(uuid)             SET search_path = '';
+ALTER FUNCTION public.is_contacto_of_visita(uuid)               SET search_path = '';
+ALTER FUNCTION public.is_contacto_of_tecnico(uuid)              SET search_path = '';
+ALTER FUNCTION public.get_documentos_tecnicos_visita(uuid)       SET search_path = '';
+ALTER FUNCTION public.rls_auto_enable()                          SET search_path = '';
+ALTER FUNCTION public.validate_contacto_sucursal_mismo_cliente() SET search_path = '';
+
+-- Revocar EXECUTE en funciones de trigger interno (nunca se llaman desde REST)
+REVOKE EXECUTE ON FUNCTION public.handle_new_user()                          FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.sync_specialized_role_tables()             FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.sync_correctiva_from_informe_coordinador() FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.validate_contacto_sucursal_mismo_cliente() FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.validate_contacto_sucursal_coherencia()    FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.recalcular_proximo_mantenimiento()         FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.recalcular_mantenimiento_al_activar()      FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.rls_auto_enable()                          FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.handle_updated_at()                        FROM anon, authenticated;
+
+-- Revocar EXECUTE en cron jobs (solo los ejecuta el scheduler de Supabase)
+REVOKE EXECUTE ON FUNCTION public.apply_pending_traslados()                  FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.generate_preventive_visits()               FROM anon, authenticated;
+
+-- Revocar anon en RLS helpers (authenticated puede mantenerlo para políticas)
+REVOKE EXECUTE ON FUNCTION public.is_admin_or_coordinator()                  FROM anon;
+REVOKE EXECUTE ON FUNCTION public.is_user_active()                           FROM anon;
+REVOKE EXECUTE ON FUNCTION public.is_management_staff()                      FROM anon;
+REVOKE EXECUTE ON FUNCTION public.is_assigned_director(uuid)                 FROM anon;
+REVOKE EXECUTE ON FUNCTION public.is_tecnico_asignado_visita(uuid)           FROM anon;
+REVOKE EXECUTE ON FUNCTION public.get_current_tecnico_id()                   FROM anon;
+REVOKE EXECUTE ON FUNCTION public.is_contacto_of_sucursal(uuid)              FROM anon;
+REVOKE EXECUTE ON FUNCTION public.is_contacto_of_visita(uuid)                FROM anon;
+REVOKE EXECUTE ON FUNCTION public.is_contacto_of_tecnico(uuid)               FROM anon;
+REVOKE EXECUTE ON FUNCTION public.get_documentos_tecnicos_visita(uuid)       FROM anon;
