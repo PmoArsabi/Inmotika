@@ -56,8 +56,8 @@ async function informeToPdfBlob(informe, firmas = {}) {
   ] = await Promise.all([
     urlToBase64(firmas.firmaCoordinadorUrl ?? null),
     urlToBase64(firmas.firmaDirectorUrl    ?? null),
-    urlToBase64(firmas.logoUrl             ?? null),
-    urlToBase64(firmas.fondoUrl            ?? null),
+    urlToBase64(firmas.logoUrl  ? `${firmas.logoUrl}?t=${Date.now()}`  : null),
+    urlToBase64(firmas.fondoUrl ? `${firmas.fondoUrl}?t=${Date.now()}` : null),
     ...tecnicoFirmas.map(tf => urlToBase64(tf.firmaUrl ?? null)),
   ]);
 

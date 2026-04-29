@@ -1,7 +1,10 @@
 import React from 'react';
 import {
-  Document, Page, View, Text, Image, StyleSheet,
+  Document, Page, View, Text, Image, StyleSheet, Font,
 } from '@react-pdf/renderer';
+
+// Deshabilitar el guionado automático — las palabras largas saltan de línea completas
+Font.registerHyphenationCallback(word => [word]);
 
 // ─── Paleta ───────────────────────────────────────────────────────────────────
 
@@ -65,7 +68,6 @@ const s = StyleSheet.create({
   deviceHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: DARK, paddingVertical: 8, paddingHorizontal: 12,
-    borderTopLeftRadius: 5, borderTopRightRadius: 5,
     borderWidth: 1, borderColor: DARK,
   },
   deviceHeaderOOS: { backgroundColor: RED, borderColor: RED },
@@ -79,7 +81,6 @@ const s = StyleSheet.create({
     padding: 12, backgroundColor: WHITE,
     borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1,
     borderColor: BORD,
-    borderBottomLeftRadius: 5, borderBottomRightRadius: 5,
   },
   deviceBodyOOS: { backgroundColor: '#fff1f2', borderColor: '#fee2e2' },
 
@@ -204,16 +205,17 @@ function ActRow({ act, isLast, fueraDeServicio }) {
   // FDS: amarillo suave para obs actividad. Normal: ámbar/verde.
   const obsActBg    = fueraDeServicio ? '#fef9c3' : act.estado === 'omitida' ? '#fff7ed' : '#f0fdf4';
   const obsActColor = fueraDeServicio ? '#713f12' : act.estado === 'omitida' ? '#92400e' : '#166534';
+  // wrap={false} engloba fila + observación juntas — evita que queden en páginas distintas
   return (
     <View wrap={false}>
-      <View style={[s.tableRow, isLast ? s.tableRowLast : null]}>
+      <View style={[s.tableRow, isLast && !act.observacion ? s.tableRowLast : null]}>
         <Text style={s.tableCellDesc}>{act.descripcion}</Text>
         <View style={s.tableCellBadge}>
           <View style={wrapStyle}><Text style={textStyle}>{label}</Text></View>
         </View>
       </View>
       {act.observacion ? (
-        <View style={[s.obsActRow, { backgroundColor: obsActBg }]}>
+        <View style={[s.obsActRow, isLast ? s.tableRowLast : null, { backgroundColor: obsActBg }]}>
           <Text style={[s.obsActLabel, { color: obsActColor }]}>Obs. actividad:</Text>
           <Text style={[s.obsActText, { color: obsActColor }]}>{act.observacion}</Text>
         </View>
@@ -227,22 +229,19 @@ function PasoBlock({ paso, fueraDeServicio }) {
   const completadas = paso.actividades.filter(a => a.estado === 'completada').length;
   return (
     <View style={s.pasoWrap}>
-      {/* Header del paso + encabezado de tabla juntos — nunca separar */}
-      <View wrap={false}>
-        <View style={s.pasoHeader}>
-          <View style={s.pasoNumCircle}>
-            <Text style={s.pasoNumText}>{paso.orden}</Text>
-          </View>
-          <Text style={s.pasoDesc}>{paso.descripcion}</Text>
-          <Text style={s.pasoCount}>{completadas}/{paso.actividades.length} realizadas</Text>
+      <View style={s.pasoHeader}>
+        <View style={s.pasoNumCircle}>
+          <Text style={s.pasoNumText}>{paso.orden}</Text>
         </View>
-        {paso.actividades.length > 0 && (
-          <View style={s.tableHeader}>
-            <Text style={[s.tableHeaderCell, { flex: 1 }]}>Actividad Realizada</Text>
-            <Text style={s.tableHeaderCellRight}>Estado</Text>
-          </View>
-        )}
+        <Text style={s.pasoDesc}>{paso.descripcion}</Text>
+        <Text style={s.pasoCount}>{completadas}/{paso.actividades.length} realizadas</Text>
       </View>
+      {paso.actividades.length > 0 && (
+        <View style={s.tableHeader}>
+          <Text style={[s.tableHeaderCell, { flex: 1 }]}>Actividad Realizada</Text>
+          <Text style={s.tableHeaderCellRight}>Estado</Text>
+        </View>
+      )}
 
       {paso.actividades.map((act, idx) => (
         <ActRow key={act.id} act={act} isLast={idx === paso.actividades.length - 1} fueraDeServicio={fueraDeServicio} />
@@ -286,9 +285,8 @@ function DispositivoBlock({ dispositivo: d, index }) {
 
   return (
     <View style={[s.deviceWrap, fueraDeServicio ? s.deviceWrapOOS : null]}>
-      {/* Header + info fields juntos — nunca separar el encabezado del dispositivo */}
-      <View wrap={false}>
-      <View style={[s.deviceHeader, fueraDeServicio ? s.deviceHeaderOOS : null]}>
+      {/* Header — wrap={false} solo para el encabezado, sin arrastrar el body completo */}
+      <View wrap={false} style={[s.deviceHeader, fueraDeServicio ? s.deviceHeaderOOS : null]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={[s.deviceNumBadge, fueraDeServicio ? s.deviceNumBadgeOOS : null]}>
             <Text style={{ color: fueraDeServicio ? RED : WHITE, fontSize: 8, fontWeight: 'bold', textAlign: 'center' }}>
@@ -304,7 +302,6 @@ function DispositivoBlock({ dispositivo: d, index }) {
         </View>
         {fueraDeServicio && <Text style={s.deviceOOSLabel}>⚠ FUERA DE SERVICIO</Text>}
       </View>
-      </View>{/* fin wrap={false} del header */}
 
       {/* Body */}
       <View style={[s.deviceBody, fueraDeServicio ? s.deviceBodyOOS : null]}>
@@ -401,17 +398,23 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
   const tecnicoFirmas = informe.tecnico_firmas || [];
   const hasFondo      = !!fondoUrl;
 
-  // Cuando hay fondo: Page sin padding + View interno con los paddings reales.
-  // Así la imagen fixed absolute no se ve afectada por el padding del Page.
+  // Con fondo: los paddings van en el Page para que react-pdf los aplique en CADA
+  // página generada por overflow. La imagen position:absolute no es afectada por
+  // el padding del Page (sale del flujo normal), así que es seguro combinarlo.
   // Sin fondo: Page con padding normal via s.page.
   const pageStyle = hasFondo
-    ? { fontFamily: 'Helvetica', fontSize: 9, color: DARK, backgroundColor: WHITE }
+    ? {
+        fontFamily: 'Helvetica',
+        fontSize: 9,
+        color: DARK,
+        backgroundColor: WHITE,
+        paddingTop: 98,
+        paddingBottom: 55,
+        paddingLeft: 35,
+        paddingRight: 35,
+      }
     : s.page;
 
-  // Header PNG = 86pt + 12 margen. Footer PNG = 140pt + 10 margen. Laterales = 35pt.
-  const contentStyle = hasFondo
-    ? { flex: 1, paddingTop: 98, paddingBottom: 150, paddingLeft: 35, paddingRight: 35 }
-    : { flex: 1 };
 
   const innerContent = (
     <>
@@ -524,7 +527,7 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
       {informe.categorias.map(cat => (
         <View key={cat.categoria_nombre}>
           {informe.categorias.length > 1 ? (
-            <Text style={s.catLabel}>{cat.categoria_nombre}</Text>
+            <Text style={s.catLabel} minPresenceAhead={40}>{cat.categoria_nombre}</Text>
           ) : null}
           {cat.dispositivos.map((disp, idx) => (
             <DispositivoBlock key={disp.id} dispositivo={disp} index={idx} />
@@ -589,7 +592,14 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
           <Text style={s.footerText}>INMOTIKA S.A.S — Acceso a un mundo diferente</Text>
           <Text style={s.footerText}>Generado el {hoy} · Documento de uso interno</Text>
         </View>
-      ) : null}
+      ) : (
+        <View fixed style={{ position: 'absolute', bottom: 18, right: 35, alignItems: 'flex-end' }}>
+          <Text style={{ fontSize: 7.5, color: DARK, textAlign: 'right' }}>Carrera 64 # 67B 59 Piso 1</Text>
+          <Text style={{ fontSize: 7.5, color: DARK, textAlign: 'right' }}>Bogotá - Colombia</Text>
+          <Text style={{ fontSize: 7.5, color: DARK, textAlign: 'right' }}>+57 3209243634</Text>
+          <Text style={{ fontSize: 7.5, color: '#C62828', textAlign: 'right' }}>www.inmotika.com</Text>
+        </View>
+      )}
     </>
   );
 
@@ -597,19 +607,18 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
     <Document title={`Informe Técnico — ${informe.cliente_nombre}`} author="Inmotika">
       <Page size={[612, 792]} style={pageStyle}>
 
-        {/* ══ FONDO — va primero en el árbol para quedar detrás (react-pdf painter order) ══ */}
+        {/* ══ FONDO + LOGO — un solo View fixed para evitar conflictos entre fixed absolutes ══ */}
         {hasFondo ? (
-          <Image
-            src={fondoUrl}
-            fixed
-            style={{ position: 'absolute', top: 0, left: 0, width: 612, height: 792 }}
-          />
+          <View fixed style={{ position: 'absolute', top: 0, left: 0, width: 612, height: 792 }}>
+            <Image src={fondoUrl} style={{ position: 'absolute', top: 0, left: 0, width: 612, height: 792 }} />
+            {logoUrl ? (
+              <Image src={logoUrl} style={{ position: 'absolute', top: 15, left: 35, width: 160, height: 50 }} />
+            ) : null}
+          </View>
         ) : null}
 
-        {/* ══ CONTENIDO — View con los paddings reales, aislado de la imagen ══ */}
-        <View style={contentStyle}>
-          {innerContent}
-        </View>
+        {/* ══ CONTENIDO — directo en Page para que el paddingTop/Bottom se aplique en cada página ══ */}
+        {innerContent}
 
       </Page>
     </Document>
