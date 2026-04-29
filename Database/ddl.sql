@@ -2927,14 +2927,37 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_caller_email text;
 BEGIN
-  RETURN EXISTS (
+  -- Búsqueda directa por usuario_id
+  IF EXISTS (
     SELECT 1
     FROM public.visita v
     JOIN public.contacto_sucursal cs ON cs.sucursal_id = v.sucursal_id
     JOIN public.contacto c ON c.id = cs.contacto_id
     WHERE v.id = p_visita_id
       AND c.usuario_id = auth.uid()
+  ) THEN
+    RETURN true;
+  END IF;
+
+  -- Fallback: contacto con usuario_id NULL pero mismo email
+  SELECT email INTO v_caller_email
+  FROM public.perfil_usuario
+  WHERE id = auth.uid()
+  LIMIT 1;
+
+  IF v_caller_email IS NULL THEN RETURN false; END IF;
+
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.visita v
+    JOIN public.contacto_sucursal cs ON cs.sucursal_id = v.sucursal_id
+    JOIN public.contacto c ON c.id = cs.contacto_id
+    WHERE v.id = p_visita_id
+      AND c.usuario_id IS NULL
+      AND LOWER(c.email) = LOWER(v_caller_email)
   );
 END;
 $$;
@@ -2946,13 +2969,33 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_caller_email text;
 BEGIN
-  RETURN EXISTS (
+  IF EXISTS (
     SELECT 1
     FROM public.contacto_sucursal cs
     JOIN public.contacto c ON c.id = cs.contacto_id
     WHERE cs.sucursal_id = p_sucursal_id
       AND c.usuario_id = auth.uid()
+  ) THEN
+    RETURN true;
+  END IF;
+
+  SELECT email INTO v_caller_email
+  FROM public.perfil_usuario
+  WHERE id = auth.uid()
+  LIMIT 1;
+
+  IF v_caller_email IS NULL THEN RETURN false; END IF;
+
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.contacto_sucursal cs
+    JOIN public.contacto c ON c.id = cs.contacto_id
+    WHERE cs.sucursal_id = p_sucursal_id
+      AND c.usuario_id IS NULL
+      AND LOWER(c.email) = LOWER(v_caller_email)
   );
 END;
 $$;
@@ -3613,16 +3656,31 @@ SET search_path = public
 AS $$
 DECLARE
   v_contacto_id uuid;
+  v_caller_email text;
 BEGIN
-  -- Verificar que el caller es un contacto autenticado
+  -- Verificar que el caller es un contacto autenticado.
+  -- Búsqueda primaria por usuario_id; fallback por email en caso de que
+  -- contacto.usuario_id no haya sido vinculado en el momento del registro.
+  SELECT pu.email INTO v_caller_email
+  FROM public.perfil_usuario pu
+  WHERE pu.id = auth.uid()
+  LIMIT 1;
+
   SELECT c.id INTO v_contacto_id
   FROM public.contacto c
   WHERE c.usuario_id = auth.uid()
+     OR (c.usuario_id IS NULL AND LOWER(c.email) = LOWER(v_caller_email))
   LIMIT 1;
 
   IF v_contacto_id IS NULL THEN
     RETURN; -- No es contacto: devuelve vacío
   END IF;
+
+  -- Si el contacto no tenía usuario_id vinculado, vincularlo ahora
+  UPDATE public.contacto c2
+  SET usuario_id = auth.uid(), updated_at = now()
+  WHERE c2.id = v_contacto_id
+    AND c2.usuario_id IS NULL;
 
   -- Verificar que la visita pertenece a una sucursal del contacto
   IF NOT EXISTS (

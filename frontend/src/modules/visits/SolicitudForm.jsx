@@ -408,7 +408,7 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                       const initial = fullName.charAt(0).toUpperCase();
                       const tecnicoId = tec?.tecnicoId || idx;
                       const isOpen = selectedTecnico === tecnicoId;
-                      const tecDocs = docsTecnicos.filter(d => d.usuario_id === tec?.usuarioId);
+                      const tecDocs = docsTecnicos.filter(d => d.tecnico_nombres === tec?.nombres && d.tecnico_apellidos === tec?.apellidos);
                       return (
                         <div key={tecnicoId} className="rounded-xl border border-gray-100 overflow-hidden">
                           <button
