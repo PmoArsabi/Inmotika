@@ -1632,6 +1632,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
                 firmaDirectorUrl={firmaDirectorUrl}
                 tecnicoFirmas={tecnicoFirmas}
                 logoUrl={import.meta.env.VITE_LOGO_URL}
+                fondoUrl={import.meta.env.VITE_FONDO_URL || null}
                 activeIntervencionId={activeIntervencionId}
                 onActivate={setActiveIntervencionId}
                 renderComentarioPaso={isReadOnly ? null : (intervencionId, pasoId, pasoProtocoloId, comentarioActual, textColor) => (

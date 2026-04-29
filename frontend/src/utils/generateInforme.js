@@ -9,11 +9,34 @@ const SIGNED_URL_EXPIRES_IN = 60 * 60 * 24 * 7;
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
+ * Convierte una URL de imagen a base64 data URI para que react-pdf pueda usarla
+ * desde el Web Worker sin restricciones CORS.
+ * @param {string|null} url
+ * @returns {Promise<string|null>}
+ */
+async function urlToBase64(url) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror  = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Renderiza el documento react-pdf a Blob.
  * Las firmas se reciben como signed URLs ya resueltas.
  *
  * @param {import('../api/informeApi').InformeVisita} informe
- * @param {{ firmaCoordinadorUrl?: string|null, firmaDirectorUrl?: string|null }} firmas
+ * @param {{ firmaCoordinadorUrl?: string|null, firmaDirectorUrl?: string|null, logoUrl?: string|null, fondoUrl?: string|null }} firmas
  * @returns {Promise<Blob>}
  */
 async function informeToPdfBlob(informe, firmas = {}) {
@@ -21,12 +44,34 @@ async function informeToPdfBlob(informe, firmas = {}) {
   const { default: InformePDFDocument } = await import('../components/visits/InformePDFDocument');
   const { createElement } = await import('react');
 
+  // Convertir todas las URLs a base64 — react-pdf corre en Web Worker y no puede
+  // hacer fetch a URLs externas con CORS desde ese contexto.
+  const tecnicoFirmas = informe.tecnico_firmas || [];
+  const [
+    firmaCoordinadorB64,
+    firmaDirectorB64,
+    logoB64,
+    fondoB64,
+    ...tecnicoFirmasB64
+  ] = await Promise.all([
+    urlToBase64(firmas.firmaCoordinadorUrl ?? null),
+    urlToBase64(firmas.firmaDirectorUrl    ?? null),
+    urlToBase64(firmas.logoUrl             ?? null),
+    urlToBase64(firmas.fondoUrl            ?? null),
+    ...tecnicoFirmas.map(tf => urlToBase64(tf.firmaUrl ?? null)),
+  ]);
+
+  const informeConFirmasB64 = {
+    ...informe,
+    tecnico_firmas: tecnicoFirmas.map((tf, i) => ({ ...tf, firmaUrl: tecnicoFirmasB64[i] })),
+  };
+
   const element = createElement(InformePDFDocument, {
-    informe,
-    firmaCoordinadorUrl: firmas.firmaCoordinadorUrl ?? null,
-    firmaDirectorUrl:    firmas.firmaDirectorUrl    ?? null,
-    logoUrl:             firmas.logoUrl             ?? null,
-    fondoUrl:            firmas.fondoUrl            ?? null,
+    informe:             informeConFirmasB64,
+    firmaCoordinadorUrl: firmaCoordinadorB64,
+    firmaDirectorUrl:    firmaDirectorB64,
+    logoUrl:             logoB64,
+    fondoUrl:            fondoB64,
   });
 
   return pdf(element).toBlob();

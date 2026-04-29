@@ -445,11 +445,14 @@ export default function InformePDFTemplate({
   firmaDirectorUrl = null,
   tecnicoFirmas = [],
   logoUrl = null,
+  fondoUrl = null,
   activeIntervencionId = null,
   onActivate = null,
 }) {
   const hoy       = fmtFecha(new Date().toISOString());
   const totalDisp = informe.categorias.reduce((s, c) => s + c.dispositivos.length, 0);
+  // Si hay fondo PNG, la cabecera y pie ya están en la imagen — no duplicar
+  const tieneFondo = !!fondoUrl;
 
   const obsCoordinador = informe.observacion_coordinador || null;
   const obsDirector    = informe.observacion_director    || null;
@@ -468,31 +471,45 @@ export default function InformePDFTemplate({
       boxSizing: 'border-box',
     }}>
 
-      {/* ══ CABECERA ══ */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', background: DARK, borderRadius: '8px', padding: '16px 24px' }}>
-        <div>
-          {logoUrl ? (
-            <img src={logoUrl} alt="INMOTIKA" style={{ height: '44px', width: 'auto', objectFit: 'contain' }} />
-          ) : (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                <h1 style={{ fontSize: '24px', fontWeight: '900', margin: '0', letterSpacing: '-1px', color: WHITE }}>INMOTIKA</h1>
-              </div>
-              <p style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '2px', color: '#9ca3af', margin: '0' }}>
-                Acceso a un mundo diferente
-              </p>
-            </>
-          )}
+      {/* ══ CABECERA — solo si no hay fondo PNG ══ */}
+      {!tieneFondo && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', background: DARK, borderRadius: '8px', padding: '16px 24px' }}>
+          <div>
+            {logoUrl ? (
+              <img src={logoUrl} alt="INMOTIKA" style={{ height: '44px', width: 'auto', objectFit: 'contain' }} />
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                  <h1 style={{ fontSize: '24px', fontWeight: '900', margin: '0', letterSpacing: '-1px', color: WHITE }}>INMOTIKA</h1>
+                </div>
+                <p style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '2px', color: '#9ca3af', margin: '0' }}>
+                  Acceso a un mundo diferente
+                </p>
+              </>
+            )}
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ display: 'inline-block', background: RED, color: WHITE, padding: '4px 12px', borderRadius: '4px', fontSize: '9px', fontWeight: '700', marginBottom: '8px' }}>
+              INFORME TÉCNICO
+            </span>
+            <p style={{ fontSize: '10px', color: '#9ca3af', margin: '0' }}>
+              Fecha: <span style={{ color: WHITE, fontWeight: '700' }}>{hoy}</span>
+            </p>
+          </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <span style={{ display: 'inline-block', background: RED, color: WHITE, padding: '4px 12px', borderRadius: '4px', fontSize: '9px', fontWeight: '700', marginBottom: '8px' }}>
+      )}
+
+      {/* Badge tipo documento + fecha generación — visible cuando hay fondo PNG */}
+      {tieneFondo && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <span style={{ display: 'inline-block', background: RED, color: WHITE, padding: '3px 10px', borderRadius: '3px', fontSize: '8px', fontWeight: '700' }}>
             INFORME TÉCNICO
           </span>
-          <p style={{ fontSize: '10px', color: '#9ca3af', margin: '0' }}>
-            Fecha: <span style={{ color: WHITE, fontWeight: '700' }}>{hoy}</span>
-          </p>
+          <span style={{ fontSize: '8px', color: GRAY }}>
+            Generado: <strong style={{ color: DARK }}>{hoy}</strong>
+          </span>
         </div>
-      </div>
+      )}
 
       {/* ══ DATOS CLIENTE + CRONOGRAMA ══ */}
       <div style={{
@@ -669,15 +686,17 @@ export default function InformePDFTemplate({
         );
       })()}
 
-      {/* ══ FOOTER ══ */}
-      <div style={{
-        marginTop: '40px', borderTop: `1px solid ${LBORD}`,
-        paddingTop: '15px', display: 'flex',
-        justifyContent: 'space-between', alignItems: 'center',
-      }}>
-        <span style={{ fontSize: '8px', color: LGRAY }}>INMOTIKA S.A.S — Acceso a un mundo diferente</span>
-        <span style={{ fontSize: '8px', color: LGRAY }}>Generado el {hoy} · Documento de uso interno</span>
-      </div>
+      {/* ══ FOOTER — solo si no hay fondo PNG ══ */}
+      {!tieneFondo && (
+        <div style={{
+          marginTop: '40px', borderTop: `1px solid ${LBORD}`,
+          paddingTop: '15px', display: 'flex',
+          justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: '8px', color: LGRAY }}>INMOTIKA S.A.S — Acceso a un mundo diferente</span>
+          <span style={{ fontSize: '8px', color: LGRAY }}>Generado el {hoy} · Documento de uso interno</span>
+        </div>
+      )}
 
     </div>
   );

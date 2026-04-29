@@ -78,7 +78,7 @@ async function getSignedUrls(paths) {
 
   const { data, error } = await supabase.storage
     .from('inmotika')
-    .createSignedUrls(paths, 3600); // 1 hora de validez
+    .createSignedUrls(paths, 86400); // 24 horas de validez
 
   if (error || !data) return {};
 
@@ -552,6 +552,8 @@ export async function aprobarYGenerarPDF(informeId, visitaId, ctx) {
   const { pdfUrl } = await generateInformeFromData(visitaId, ctx.informe, {
     firmaCoordinadorUrl: ctx.firmaCoordinadorUrl ?? null,
     firmaDirectorUrl:    ctx.firmaDirectorUrl    ?? null,
+    logoUrl:             ctx.logoUrl             ?? null,
+    fondoUrl:            ctx.fondoUrl            ?? null,
   });
 
   const storagePath = `informes/${visitaId}/informe.pdf`;
@@ -907,7 +909,7 @@ export async function uploadEvidenciaInforme(visitaId, dispositivoId, intervenci
 
   const { data: signed } = await supabase.storage
     .from('inmotika')
-    .createSignedUrl(storagePath, 3600);
+    .createSignedUrl(storagePath, 86400); // 24 horas de validez
 
   return { id: inserted.id, url: inserted.url, signedUrl: signed?.signedUrl || null };
 }

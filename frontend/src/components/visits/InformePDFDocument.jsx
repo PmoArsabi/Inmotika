@@ -144,6 +144,7 @@ const s = StyleSheet.create({
   evidSection: { marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: BORD, borderTopStyle: 'dashed' },
   evidTitle: { fontSize: 7, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.8, color: GRAY, marginBottom: 6 },
   evidRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  evidItem: { width: 120 },
   evidImg: { width: 120, height: 80, objectFit: 'cover', borderRadius: 4, borderWidth: 1, borderColor: BORD },
   evidCaption: { fontSize: 7, color: GRAY, textAlign: 'center', marginTop: 2 },
 
@@ -355,13 +356,13 @@ function DispositivoBlock({ dispositivo: d, index }) {
             <Text style={s.evidTitle}>Evidencia fotográfica</Text>
             <View style={s.evidRow}>
               {fotoEtiquetaUrl ? (
-                <View>
+                <View style={s.evidItem} wrap={false}>
                   <Image src={fotoEtiquetaUrl} style={s.evidImg} />
                   <Text style={s.evidCaption}>Foto Etiqueta</Text>
                 </View>
               ) : null}
               {fotosUrls.map((url, i) => (
-                <View key={i}>
+                <View key={i} style={s.evidItem} wrap={false}>
                   <Image src={url} style={s.evidImg} />
                   <Text style={s.evidCaption}>Foto {i + 1}</Text>
                 </View>
@@ -395,216 +396,220 @@ function DispositivoBlock({ dispositivo: d, index }) {
  * }} props
  */
 export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null, firmaDirectorUrl = null, logoUrl = null, fondoUrl = null }) {
-  const hoy       = fmtFecha(new Date().toISOString());
-  const totalDisp = informe.categorias.reduce((s, c) => s + c.dispositivos.length, 0);
+  const hoy           = fmtFecha(new Date().toISOString());
+  const totalDisp     = informe.categorias.reduce((s, c) => s + c.dispositivos.length, 0);
   const tecnicoFirmas = informe.tecnico_firmas || [];
+  const hasFondo      = !!fondoUrl;
 
-  // Cuando hay fondo PNG (cabecera+pie incluidos), ajustar márgenes y omitir header/footer propios
-  const pageStyle = fondoUrl
-    ? { ...s.page, paddingTop: 105, paddingBottom: 85 }
+  // Cuando hay fondo: Page sin padding + View interno con los paddings reales.
+  // Así la imagen fixed absolute no se ve afectada por el padding del Page.
+  // Sin fondo: Page con padding normal via s.page.
+  const pageStyle = hasFondo
+    ? { fontFamily: 'Helvetica', fontSize: 9, color: DARK, backgroundColor: WHITE }
     : s.page;
+
+  // Header PNG = 86pt + 12 margen. Footer PNG = 140pt + 10 margen. Laterales = 35pt.
+  const contentStyle = hasFondo
+    ? { flex: 1, paddingTop: 98, paddingBottom: 150, paddingLeft: 35, paddingRight: 35 }
+    : { flex: 1 };
+
+  const innerContent = (
+    <>
+      {/* ══ CABECERA — solo si no hay fondo PNG ══ */}
+      {!hasFondo ? (
+        <View style={s.header}>
+          <View style={s.headerLeft}>
+            {logoUrl ? (
+              <Image src={logoUrl} style={{ width: 130, height: 40, objectFit: 'contain' }} />
+            ) : (
+              <View style={{ flexDirection: 'column' }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#B71C1C', letterSpacing: -0.5 }}>INMOTIKA</Text>
+                <Text style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: 1.5, color: '#6b7280', marginTop: 2 }}>Acceso a un mundo diferente</Text>
+              </View>
+            )}
+          </View>
+          <View style={s.headerRight}>
+            <Text style={s.headerBadge}>INFORME TÉCNICO</Text>
+            <Text style={s.headerDate}>Fecha: <Text style={s.headerDateBold}>{hoy}</Text></Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Badge de tipo de documento — visible solo con fondo (reemplaza al header) */}
+      {hasFondo ? (
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <View style={{ backgroundColor: RED, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 3 }}>
+            <Text style={{ color: WHITE, fontSize: 7.5, fontWeight: 'bold' }}>INFORME TÉCNICO</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* ══ DATOS CLIENTE + CRONOGRAMA ══ */}
+      <View style={s.infoBox}>
+        <View style={s.infoLeft}>
+          <Text style={s.infoSectionTitle}>Detalles del Cliente</Text>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Cliente:</Text>
+            <Text style={s.infoValue}>{informe.cliente_nombre}</Text>
+          </View>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Sede:</Text>
+            <Text style={s.infoValueNormal}>{informe.sucursal_nombre}</Text>
+          </View>
+          {informe.sucursal_ciudad ? (
+            <View style={s.infoRow}>
+              <Text style={s.infoLabel}>Ciudad:</Text>
+              <Text style={s.infoValueNormal}>
+                {informe.sucursal_ciudad}{informe.sucursal_direccion ? ` — ${informe.sucursal_direccion}` : ''}
+              </Text>
+            </View>
+          ) : null}
+          {informe.cliente_nit ? (
+            <View style={s.infoRow}>
+              <Text style={s.infoLabel}>NIT:</Text>
+              <Text style={s.infoValueNormal}>{informe.cliente_nit}</Text>
+            </View>
+          ) : null}
+          {informe.tecnicos ? (
+            <View style={s.infoRow}>
+              <Text style={s.infoLabel}>Técnico(s):</Text>
+              <Text style={s.infoValueNormal}>{informe.tecnicos}</Text>
+            </View>
+          ) : null}
+          {(informe.coordinador_nombre || informe.coordinador) ? (
+            <View style={s.infoRow}>
+              <Text style={s.infoLabel}>Coordinador:</Text>
+              <Text style={s.infoValueNormal}>{informe.coordinador_nombre || informe.coordinador}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={s.infoRight}>
+          <Text style={s.infoSectionTitle}>Cronograma</Text>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Programada:</Text>
+            <Text style={s.infoValueNormal}>{fmtFecha(informe.fecha_programada)}</Text>
+          </View>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Inicio:</Text>
+            <Text style={s.infoValueNormal}>{fmtHora(informe.fecha_inicio)}</Text>
+          </View>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Fin:</Text>
+            <Text style={s.infoValueNormal}>{fmtHora(informe.fecha_fin)}</Text>
+          </View>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Tipo:</Text>
+            <Text style={s.infoValueNormal}>{informe.tipo_visita}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* ══ INSTRUCCIONES ══ */}
+      {informe.instrucciones ? (
+        <View style={s.instrBox}>
+          <Text style={s.instrText}>
+            <Text style={{ fontWeight: 'bold' }}>Instrucciones del Coordinador: </Text>
+            {informe.instrucciones}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* ══ TÍTULO EQUIPOS ══ */}
+      <Text style={s.sectionTitle}>
+        Equipos Intervenidos <Text style={s.sectionTitleRed}>({totalDisp})</Text>
+      </Text>
+
+      {/* ══ DISPOSITIVOS POR CATEGORÍA ══ */}
+      {informe.categorias.map(cat => (
+        <View key={cat.categoria_nombre}>
+          {informe.categorias.length > 1 ? (
+            <Text style={s.catLabel}>{cat.categoria_nombre}</Text>
+          ) : null}
+          {cat.dispositivos.map((disp, idx) => (
+            <DispositivoBlock key={disp.id} dispositivo={disp} index={idx} />
+          ))}
+        </View>
+      ))}
+
+      {/* ══ OBSERVACIÓN COORDINADOR ══ */}
+      {informe.observacion_coordinador ? (
+        <View style={s.obsSection}>
+          <View style={s.obsSectionAccent}>
+            <Text style={s.obsSectionLabel}>Observación del Coordinador</Text>
+          </View>
+          <View style={s.obsSectionBox}>
+            <Text style={s.obsSectionText}>{informe.observacion_coordinador}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* ══ OBSERVACIÓN DIRECTOR ══ */}
+      {informe.observacion_director ? (
+        <View style={[s.obsSection, { marginTop: 12 }]}>
+          <View style={s.obsSectionAccentBlue}>
+            <Text style={s.obsSectionLabel}>Observación del Director</Text>
+          </View>
+          <View style={s.obsSectionBoxBlue}>
+            <Text style={s.obsSectionText}>{informe.observacion_director}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* ══ FIRMAS ══ */}
+      <View style={s.signaturesRow} wrap={false}>
+        {tecnicoFirmas.map((tf, i) => (
+          <View key={i} style={s.signatureCol} wrap={false}>
+            <View style={s.signatureImgBox}>
+              {tf.firmaUrl ? <Image src={tf.firmaUrl} style={s.signatureImg} /> : null}
+            </View>
+            <Text style={s.signatureName}>{tf.nombre || 'Técnico'}</Text>
+            <Text style={s.signatureRole}>Técnico de Campo</Text>
+          </View>
+        ))}
+        <View style={s.signatureCol} wrap={false}>
+          <View style={s.signatureImgBox}>
+            {firmaCoordinadorUrl ? <Image src={firmaCoordinadorUrl} style={s.signatureImg} /> : null}
+          </View>
+          <Text style={s.signatureName}>{informe.coordinador_nombre || informe.coordinador || 'Coordinador'}</Text>
+          <Text style={s.signatureRole}>Coordinador Revisor</Text>
+        </View>
+        <View style={s.signatureCol} wrap={false}>
+          <View style={s.signatureImgBox}>
+            {firmaDirectorUrl ? <Image src={firmaDirectorUrl} style={s.signatureImg} /> : null}
+          </View>
+          <Text style={s.signatureName}>{informe.director_nombre || 'Director'}</Text>
+          <Text style={s.signatureRole}>Director Aprobador</Text>
+        </View>
+      </View>
+
+      {/* ══ FOOTER — solo si no hay fondo PNG ══ */}
+      {!hasFondo ? (
+        <View style={s.footer} fixed>
+          <Text style={s.footerText}>INMOTIKA S.A.S — Acceso a un mundo diferente</Text>
+          <Text style={s.footerText}>Generado el {hoy} · Documento de uso interno</Text>
+        </View>
+      ) : null}
+    </>
+  );
 
   return (
     <Document title={`Informe Técnico — ${informe.cliente_nombre}`} author="Inmotika">
-      <Page size="A4" style={pageStyle}>
+      <Page size={[612, 792]} style={pageStyle}>
 
-        {/* ══ FONDO — se repite en cada página automáticamente ══ */}
-        {fondoUrl ? (
+        {/* ══ FONDO — va primero en el árbol para quedar detrás (react-pdf painter order) ══ */}
+        {hasFondo ? (
           <Image
             src={fondoUrl}
             fixed
-            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+            style={{ position: 'absolute', top: 0, left: 0, width: 612, height: 792 }}
           />
         ) : null}
 
-        {/* ══ CABECERA — solo si no hay fondo PNG ══ */}
-        {!fondoUrl ? (
-          <View style={s.header}>
-            <View style={s.headerLeft}>
-              {logoUrl ? (
-                <Image src={logoUrl} style={{ width: 130, height: 40, objectFit: 'contain' }} />
-              ) : (
-                <View style={{ flexDirection: 'column' }}>
-                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#B71C1C', letterSpacing: -0.5 }}>INMOTIKA</Text>
-                  <Text style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: 1.5, color: '#6b7280', marginTop: 2 }}>Acceso a un mundo diferente</Text>
-                </View>
-              )}
-            </View>
-            <View style={s.headerRight}>
-              <Text style={s.headerBadge}>INFORME TÉCNICO</Text>
-              <Text style={s.headerDate}>Fecha: <Text style={s.headerDateBold}>{hoy}</Text></Text>
-            </View>
-          </View>
-        ) : null}
-
-        {/* Badge de tipo de documento — visible solo con fondo (reemplaza al header) */}
-        {fondoUrl ? (
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 16 }}>
-            <View style={{ backgroundColor: RED, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 3 }}>
-              <Text style={{ color: WHITE, fontSize: 7.5, fontWeight: 'bold' }}>INFORME TÉCNICO</Text>
-            </View>
-          </View>
-        ) : null}
-
-        {/* ══ DATOS CLIENTE + CRONOGRAMA ══ */}
-        <View style={s.infoBox}>
-          {/* Izquierda: cliente */}
-          <View style={s.infoLeft}>
-            <Text style={s.infoSectionTitle}>Detalles del Cliente</Text>
-            <View style={s.infoRow}>
-              <Text style={s.infoLabel}>Cliente:</Text>
-              <Text style={s.infoValue}>{informe.cliente_nombre}</Text>
-            </View>
-            <View style={s.infoRow}>
-              <Text style={s.infoLabel}>Sede:</Text>
-              <Text style={s.infoValueNormal}>{informe.sucursal_nombre}</Text>
-            </View>
-            {informe.sucursal_ciudad ? (
-              <View style={s.infoRow}>
-                <Text style={s.infoLabel}>Ciudad:</Text>
-                <Text style={s.infoValueNormal}>
-                  {informe.sucursal_ciudad}{informe.sucursal_direccion ? ` — ${informe.sucursal_direccion}` : ''}
-                </Text>
-              </View>
-            ) : null}
-            {informe.cliente_nit ? (
-              <View style={s.infoRow}>
-                <Text style={s.infoLabel}>NIT:</Text>
-                <Text style={s.infoValueNormal}>{informe.cliente_nit}</Text>
-              </View>
-            ) : null}
-            {informe.tecnicos ? (
-              <View style={s.infoRow}>
-                <Text style={s.infoLabel}>Técnico(s):</Text>
-                <Text style={s.infoValueNormal}>{informe.tecnicos}</Text>
-              </View>
-            ) : null}
-            {(informe.coordinador_nombre || informe.coordinador) ? (
-              <View style={s.infoRow}>
-                <Text style={s.infoLabel}>Coordinador:</Text>
-                <Text style={s.infoValueNormal}>{informe.coordinador_nombre || informe.coordinador}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {/* Derecha: cronograma */}
-          <View style={s.infoRight}>
-            <Text style={s.infoSectionTitle}>Cronograma</Text>
-            <View style={s.infoRow}>
-              <Text style={s.infoLabel}>Programada:</Text>
-              <Text style={s.infoValueNormal}>{fmtFecha(informe.fecha_programada)}</Text>
-            </View>
-            <View style={s.infoRow}>
-              <Text style={s.infoLabel}>Inicio:</Text>
-              <Text style={s.infoValueNormal}>{fmtHora(informe.fecha_inicio)}</Text>
-            </View>
-            <View style={s.infoRow}>
-              <Text style={s.infoLabel}>Fin:</Text>
-              <Text style={s.infoValueNormal}>{fmtHora(informe.fecha_fin)}</Text>
-            </View>
-            <View style={s.infoRow}>
-              <Text style={s.infoLabel}>Tipo:</Text>
-              <Text style={s.infoValueNormal}>{informe.tipo_visita}</Text>
-            </View>
-          </View>
+        {/* ══ CONTENIDO — View con los paddings reales, aislado de la imagen ══ */}
+        <View style={contentStyle}>
+          {innerContent}
         </View>
-
-        {/* ══ INSTRUCCIONES ══ */}
-        {informe.instrucciones ? (
-          <View style={s.instrBox}>
-            <Text style={s.instrText}>
-              <Text style={{ fontWeight: 'bold' }}>Instrucciones del Coordinador: </Text>
-              {informe.instrucciones}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* ══ TÍTULO EQUIPOS ══ */}
-        <Text style={s.sectionTitle}>
-          Equipos Intervenidos <Text style={s.sectionTitleRed}>({totalDisp})</Text>
-        </Text>
-
-        {/* ══ DISPOSITIVOS POR CATEGORÍA ══ */}
-        {informe.categorias.map(cat => (
-          <View key={cat.categoria_nombre}>
-            {informe.categorias.length > 1 ? (
-              <Text style={s.catLabel}>{cat.categoria_nombre}</Text>
-            ) : null}
-            {cat.dispositivos.map((disp, idx) => (
-              <DispositivoBlock key={disp.id} dispositivo={disp} index={idx} />
-            ))}
-          </View>
-        ))}
-
-        {/* ══ OBSERVACIÓN COORDINADOR ══ */}
-        {informe.observacion_coordinador ? (
-          <View style={s.obsSection}>
-            <View style={s.obsSectionAccent}>
-              <Text style={s.obsSectionLabel}>Observación del Coordinador</Text>
-            </View>
-            <View style={s.obsSectionBox}>
-              <Text style={s.obsSectionText}>{informe.observacion_coordinador}</Text>
-            </View>
-          </View>
-        ) : null}
-
-        {/* ══ OBSERVACIÓN DIRECTOR ══ */}
-        {informe.observacion_director ? (
-          <View style={[s.obsSection, { marginTop: 12 }]}>
-            <View style={s.obsSectionAccentBlue}>
-              <Text style={s.obsSectionLabel}>Observación del Director</Text>
-            </View>
-            <View style={s.obsSectionBoxBlue}>
-              <Text style={s.obsSectionText}>{informe.observacion_director}</Text>
-            </View>
-          </View>
-        ) : null}
-
-        {/* ══ FIRMAS ══ */}
-        <View style={s.signaturesRow} wrap={false}>
-          {/* Firmas de técnicos */}
-          {tecnicoFirmas.map((tf, i) => (
-            <View key={i} style={s.signatureCol} wrap={false}>
-              <View style={s.signatureImgBox}>
-                {tf.firmaUrl ? <Image src={tf.firmaUrl} style={s.signatureImg} /> : null}
-              </View>
-              <Text style={s.signatureName}>{tf.nombre || 'Técnico'}</Text>
-              <Text style={s.signatureRole}>Técnico de Campo</Text>
-            </View>
-          ))}
-
-          {/* Firma coordinador */}
-          <View style={s.signatureCol} wrap={false}>
-            <View style={s.signatureImgBox}>
-              {firmaCoordinadorUrl ? (
-                <Image src={firmaCoordinadorUrl} style={s.signatureImg} />
-              ) : null}
-            </View>
-            <Text style={s.signatureName}>
-              {informe.coordinador_nombre || informe.coordinador || 'Coordinador'}
-            </Text>
-            <Text style={s.signatureRole}>Coordinador Revisor</Text>
-          </View>
-
-          {/* Firma director */}
-          <View style={s.signatureCol} wrap={false}>
-            <View style={s.signatureImgBox}>
-              {firmaDirectorUrl ? (
-                <Image src={firmaDirectorUrl} style={s.signatureImg} />
-              ) : null}
-            </View>
-            <Text style={s.signatureName}>{informe.director_nombre || 'Director'}</Text>
-            <Text style={s.signatureRole}>Director Aprobador</Text>
-          </View>
-        </View>
-
-        {/* ══ FOOTER — solo si no hay fondo PNG ══ */}
-        {!fondoUrl ? (
-          <View style={s.footer} fixed>
-            <Text style={s.footerText}>INMOTIKA S.A.S — Acceso a un mundo diferente</Text>
-            <Text style={s.footerText}>Generado el {hoy} · Documento de uso interno</Text>
-          </View>
-        ) : null}
 
       </Page>
     </Document>
