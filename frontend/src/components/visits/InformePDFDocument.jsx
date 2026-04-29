@@ -261,9 +261,10 @@ function PasoBlock({ paso, fueraDeServicio }) {
  * @param {{
  *   dispositivo: import('../../api/informeApi').DispositivoInforme,
  *   index: number,
+ *   catLabel?: string|null,
  * }} props
  */
-function DispositivoBlock({ dispositivo: d, index }) {
+function DispositivoBlock({ dispositivo: d, index, catLabel: catLabelText = null }) {
   const fueraDeServicio = !!d.fuera_de_servicio;
 
   const dispositivoNombre = [d.modelo, d.marca_nombre].filter(Boolean).join(' · ')
@@ -285,8 +286,12 @@ function DispositivoBlock({ dispositivo: d, index }) {
 
   return (
     <View style={[s.deviceWrap, fueraDeServicio ? s.deviceWrapOOS : null]}>
-      {/* Header — wrap={false} solo para el encabezado, sin arrastrar el body completo */}
-      <View wrap={false} style={[s.deviceHeader, fueraDeServicio ? s.deviceHeaderOOS : null]}>
+      {/* Etiqueta de categoría — pegada aquí para que nunca quede separada del dispositivo */}
+      {catLabelText ? (
+        <Text style={s.catLabel}>{catLabelText}</Text>
+      ) : null}
+      {/* Header — minPresenceAhead evita que quede huérfano al final de página sin reservar espacio extra */}
+      <View minPresenceAhead={80} style={[s.deviceHeader, fueraDeServicio ? s.deviceHeaderOOS : null]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={[s.deviceNumBadge, fueraDeServicio ? s.deviceNumBadgeOOS : null]}>
             <Text style={{ color: fueraDeServicio ? RED : WHITE, fontSize: 8, fontWeight: 'bold', textAlign: 'center' }}>
@@ -526,11 +531,13 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
       {/* ══ DISPOSITIVOS POR CATEGORÍA ══ */}
       {informe.categorias.map(cat => (
         <View key={cat.categoria_nombre}>
-          {informe.categorias.length > 1 ? (
-            <Text style={s.catLabel} minPresenceAhead={40}>{cat.categoria_nombre}</Text>
-          ) : null}
           {cat.dispositivos.map((disp, idx) => (
-            <DispositivoBlock key={disp.id} dispositivo={disp} index={idx} />
+            <DispositivoBlock
+              key={disp.id}
+              dispositivo={disp}
+              index={idx}
+              catLabel={informe.categorias.length > 1 && idx === 0 ? cat.categoria_nombre : null}
+            />
           ))}
         </View>
       ))}
@@ -607,13 +614,15 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
     <Document title={`Informe Técnico — ${informe.cliente_nombre}`} author="Inmotika">
       <Page size={[612, 792]} style={pageStyle}>
 
-        {/* ══ FONDO + LOGO — un solo View fixed para evitar conflictos entre fixed absolutes ══ */}
+        {/* ══ FONDO + LOGO — Views fixed separados; Image no soporta fixed directamente ══ */}
         {hasFondo ? (
           <View fixed style={{ position: 'absolute', top: 0, left: 0, width: 612, height: 792 }}>
             <Image src={fondoUrl} style={{ position: 'absolute', top: 0, left: 0, width: 612, height: 792 }} />
-            {logoUrl ? (
-              <Image src={logoUrl} style={{ position: 'absolute', top: 15, left: 35, width: 160, height: 50 }} />
-            ) : null}
+          </View>
+        ) : null}
+        {hasFondo && logoUrl ? (
+          <View fixed style={{ position: 'absolute', top: 22, left: 35, width: 160, height: 50 }}>
+            <Image src={logoUrl} style={{ width: 160, height: 50 }} />
           </View>
         ) : null}
 
