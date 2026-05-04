@@ -94,22 +94,32 @@ export async function saveContacto({ contactId, clienteId, draft }) {
 
   const branchIds = (draft.associatedBranchIds || []).map(String).filter(Boolean);
 
-  // Soft-delete todas las asociaciones actuales activas
   await supabase
     .from('contacto_sucursal')
     .update({ activo: false })
     .eq('contacto_id', resolvedId)
     .eq('activo', true);
 
-  // Re-activar o insertar las seleccionadas (upsert por constraint único)
-  if (branchIds.length > 0) {
-    const { error: bridgeErr } = await supabase
+  for (const bId of branchIds) {
+    const { data: existing } = await supabase
       .from('contacto_sucursal')
-      .upsert(
-        branchIds.map(bId => ({ contacto_id: resolvedId, sucursal_id: bId, activo: true })),
-        { onConflict: 'contacto_id,sucursal_id' }
-      );
-    if (bridgeErr) throw bridgeErr;
+      .select('id')
+      .eq('contacto_id', resolvedId)
+      .eq('sucursal_id', bId)
+      .maybeSingle();
+
+    if (existing) {
+      const { error: updErr } = await supabase
+        .from('contacto_sucursal')
+        .update({ activo: true })
+        .eq('id', existing.id);
+      if (updErr) throw updErr;
+    } else {
+      const { error: insErr } = await supabase
+        .from('contacto_sucursal')
+        .insert({ contacto_id: resolvedId, sucursal_id: bId, activo: true });
+      if (insErr) throw insErr;
+    }
   }
 
   return { contactId: resolvedId };

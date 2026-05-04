@@ -38,21 +38,30 @@ const MultiSelectDropdown = ({ label, options = [], value = [], onChange, placeh
     setIsOpen(prev => !prev);
   };
 
-  useEffect(() => {
-    if (!isOpen || !triggerRef.current) return;
+  const updatePos = () => {
+    if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     setDropPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    updatePos();
   }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const handler = (e) => {
+    const onClose = (e) => {
       if (!triggerRef.current?.contains(e.target) && !dropdownRef.current?.contains(e.target)) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('mousedown', onClose);
+    window.addEventListener('scroll', updatePos, true);
+    return () => {
+      document.removeEventListener('mousedown', onClose);
+      window.removeEventListener('scroll', updatePos, true);
+    };
   }, [isOpen]);
 
   const handleSelect = (optValue) => {

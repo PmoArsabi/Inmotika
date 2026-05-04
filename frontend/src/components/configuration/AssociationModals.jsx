@@ -125,26 +125,11 @@ const AssociationModals = ({
         // - Sin cliente asignado (global)
         // - Ya pertenecen al cliente de esta sucursal (pueden estar en varias sucursales)
         // - Ya están en esta sucursal (para poder desasociarlos — aparecen seleccionados)
-        const seen = new Set();
-        const allContactos = [];
-        (data?.clientes || []).forEach(c => {
-          (c.sucursales || []).forEach(s => {
-            (s.contactos || []).forEach(ct => {
-              if (!seen.has(String(ct.id))) {
-                seen.add(String(ct.id));
-                const ctClientId = ct.clientId || ct.cliente_id;
-                if (!ctClientId || String(ctClientId) === String(clientId)) {
-                  allContactos.push(ct);
-                }
-              }
-            });
-          });
-        });
-        (data?.contactos || []).forEach(ct => {
-          if (seen.has(String(ct.id))) return;
+        // Contactos elegibles: sin cliente asignado O del mismo cliente
+        const allContactos = (data?.contactos || []).filter(ct => {
           const ctClientId = ct.clientId || ct.cliente_id || null;
-          const sinCliente = !ctClientId || ctClientId === 'null';
-          if (sinCliente) { seen.add(String(ct.id)); allContactos.push(ct); }
+          const sinCliente = !ctClientId || ctClientId === 'null' || ctClientId === '';
+          return sinCliente || String(ctClientId) === String(clientId);
         });
         const q = associateContactsSearch.toLowerCase();
         const filtered = allContactos.filter(ct =>

@@ -3471,6 +3471,45 @@ using (
 -- El trigger evita que se inserten registros incoherentes donde la sucursal
 -- pertenece a un cliente distinto al que tiene asignado el contacto.
 
+DROP FUNCTION IF EXISTS public.validate_contacto_sucursal_mismo_cliente() CASCADE;
+
+CREATE FUNCTION public.validate_contacto_sucursal_mismo_cliente()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_cliente_id_contacto uuid;
+  v_cliente_id_sucursal uuid;
+BEGIN
+  SELECT cliente_id INTO v_cliente_id_contacto
+  FROM public.contacto
+  WHERE id = NEW.contacto_id;
+
+  IF v_cliente_id_contacto IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT cliente_id INTO v_cliente_id_sucursal
+  FROM public.sucursal
+  WHERE id = NEW.sucursal_id;
+
+  IF v_cliente_id_sucursal IS DISTINCT FROM v_cliente_id_contacto THEN
+    RAISE EXCEPTION
+      'La sucursal (id: %) pertenece al cliente % pero el contacto (id: %) está asignado al cliente %. Un contacto solo puede asociarse a sucursales de su cliente.',
+      NEW.sucursal_id, v_cliente_id_sucursal, NEW.contacto_id, v_cliente_id_contacto;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_validate_contacto_sucursal
+  BEFORE INSERT OR UPDATE ON public.contacto_sucursal
+  FOR EACH ROW
+  EXECUTE FUNCTION public.validate_contacto_sucursal_mismo_cliente();
+
 DROP FUNCTION IF EXISTS public.validate_contacto_sucursal_coherencia() CASCADE;
 
 CREATE OR REPLACE FUNCTION public.validate_contacto_sucursal_coherencia()

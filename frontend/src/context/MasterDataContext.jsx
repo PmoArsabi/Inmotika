@@ -196,33 +196,44 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
     if (user) refreshData();
   }, [refreshData, user]);
 
-  // Realtime: invalida colecciones cuando otro usuario hace cambios en BD
+  // Realtime: invalida colecciones cuando otro usuario hace cambios en BD.
+  // Se usa debounce de 1.5s para evitar condiciones de carrera con operaciones
+  // de guardado locales que también modifican las mismas tablas.
   useEffect(() => {
     if (!user) return;
+
+    const timers = {};
+    const debounced = (key, fn) => () => {
+      clearTimeout(timers[key]);
+      timers[key] = setTimeout(fn, 1500);
+    };
 
     const channel = supabase
       .channel('master-data-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cliente' },
-        () => refreshData('clientes')
+        debounced('clientes', () => refreshData('clientes'))
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sucursal' },
-        () => refreshData('clientes')
+        debounced('clientes', () => refreshData('clientes'))
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'contacto' },
-        () => refreshData('contactos')
+        debounced('contactos', () => refreshData('contactos'))
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'contacto_sucursal' },
-        () => refreshData('contactos')
+        debounced('contactos', () => refreshData('contactos'))
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dispositivo' },
-        () => refreshData('dispositivos')
+        debounced('dispositivos', () => refreshData('dispositivos'))
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'categoria_dispositivo' },
-        () => refreshData('categorias')
+        debounced('categorias', () => refreshData('categorias'))
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      Object.values(timers).forEach(clearTimeout);
+      supabase.removeChannel(channel);
+    };
   }, [user, refreshData]);
 
   const value = useMemo(() => ({

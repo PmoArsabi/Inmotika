@@ -141,13 +141,14 @@ export const BranchForm = (props) => {
           {[
             { label: 'Asociar contactos',     count: newBranchDraft?.associatedContactIds?.length,    onClick: onAssociateContacts,      disabled: false },
             { label: 'Asociar dispositivos',  count: newBranchDraft?.associatedDeviceIds?.length,     onClick: onAssociateDevices,       disabled: false },
-            { label: 'Asociar coordinadores', count: newBranchDraft?.associatedCoordinadorIds?.length, onClick: onAssociateCoordinadores, disabled: disableCoordinadores },
-          ].map(({ label, count, onClick, disabled }) => (
+            { label: 'Asociar coordinadores', count: newBranchDraft?.associatedCoordinadorIds?.length, onClick: onAssociateCoordinadores, disabled: disableCoordinadores, tooltip: disableCoordinadores ? 'El cliente debe tener un director asignado antes de asociar coordinadores' : null },
+          ].map(({ label, count, onClick, disabled, tooltip }) => (
             <button
               key={label}
               type="button"
               onClick={disabled ? undefined : onClick}
               disabled={disabled}
+              title={tooltip || undefined}
               className={`flex items-center justify-between p-4 rounded-lg transition-all text-left w-full group
                 ${disabled ? "bg-gray-50 opacity-50 border border-gray-100 cursor-not-allowed" :
                   isEditing ? "bg-gray-50 border border-gray-200 hover:bg-white hover:border-brand hover:shadow-sm cursor-pointer" :
