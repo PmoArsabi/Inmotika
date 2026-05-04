@@ -191,11 +191,39 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
 
   const { user } = useAuth();
 
+  // Carga inicial al autenticarse
   useEffect(() => {
-    if (user) {
-      refreshData();
-    }
+    if (user) refreshData();
   }, [refreshData, user]);
+
+  // Realtime: invalida colecciones cuando otro usuario hace cambios en BD
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('master-data-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cliente' },
+        () => refreshData('clientes')
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sucursal' },
+        () => refreshData('clientes')
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacto' },
+        () => refreshData('contactos')
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacto_sucursal' },
+        () => refreshData('contactos')
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dispositivo' },
+        () => refreshData('dispositivos')
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categoria_dispositivo' },
+        () => refreshData('categorias')
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, refreshData]);
 
   const value = useMemo(() => ({
     data,

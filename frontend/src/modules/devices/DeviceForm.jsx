@@ -11,7 +11,6 @@ import {
   Tag, Wrench, Navigation2, Layers, Barcode,
   ShoppingCart, AlertTriangle, ArrowLeft,
 } from 'lucide-react';
-import { supabase } from '../../utils/supabase';
 import { LoadingTableCell, LoadingInline } from '../../components/ui/SkeletonLoader';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -28,6 +27,7 @@ import { useConfigurationContext } from '../../context/ConfigurationContext';
 import { useAuth } from '../../context/AuthContext';
 import { isManagementRole } from '../../utils/constants';
 import { getTrasladosByDevice } from '../../api/deviceApi';
+import { useDeviceCatalogs } from '../../hooks/useDeviceCatalogs';
 
 import { SectionHeader, CompactSummaryItem, SummaryRow } from './DeviceFormHelpers';
 import ProtocoloPasos from './ProtocoloPasos';
@@ -106,121 +106,10 @@ const DeviceForm = ({
   }, [activeTab, fetchTraslados]);
 
   // ─── Catálogos ────────────────────────────────────────────────────────────
-  const [categorias, setCategorias]         = useState([]);
-  const [loadingCats, setLoadingCats]       = useState(true);
-  const [proveedores, setProveedores]       = useState([]);
-  const [loadingProvs, setLoadingProvs]     = useState(true);
-  const [marcas, setMarcas]                 = useState([]);
-  const [loadingMarcas, setLoadingMarcas]   = useState(false);
-  const [gestiones, setGestiones]           = useState([]);
-  const [loadingGestiones, setLoadingGest]  = useState(true);
-  const [categoryPasos, setCategoryPasos]   = useState([]);
-
-  const loadCategorias = useCallback(async () => {
-    setLoadingCats(true);
-    try {
-      const { data, error } = await supabase
-        .from('categoria_dispositivo')
-        .select('id, nombre')
-        .or('activo.eq.true,activo.is.null')
-        .order('nombre');
-      if (error) throw error;
-      setCategorias((data || []).map(c => ({ value: c.id, label: c.nombre })));
-    } catch (err) {
-      console.error('[DeviceForm] loadCategorias:', err);
-    } finally {
-      setLoadingCats(false);
-    }
-  }, []);
-
-  const loadProveedores = useCallback(async () => {
-    setLoadingProvs(true);
-    try {
-      const { data, error } = await supabase
-        .from('proveedor')
-        .select('id, nombre')
-        .eq('activo', true)
-        .order('nombre');
-      if (error) throw error;
-      setProveedores((data || []).map(p => ({ value: p.id, label: p.nombre })));
-    } catch (err) {
-      console.error('[DeviceForm] loadProveedores:', err);
-    } finally {
-      setLoadingProvs(false);
-    }
-  }, []);
-
-  const loadMarcas = useCallback(async (proveedorId) => {
-    if (!proveedorId) { setMarcas([]); return; }
-    setLoadingMarcas(true);
-    try {
-      const { data, error } = await supabase
-        .from('marca')
-        .select('id, nombre')
-        .eq('proveedor_id', proveedorId)
-        .eq('activo', true)
-        .order('nombre');
-      if (error) throw error;
-      setMarcas((data || []).map(m => ({ value: m.id, label: m.nombre })));
-    } catch (err) {
-      console.error('[DeviceForm] loadMarcas:', err);
-    } finally {
-      setLoadingMarcas(false);
-    }
-  }, []);
-
-  const loadGestiones = useCallback(async () => {
-    setLoadingGest(true);
-    try {
-      const { data, error } = await supabase
-        .from('catalogo')
-        .select('id, nombre')
-        .eq('tipo', 'ESTADO_GESTION_DISPOSITIVO')
-        .eq('activo', true)
-        .order('nombre');
-      if (error) throw error;
-      setGestiones((data || []).map(g => ({ value: g.id, label: g.nombre })));
-    } catch (err) {
-      console.error('[DeviceForm] loadGestiones:', err);
-    } finally {
-      setLoadingGest(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadCategorias();
-    loadProveedores();
-    loadGestiones();
-  }, [loadCategorias, loadProveedores, loadGestiones]);
-
-  useEffect(() => {
-    if (draft.proveedorId) loadMarcas(draft.proveedorId);
-    else setMarcas([]);
-  }, [draft.proveedorId, loadMarcas]);
-
-  useEffect(() => {
-    if (!draft.categoriaId) { setCategoryPasos([]); return; }
-    const loadProtocol = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('paso_protocolo')
-          .select('*, actividades:actividad_protocolo(*)')
-          .eq('categoria_id', draft.categoriaId)
-          .or('activo.eq.true,activo.is.null')
-          .order('orden');
-        if (error) throw error;
-        setCategoryPasos((data || []).map(p => ({
-          ...p,
-          actividades: (p.actividades || [])
-            .filter(a => a.activo !== false)
-            .sort((a, b) => a.orden - b.orden),
-        })));
-      } catch (err) {
-        console.error('[DeviceForm] loadProtocol:', err);
-      }
-    };
-    loadProtocol();
-  }, [draft.categoriaId]);
+  const {
+    categorias, proveedores, marcas, gestiones, categoryPasos,
+    loading: { cats: loadingCats, provs: loadingProvs, marcas: loadingMarcas, gestiones: loadingGestiones },
+  } = useDeviceCatalogs(draft.proveedorId, draft.categoriaId);
 
   useEffect(() => {
     if (!draft.estadoId && activoId) updateDraft({ estadoId: activoId });

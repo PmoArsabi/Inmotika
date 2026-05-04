@@ -2268,7 +2268,7 @@ using ((EXISTS ( SELECT 1
 using ((EXISTS ( SELECT 1
    FROM (public.perfil_usuario p
      JOIN public.catalogo_rol r ON ((p.rol_id = r.id)))
-  WHERE ((p.id = auth.uid()) AND ((r.codigo)::text = 'ADMIN'::text)))));
+  WHERE ((p.id = auth.uid()) AND ((r.codigo)::text = ANY ((ARRAY['DIRECTOR'::character varying, 'COORDINADOR'::character varying])::text[])))))));
 
   create policy "Catalogo: lectura pública para autenticados"
   on "public"."catalogo"
@@ -2380,12 +2380,18 @@ with check (public.is_admin_or_coordinator());
 using (public.is_admin_or_coordinator())
 with check (public.is_admin_or_coordinator());
 
-  create policy "allow_read_authenticated"
-  on "public"."dispositivo"
-  as permissive
-  for select
-  to authenticated
-using (true);
+CREATE POLICY "dispositivo_read"
+ON public.dispositivo FOR SELECT TO authenticated
+USING (
+  public.is_management_staff()
+  OR EXISTS (
+    SELECT 1 FROM public.intervencion i
+    JOIN public.visita_tecnico vt ON vt.visita_id = i.visita_id
+    JOIN public.tecnico t ON t.id = vt.tecnico_id
+    WHERE i.dispositivo_id = dispositivo.id AND t.usuario_id = auth.uid()
+  )
+  OR public.is_contacto_of_sucursal(dispositivo.sucursal_id)
+);
 
 -- Técnicos pueden actualizar estado_gestion_id en dispositivos de sus visitas asignadas
 CREATE POLICY "tecnicos_update_estado_gestion_dispositivo"
@@ -2844,33 +2850,39 @@ $$;
 
 SELECT cron.schedule('generate-preventive-visits', '0 6 * * *', 'SELECT generate_preventive_visits()');
 
-  create policy "Acceso completo usuarios autenticados 69tnde_0"
-  on "storage"."objects"
-  as permissive
-  for select
-  to authenticated
-using ((bucket_id = 'inmotika'::text));
+-- Storage: acceso restringido por prefijo de ruta
+-- SELECT: gestión ve todo; usuarios solo su carpeta; técnicos sus evidencias
+CREATE POLICY "storage_select" ON storage.objects FOR SELECT TO authenticated
+USING (
+  bucket_id = 'inmotika' AND (
+    public.is_management_staff()
+    OR ((storage.foldername(name))[1] = 'usuarios' AND (storage.foldername(name))[2] = auth.uid()::text)
+    OR ((storage.foldername(name))[1] = 'evidencias' AND public.is_tecnico_asignado_visita(((storage.foldername(name))[2])::uuid))
+  )
+);
 
-  create policy "Acceso completo usuarios autenticados 69tnde_1"
-  on "storage"."objects"
-  as permissive
-  for insert
-  to authenticated
-with check ((bucket_id = 'inmotika'::text));
+-- INSERT/UPDATE: gestión escribe en todo; usuarios y técnicos solo en su ruta
+CREATE POLICY "storage_write" ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'inmotika' AND (
+    public.is_management_staff()
+    OR (storage.foldername(name))[2] = auth.uid()::text
+    OR ((storage.foldername(name))[1] = 'evidencias' AND public.is_tecnico_asignado_visita(((storage.foldername(name))[2])::uuid))
+  )
+);
 
-  create policy "Acceso completo usuarios autenticados 69tnde_2"
-  on "storage"."objects"
-  as permissive
-  for update
-  to authenticated
-using ((bucket_id = 'inmotika'::text));
+CREATE POLICY "storage_update" ON storage.objects FOR UPDATE TO authenticated
+USING (
+  bucket_id = 'inmotika' AND (
+    public.is_management_staff()
+    OR (storage.foldername(name))[2] = auth.uid()::text
+    OR ((storage.foldername(name))[1] = 'evidencias' AND public.is_tecnico_asignado_visita(((storage.foldername(name))[2])::uuid))
+  )
+);
 
-  create policy "Acceso completo usuarios autenticados 69tnde_3"
-  on "storage"."objects"
-  as permissive
-  for delete
-  to authenticated
-using ((bucket_id = 'inmotika'::text));
+-- DELETE: solo gestión puede eliminar archivos
+CREATE POLICY "storage_delete" ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = 'inmotika' AND public.is_management_staff());
 
 -- =============================================================================
 -- RLS POLICIES: Visit workflow tables (previously locked - RLS enabled, 0 policies)
