@@ -19,7 +19,7 @@ import { isManagementRole } from '../../utils/constants';
  */
 const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated, onLogout }) => {
   const { uploadAvatar, loading } = useUpdateProfile();
-  const { resetPassword } = useAuth();
+  const { resetPassword, signOut } = useAuth();
 
   // ── Foto ──────────────────────────────────────────────────────────
   const fileInputRef = useRef(null);
@@ -75,6 +75,10 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated, onLogout })
     setPwSending(true);
     setPwError(null);
     try {
+      // Cerrar todas las sesiones activas antes de enviar el link de reset.
+      // Esto garantiza que al hacer click en el correo, Supabase pueda
+      // establecer la sesión de recovery sin conflicto con una sesión existente.
+      await signOut();
       await resetPassword(user.email);
       setPwSuccess(true);
     } catch (err) {
