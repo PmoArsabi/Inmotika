@@ -67,6 +67,8 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const hash = window.location.hash;
+    const searchParams = new URLSearchParams(window.location.search);
+    const pkceCode = searchParams.get('code');
     const isInviteOrRecovery = hash && (hash.includes('type=recovery') || hash.includes('type=invite') || hash.includes('type=signup'));
 
     if (isInviteOrRecovery) {
@@ -90,6 +92,28 @@ export const AuthProvider = ({ children }) => {
       console.warn('AuthContext: Failsafe activado (Carga lenta)');
       setLoading(false);
     }, 8000);
+
+    // PKCE flow: el link de invitación/recovery llega como ?code=XXXX
+    // Hay que intercambiar el code por una sesión antes de continuar
+    if (pkceCode) {
+      supabase.auth.exchangeCodeForSession(pkceCode).then(({ data, error }) => {
+        if (error) {
+          console.error('Error al intercambiar code por sesión:', error);
+          setLoading(false);
+          clearTimeout(timer);
+          return;
+        }
+        // Limpiar el ?code= de la URL sin recargar
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+        setSession(data.session);
+        setIsRecoveryFlow(true);
+        sessionStorage.setItem('inmotika_recovery_flow', 'true');
+        setLoading(false);
+        clearTimeout(timer);
+      });
+      return () => { clearTimeout(timer); };
+    }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
