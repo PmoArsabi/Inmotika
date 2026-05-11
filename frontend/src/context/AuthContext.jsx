@@ -94,23 +94,25 @@ export const AuthProvider = ({ children }) => {
     }, 8000);
 
     // PKCE flow: el link de invitación/recovery llega como ?code=XXXX
-    // Hay que intercambiar el code por una sesión antes de continuar.
-    // Mantenemos loading=true durante el exchange para que la app no
-    // renderice LoginPage mientras la sesión aún no está establecida.
+    // Primero cerramos cualquier sesión local activa para evitar colisiones
+    // con el token de recovery (causa del "Auth session missing").
     if (pkceCode) {
-      supabase.auth.exchangeCodeForSession(pkceCode).then(({ data, error }) => {
-        if (error) {
-          console.error('Error al intercambiar code por sesión:', error);
-        } else {
-          // Limpiar el ?code= de la URL sin recargar
-          window.history.replaceState({}, '', window.location.pathname);
-          setSession(data.session);
-          setIsRecoveryFlow(true);
-          sessionStorage.setItem('inmotika_recovery_flow', 'true');
-        }
-        setLoading(false);
-        clearTimeout(timer);
-      });
+      supabase.auth.signOut({ scope: 'local' })
+        .catch(() => {})
+        .finally(() => {
+          supabase.auth.exchangeCodeForSession(pkceCode).then(({ data, error }) => {
+            if (error) {
+              console.error('Error al intercambiar code por sesión:', error);
+            } else {
+              window.history.replaceState({}, '', window.location.pathname);
+              setSession(data.session);
+              setIsRecoveryFlow(true);
+              sessionStorage.setItem('inmotika_recovery_flow', 'true');
+            }
+            setLoading(false);
+            clearTimeout(timer);
+          });
+        });
       return () => { clearTimeout(timer); };
     }
 
