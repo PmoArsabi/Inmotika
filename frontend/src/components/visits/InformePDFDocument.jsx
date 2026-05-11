@@ -412,7 +412,7 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
         fontFamily: 'Helvetica',
         fontSize: 9,
         color: DARK,
-        backgroundColor: WHITE,
+        backgroundColor: 'transparent',
         paddingTop: 98,
         paddingBottom: 55,
         paddingLeft: 35,
@@ -616,12 +616,12 @@ export default function InformePDFDocument({ informe, firmaCoordinadorUrl = null
 
         {/* ══ FONDO + LOGO — Views fixed separados; Image no soporta fixed directamente ══ */}
         {hasFondo ? (
-          <View fixed style={{ position: 'absolute', top: 0, left: 0, width: 612, height: 792 }}>
+          <View fixed style={{ position: 'absolute', top: 0, left: 0, width: 612, height: 792, backgroundColor: 'transparent' }}>
             <Image src={fondoUrl} style={{ position: 'absolute', top: 0, left: 0, width: 612, height: 792 }} />
           </View>
         ) : null}
         {hasFondo && logoUrl ? (
-          <View fixed style={{ position: 'absolute', top: 22, left: 35, width: 160, height: 50 }}>
+          <View fixed style={{ position: 'absolute', top: 22, left: 35, width: 160, height: 50, backgroundColor: 'transparent' }}>
             <Image src={logoUrl} style={{ width: 160, height: 50 }} />
           </View>
         ) : null}
