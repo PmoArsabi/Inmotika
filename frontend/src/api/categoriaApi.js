@@ -82,6 +82,20 @@ export const saveCategoria = async ({ categoriaId, draft, steps }) => {
   }
 
   // 2. Process Protocol Steps
+  // Desplazamos los órdenes de pasos existentes a valores temporales (offset
+  // +10000) antes de aplicar los definitivos, para evitar la constraint
+  // UNIQUE(categoria_id, orden) cuando el usuario reordena pasos.
+  const existingStepIds = steps
+    .filter(s => !s.isNew && s.id && !s.deleted)
+    .map(s => s.id);
+
+  for (let i = 0; i < existingStepIds.length; i++) {
+    await supabase
+      .from('paso_protocolo')
+      .update({ orden: 10000 + i })
+      .eq('id', existingStepIds[i]);
+  }
+
   for (const step of steps) {
     if (step.deleted && step.id) {
        // Soft delete activities and steps
@@ -89,14 +103,13 @@ export const saveCategoria = async ({ categoriaId, draft, steps }) => {
        await supabase.from('paso_protocolo').update({ activo: false }).eq('id', step.id);
        continue;
     }
-    
+
     if (step.deleted) continue;
 
     const stepPayload = {
       categoria_id: finalCatId,
       descripcion: step.descripcion,
-      orden: step.orden
-      // es_obligatorio removed per user request
+      orden: step.orden,
     };
 
     let stepId = step.id;
@@ -120,11 +133,10 @@ export const saveCategoria = async ({ categoriaId, draft, steps }) => {
     // 3. Process Activities for this Step
     for (const activity of (step.actividades || [])) {
       if (activity.deleted && activity.id) {
-        // Soft delete activity
         await supabase.from('actividad_protocolo').update({ activo: false }).eq('id', activity.id);
         continue;
       }
-      
+
       if (activity.deleted) continue;
 
       const actPayload = {
