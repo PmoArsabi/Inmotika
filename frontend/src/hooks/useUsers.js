@@ -446,6 +446,12 @@ export const useUsers = () => {
       if (isCreating) {
         if (inviteInFlightRef.current) return false;
 
+        // Validar que el rol sea obligatorio antes de invitar
+        if (!newUser.rol) {
+          setSuccessInfo({ error: true, message: 'Debes seleccionar un rol para el usuario antes de guardarlo.' });
+          return false;
+        }
+
         // Validar que el email no esté ya registrado en perfil_usuario
         const { data: existing } = await supabase
           .from('perfil_usuario')

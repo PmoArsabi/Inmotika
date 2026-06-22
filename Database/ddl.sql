@@ -517,6 +517,7 @@ CREATE UNIQUE INDEX paso_protocolo_categoria_id_orden_key ON public.paso_protoco
 CREATE UNIQUE INDEX paso_protocolo_pkey ON public.paso_protocolo USING btree (id);
 
 CREATE UNIQUE INDEX perfil_usuario_pkey ON public.perfil_usuario USING btree (id);
+CREATE UNIQUE INDEX perfil_usuario_email_unique ON public.perfil_usuario USING btree (lower(email));
 
 CREATE UNIQUE INDEX solicitud_visita_pkey ON public.solicitud_visita USING btree (id);
 
@@ -575,6 +576,7 @@ alter table "public"."intervencion" add constraint "intervencion_pkey" PRIMARY K
 alter table "public"."paso_protocolo" add constraint "paso_protocolo_pkey" PRIMARY KEY using index "paso_protocolo_pkey";
 
 alter table "public"."perfil_usuario" add constraint "perfil_usuario_pkey" PRIMARY KEY using index "perfil_usuario_pkey";
+-- Email único (case-insensitive). El índice funcional enforce la unicidad directamente.
 
 alter table "public"."solicitud_visita" add constraint "solicitud_visita_pkey" PRIMARY KEY using index "solicitud_visita_pkey";
 
@@ -2384,13 +2386,27 @@ CREATE POLICY "dispositivo_read"
 ON public.dispositivo FOR SELECT TO authenticated
 USING (
   public.is_management_staff()
+  OR public.is_contacto_of_sucursal(dispositivo.sucursal_id)
+  -- Técnico asignado a visita que incluye este dispositivo (visita aún no iniciada)
   OR EXISTS (
-    SELECT 1 FROM public.intervencion i
+    SELECT 1
+    FROM public.solicitud_dispositivo sd
+    JOIN public.visita v ON v.solicitud_id = sd.solicitud_id
+    JOIN public.visita_tecnico vt ON vt.visita_id = v.id
+    JOIN public.tecnico t ON t.id = vt.tecnico_id
+    WHERE sd.dispositivo_id = dispositivo.id
+      AND t.usuario_id = auth.uid()
+      AND sd.activo = true
+  )
+  -- Técnico con intervencion activa (visita ya iniciada)
+  OR EXISTS (
+    SELECT 1
+    FROM public.intervencion i
     JOIN public.visita_tecnico vt ON vt.visita_id = i.visita_id
     JOIN public.tecnico t ON t.id = vt.tecnico_id
-    WHERE i.dispositivo_id = dispositivo.id AND t.usuario_id = auth.uid()
+    WHERE i.dispositivo_id = dispositivo.id
+      AND t.usuario_id = auth.uid()
   )
-  OR public.is_contacto_of_sucursal(dispositivo.sucursal_id)
 );
 
 -- Técnicos pueden actualizar estado_gestion_id en dispositivos de sus visitas asignadas
