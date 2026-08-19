@@ -58,7 +58,12 @@ export const AuthProvider = ({ children }) => {
           apellidos: profile.apellidos || '',
         });
       } else if (!profileError) {
-        await supabase.auth.signOut();
+        // En recovery/invite la sesión debe conservarse para updateUser.
+        // Firmar aquí provoca "Auth session missing!" en el formulario.
+        const inRecovery = sessionStorage.getItem('inmotika_recovery_flow') === 'true';
+        if (!inRecovery) {
+          await supabase.auth.signOut();
+        }
       }
     } catch (err) {
       console.error('Error al cargar perfil:', err);
@@ -118,7 +123,8 @@ export const AuthProvider = ({ children }) => {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) {
+      const inRecovery = sessionStorage.getItem('inmotika_recovery_flow') === 'true';
+      if (session && !inRecovery) {
         fetchProfile(session.user.id, session).finally(() => {
           setLoading(false);
           clearTimeout(timer);
@@ -191,6 +197,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updatePassword = async (newPassword) => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession) {
+      throw new Error('El enlace de recuperación expiró o ya fue usado. Solicita uno nuevo desde "¿Olvidaste tu contraseña?".');
+    }
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw error;
   };
