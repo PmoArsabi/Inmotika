@@ -745,12 +745,16 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
             <Card className="p-5 space-y-3">
               <Label className="text-sm font-bold text-gray-700 uppercase tracking-wide block">Progreso General</Label>
               <div className="flex items-end justify-between">
-                <span className="text-3xl font-black text-gray-900">{completedDevices}</span>
+                <span className={`text-3xl font-black ${completedDevices === totalDevices && totalDevices > 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
+                  {completedDevices}
+                </span>
                 <span className="text-sm text-gray-400 mb-1">/ {totalDevices} dispositivos</span>
               </div>
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-brand rounded-full transition-all"
+                  className={`h-full rounded-full transition-all ${
+                    completedDevices === totalDevices && totalDevices > 0 ? 'bg-emerald-500' : 'bg-brand'
+                  }`}
                   style={{ width: totalDevices > 0 ? `${(completedDevices / totalDevices) * 100}%` : '0%' }}
                 />
               </div>
@@ -910,7 +914,10 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
             {total > 0 ? (
               <>
                 <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-brand rounded-full" style={{ width: `${(completed / total) * 100}%` }} />
+                  <div
+                    className={`h-full rounded-full ${completed === total ? 'bg-emerald-500' : 'bg-brand'}`}
+                    style={{ width: `${(completed / total) * 100}%` }}
+                  />
                 </div>
                 <TextTiny className="text-gray-400 whitespace-nowrap shrink-0">{completed}/{total}</TextTiny>
               </>
