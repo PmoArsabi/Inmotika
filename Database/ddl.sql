@@ -2867,13 +2867,15 @@ $$;
 SELECT cron.schedule('generate-preventive-visits', '0 6 * * *', 'SELECT generate_preventive_visits()');
 
 -- Storage: acceso restringido por prefijo de ruta
--- SELECT: gestión ve todo; usuarios solo su carpeta; técnicos sus evidencias
+-- SELECT: gestión ve todo; usuarios solo su carpeta; técnicos sus evidencias;
+--         contactos pueden ver evidencias de visitas de sus sucursales
 CREATE POLICY "storage_select" ON storage.objects FOR SELECT TO authenticated
 USING (
   bucket_id = 'inmotika' AND (
     public.is_management_staff()
     OR ((storage.foldername(name))[1] = 'usuarios' AND (storage.foldername(name))[2] = auth.uid()::text)
     OR ((storage.foldername(name))[1] = 'evidencias' AND public.is_tecnico_asignado_visita(((storage.foldername(name))[2])::uuid))
+    OR ((storage.foldername(name))[1] = 'evidencias' AND public.is_contacto_of_visita(((storage.foldername(name))[2])::uuid))
   )
 );
 
@@ -3761,6 +3763,7 @@ BEGIN
   END IF;
 
   -- Devolver documentos activos de los técnicos asignados
+  -- Excluye FIRMA: dato sensible, no debe verse ni descargarse por contactos.
   RETURN QUERY
   SELECT
     ud.id,
@@ -3776,6 +3779,8 @@ BEGIN
   JOIN public.usuario_documento ud ON ud.usuario_id = pu.id
   WHERE vt.visita_id = p_visita_id
     AND ud.activo = true
+    AND UPPER(TRIM(COALESCE(ud.tipo, ''))) <> 'FIRMA'
+    AND UPPER(TRIM(COALESCE(ud.nombre, ''))) <> 'FIRMA'
   ORDER BY pu.nombres, ud.tipo, ud.nombre;
 END;
 $$;

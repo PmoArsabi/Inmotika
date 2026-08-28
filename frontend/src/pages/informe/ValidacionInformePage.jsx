@@ -5,6 +5,7 @@ import FilterBar from '../../components/shared/FilterBar';
 import ActionResultModal from '../../components/ui/ActionResultModal';
 import { TextSmall, TextTiny } from '../../components/ui/Typography';
 import { getInformesEnRevision } from '../../api/informeApi';
+import { matchesDateRange } from '../../utils/dateFilter';
 import { isPlazoDirectorVencido, tiempoRestanteDirector } from '../../utils/informePlazo';
 import InformeRevisionPage from './InformeRevisionPage';
 
@@ -74,8 +75,8 @@ const ValidacionInformePage = () => {
       ]},
       { key: 'cliente',    label: 'Cliente',       multi: true, options: clientes },
       { key: 'sucursal',   label: 'Sucursal',      multi: true, options: sucursales, dependsOn: 'cliente', dependsOnLabel: 'Cliente' },
-      { key: 'fechaDesde', label: 'Fecha desde',   type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
-      { key: 'fechaHasta', label: 'Fecha hasta',   type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
+      { key: 'fechaDesde', label: 'Cierre desde',  type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
+      { key: 'fechaHasta', label: 'Cierre hasta',  type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
     ];
   }, [informes]);
 
@@ -83,8 +84,8 @@ const ValidacionInformePage = () => {
     if (filters.estado?.length   && !filters.estado.includes(inf.estado))             return false;
     if (filters.cliente?.length  && !filters.cliente.includes(inf.cliente_nombre))    return false;
     if (filters.sucursal?.length && !filters.sucursal.includes(inf.sucursal_nombre))  return false;
-    if (filters.fechaDesde && inf.fecha_fin && inf.fecha_fin < filters.fechaDesde)    return false;
-    if (filters.fechaHasta && inf.fecha_fin && inf.fecha_fin > filters.fechaHasta + 'T23:59:59') return false;
+    // Filtra por FECHA CIERRE (visita.fecha_fin) — misma fecha que muestra la columna
+    if (!matchesDateRange(inf.fecha_fin, filters.fechaDesde, filters.fechaHasta))    return false;
     return true;
   }), [informes, filters]);
 
@@ -169,7 +170,9 @@ const ValidacionInformePage = () => {
         columns={columns}
         loading={loading}
         loadingText="Cargando informes…"
-        emptyText="No hay informes registrados"
+        emptyText={activeFiltersCount > 0
+          ? 'Ningún informe coincide con los filtros'
+          : 'No hay informes registrados'}
         emptyIcon={ClipboardCheck}
         searchPlaceholder="Buscar por cliente o sucursal…"
         filterFunction={(inf, q) =>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
 import { TextSmall } from '../ui/Typography';
 import SecureImage from '../ui/SecureImage';
 import ProfileEditModal from '../ui/ProfileEditModal';
@@ -50,8 +50,8 @@ const Header = ({ user, onToggleMobileMenu, onLogout }) => {
             </button>
           </div>
 
-          {/* Right — user info + avatar clickeable */}
-          <div className="flex items-center gap-3">
+          {/* Right — user info + avatar + cerrar sesión */}
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => setProfileModalOpen(true)}
               className="flex items-center gap-2.5 rounded-xl px-2 py-1 hover:bg-gray-100 transition-colors cursor-pointer group"
@@ -78,6 +78,18 @@ const Header = ({ user, onToggleMobileMenu, onLogout }) => {
                 <TextSmall className="text-ink-muted mt-0.5">{user?.role}</TextSmall>
               </div>
             </button>
+
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                title="Cerrar sesión"
+                className="flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-gray-500 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-100 transition-colors"
+              >
+                <LogOut size={15} />
+                <span className="hidden sm:inline">Cerrar sesión</span>
+              </button>
+            )}
           </div>
 
         </div>

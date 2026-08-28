@@ -112,7 +112,12 @@ export const useSolicitudesVisita = () => {
 
       if (error) throw error;
 
-      // Paso 2: obtener nombres e idInmotika de dispositivos involucrados
+      // Pintar lista de inmediato (conteos de dispositivos ya vienen del junction)
+      const mapped = (rows || []).map(r => mapRow(r));
+      setSolicitudes(mapped);
+      setLoading(false);
+
+      // Paso 2 (no bloquea la lista): nombres de dispositivos para detalle/edición
       const allDeviceIds = [
         ...new Set(
           (rows || []).flatMap(r =>
@@ -123,23 +128,23 @@ export const useSolicitudesVisita = () => {
         ),
       ];
 
-      let deviceInfoMap = new Map();
-      if (allDeviceIds.length > 0) {
-        const { data: devices } = await supabase
-          .from('dispositivo')
-          .select('id,serial,id_inmotika,codigo_unico,modelo')
-          .in('id', allDeviceIds);
-        (devices || []).forEach(d => {
-          const label = d.serial || d.id_inmotika || d.codigo_unico || d.modelo || d.id;
-          deviceInfoMap.set(d.id, label);
-        });
-      }
+      if (allDeviceIds.length === 0) return;
+
+      const { data: devices } = await supabase
+        .from('dispositivo')
+        .select('id,serial,id_inmotika,codigo_unico,modelo')
+        .in('id', allDeviceIds);
+
+      const deviceInfoMap = new Map();
+      (devices || []).forEach(d => {
+        const label = d.serial || d.id_inmotika || d.codigo_unico || d.modelo || d.id;
+        deviceInfoMap.set(d.id, label);
+      });
 
       setSolicitudes((rows || []).map(r => mapRow(r, deviceInfoMap)));
     } catch (err) {
       console.error('[useSolicitudesVisita] fetch error:', err);
       notify('error', 'No se pudieron cargar las solicitudes de visita.');
-    } finally {
       setLoading(false);
     }
   }, [user, notify]);

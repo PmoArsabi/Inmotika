@@ -126,40 +126,90 @@ const ContactNavigator = () => {
       });
 
       const primaryBranchId = currentDraft.associatedBranchIds?.[0] || route.branchId || null;
+      let provisionalPasswordToShow = null;
 
-      // Solo enviar invitación si: quiere dar acceso, NO tiene ya usuario_id, y hay email
+      // Reset de clave provisional para contacto que YA tiene acceso
+      if (
+        hasAccess &&
+        currentDraft.usarClaveProvisional &&
+        currentDraft.claveProvisional &&
+        currentDraft.email &&
+        !inviteInFlightRef.current
+      ) {
+        inviteInFlightRef.current = true;
+        setSavingStep('inviting');
+        try {
+          const { data: resetData, error: resetError } = await invokeFunction('create-user-with-password', {
+            body: {
+              mode: 'reset',
+              email: currentDraft.email,
+              password: currentDraft.claveProvisional,
+            },
+          });
+          if (resetError || resetData?.error) {
+            let errMsg = resetData?.error || resetError?.message || 'Error al asignar clave provisional';
+            try {
+              const ctx = resetError?.context;
+              if (ctx && typeof ctx.json === 'function') {
+                const body = await ctx.json();
+                if (body?.error) errMsg = body.error;
+              }
+            } catch { /* ignore */ }
+            setInviteErrorMsg(`El contacto se guardó, pero no se pudo asignar la clave provisional. Detalle: ${errMsg}`);
+          } else {
+            provisionalPasswordToShow = currentDraft.claveProvisional;
+          }
+        } catch (err) {
+          console.error('Error clave provisional (reset):', err);
+          setInviteErrorMsg(`El contacto se guardó, pero no se pudo asignar la clave provisional. Detalle: ${err.message}`);
+        }
+      }
+
+      // Solo enviar invitación / crear acceso si: quiere dar acceso, NO tiene ya usuario_id, y hay email
       if (currentDraft.darAcceso && !hasAccess && currentDraft.email && !inviteInFlightRef.current) {
         inviteInFlightRef.current = true;
         setSavingStep('inviting');
 
         try {
-          const { error: inviteError } = await invokeFunction('invite-user', {
-            body: {
-              email: currentDraft.email,
-              nombres: currentDraft.nombres,
-              apellidos: currentDraft.apellidos,
-              role_code: 'CLIENTE',
-              redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
-            },
-          });
+          const useProvisional = !!(currentDraft.usarClaveProvisional && currentDraft.claveProvisional);
 
-          if (inviteError) {
-            console.error('Error enviando invitación:', inviteError);
-            // No se envía correo de acceso si la invitación falló
-            // Intentar extraer el mensaje de error del cuerpo de la respuesta
-            let errMsg = inviteError.message || 'Error al enviar la invitación';
+          const { data: inviteData, error: inviteError } = useProvisional
+            ? await invokeFunction('create-user-with-password', {
+                body: {
+                  mode: 'create',
+                  email: currentDraft.email,
+                  password: currentDraft.claveProvisional,
+                  nombres: currentDraft.nombres,
+                  apellidos: currentDraft.apellidos,
+                  role_code: 'CLIENTE',
+                },
+              })
+            : await invokeFunction('invite-user', {
+                body: {
+                  email: currentDraft.email,
+                  nombres: currentDraft.nombres,
+                  apellidos: currentDraft.apellidos,
+                  role_code: 'CLIENTE',
+                  redirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
+                },
+              });
+
+          if (inviteError || inviteData?.error) {
+            console.error('Error creando acceso:', inviteError || inviteData?.error);
+            let errMsg = inviteData?.error || inviteError?.message || 'Error al crear el acceso';
             try {
-              const ctx = inviteError.context;
+              const ctx = inviteError?.context;
               if (ctx && typeof ctx.json === 'function') {
                 const body = await ctx.json();
                 if (body?.error) errMsg = body.error;
                 else if (body?.message) errMsg = body.message;
               }
             } catch { /* ignorar */ }
-            setInviteErrorMsg(`El contacto fue guardado correctamente, pero no se pudo crear el acceso al sistema. El usuario no podrá iniciar sesión hasta que se corrija el correo o se reintente la invitación. Detalle: ${errMsg}`);
+            setInviteErrorMsg(`El contacto fue guardado correctamente, pero no se pudo crear el acceso al sistema. El usuario no podrá iniciar sesión hasta que se corrija el correo o se reintente. Detalle: ${errMsg}`);
           } else {
+            if (useProvisional) provisionalPasswordToShow = currentDraft.claveProvisional;
+
             // Fallback: si el trigger no vinculó contacto.usuario_id, hacerlo desde frontend
-            // Polling: esperar hasta 5s a que el perfil_usuario exista, luego vincular
             const maxAttempts = 5;
             for (let i = 0; i < maxAttempts; i++) {
               await new Promise(r => setTimeout(r, 1000));
@@ -170,7 +220,6 @@ const ContactNavigator = () => {
                 .maybeSingle();
 
               if (perfil?.id) {
-                // Verificar si el contacto ya fue vinculado por el trigger
                 const { data: contactoCheck } = await supabase
                   .from('contacto')
                   .select('usuario_id')
@@ -184,22 +233,23 @@ const ContactNavigator = () => {
                     .eq('id', contactId);
                 }
 
-                // Notificar al contacto que su acceso fue habilitado
-                const clienteObj = data.clientes?.find(c => String(c.id) === String(route.clientId));
-                const sucursalObj = clienteObj?.sucursales?.find(s =>
-                  (currentDraft.associatedBranchIds || []).includes(String(s.id))
-                );
-                sendEmail('contacto_acceso', {
-                  destinatario: currentDraft.email,
-                  nombres: currentDraft.nombres || '',
-                  apellidos: currentDraft.apellidos || '',
-                  email: currentDraft.email,
-                  cliente: clienteObj?.nombre || clienteObj?.razon_social || '—',
-                  sucursal: sucursalObj?.nombre || '—',
-                  appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
-                });
+                // Solo notificar por correo si NO usamos clave provisional
+                if (!useProvisional) {
+                  const clienteObj = data.clientes?.find(c => String(c.id) === String(route.clientId));
+                  const sucursalObj = clienteObj?.sucursales?.find(s =>
+                    (currentDraft.associatedBranchIds || []).includes(String(s.id))
+                  );
+                  sendEmail('contacto_acceso', {
+                    destinatario: currentDraft.email,
+                    nombres: currentDraft.nombres || '',
+                    apellidos: currentDraft.apellidos || '',
+                    email: currentDraft.email,
+                    cliente: clienteObj?.nombre || clienteObj?.razon_social || '—',
+                    sucursal: sucursalObj?.nombre || '—',
+                    appUrl: import.meta.env.VITE_APP_URL || window.location.origin,
+                  });
+                }
 
-                // Subir avatar si el admin seleccionó uno
                 if (currentDraft.avatarFile) {
                   const avatarPath = `usuarios/${perfil.id}/avatar`;
                   const { error: uploadError } = await supabase.storage
@@ -256,7 +306,16 @@ const ContactNavigator = () => {
 
       setSaveState({ isSaving: false, savedAt: Date.now() });
       setSavingStep('');
-      openContactSuccess({ contactId, isNew: isNewContact });
+      openContactSuccess({
+        contactId,
+        isNew: isNewContact,
+        provisionalPassword: provisionalPasswordToShow,
+        email: currentDraft.email || null,
+      });
+      // Limpiar clave del draft (no debe quedar en memoria del formulario)
+      if (provisionalPasswordToShow) {
+        updateDraft(key, { usarClaveProvisional: false, claveProvisional: '' });
+      }
       inviteInFlightRef.current = false;
     } catch (err) {
       console.error('Error al guardar contacto:', err);

@@ -2,11 +2,13 @@ import { useState, useRef } from 'react';
 import { Camera, Lock, CheckCircle, Loader2, AlertCircle, Mail, FileText, LogOut } from 'lucide-react';
 import Modal from './Modal';
 import Button from './Button';
+import Input from './Input';
 import SecureImage from './SecureImage';
 import DocumentUploadManager from './DocumentUploadManager';
 import UserSuccessModal from '../../modules/users/components/UserSuccessModal';
 import { useUpdateProfile } from '../../hooks/useUpdateProfile';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../utils/supabase';
 import { isManagementRole } from '../../utils/constants';
 
 /**
@@ -19,7 +21,7 @@ import { isManagementRole } from '../../utils/constants';
  */
 const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated, onLogout }) => {
   const { uploadAvatar, loading } = useUpdateProfile();
-  const { resetPassword, signOut } = useAuth();
+  const { resetPassword, signOut, updatePassword } = useAuth();
 
   // ── Foto ──────────────────────────────────────────────────────────
   const fileInputRef = useRef(null);
@@ -32,6 +34,10 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated, onLogout })
   const [pwSending, setPwSending] = useState(false);
   const [pwSuccess, setPwSuccess] = useState(false);
   const [pwError, setPwError] = useState(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [emailResetSent, setEmailResetSent] = useState(false);
 
   // ── Documentos ────────────────────────────────────────────────────
   const [docSuccessInfo, setDocSuccessInfo] = useState(null);
@@ -70,17 +76,58 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated, onLogout })
     }
   };
 
+  const handleChangePassword = async () => {
+    setPwError(null);
+    setPwSuccess(false);
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPwError('Completa todos los campos de contraseña');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPwError('La nueva contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError('La confirmación no coincide');
+      return;
+    }
+    if (!user?.email) {
+      setPwError('No se encontró el correo del usuario');
+      return;
+    }
+
+    setPwSending(true);
+    try {
+      // Verifica la contraseña actual reautenticando
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      if (authErr) {
+        setPwError('La contraseña actual no es correcta');
+        return;
+      }
+      await updatePassword(newPassword);
+      setPwSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      setPwError(err.message || 'Error al cambiar la contraseña');
+    } finally {
+      setPwSending(false);
+    }
+  };
+
   const handleSendResetEmail = async () => {
     if (!user?.email) return;
     setPwSending(true);
     setPwError(null);
     try {
       // Cerrar todas las sesiones activas antes de enviar el link de reset.
-      // Esto garantiza que al hacer click en el correo, Supabase pueda
-      // establecer la sesión de recovery sin conflicto con una sesión existente.
       await signOut();
       await resetPassword(user.email);
-      setPwSuccess(true);
+      setEmailResetSent(true);
     } catch (err) {
       setPwError(err.message || 'Error al enviar el correo');
     } finally {
@@ -95,6 +142,10 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated, onLogout })
     setPhotoError(null);
     setPwSuccess(false);
     setPwError(null);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setEmailResetSent(false);
     onClose();
   };
 
@@ -184,8 +235,30 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated, onLogout })
             </div>
 
             <p className="text-xs text-gray-500">
-              Te enviaremos un correo a <span className="font-semibold text-gray-700">{user?.email}</span> para restablecer tu contraseña.
+              Cambia tu clave provisional o actual desde aquí. No necesitas correo.
             </p>
+
+            <Input
+              label="Contraseña actual"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+            <Input
+              label="Nueva contraseña"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+            <Input
+              label="Confirmar nueva contraseña"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+            />
 
             {pwError && (
               <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
@@ -194,17 +267,34 @@ const ProfileEditModal = ({ isOpen, onClose, user, onProfileUpdated, onLogout })
               </div>
             )}
 
-            {pwSuccess ? (
+            {pwSuccess && (
               <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">
                 <CheckCircle size={13} />
-                Correo enviado — revisa tu bandeja de entrada
+                Contraseña actualizada correctamente
               </div>
-            ) : (
-              <Button onClick={handleSendResetEmail} disabled={pwSending} variant="outline" className="w-full">
-                {pwSending ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
-                Enviar correo de restablecimiento
-              </Button>
             )}
+
+            <Button onClick={handleChangePassword} disabled={pwSending} variant="primary" className="w-full">
+              {pwSending ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+              Guardar nueva contraseña
+            </Button>
+
+            <div className="border-t border-gray-100 pt-3 space-y-2">
+              <p className="text-2xs text-gray-400">
+                ¿Prefieres un enlace por correo? (solo si tu bandeja lo permite)
+              </p>
+              {emailResetSent ? (
+                <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">
+                  <CheckCircle size={13} />
+                  Correo enviado — revisa tu bandeja
+                </div>
+              ) : (
+                <Button onClick={handleSendResetEmail} disabled={pwSending} variant="outline" className="w-full">
+                  {pwSending ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                  Enviar correo de restablecimiento
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 

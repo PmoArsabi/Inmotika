@@ -154,9 +154,17 @@ export async function openDocumentoSignedUrl(storagePath, expiresIn = 300) {
  * @param {string} visitaId
  * @returns {Promise<Array>}
  */
+/** Documentos sensibles que un contacto/cliente no debe ver ni abrir. */
+function isDocumentoSensibleParaCliente(doc) {
+  const tipo = String(doc?.tipo || '').trim().toUpperCase();
+  const nombre = String(doc?.nombre || '').trim().toUpperCase();
+  return tipo === 'FIRMA' || nombre === 'FIRMA';
+}
+
 export async function getDocumentosTecnicosVisita(visitaId) {
   const { data, error } = await supabase
     .rpc('get_documentos_tecnicos_visita', { p_visita_id: visitaId });
   if (error) throw error;
-  return data || [];
+  // FIRMA es sensible: no exponerla al contacto aunque la RPC aún la devuelva
+  return (data || []).filter(d => !isDocumentoSensibleParaCliente(d));
 }

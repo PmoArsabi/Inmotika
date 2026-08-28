@@ -7,11 +7,11 @@ import { TextSmall, TextTiny } from '../../components/ui/Typography';
 import ActionResultModal from '../../components/ui/ActionResultModal';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import { useSolicitudesVisita } from '../../hooks/useSolicitudesVisita';
-import { useVisitas } from '../../hooks/useVisitas';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useMasterData } from '../../context/MasterDataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useClienteData } from '../../hooks/useClienteData';
+import { useVisitaBySolicitud } from '../../hooks/useVisitaBySolicitud';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ROLES } from '../../utils/constants';
 import { SolicitudForm, SolicitudDetalle } from '../../modules/visits/SolicitudForm';
@@ -37,16 +37,39 @@ const SolicitudVisitaPage = () => {
   const { options: tipoVisitaOptions } = useCatalog('TIPO_VISITA');
   const { options: estadoVisitaOptions } = useCatalog('ESTADO_VISITA');
 
-  // Para rol CLIENTE: datos del contacto autenticado
-  const { cliente: clienteContacto, sucursales: sucursalesContacto, dispositivos: dispositivosContacto } = useClienteData();
+  // Cliente: sucursales/dispositivos solo al crear/editar (no en la lista)
+  const needsClienteData = isClienteRole && (mode === 'create' || mode === 'edit');
+  const {
+    cliente: clienteContacto,
+    contacto: contactoAuth,
+    sucursales: sucursalesContacto,
+    dispositivos: dispositivosContacto,
+  } = useClienteData({
+    enabled: needsClienteData,
+    slim: true,
+  });
 
-  const { visitas } = useVisitas();
+  // Visita vinculada: carga liviana solo al ver detalle (no useVisitas completo)
+  const detailSolicitudId = mode === 'view' ? selectedSol?.id : null;
+  const { visita: visitaDetalle } = useVisitaBySolicitud(detailSolicitudId);
+  const visitas = useMemo(
+    () => (visitaDetalle ? [visitaDetalle] : []),
+    [visitaDetalle]
+  );
 
   // Auto-populate draft con el cliente del contacto al abrir el formulario de creación.
-  // Se hace durante el render (no en effect) para evitar setState-in-effect.
-  const clienteContactoId = clienteContacto?.id ? String(clienteContacto.id) : '';
-  const clienteContactoNombre = clienteContacto?.razon_social || clienteContacto?.nombre || '';
-  if (isClienteRole && mode === 'create' && clienteContactoId && draft.clienteId !== clienteContactoId) {
+  const clienteContactoId = clienteContacto?.id
+    ? String(clienteContacto.id)
+    : (contactoAuth?.cliente_id ? String(contactoAuth.cliente_id) : '');
+  const clienteContactoNombre = clienteContacto?.razon_social
+    || contactoAuth?.cliente?.razon_social
+    || '';
+  if (
+    isClienteRole
+    && (mode === 'create' || mode === 'edit')
+    && clienteContactoId
+    && (draft.clienteId !== clienteContactoId || draft.clienteNombre !== clienteContactoNombre)
+  ) {
     setDraft(prev => ({ ...prev, clienteId: clienteContactoId, clienteNombre: clienteContactoNombre }));
   }
 

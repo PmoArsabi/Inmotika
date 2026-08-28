@@ -85,9 +85,15 @@ const VisitaHistorialCard = ({ intervencion }) => {
                   <div
                     key={e.id}
                     className="w-16 h-16 rounded-md overflow-hidden border border-gray-200 bg-gray-100 hover:opacity-80 transition-opacity cursor-pointer"
-                    onClick={() => {
-                      supabase.storage.from('inmotika').createSignedUrl(e.url, 3600)
-                        .then(({ data }) => { if (data?.signedUrl) window.open(data.signedUrl, '_blank'); });
+                    onClick={async () => {
+                      const { data, error } = await supabase.storage
+                        .from('inmotika')
+                        .createSignedUrl(e.url, 3600);
+                      if (error || !data?.signedUrl) {
+                        console.error('[DeviceVisitasTab] evidencia:', error);
+                        return;
+                      }
+                      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
                     }}
                   >
                     <SecureImage

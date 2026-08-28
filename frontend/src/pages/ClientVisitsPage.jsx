@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { CalendarDays, User, FileDown, Eye } from 'lucide-react';
-import { supabase } from '../utils/supabase';
 import Card from '../components/ui/Card';
 import SectionHeader from '../components/ui/SectionHeader';
 import { Table, THead, TBody, Tr, Th, Td } from '../components/ui/Table';
@@ -8,6 +7,8 @@ import { Subtitle, TextSmall, TextTiny } from '../components/ui/Typography';
 import StatusBadge from '../components/ui/StatusBadge';
 import { useClienteData } from '../hooks/useClienteData';
 import { useVisitasCliente } from '../hooks/useVisitasCliente';
+import { useNotify } from '../context/NotificationContext';
+import { openInformePdf } from '../utils/informeDownload';
 
 /**
  * Vista de visitas/intervenciones para el usuario con rol CLIENTE.
@@ -17,27 +18,22 @@ const ClientVisitsPage = () => {
   const { sucursales, loading: loadingData } = useClienteData();
   const sucursalIds = useMemo(() => sucursales.map(s => s.id), [sucursales]);
   const { visitas, loading: loadingVisitas } = useVisitasCliente(sucursalIds);
+  const notify = useNotify();
 
   const loading = loadingData || loadingVisitas;
 
   /**
-   * Genera URL firmada temporal para ver o descargar el PDF del informe.
-   * @param {string} storagePath
+   * Abre/descarga el PDF vía token (download-informe). Storage de informes es privado.
+   * @param {string} visitaId
    * @param {'view'|'download'} mode
    */
-  const handleInforme = async (storagePath, mode = 'view') => {
-    if (!storagePath) return;
-    const { data } = await supabase.storage
-      .from('inmotika')
-      .createSignedUrl(storagePath, 3600);
-    if (!data?.signedUrl) return;
-    if (mode === 'download') {
-      const a = document.createElement('a');
-      a.href = data.signedUrl;
-      a.download = 'informe.pdf';
-      a.click();
-    } else {
-      window.open(data.signedUrl, '_blank');
+  const handleInforme = async (visitaId, mode = 'view') => {
+    if (!visitaId) return;
+    try {
+      await openInformePdf(visitaId, mode);
+    } catch (err) {
+      console.error('[ClientVisitsPage] informe:', err);
+      notify('error', err?.message || 'No se pudo abrir el informe');
     }
   };
 
@@ -105,7 +101,7 @@ const ClientVisitsPage = () => {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => handleInforme(v.informeStoragePath, 'view')}
+                          onClick={() => handleInforme(v.id, 'view')}
                           className="flex items-center gap-1 text-xs font-bold text-brand hover:text-brand-dark transition-colors"
                           title="Ver informe"
                         >
@@ -113,7 +109,7 @@ const ClientVisitsPage = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleInforme(v.informeStoragePath, 'download')}
+                          onClick={() => handleInforme(v.id, 'download')}
                           className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors"
                           title="Descargar PDF"
                         >
@@ -179,14 +175,14 @@ const ClientVisitsPage = () => {
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => handleInforme(v.informeStoragePath, 'view')}
+                        onClick={() => handleInforme(v.id, 'view')}
                         className="flex items-center gap-1 text-xs font-bold text-brand hover:text-brand-dark transition-colors"
                       >
                         <Eye size={13} /> Ver
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleInforme(v.informeStoragePath, 'download')}
+                        onClick={() => handleInforme(v.id, 'download')}
                         className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors"
                       >
                         <FileDown size={13} /> PDF

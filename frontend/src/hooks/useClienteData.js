@@ -1,36 +1,50 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
-import { ROLES } from '../utils/constants';
 
 /**
  * Hook para obtener los datos del cliente/contacto del usuario logueado con rol CLIENTE.
- * Hace queries directas a Supabase filtrando por auth.uid() — funciona con RLS.
  *
- * @returns {{ contacto: object|null, cliente: object|null, sucursales: Array, dispositivos: Array, loading: boolean }}
+ * @param {{ enabled?: boolean, slim?: boolean, mode?: 'full'|'slim'|'corporate' }} [options]
+ *   - enabled: si false, no hace fetch.
+ *   - slim / mode 'slim': selectores de solicitudes (mínimo).
+ *   - mode 'corporate': Mis Datos — sin dispositivos ni contratos anidados.
+ *   - mode 'full' (default): carga completa (inventario, dashboard, etc.).
  */
-export function useClienteData() {
+export function useClienteData({ enabled = true, slim = false, mode } = {}) {
+  const resolvedMode = mode || (slim ? 'slim' : 'full');
   const { user } = useAuth();
   const [state, setState] = useState({
     contacto: null,
     cliente: null,
     sucursales: [],
     dispositivos: [],
-    loading: true,
+    loading: enabled,
   });
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!enabled || !user?.id) {
+      if (!enabled) {
+        setState({ contacto: null, cliente: null, sucursales: [], dispositivos: [], loading: false });
+      }
+      return;
+    }
 
     let cancelled = false;
 
     async function fetch() {
       setState(prev => ({ ...prev, loading: true }));
       try {
-        // 1. Contacto del usuario autenticado con sus sucursales asociadas
+        const contactoSelect =
+          resolvedMode === 'slim'
+            ? 'id, cliente_id, nombres, apellidos, email, contacto_sucursal(sucursal_id), cliente:cliente_id(id, razon_social)'
+            : resolvedMode === 'corporate'
+              ? 'id, cliente_id, nombres, apellidos, email, telefono_movil, contacto_sucursal(sucursal_id), cliente:cliente_id(id, razon_social, nit, dv, tipo_documento, direccion, ciudad, estado_depto, pais, logo_url)'
+              : '*, contacto_sucursal(sucursal_id)';
+
         const { data: contactoRow, error: contactoErr } = await supabase
           .from('contacto')
-          .select('*, contacto_sucursal(sucursal_id)')
+          .select(contactoSelect)
           .eq('usuario_id', user.id)
           .maybeSingle();
 
@@ -50,27 +64,46 @@ export function useClienteData() {
           return;
         }
 
-        // 2. Sucursales, dispositivos y cliente en paralelo
         const clienteId = contactoRow.cliente_id;
-        const [sucursalRes, dispositivoRes, clienteRes] = await Promise.all([
-          supabase
-            .from('sucursal')
-            .select('*, contrato(*), horarios_atencion, contacto_sucursal(contacto_id, contacto(id, nombres, apellidos, telefono_movil, email, cargo_id))')
-            .in('id', branchIds),
-          supabase
-            .from('dispositivo')
-            .select('*, categoria:categoria_id(nombre), marca:marca_id(nombre), proveedor:proveedor_id(nombre), catalogo_estado_gestion:estado_gestion_id(nombre, codigo)')
-            .in('sucursal_id', branchIds),
+
+        const sucursalSelect =
+          resolvedMode === 'slim'
+            ? 'id, nombre, cliente_id'
+            : resolvedMode === 'corporate'
+              ? 'id, nombre, cliente_id, direccion, ciudad, estado_depto, pais, es_principal'
+              : '*, contrato(*), horarios_atencion, contacto_sucursal(contacto_id, contacto(id, nombres, apellidos, telefono_movil, email, cargo_id))';
+
+        // Nota: la tabla cliente no tiene columna `nombre` (solo razon_social).
+        const clienteSelect =
+          resolvedMode === 'slim'
+            ? 'id, razon_social'
+            : resolvedMode === 'corporate'
+              ? 'id, razon_social, nit, dv, tipo_documento, direccion, ciudad, estado_depto, pais, logo_url'
+              : '*';
+
+        const needsDevices = resolvedMode === 'full' || resolvedMode === 'slim';
+        const dispositivoSelect =
+          resolvedMode === 'slim'
+            ? 'id, sucursal_id, serial, id_inmotika, codigo_unico, modelo, categoria:categoria_id(nombre), marca:marca_id(nombre), proveedor:proveedor_id(nombre)'
+            : '*, categoria:categoria_id(nombre), marca:marca_id(nombre), proveedor:proveedor_id(nombre), catalogo_estado_gestion:estado_gestion_id(nombre, codigo)';
+
+        const [sucursalRes, clienteRes, dispositivoRes] = await Promise.all([
+          supabase.from('sucursal').select(sucursalSelect).in('id', branchIds),
           clienteId
-            ? supabase.from('cliente').select('*').eq('id', clienteId).maybeSingle()
+            ? supabase.from('cliente').select(clienteSelect).eq('id', clienteId).maybeSingle()
             : Promise.resolve({ data: null }),
+          needsDevices
+            ? supabase.from('dispositivo').select(dispositivoSelect).in('sucursal_id', branchIds)
+            : Promise.resolve({ data: [] }),
         ]);
 
         if (cancelled) return;
 
-
-        const cliente = clienteRes.data || null;
-        // Solo mostrar sucursales que pertenezcan al mismo cliente del contacto
+        // Fallback: embed en contacto si la lectura directa de cliente falla (RLS)
+        const cliente = clienteRes.data || contactoRow.cliente || null;
+        if (cliente && !cliente.razon_social && contactoRow.cliente?.razon_social) {
+          cliente.razon_social = contactoRow.cliente.razon_social;
+        }
         const sucursales = (sucursalRes.data || []).filter(s =>
           !clienteId || !s.cliente_id || String(s.cliente_id) === String(clienteId)
         );
@@ -88,7 +121,7 @@ export function useClienteData() {
 
     fetch();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, enabled, resolvedMode]);
 
   return state;
 }

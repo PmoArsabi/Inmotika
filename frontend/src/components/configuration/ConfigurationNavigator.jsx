@@ -483,11 +483,34 @@ const ConfigurationNavigator = ({ onClose }) => {
                 {contactSuccessInfo.isNew ? 'Contacto creado' : 'Contacto actualizado'}
               </H3>
             </div>
-            <TextSmall className="text-gray-600 mb-6 leading-relaxed">
+            <TextSmall className="text-gray-600 mb-4 leading-relaxed">
               {contactSuccessInfo.isNew
                 ? 'El contacto se ha creado correctamente. ¿Qué deseas hacer ahora?'
                 : 'Los cambios del contacto se guardaron correctamente. ¿Qué deseas hacer ahora?'}
             </TextSmall>
+            {contactSuccessInfo.provisionalPassword && (
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+                <p className="text-xs font-bold text-amber-900 uppercase tracking-wide">Clave provisional</p>
+                <p className="text-xs text-amber-800">
+                  Entrégala al contacto ({contactSuccessInfo.email || 'correo'}). Podrá cambiarla desde su perfil al iniciar sesión.
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-sm font-mono font-bold text-gray-900 bg-white border border-amber-200 rounded-lg px-3 py-2 select-all">
+                    {contactSuccessInfo.provisionalPassword}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(contactSuccessInfo.provisionalPassword);
+                    }}
+                  >
+                    Copiar
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col gap-3">
               <Button onClick={handleContactStayView} variant="success" className="w-full">Ver Contacto</Button>
               <Button onClick={handleContactBackToList} variant="outline" className="w-full">Volver a Contactos</Button>

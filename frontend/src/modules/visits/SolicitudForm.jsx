@@ -18,6 +18,8 @@ import DevicePickerModal from '../../components/shared/DevicePickerModal';
 import DocumentList from '../../components/ui/DocumentList';
 import { useDocumentosTecnicosVisita } from '../../hooks/useUserDocuments';
 import { useAuth } from '../../context/AuthContext';
+import { useNotify } from '../../context/NotificationContext';
+import { openInformePdf } from '../../utils/informeDownload';
 import { H2, H3, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 
 // ─── Form compartido (crear / editar) ─────────────────────────────────────────
@@ -77,7 +79,7 @@ const SolicitudForm = ({
                   <div className="flex items-center gap-2 h-10 px-3 bg-gray-50 border border-gray-200 rounded-md">
                     <Building2 size={14} className="text-gray-400 shrink-0" />
                     <span className="text-sm font-semibold text-gray-700 truncate">
-                      {draft.clienteNombre || '—'}
+                      {draft.clienteNombre || 'Cargando cliente…'}
                     </span>
                   </div>
                 ) : (
@@ -272,12 +274,14 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
   const canCancel = sol.estadoCodigo === 'PENDIENTE' || sol.estadoCodigo === 'PROGRAMADA';
   const visitaVinculada = visitas.find(v => v.solicitudId === sol.id) || null;
   const { user } = useAuth();
+  const notify = useNotify();
   const isCliente = user?.role === 'CLIENTE';
 
   // Panel de técnicos expandido (tecnicoId seleccionado o null)
   const [selectedTecnico, setSelectedTecnico] = useState(null);
 
   const [informeStoragePath, setInformeStoragePath] = useState(null);
+  const [informeLoading, setInformeLoading] = useState(false);
 
   useEffect(() => {
     if (!visitaVinculada?.id) { setInformeStoragePath(null); return; }
@@ -299,16 +303,15 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
   );
 
   const handleInforme = async (mode = 'view') => {
-    if (!informeStoragePath) return;
-    const { data } = await supabase.storage.from('inmotika').createSignedUrl(informeStoragePath, 3600);
-    if (!data?.signedUrl) return;
-    if (mode === 'download') {
-      const a = document.createElement('a');
-      a.href = data.signedUrl;
-      a.download = 'informe.pdf';
-      a.click();
-    } else {
-      window.open(data.signedUrl, '_blank');
+    if (!visitaVinculada?.id || informeLoading) return;
+    setInformeLoading(true);
+    try {
+      await openInformePdf(visitaVinculada.id, mode);
+    } catch (err) {
+      console.error('[SolicitudDetalle] informe:', err);
+      notify('error', err?.message || 'No se pudo abrir el informe');
+    } finally {
+      setInformeLoading(false);
     }
   };
 
@@ -408,7 +411,12 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                       const initial = fullName.charAt(0).toUpperCase();
                       const tecnicoId = tec?.tecnicoId || idx;
                       const isOpen = selectedTecnico === tecnicoId;
-                      const tecDocs = docsTecnicos.filter(d => d.tecnico_nombres === tec?.nombres && d.tecnico_apellidos === tec?.apellidos);
+                      const tecDocs = docsTecnicos.filter(d =>
+                        d.tecnico_nombres === tec?.nombres
+                        && d.tecnico_apellidos === tec?.apellidos
+                        && String(d.tipo || '').toUpperCase() !== 'FIRMA'
+                        && String(d.nombre || '').trim().toUpperCase() !== 'FIRMA'
+                      );
                       return (
                         <div key={tecnicoId} className="rounded-xl border border-gray-100 overflow-hidden">
                           <button
@@ -480,15 +488,17 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         type="button"
+                        disabled={informeLoading}
                         onClick={() => handleInforme('view')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark transition-colors text-xs font-bold shadow-sm"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark transition-colors text-xs font-bold shadow-sm disabled:opacity-60"
                       >
-                        <Eye size={12} /> Ver
+                        <Eye size={12} /> {informeLoading ? '…' : 'Ver'}
                       </button>
                       <button
                         type="button"
+                        disabled={informeLoading}
                         onClick={() => handleInforme('download')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-xs font-bold"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-xs font-bold disabled:opacity-60"
                       >
                         <FileDown size={12} /> PDF
                       </button>
@@ -544,26 +554,38 @@ const SolicitudDetalle = ({ sol, visitas, onBack, onEdit, onCancel: onRequestCan
             <p className="text-xs font-bold uppercase tracking-widest text-gray-700 mb-4">Historial de Estado</p>
             <ol className="relative border-l border-gray-200 space-y-5 pl-6">
               {[
-                { label: 'Solicitud enviada', active: true,                                                    fecha: sol.fechaSolicitud },
-                { label: 'Visita programada', active: !!visitaVinculada,                                       fecha: visitaVinculada?.fechaProgramada || null },
-                { label: 'En curso',          active: !!visitaVinculada?.fechaInicio,                          fecha: visitaVinculada?.fechaInicio || null },
-                { label: 'Finalizada',        active: sol.estadoCodigo === 'COMPLETADA' || !!visitaVinculada?.fechaFin,  fecha: visitaVinculada?.fechaFin || null },
-                { label: 'Cancelada',         active: sol.estadoCodigo === 'CANCELADA' || sol.estadoCodigo === 'CANCELADO', fecha: null },
-              ].map((step, i) => (
-                <li key={i} className="relative">
-                  <span className={`absolute -left-7.5 top-1 w-3 h-3 rounded-full border-2 ${
-                    step.active ? 'bg-brand border-brand' : 'bg-white border-gray-300'
-                  }`} />
-                  <p className={`text-sm font-semibold ${step.active ? 'text-gray-900' : 'text-gray-400'}`}>
-                    {step.label}
-                  </p>
-                  {step.fecha && (
-                    <p className="text-xs text-gray-400">
-                      {new Date(step.fecha).toLocaleDateString('es-ES')}
+                { label: 'Solicitud enviada', done: true,                                                      fecha: sol.fechaSolicitud },
+                { label: 'Visita programada', done: !!visitaVinculada,                                         fecha: visitaVinculada?.fechaProgramada || null },
+                { label: 'En curso',          done: !!visitaVinculada?.fechaInicio,                            fecha: visitaVinculada?.fechaInicio || null },
+                { label: 'Finalizada',        done: sol.estadoCodigo === 'COMPLETADA' || !!visitaVinculada?.fechaFin, fecha: visitaVinculada?.fechaFin || null },
+                { label: 'Cancelada',         done: false, cancelled: sol.estadoCodigo === 'CANCELADA' || sol.estadoCodigo === 'CANCELADO', fecha: null },
+              ].map((step, i) => {
+                const isCancelled = !!step.cancelled;
+                const isDone = !!step.done;
+                const dotClass = isCancelled
+                  ? 'bg-red-500 border-red-500'
+                  : isDone
+                    ? 'bg-emerald-500 border-emerald-500'
+                    : 'bg-white border-gray-300';
+                const labelClass = isCancelled
+                  ? 'text-red-600'
+                  : isDone
+                    ? 'text-gray-900'
+                    : 'text-gray-400';
+                return (
+                  <li key={i} className="relative">
+                    <span className={`absolute -left-7.5 top-1 w-3 h-3 rounded-full border-2 ${dotClass}`} />
+                    <p className={`text-sm font-semibold ${labelClass}`}>
+                      {step.label}
                     </p>
-                  )}
-                </li>
-              ))}
+                    {step.fecha && (
+                      <p className="text-xs text-gray-400">
+                        {new Date(step.fecha).toLocaleDateString('es-ES')}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
             </ol>
           </Card>
         </div>

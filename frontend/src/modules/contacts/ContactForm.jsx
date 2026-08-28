@@ -1,7 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   User, IdCard, Mail, Calendar, Briefcase, Heart, MessageSquare,
-  Building2, Shield, CheckCircle2, Camera,
+  Building2, Shield, CheckCircle2, Camera, KeyRound, Copy, RefreshCw, Check,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -13,6 +13,77 @@ import SearchableSelect from '../../components/ui/SearchableSelect';
 import SecureImage from '../../components/ui/SecureImage';
 import { TextTiny } from '../../components/ui/Typography';
 import { useCatalog, useActivoInactivo } from '../../hooks/useCatalog';
+import { generateProvisionalPassword } from '../../utils/provisionalPassword';
+
+/**
+ * Bloque de clave provisional (generada automáticamente, con copiar).
+ */
+const ProvisionalPasswordBlock = ({
+  enabled,
+  password,
+  onToggle,
+  onRegenerate,
+  existingUser = false,
+}) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (!password) return;
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  };
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+      <div className="flex items-start gap-2">
+        <KeyRound size={15} className="text-amber-700 mt-0.5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-amber-900">
+            {existingUser ? 'Generar nueva clave provisional' : 'Clave provisional (sin correo)'}
+          </p>
+          <TextTiny className="text-amber-800/80 mt-0.5">
+            {existingUser
+              ? 'Útil si el contacto no puede recibir correos (p. ej. universidad). Al guardar se reemplaza su contraseña.'
+              : 'Crea el acceso con una clave temporal. Entrégala al contacto; podrá cambiarla desde su perfil.'}
+          </TextTiny>
+        </div>
+      </div>
+
+      <Switch
+        label={existingUser ? 'Asignar nueva clave al guardar' : 'Usar clave provisional'}
+        checked={enabled}
+        onChange={onToggle}
+        checkedLabel="Sí"
+        uncheckedLabel="No"
+      />
+
+      {enabled && (
+        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
+          <div className="flex-1 min-w-0">
+            <Input
+              label="Clave generada"
+              value={password}
+              readOnly
+              icon={KeyRound}
+            />
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button type="button" variant="outline" onClick={onRegenerate} className="h-10">
+              <RefreshCw size={14} /> Regenerar
+            </Button>
+            <Button type="button" variant="outline" onClick={handleCopy} className="h-10">
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? 'Copiada' : 'Copiar'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 /**
  * Avatar centrado para contacto con acceso al sistema.
@@ -336,7 +407,11 @@ const ContactForm = ({
               <Switch
                 label="Acceso al sistema"
                 checked={!!draft.darAcceso}
-                onChange={checked => updateDraft({ darAcceso: checked })}
+                onChange={checked => updateDraft(
+                  checked
+                    ? { darAcceso: true }
+                    : { darAcceso: false, usarClaveProvisional: false, claveProvisional: '' }
+                )}
                 viewMode={!isEditing}
                 checkedLabel="Sí"
                 uncheckedLabel="No"
@@ -344,6 +419,44 @@ const ContactForm = ({
             )}
           </div>
         </div>
+
+        {/* Clave provisional — sin correo (universidades / restricciones de inbox) */}
+        {isEditing && !hasAccess && draft.darAcceso && (
+          <ProvisionalPasswordBlock
+            enabled={!!draft.usarClaveProvisional}
+            password={draft.claveProvisional || ''}
+            onToggle={(checked) => {
+              if (checked) {
+                updateDraft({
+                  usarClaveProvisional: true,
+                  claveProvisional: draft.claveProvisional || generateProvisionalPassword(),
+                });
+              } else {
+                updateDraft({ usarClaveProvisional: false, claveProvisional: '' });
+              }
+            }}
+            onRegenerate={() => updateDraft({ claveProvisional: generateProvisionalPassword() })}
+          />
+        )}
+
+        {isEditing && hasAccess && (
+          <ProvisionalPasswordBlock
+            enabled={!!draft.usarClaveProvisional}
+            password={draft.claveProvisional || ''}
+            existingUser
+            onToggle={(checked) => {
+              if (checked) {
+                updateDraft({
+                  usarClaveProvisional: true,
+                  claveProvisional: draft.claveProvisional || generateProvisionalPassword(),
+                });
+              } else {
+                updateDraft({ usarClaveProvisional: false, claveProvisional: '' });
+              }
+            }}
+            onRegenerate={() => updateDraft({ claveProvisional: generateProvisionalPassword() })}
+          />
+        )}
       </div>
 
       {/* ─── Estado — solo visible en ver/editar (no en creación nueva) ─── */}

@@ -5,6 +5,7 @@ import FilterBar from '../../components/shared/FilterBar';
 import ActionResultModal from '../../components/ui/ActionResultModal';
 import { TextSmall, TextTiny } from '../../components/ui/Typography';
 import { getInformesDirectorTodos } from '../../api/informeApi';
+import { matchesDateRange } from '../../utils/dateFilter';
 import { tiempoRestanteDirector } from '../../utils/informePlazo';
 import InformeRevisionPage from './InformeRevisionPage';
 
@@ -73,8 +74,8 @@ const InformeDirectorPage = () => {
       ]},
       { key: 'cliente',    label: 'Cliente',     multi: true, options: clientes },
       { key: 'sucursal',   label: 'Sucursal',    multi: true, options: sucursales, dependsOn: 'cliente', dependsOnLabel: 'Cliente' },
-      { key: 'fechaDesde', label: 'Fecha desde', type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
-      { key: 'fechaHasta', label: 'Fecha hasta', type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
+      { key: 'fechaDesde', label: 'Cierre desde', type: 'date', dateRole: 'desde', linkedTo: 'fechaHasta' },
+      { key: 'fechaHasta', label: 'Cierre hasta', type: 'date', dateRole: 'hasta', linkedTo: 'fechaDesde' },
     ];
   }, [informes]);
 
@@ -82,8 +83,7 @@ const InformeDirectorPage = () => {
     if (filters.estado?.length   && !filters.estado.includes(inf.estado))            return false;
     if (filters.cliente?.length  && !filters.cliente.includes(inf.cliente_nombre))   return false;
     if (filters.sucursal?.length && !filters.sucursal.includes(inf.sucursal_nombre)) return false;
-    if (filters.fechaDesde && inf.fecha_fin && inf.fecha_fin < filters.fechaDesde)   return false;
-    if (filters.fechaHasta && inf.fecha_fin && inf.fecha_fin > filters.fechaHasta + 'T23:59:59') return false;
+    if (!matchesDateRange(inf.fecha_fin, filters.fechaDesde, filters.fechaHasta)) return false;
     return true;
   }), [informes, filters]);
 

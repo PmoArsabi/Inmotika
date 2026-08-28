@@ -79,6 +79,8 @@ export const emptyContactDraft = () => ({
   fechaMatrimonio: '',    // fecha boda — solo visible si esMarido=true
   estadoId: '',           // UUID → catalogo (ESTADO_ENTIDAD) (oculto en creación)
   darAcceso: false,       // true = invitar al sistema al guardar
+  usarClaveProvisional: false, // true = crear acceso con password (sin correo)
+  claveProvisional: '',        // clave generada (solo UI; no se persiste en BD)
   associatedBranchIds: [],
 });
 

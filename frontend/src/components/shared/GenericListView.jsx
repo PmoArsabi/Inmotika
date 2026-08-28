@@ -195,7 +195,11 @@ const GenericListView = ({
           {EmptyIcon && <EmptyIcon size={48} className="mx-auto mb-4 text-gray-300" />}
           <Subtitle className="text-gray-500 mb-2">{emptyText}</Subtitle>
           <TextSmall className="text-gray-400">
-            {searchQuery ? 'Intenta con otros términos de búsqueda' : 'No hay registros para mostrar'}
+            {searchQuery
+              ? 'Intenta con otros términos de búsqueda'
+              : activeFiltersCount > 0
+                ? 'Prueba ampliar el rango de fechas o quitar algún filtro'
+                : 'No hay registros para mostrar'}
           </TextSmall>
         </Card>
 
