@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ClipboardCheck, Building2, Calendar, Tag, Eye, Edit2 } from 'lucide-react';
+import { ClipboardCheck, Building2, Calendar, Tag, Eye, Edit2, Clock } from 'lucide-react';
 import GenericListView from '../../components/shared/GenericListView';
 import FilterBar from '../../components/shared/FilterBar';
 import ActionResultModal from '../../components/ui/ActionResultModal';
 import { TextSmall, TextTiny } from '../../components/ui/Typography';
 import { getInformesEnRevision } from '../../api/informeApi';
+import { isPlazoDirectorVencido, tiempoRestanteDirector } from '../../utils/informePlazo';
 import InformeRevisionPage from './InformeRevisionPage';
 
 
@@ -13,6 +14,18 @@ import InformeRevisionPage from './InformeRevisionPage';
 const fmt = (iso) => {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const TiempoBadge = ({ enviado_director_at, estado }) => {
+  if (estado !== 'EN_APROBACION') return null;
+  const restante = tiempoRestanteDirector(enviado_director_at);
+  if (!restante) return null;
+  return (
+    <span className={`inline-flex items-center gap-1 text-2xs font-bold ${restante.vencido ? 'text-red-600' : 'text-amber-600'}`}>
+      <Clock size={10} />
+      {restante.vencido ? 'Puedes decidir' : restante.label}
+    </span>
+  );
 };
 
 // ─── Badges ──────────────────────────────────────────────────────────────────
@@ -108,6 +121,10 @@ const ValidacionInformePage = () => {
     },
     { header: 'Estado',   render: inf => <EstadoBadge estado={inf.estado} /> },
     {
+      header: 'Plazo director',
+      render: inf => <TiempoBadge enviado_director_at={inf.enviado_director_at} estado={inf.estado} />,
+    },
+    {
       header: 'Progreso',
       render: inf => {
         const pct = inf.total_intervenciones > 0 ? Math.round((inf.revisadas / inf.total_intervenciones) * 100) : 0;
@@ -159,17 +176,23 @@ const ValidacionInformePage = () => {
           inf.cliente_nombre.toLowerCase().includes(q) ||
           inf.sucursal_nombre.toLowerCase().includes(q)
         }
-        rowActions={inf => (
-          ['EN_REVISION', 'RECHAZADO'].includes(inf.estado) ? (
-            <button onClick={() => setSelected(inf)} className="p-1.5 rounded hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors" title="Editar">
+        rowActions={inf => {
+          const puedeActuar = ['EN_REVISION', 'RECHAZADO'].includes(inf.estado)
+            || (inf.estado === 'EN_APROBACION' && isPlazoDirectorVencido(inf.enviado_director_at));
+          return puedeActuar ? (
+            <button
+              onClick={() => setSelected(inf)}
+              className="p-1.5 rounded hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors"
+              title={inf.estado === 'EN_APROBACION' ? 'Aprobar o rechazar (plazo vencido)' : 'Editar'}
+            >
               <Edit2 size={16} />
             </button>
           ) : (
             <button onClick={() => setSelected(inf)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="Ver">
               <Eye size={16} />
             </button>
-          )
-        )}
+          );
+        }}
         activeFiltersCount={activeFiltersCount}
         filteredCount={informesFiltrados.length}
         totalItems={informes.length}

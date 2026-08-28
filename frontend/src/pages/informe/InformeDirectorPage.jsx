@@ -5,6 +5,7 @@ import FilterBar from '../../components/shared/FilterBar';
 import ActionResultModal from '../../components/ui/ActionResultModal';
 import { TextSmall, TextTiny } from '../../components/ui/Typography';
 import { getInformesDirectorTodos } from '../../api/informeApi';
+import { tiempoRestanteDirector } from '../../utils/informePlazo';
 import InformeRevisionPage from './InformeRevisionPage';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -12,15 +13,6 @@ import InformeRevisionPage from './InformeRevisionPage';
 const fmt = (iso) => {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
-
-const tiempoRestante = (iso) => {
-  if (!iso) return null;
-  const diff = new Date(iso).getTime() + 2 * 3600000 - Date.now();
-  if (diff <= 0) return { label: 'Vencido', vencido: true };
-  const h = Math.floor(diff / 3600000);
-  const m = Math.floor((diff % 3600000) / 60000);
-  return { label: `${h}h ${m}m restantes`, vencido: false };
 };
 
 // ─── Badges ──────────────────────────────────────────────────────────────────
@@ -41,7 +33,7 @@ const EstadoBadge = ({ estado }) => {
 
 const TiempoBadge = ({ enviado_director_at, estado }) => {
   if (estado !== 'EN_APROBACION') return null;
-  const restante = tiempoRestante(enviado_director_at);
+  const restante = tiempoRestanteDirector(enviado_director_at);
   if (!restante) return null;
   return (
     <span className={`inline-flex items-center gap-1 text-2xs font-bold ${restante.vencido ? 'text-red-600' : 'text-amber-600'}`}>
@@ -168,7 +160,7 @@ const InformeDirectorPage = () => {
         }
         rowActions={inf => {
           const puedeEditar = inf.estado === 'EN_APROBACION'
-            && !tiempoRestante(inf.enviado_director_at)?.vencido;
+            && !tiempoRestanteDirector(inf.enviado_director_at)?.vencido;
           return puedeEditar ? (
             <button onClick={() => setSelected(inf)} className="p-1.5 rounded hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors" title="Revisar y aprobar">
               <Edit2 size={16} />

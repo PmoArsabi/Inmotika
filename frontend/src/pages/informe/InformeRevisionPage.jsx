@@ -8,6 +8,7 @@ import ActionResultModal from '../../components/ui/ActionResultModal';
 import { TextSmall, TextTiny } from '../../components/ui/Typography';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../utils/constants';
+import { isPlazoDirectorVencido } from '../../utils/informePlazo';
 import InformePDFTemplate from '../../components/visits/InformePDFTemplate';
 import {
   getInformeDetalle,
@@ -1173,9 +1174,12 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [activeIntervencionId]);
 
-  // Si el coordinador está en modo solo-lectura (solo tab Chat), forzar tab chat
+  // Coordinador en EN_APROBACION sin plazo vencido (o APROBADO): solo tab Chat
   useEffect(() => {
-    if (!isDirector && informeDetalle && (informeDetalle.estado === 'EN_APROBACION' || informeDetalle.estado === 'APROBADO')) {
+    if (isDirector || !informeDetalle) return;
+    const estado = informeDetalle.estado;
+    const vencido = isPlazoDirectorVencido(informeDetalle.enviado_director_at);
+    if (estado === 'APROBADO' || (estado === 'EN_APROBACION' && !vencido)) {
       setActiveTab('chat');
     }
   }, [isDirector, informeDetalle]);
@@ -1365,11 +1369,20 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
 
   // ── Enviar / Aprobar ──────────────────────────────────────────────────────
 
+  const estadoActual = informeDetalle?.estado || informeBase.estado;
+  const plazoVencido = isPlazoDirectorVencido(
+    informeDetalle?.enviado_director_at ?? informeBase.enviado_director_at
+  );
+  // Director decide dentro del plazo; coordinador solo si el plazo de 2h venció.
+  const puedeDecidirFinal = estadoActual === 'EN_APROBACION'
+    ? ((isDirector && !plazoVencido) || (!isDirector && plazoVencido))
+    : isDirector;
+
   const handleAprobar = async () => {
     setSavingAccion(true);
     try {
-      if (isDirector) {
-        // Validar correctiva pendiente también para el director
+      if (puedeDecidirFinal) {
+        // Validar correctiva pendiente también para el director / coordinador en fallback
         const dispositivosDir = localInforme?.categorias.flatMap(cat => cat.dispositivos) || [];
         const rechazadosDir   = dispositivosDir.filter(d => revisiones[d.intervencion_id]?.aprobado === false);
         if (rechazadosDir.length > 0 && !correctivaGuardada) {
@@ -1400,26 +1413,34 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
           clienteEmails = (contactos || []).map(c => c.email).filter(Boolean);
         }
 
-        // 1. Registrar decisión en historial del director (sin cambiar estado aún)
-        await registrarRevisionDirector(informeBase.id, userId, 'APROBADO', null);
+        // 1. Registrar decisión en historial (director o coordinador por plazo vencido)
+        await registrarRevisionDirector(
+          informeBase.id,
+          userId,
+          'APROBADO',
+          !isDirector && plazoVencido ? 'Aprobado por coordinador (plazo del director vencido)' : null
+        );
 
         // 2. Fetch fresco del informe para garantizar que las observaciones estén al día
         const detalleActualizado = await getInformeDetalle(informeBase.id);
 
         // 3. Generar PDF + cambiar estado a APROBADO + notificar cliente
         // Si falla, el informe queda en EN_APROBACION (puede reintentarse).
+        const nombreFinalizador = !isDirector
+          ? (coordinadorNombre || (user?.nombres ? `${user.nombres} ${user.apellidos || ''}`.trim() : null))
+          : (directorNombre || null);
         const informeParaPDF = {
           ...informeFiltrado,
           coordinador: coordinadorNombre || informeFiltrado.coordinador,
           observacion_coordinador: detalleActualizado?.observacion_coordinador ?? informeFiltrado.observacion_coordinador ?? null,
           observacion_director:    detalleActualizado?.observacion_director    ?? informeFiltrado.observacion_director    ?? null,
-          director_nombre:         directorNombre || informeFiltrado.director_nombre || null,
+          director_nombre:         nombreFinalizador || informeFiltrado.director_nombre || null,
           tecnico_firmas:          tecnicoFirmas,
         };
         await aprobarYGenerarPDF(informeBase.id, informeBase.visita_id, {
           informe:             informeParaPDF,
           firmaCoordinadorUrl: firmaCoordinadorUrl,
-          firmaDirectorUrl:    firmaDirectorUrl,
+          firmaDirectorUrl:    isDirector ? firmaDirectorUrl : (firmaDirectorUrl || firmaCoordinadorUrl),
           logoUrl:             import.meta.env.VITE_LOGO_URL || null,
           fondoUrl:            import.meta.env.VITE_FONDO_URL || null,
           clienteEmails,
@@ -1498,9 +1519,19 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
   const handleRechazar = async () => {
     setSavingAccion(true);
     try {
-      await registrarRevisionDirector(informeBase.id, userId, 'RECHAZADO', notaRechazo.trim() || null);
+      const nota = notaRechazo.trim() || null;
+      const observacion = !isDirector && plazoVencido
+        ? [nota, 'Rechazado por coordinador (plazo del director vencido)'].filter(Boolean).join(' — ')
+        : nota;
+      await registrarRevisionDirector(informeBase.id, userId, 'RECHAZADO', observacion);
       setShowRechazo(false); setNotaRechazo('');
-      setResultModal({ error: false, title: 'Informe rechazado', subtitle: 'El informe vuelve al coordinador para correcciones.' });
+      setResultModal({
+        error: false,
+        title: 'Informe rechazado',
+        subtitle: isDirector
+          ? 'El informe vuelve al coordinador para correcciones.'
+          : 'El informe vuelve a revisión para correcciones.',
+      });
     } catch (err) {
       setResultModal({ error: true, title: 'Error al rechazar', errorMessage: err.message });
     } finally { setSavingAccion(false); }
@@ -1547,11 +1578,12 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
     );
   }
 
-  const estadoCodigo   = informeDetalle?.estado || informeBase.estado;
-  // Coordinador: bloqueado en EN_APROBACION y APROBADO. Director: bloqueado solo en APROBADO.
-  const isReadOnly     = isDirector
-    ? estadoCodigo === 'APROBADO'
-    : (estadoCodigo === 'EN_APROBACION' || estadoCodigo === 'APROBADO');
+  const estadoCodigo = estadoActual;
+  // Director: bloqueado en APROBADO o si el plazo de 2h ya venció.
+  // Coordinador: bloqueado en APROBADO y en EN_APROBACION mientras el plazo sigue activo.
+  const isReadOnly = isDirector
+    ? (estadoCodigo === 'APROBADO' || (estadoCodigo === 'EN_APROBACION' && plazoVencido))
+    : (estadoCodigo === 'APROBADO' || (estadoCodigo === 'EN_APROBACION' && !plazoVencido));
   const dispositivos   = localInforme?.categorias.flatMap(cat => cat.dispositivos) || [];
   const totalDisp      = dispositivos.length;
   const revisadosCount = dispositivos.filter(d => revisiones[d.intervencion_id] !== undefined).length;
@@ -1621,6 +1653,16 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
           </div>
         )}
 
+        {!isDirector && plazoVencido && estadoCodigo === 'EN_APROBACION' && (
+          <div className="mx-4 mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 shrink-0">
+            <AlertCircle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <TextSmall className="font-bold text-amber-800">Plazo del director vencido (2 h)</TextSmall>
+              <TextTiny className="text-amber-700 mt-0.5">Puedes aprobar o rechazar este informe en su lugar.</TextTiny>
+            </div>
+          </div>
+        )}
+
         {/* Informe — visor tipo documento: fondo gris, página A4 centrada con scroll */}
         <div className="flex-1 overflow-auto bg-gray-100 p-4 lg:p-6">
           <div className="mx-auto w-198.5">
@@ -1675,7 +1717,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
                     onSave={isReadOnly ? null : handleSaveObsCoordinador}
                   />
                 )}
-                renderObsDirector={isDirector ? () => (
+                renderObsDirector={(isDirector || puedeDecidirFinal) ? () => (
                   <ObsDirectorEditor
                     value={informeDetalle?.observacion_director || null}
                     onSave={isReadOnly ? null : handleSaveObsDirector}
@@ -1705,6 +1747,8 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
           <TextTiny className={`text-2xs ${correctivaPendiente ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
             {correctivaPendiente
               ? '⚠ Hay cambios en dispositivos rechazados. Actualiza la visita correctiva antes de continuar.'
+              : puedeDecidirFinal && !isDirector
+                ? 'Plazo vencido. Puedes aprobar o rechazar el informe.'
               : !isDirector && !isReadOnly
                 ? (!todosRevisados && totalDisp > 0
                     ? `Revisa todos los dispositivos (${revisadosCount}/${totalDisp}) antes de enviar.`
@@ -1712,7 +1756,7 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
                 : null}
           </TextTiny>
           <div className="flex gap-2 shrink-0">
-            {isDirector && !isReadOnly && (
+            {puedeDecidirFinal && !isReadOnly && (
               <button type="button" disabled={savingAccion} onClick={() => setShowRechazo(v => !v)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
                   showRechazo ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600'
@@ -1721,20 +1765,20 @@ const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
               </button>
             )}
             <button type="button"
-              disabled={savingAccion || estadoCodigo === 'APROBADO' || isReadOnly || (!isDirector && !todosRevisados) || correctivaPendiente}
+              disabled={savingAccion || estadoCodigo === 'APROBADO' || isReadOnly || (!puedeDecidirFinal && !todosRevisados) || correctivaPendiente}
               onClick={handleAprobar}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-brand hover:bg-brand-dark text-white disabled:opacity-40 transition-colors">
               {savingAccion ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-              {isDirector ? 'Aprobar' : estadoCodigo === 'EN_APROBACION' ? 'En revisión por director' : 'Enviar al director'}
+              {puedeDecidirFinal ? 'Aprobar' : estadoCodigo === 'EN_APROBACION' ? 'En revisión por director' : 'Enviar al director'}
             </button>
           </div>
         </div>
 
-        {showRechazo && isDirector && (
+        {showRechazo && puedeDecidirFinal && (
           <div className="px-4 pb-4 border-t border-red-100 bg-red-50/50 space-y-2 shrink-0">
             <TextTiny className="font-bold text-red-700 uppercase tracking-wide text-2xs pt-3">Motivo del rechazo (opcional)</TextTiny>
             <textarea autoFocus value={notaRechazo} onChange={e => setNotaRechazo(e.target.value)} rows={2}
-              placeholder="Describe qué debe corregir el coordinador…"
+              placeholder={isDirector ? 'Describe qué debe corregir el coordinador…' : 'Describe el motivo del rechazo…'}
               className="w-full text-xs border border-red-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-red-300/30 focus:border-red-400 bg-white" />
             <div className="flex gap-2 justify-end">
               <button type="button" onClick={() => { setShowRechazo(false); setNotaRechazo(''); }}
