@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ROLES, isManagementRole } from './utils/constants';
+import { ROLES, isAdminRole } from './utils/constants';
 import { useAuth } from './context/AuthContext';
 import { useMasterData } from './context/MasterDataContext';
 
@@ -35,11 +35,13 @@ const AccessDenied = () => (
 
 /**
  * Declarative route guard that renders children only when the user's role is allowed.
+ * ADMIN (TI) bypasses all role gates — full platform access.
  * @param {string[]} roles - Roles permitidos para esta ruta.
  * @param {string} userRole - Rol del usuario actual.
  * @param {React.ReactNode} children
  */
 const ProtectedRoute = ({ roles, userRole, children }) => {
+  if (isAdminRole(userRole)) return children;
   if (!roles.includes(userRole)) return <AccessDenied />;
   return children;
 };
@@ -150,7 +152,6 @@ function App() {
     try {
       // Identificar el rol del usuario para restringir módulos
       const userRole = user?.role || 'TECNICO';
-      const _isAdminGroup = isManagementRole(userRole);
 
       // 1. Handle visits sub-tabs
       const visitsSubTab = getVisitsSubTab(activeTab);

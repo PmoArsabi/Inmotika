@@ -116,15 +116,15 @@ const UsersPage = ({ setData }) => {
   }, [usuarios, search, filters]);
 
   // Roles que el usuario actual puede asignar:
-  // - DIRECTOR (rol tope) puede crear su mismo nivel y cualquier nivel inferior.
+  // - ADMIN / DIRECTOR (tope) pueden crear su mismo nivel y cualquier inferior.
   // - COORDINADOR solo puede crear niveles inferiores al suyo.
   // - CLIENTE se gestiona desde Contactos, nunca aparece aquí.
   const roleOptions = useMemo(() => {
     const myRole = currentUser?.role;
     const myIndex = ROLE_HIERARCHY.indexOf(myRole);
     if (myIndex < 0) return [{ value: '', label: 'Seleccionar rol' }];
-    // DIRECTOR (índice 0) incluye su propio nivel; los demás solo los inferiores.
-    const startIndex = myRole === ROLES.DIRECTOR ? myIndex : myIndex + 1;
+    const canAssignSameLevel = myRole === ROLES.ADMIN || myRole === ROLES.DIRECTOR;
+    const startIndex = canAssignSameLevel ? myIndex : myIndex + 1;
     const allowedCodes = ROLE_HIERARCHY.slice(startIndex);
     const filtered = rolOptions.filter(r => allowedCodes.includes(r.value));
     return [{ value: '', label: 'Seleccionar rol' }, ...filtered];

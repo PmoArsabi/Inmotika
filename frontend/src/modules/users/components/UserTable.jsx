@@ -8,6 +8,7 @@ import { ROLES } from '../../../utils/constants';
 import { SkeletonTable } from '../../../components/ui/SkeletonLoader';
 
 const roleLabels = {
+  [ROLES.ADMIN]:       'Administrador',
   [ROLES.DIRECTOR]:    'Director',
   [ROLES.COORDINADOR]: 'Coordinador',
   [ROLES.TECNICO]:     'Técnico',

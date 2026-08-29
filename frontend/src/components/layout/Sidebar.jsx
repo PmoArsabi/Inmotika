@@ -6,8 +6,47 @@ import {
   CalendarCheck, PlayCircle, List, ClipboardCheck, MessageSquare,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import { ROLES, isManagementRole } from '../../utils/constants';
+import { ROLES, isManagementRole, isAdminRole } from '../../utils/constants';
 import { H3, TextSmall } from '../ui/Typography';
+
+const MANAGEMENT_MENU = (userRole) => {
+  const canValidar = userRole === ROLES.COORDINADOR || isAdminRole(userRole);
+  const canAprobar = userRole === ROLES.DIRECTOR || isAdminRole(userRole);
+  return [
+    { id: 'dashboard', label: 'Tablero', icon: LayoutDashboard },
+    {
+      id: 'configuration',
+      label: 'Configuración',
+      icon: Settings,
+      hasSubItems: true,
+      subItems: [
+        { id: 'configuration-clientes',     label: 'Clientes',     icon: Users   },
+        { id: 'configuration-contacto',     label: 'Contactos',    icon: Phone   },
+        { id: 'configuration-dispositivos', label: 'Dispositivos', icon: Cpu     },
+        { id: 'configuration-categorias',   label: 'Categorías',   icon: Tag     },
+        { id: 'configuration-usuarios',     label: 'Usuarios',     icon: UserCog },
+      ],
+    },
+    {
+      id: 'visits',
+      label: 'Gestión Visitas',
+      icon: ClipboardList,
+      hasSubItems: true,
+      subItems: [
+        { id: 'visits-solicitudes',  label: 'Solicitud Visita', icon: List          },
+        { id: 'visits-programacion', label: 'Programación',     icon: CalendarCheck },
+        { id: 'visits-gestion',      label: 'Gestión Visitas',  icon: PlayCircle    },
+        ...(canValidar
+          ? [{ id: 'visits-validacion-informes', label: 'Validar Informes',  icon: ClipboardCheck }]
+          : []),
+        ...(canAprobar
+          ? [{ id: 'visits-aprobacion-informes', label: 'Aprobar Informes', icon: ClipboardCheck }]
+          : []),
+        { id: 'visits-mensajes', label: 'Mensajes', icon: MessageSquare },
+      ],
+    },
+  ];
+};
 
 const Sidebar = ({
   user,
@@ -25,41 +64,27 @@ const Sidebar = ({
 
   const userRole = user?.role;
   const menuItems = useMemo(() => {
-    if (isManagementRole(userRole)) {
+    // ADMIN (TI): todos los módulos de gestión + tablero técnico + vistas de portal cliente
+    if (isAdminRole(userRole)) {
       return [
-        { id: 'dashboard', label: 'Tablero', icon: LayoutDashboard },
+        ...MANAGEMENT_MENU(userRole),
+        { id: 'schedule', label: 'Tablero Técnico', icon: Calendar },
         {
-          id: 'configuration',
-          label: 'Configuración',
-          icon: Settings,
+          id: 'client-config',
+          label: 'Portal Cliente',
+          icon: Building2,
           hasSubItems: true,
           subItems: [
-            { id: 'configuration-clientes',     label: 'Clientes',     icon: Users   },
-            { id: 'configuration-contacto',     label: 'Contactos',    icon: Phone   },
-            { id: 'configuration-dispositivos', label: 'Dispositivos', icon: Cpu     },
-            { id: 'configuration-categorias',   label: 'Categorías',   icon: Tag     },
-            { id: 'configuration-usuarios',     label: 'Usuarios',     icon: UserCog },
-          ],
-        },
-        {
-          id: 'visits',
-          label: 'Gestión Visitas',
-          icon: ClipboardList,
-          hasSubItems: true,
-          subItems: [
-            { id: 'visits-solicitudes',  label: 'Solicitud Visita', icon: List          },
-            { id: 'visits-programacion', label: 'Programación',     icon: CalendarCheck },
-            { id: 'visits-gestion',      label: 'Gestión Visitas',  icon: PlayCircle    },
-            ...(userRole === ROLES.COORDINADOR
-              ? [{ id: 'visits-validacion-informes', label: 'Validar Informes',  icon: ClipboardCheck }]
-              : []),
-            ...(userRole === ROLES.DIRECTOR
-              ? [{ id: 'visits-aprobacion-informes', label: 'Aprobar Informes', icon: ClipboardCheck }]
-              : []),
-            { id: 'visits-mensajes', label: 'Mensajes', icon: MessageSquare },
+            { id: 'client-dashboard', label: 'Tablero Cliente', icon: LayoutDashboard },
+            { id: 'client-data',      label: 'Mis Datos',       icon: Building2 },
+            { id: 'client-inventory', label: 'Dispositivos',    icon: Cpu },
+            { id: 'client-visits',    label: 'Visitas Cliente', icon: List },
           ],
         },
       ];
+    }
+    if (isManagementRole(userRole)) {
+      return MANAGEMENT_MENU(userRole);
     }
     if (userRole === ROLES.TECNICO) {
       return [

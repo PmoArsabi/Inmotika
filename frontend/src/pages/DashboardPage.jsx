@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import FilterBar from '../components/shared/FilterBar';
-import { ROLES } from '../utils/constants';
+import { ROLES, isAdminRole } from '../utils/constants';
 import { H3, H2, Subtitle, TextSmall, Metric, Label, TextTiny } from '../components/ui/Typography';
 import {
   useDashboardKpis,
@@ -63,7 +63,7 @@ const DashboardPage = ({ data }) => {
   });
 
   const role = user?.role;
-  const isDirector = role === ROLES.DIRECTOR;
+  const isDirector = role === ROLES.DIRECTOR || isAdminRole(role);
   const isCoordinador = role === ROLES.COORDINADOR;
 
   const coordinadorUsuarioById = useMemo(() => {

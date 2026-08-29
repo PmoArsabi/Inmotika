@@ -212,6 +212,7 @@ const VISITA_SELECT = `
 
 async function fetchByRole(user) {
   switch (user.role) {
+    case ROLES.ADMIN:
     case ROLES.DIRECTOR:
       return fetchDirector();
     case ROLES.COORDINADOR:

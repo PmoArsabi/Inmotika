@@ -70,10 +70,11 @@ const TriStateCheckbox = ({ estado, onChange }) => {
 };
 
 const roleLabels = {
+  [ROLES.ADMIN]: 'Administrador',
   [ROLES.DIRECTOR]: 'Director',
   [ROLES.COORDINADOR]: 'Coordinador',
   [ROLES.TECNICO]: 'Técnico',
-  [ROLES.CLIENTE]: 'Cliente'
+  [ROLES.CLIENTE]: 'Cliente',
 };
 
 /**
@@ -603,7 +604,8 @@ const UserForm = ({
                   <Subtitle className="text-gray-900 mt-1">{roleLabels[newUser.rol] || newUser.rol}</Subtitle>
                 </div>
                 <TextTiny className="text-gray-500">
-                  {newUser.rol === ROLES.DIRECTOR && 'Acceso completo al sistema'}
+                  {newUser.rol === ROLES.ADMIN && 'Acceso total de TI a toda la plataforma'}
+                  {newUser.rol === ROLES.DIRECTOR && 'Supervisión y aprobación de informes'}
                   {newUser.rol === ROLES.COORDINADOR && 'Gestión de visitas y coordinación'}
                   {newUser.rol === ROLES.TECNICO && 'Acceso a agenda y visitas asignadas'}
                   {newUser.rol === ROLES.CLIENTE && 'Acceso a información de cliente'}

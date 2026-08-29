@@ -1037,7 +1037,7 @@ const RevisionPanel = ({ localInforme, informeId, visitaId, coordinadorId, revis
  */
 const InformeRevisionPage = ({ informe: informeBase, onBack }) => {
   const { user }     = useAuth();
-  const isDirector = user?.role === ROLES.DIRECTOR;
+  const isDirector = user?.role === ROLES.DIRECTOR || user?.role === ROLES.ADMIN;
   const userId     = user?.id;
 
   const [informeDetalle, setInformeDetalle] = useState(null);

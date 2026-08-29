@@ -965,7 +965,7 @@ BEGIN
     SELECT 1 FROM public.perfil_usuario p
     JOIN public.catalogo_rol r ON p.rol_id = r.id
     WHERE p.id = auth.uid()
-    AND r.codigo IN ('DIRECTOR', 'COORDINADOR')
+    AND r.codigo IN ('ADMIN', 'DIRECTOR', 'COORDINADOR')
   );
 END;
 $function$
@@ -998,8 +998,8 @@ BEGIN
   RETURN EXISTS (
     SELECT 1 FROM public.perfil_usuario p
     JOIN public.catalogo_rol r ON p.rol_id = r.id
-    WHERE p.id = auth.uid() 
-    AND r.codigo IN ('DIRECTOR', 'COORDINADOR')
+    WHERE p.id = auth.uid()
+    AND r.codigo IN ('ADMIN', 'DIRECTOR', 'COORDINADOR')
   );
 END;
 $function$
@@ -1116,6 +1116,8 @@ BEGIN
             UPDATE public.coordinador SET activo = false WHERE usuario_id = NEW.id AND activo = true;
         WHEN 'DIRECTOR' THEN
             UPDATE public.director SET activo = false WHERE usuario_id = NEW.id AND activo = true;
+        WHEN 'ADMIN' THEN
+            UPDATE public.administrador SET activo = false WHERE usuario_id = NEW.id AND activo = true;
         ELSE NULL;
     END CASE;
 
@@ -1130,6 +1132,9 @@ BEGIN
         WHEN 'DIRECTOR' THEN
             UPDATE public.director SET activo = true WHERE usuario_id = NEW.id;
             IF NOT FOUND THEN INSERT INTO public.director (usuario_id, activo) VALUES (NEW.id, true); END IF;
+        WHEN 'ADMIN' THEN
+            UPDATE public.administrador SET activo = true WHERE usuario_id = NEW.id;
+            IF NOT FOUND THEN INSERT INTO public.administrador (usuario_id, activo) VALUES (NEW.id, true); END IF;
         ELSE NULL;
     END CASE;
 
@@ -2270,7 +2275,7 @@ using ((EXISTS ( SELECT 1
 using ((EXISTS ( SELECT 1
    FROM (public.perfil_usuario p
      JOIN public.catalogo_rol r ON ((p.rol_id = r.id)))
-  WHERE ((p.id = auth.uid()) AND ((r.codigo)::text = ANY ((ARRAY['DIRECTOR'::character varying, 'COORDINADOR'::character varying])::text[])))))));
+  WHERE ((p.id = auth.uid()) AND ((r.codigo)::text = ANY ((ARRAY['ADMIN'::character varying, 'DIRECTOR'::character varying, 'COORDINADOR'::character varying])::text[])))))));
 
   create policy "Catalogo: lectura pública para autenticados"
   on "public"."catalogo"
