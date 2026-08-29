@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronDown, Check } from 'lucide-react';
 
@@ -115,18 +115,36 @@ const FilterBar = ({ filters = [], values = {}, onChange, leadingSlot }) => {
 
 /**
  * Input de fecha que participa en el grid del FilterBar.
- * Soporta constraint min/max cruzado con el campo linkedTo.
+ * Soporta constraint min/max cruzado con el campo linkedTo y botón para limpiar.
  */
 const FilterDateInput = ({ filter, values, onChange, itemMinW }) => {
   const value    = values[filter.key] || '';
   const linked   = filter.linkedTo ? (values[filter.linkedTo] || '') : '';
   const hasValue = !!value;
 
+  const clearDate = (e) => {
+    e.stopPropagation();
+    onChange(filter.key, { target: { value: '' } });
+  };
+
   return (
     <div className="flex flex-col gap-0.5 flex-1" style={{ minWidth: itemMinW }}>
-      <span className="text-2xs font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
-        {filter.label}
-      </span>
+      <div className="flex items-center justify-between gap-1 px-0.5">
+        <span className="text-2xs font-semibold uppercase tracking-wider text-gray-500 leading-none">
+          {filter.label}
+        </span>
+        {hasValue && (
+          <button
+            type="button"
+            onClick={clearDate}
+            aria-label={`Limpiar ${filter.label}`}
+            className="inline-flex items-center gap-0.5 text-2xs font-semibold text-brand hover:text-brand-dark transition-colors"
+          >
+            <X size={12} strokeWidth={2.5} />
+            Limpiar
+          </button>
+        )}
+      </div>
       <input
         type="date"
         value={value}
@@ -150,10 +168,15 @@ const FilterDateInput = ({ filter, values, onChange, itemMinW }) => {
 
 /**
  * Select con label encima y dropdown portal de checkboxes.
+ * Selección en pointerdown (no click) para evitar el “doble clic”
+ * cuando el menú se reposiciona o el outside-click compite con el click.
  */
 const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onClear, itemMinW }) => {
   const triggerRef = useRef(null);
   const dropdownRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   const isDisabled = !!(filter.dependsOn && (values[filter.dependsOn] || []).length === 0);
 
   let opts = filter.options || [];
@@ -162,7 +185,7 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
     opts = opts.filter(o => parentVals.includes(String(o.parentValue)));
   }
 
-  const selected = values[filter.key] || [];
+  const selected = (values[filter.key] || []).map(String);
   const count = selected.length;
   const allSelected = opts.length > 0 && count === opts.length;
   const someSelected = count > 0 && !allSelected;
@@ -173,24 +196,45 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
       ? (opts.find(o => String(o.value) === selected[0])?.label ?? '1 seleccionado')
       : `${count} seleccionados`;
 
-  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const [dropPos, setDropPos] = useState(null);
 
-  useEffect(() => {
-    if (!isOpen || !triggerRef.current) return;
+  const updatePos = useCallback(() => {
+    if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     setDropPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
-  }, [isOpen]);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      setDropPos(null);
+      return undefined;
+    }
+    updatePos();
+    window.addEventListener('scroll', updatePos, true);
+    window.addEventListener('resize', updatePos);
+    return () => {
+      window.removeEventListener('scroll', updatePos, true);
+      window.removeEventListener('resize', updatePos);
+    };
+  }, [isOpen, updatePos]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) return undefined;
     const handler = (e) => {
-      const inTrigger = triggerRef.current?.contains(e.target);
-      const inDropdown = dropdownRef.current?.contains(e.target);
-      if (!inTrigger && !inDropdown) onClose();
+      const t = e.target;
+      if (triggerRef.current?.contains(t) || dropdownRef.current?.contains(t)) return;
+      onCloseRef.current();
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [isOpen, onClose]);
+    // pointerdown en captura: cierra fuera sin pelear con la selección del menú
+    document.addEventListener('pointerdown', handler, true);
+    return () => document.removeEventListener('pointerdown', handler, true);
+  }, [isOpen]);
+
+  const pick = (e, value) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSelect(filter.key, value, opts);
+  };
 
   return (
     <div className="flex flex-col gap-0.5 flex-1" style={{ minWidth: itemMinW }}>
@@ -234,11 +278,12 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
         </div>
       </button>
 
-      {isOpen && !isDisabled && typeof document !== 'undefined' && createPortal(
+      {isOpen && !isDisabled && dropPos && typeof document !== 'undefined' && createPortal(
         <div
           ref={dropdownRef}
           style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, width: Math.max(dropPos.width, 180), zIndex: 9999 }}
           className="bg-white border border-gray-200 rounded-md shadow-xl overflow-hidden"
+          onPointerDown={e => e.stopPropagation()}
         >
           {opts.length === 0 ? (
             <p className="px-3 py-4 text-xs text-gray-400 text-center">Sin opciones disponibles</p>
@@ -247,8 +292,7 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
               <li>
                 <button
                   type="button"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => onSelect(filter.key, '__all__', opts)}
+                  onPointerDown={e => pick(e, '__all__')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors border-b border-gray-100
                     ${allSelected ? 'bg-red-50 text-brand' : 'text-gray-600 hover:bg-gray-50'}`}
                 >
@@ -268,11 +312,10 @@ const FilterSelect = ({ filter, values, isOpen, onToggle, onClose, onSelect, onC
               {opts.map(opt => {
                 const isChecked = selected.includes(String(opt.value));
                 return (
-                  <li key={opt.value}>
+                  <li key={String(opt.value)}>
                     <button
                       type="button"
-                      onMouseDown={e => e.preventDefault()}
-                      onClick={() => onSelect(filter.key, opt.value, opts)}
+                      onPointerDown={e => pick(e, opt.value)}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
                         ${isChecked ? 'bg-red-50 text-brand' : 'text-gray-700 hover:bg-gray-50'}`}
                     >
