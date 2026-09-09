@@ -7,6 +7,7 @@ import { useState } from 'react';
 import {
   ArrowLeft, Save, Edit,
   Calendar, Building2, User, AlertCircle, Users, Cpu, CalendarCheck, Plus, Tag,
+  History,
 } from 'lucide-react';
 import { H2, TextSmall, TextTiny, Label } from '../../components/ui/Typography';
 import Card from '../../components/ui/Card';
@@ -39,6 +40,47 @@ const CardSection = ({ icon: Icon, title }) => (
   </div>
 );
 
+/**
+ * Lista de altas/bajas de dispositivos asociadas a una visita.
+ * @param {{ items: Array<{ id: string, accion: string, motivo: string|null, createdAt: string, dispositivoLabel: string, usuarioNombre: string }> }} props
+ */
+export const HistorialDispositivosList = ({ items }) => {
+  if (!items?.length) {
+    return (
+      <TextTiny className="text-gray-400 italic">Aún no hay cambios registrados de asignación.</TextTiny>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map(h => (
+        <div key={h.id} className="p-3 rounded-lg border border-gray-100 bg-gray-50">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`inline-flex px-2 py-0.5 rounded-full text-2xs font-bold uppercase ${
+                h.accion === 'AGREGADO' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+              }`}>
+                {h.accion === 'AGREGADO' ? 'Agregado' : 'Retirado'}
+              </span>
+              <span className="inline-flex px-2 py-0.5 rounded-full text-2xs font-bold uppercase bg-gray-100 text-gray-600">
+                {h.tipoEntidad === 'TECNICO' ? 'Técnico' : 'Dispositivo'}
+              </span>
+            </div>
+            <TextTiny className="text-gray-400 whitespace-nowrap">
+              {new Date(h.createdAt).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+            </TextTiny>
+          </div>
+          <TextSmall className="font-semibold text-gray-800">{h.entidadLabel || h.dispositivoLabel}</TextSmall>
+          <TextTiny className="text-gray-500 block">{h.usuarioNombre}</TextTiny>
+          {h.motivo && (
+            <TextTiny className="text-gray-600 italic block mt-1">“{h.motivo}”</TextTiny>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 // ─── ProgramacionForm ─────────────────────────────────────────────────────────
 
 /**
@@ -53,13 +95,27 @@ const CardSection = ({ icon: Icon, title }) => (
  *   solicitudOrigen: Object|null,
  *   tecnicosOptions: Array,
  *   dispositivosDisponibles: Array,
+ *   inProgressEdit: boolean,
+ *   historial: Array,
  * }} props
  */
 export const ProgramacionForm = ({
   draft, updateDraft, onSave, onCancel, saving,
   isEditing, solicitudOrigen, tecnicosOptions, dispositivosDisponibles,
+  inProgressEdit = false,
+  historial = [],
 }) => {
   const [devicePickerOpen, setDevicePickerOpen] = useState(false);
+  const devicesChanged = JSON.stringify([...(draft.dispositivoIdsIniciales || [])].sort())
+    !== JSON.stringify([...(draft.dispositivoIds || [])].sort());
+  const tecnicosChanged = JSON.stringify([...(draft.tecnicoIdsIniciales || [])].sort())
+    !== JSON.stringify([...(draft.tecnicoIds || [])].sort());
+  const assignmentChanged = devicesChanged || tecnicosChanged;
+  const saveDisabled = saving
+    || !draft.fechaProgramada
+    || draft.tecnicoIds.length === 0
+    || (inProgressEdit && assignmentChanged && !draft.motivoCambio?.trim())
+    || (inProgressEdit && (draft.dispositivoIds || []).length === 0);
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
@@ -72,23 +128,35 @@ export const ProgramacionForm = ({
             <ArrowLeft size={16} />
           </button>
           <div>
-            <H2>{isEditing ? 'Editar Programación' : 'Programar Visita'}</H2>
+            <H2>{inProgressEdit ? 'Editar asignación' : isEditing ? 'Editar Programación' : 'Programar Visita'}</H2>
             <TextSmall className="text-gray-500">
-              {solicitudOrigen
-                ? `Origen: solicitud ${solicitudOrigen.id.slice(0, 8)}...`
-                : 'Sin solicitud origen'}
+              {inProgressEdit
+                ? 'La visita ya está en progreso. Puedes cambiar técnicos y dispositivos asociados.'
+                : solicitudOrigen
+                  ? `Origen: solicitud ${solicitudOrigen.id.slice(0, 8)}...`
+                  : 'Sin solicitud origen'}
             </TextSmall>
           </div>
         </div>
         <Button
           onClick={onSave}
-          disabled={saving || !draft.fechaProgramada || draft.tecnicoIds.length === 0}
+          disabled={saveDisabled}
           className="flex items-center gap-2"
         >
           <Save size={16} />
           {saving ? 'Guardando...' : isEditing ? 'Guardar Cambios' : 'Programar Visita'}
         </Button>
       </header>
+
+      {inProgressEdit && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 border border-blue-100">
+          <AlertCircle size={14} className="text-blue-600 shrink-0 mt-0.5" />
+          <TextTiny className="text-blue-800">
+            Fecha y observaciones quedan bloqueadas. Cada cambio de técnico o dispositivo
+            queda registrado en el historial de la visita.
+          </TextTiny>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-5">
@@ -184,8 +252,26 @@ export const ProgramacionForm = ({
             </Card>
           )}
 
+          {inProgressEdit && (
+            <Card className="p-5 space-y-2">
+              <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block">
+                Motivo del cambio {assignmentChanged && <span className="text-red-500">*</span>}
+              </Label>
+              <textarea
+                value={draft.motivoCambio || ''}
+                onChange={e => updateDraft({ motivoCambio: e.target.value })}
+                rows={3}
+                placeholder="Ej: El técnico asignado no pudo continuar por enfermedad / se asoció un equipo que no aplica."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-semibold resize-y focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand transition-all"
+              />
+              {assignmentChanged && !draft.motivoCambio?.trim() && (
+                <TextTiny className="text-red-500">Indica el motivo para dejar constancia del cambio.</TextTiny>
+              )}
+            </Card>
+          )}
+
           {/* Fecha programada */}
-          <Card className="p-5 space-y-4">
+          <Card className={`p-5 space-y-4 ${inProgressEdit ? 'opacity-70' : ''}`}>
             <CardSection icon={Calendar} title="Fecha Programada" />
             <div>
               <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
@@ -195,7 +281,8 @@ export const ProgramacionForm = ({
                 type="datetime-local"
                 value={draft.fechaProgramada}
                 onChange={e => updateDraft({ fechaProgramada: e.target.value })}
-                className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm font-semibold bg-white focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand transition-all"
+                disabled={inProgressEdit}
+                className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm font-semibold bg-white focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand transition-all disabled:bg-gray-50 disabled:text-gray-500"
               />
               {!draft.fechaProgramada && (
                 <TextTiny className="text-red-500 mt-1">Este campo es obligatorio.</TextTiny>
@@ -204,16 +291,17 @@ export const ProgramacionForm = ({
           </Card>
 
           {/* Observaciones */}
-          <Card className="p-5 space-y-2">
+          <Card className={`p-5 space-y-2 ${inProgressEdit ? 'opacity-70' : ''}`}>
             <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block">
               Observaciones del Coordinador
             </Label>
             <textarea
               value={draft.observaciones}
               onChange={e => updateDraft({ observaciones: e.target.value })}
+              disabled={inProgressEdit}
               rows={3}
               placeholder="Instrucciones adicionales, acceso al sitio, contacto en sitio..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-semibold resize-y focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand transition-all"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-semibold resize-y focus:outline-none focus:ring-4 focus:ring-brand/5 focus:border-brand transition-all disabled:bg-gray-50 disabled:text-gray-500"
             />
           </Card>
         </div>
@@ -254,8 +342,17 @@ export const ProgramacionForm = ({
                 value={`${draft.tecnicoIds.length} asignado${draft.tecnicoIds.length !== 1 ? 's' : ''}`} />
               <InfoRow icon={Calendar} label="Fecha programada"
                 value={draft.fechaProgramada ? fmtDateTime(draft.fechaProgramada) : '—'} />
+              <InfoRow icon={Cpu} label="Dispositivos"
+                value={`${draft.dispositivoIds.length} seleccionado${draft.dispositivoIds.length !== 1 ? 's' : ''}`} />
             </div>
           </Card>
+
+          {isEditing && (
+            <Card className="p-5 space-y-3">
+              <CardSection icon={History} title="Historial de asignación" />
+              <HistorialDispositivosList items={historial} />
+            </Card>
+          )}
         </div>
       </div>
     </div>
@@ -271,10 +368,14 @@ export const ProgramacionForm = ({
  *   solicitudOrigen: Object|null,
  *   onBack: () => void,
  *   onEdit: (item: Object) => void,
+ *   historial?: Array,
  * }} props
  */
-export const ProgramacionDetalle = ({ item, solicitudOrigen, onBack, onEdit }) => {
-  const canEdit = item._type === 'visita' ? item.esEditable : item.estadoCodigo === 'PENDIENTE';
+export const ProgramacionDetalle = ({ item, solicitudOrigen, onBack, onEdit, historial = [] }) => {
+  const canEdit = item._type === 'solicitud'
+    ? item.estadoCodigo === 'PENDIENTE'
+    : item.esEditable || item.estadoCodigo === 'EN_PROGRESO';
+  const dispositivos = item.dispositivos || [];
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-12 duration-500">
@@ -297,7 +398,7 @@ export const ProgramacionDetalle = ({ item, solicitudOrigen, onBack, onEdit }) =
           <VisitStatusBadge status={item.estadoCodigo} />
           {canEdit && (
             <Button onClick={() => onEdit(item)} className="flex items-center gap-2">
-              <Edit size={14} /> Editar
+              <Edit size={14} /> {item.estadoCodigo === 'EN_PROGRESO' ? 'Editar asignación' : 'Editar'}
             </Button>
           )}
         </div>
@@ -335,6 +436,28 @@ export const ProgramacionDetalle = ({ item, solicitudOrigen, onBack, onEdit }) =
               </div>
             )}
           </Card>
+
+          {(dispositivos.length > 0 || item._type === 'visita') && (
+            <Card className="p-5 space-y-3">
+              <CardSection icon={Cpu} title="Dispositivos asociados" />
+              {dispositivos.length === 0 ? (
+                <TextTiny className="text-gray-400 italic">Sin dispositivos asociados.</TextTiny>
+              ) : (
+                <div className="space-y-1">
+                  {dispositivos.map(d => (
+                    <div key={d.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-none">
+                      <div>
+                        <TextSmall className="font-semibold">{d.label || d.serial || d.id}</TextSmall>
+                        {(d.categoria || d.modelo) && (
+                          <TextTiny className="text-gray-400">{[d.categoria, d.modelo].filter(Boolean).join(' · ')}</TextTiny>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -352,6 +475,13 @@ export const ProgramacionDetalle = ({ item, solicitudOrigen, onBack, onEdit }) =
                   : '—'} />
               <InfoRow icon={AlertCircle} label="Tipo Solicitado"  value={solicitudOrigen.tipoVisitaLabel} />
               <VisitStatusBadge status={solicitudOrigen.estadoCodigo} />
+            </Card>
+          )}
+
+          {item._type === 'visita' && (
+            <Card className="p-5 space-y-3">
+              <CardSection icon={History} title="Historial de asignación" />
+              <HistorialDispositivosList items={historial} />
             </Card>
           )}
         </div>

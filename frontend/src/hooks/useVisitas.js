@@ -298,7 +298,8 @@ export const useVisitas = () => {
         const { data: intervenciones } = await supabase
           .from('intervencion')
           .select('id, visita_id, dispositivo_id, codigo_etiqueta, observacion_final, fuera_de_servicio, motivo_fuera_de_servicio')
-          .in('visita_id', visitaIds);
+          .in('visita_id', visitaIds)
+          .eq('activo', true);
 
         const intervencionIds = (intervenciones || []).map(i => i.id);
         const intervencionByVisita = new Map(); // intervencion_id → visita_id

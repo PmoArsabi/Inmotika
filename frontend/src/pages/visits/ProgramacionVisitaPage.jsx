@@ -17,8 +17,14 @@ import { useCatalog } from '../../hooks/useCatalog';
 import { useSolicitudesVisita } from '../../hooks/useSolicitudesVisita';
 import { useVisitas } from '../../hooks/useVisitas';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useNotify } from '../../context/NotificationContext';
 import ActionResultModal from '../../components/ui/ActionResultModal';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
+import {
+  fetchHistorialDispositivoVisita,
+  syncDispositivosVisita,
+  syncTecnicosVisita,
+} from '../../api/visitaDispositivoApi';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 /**
@@ -32,16 +38,29 @@ const emptyDraft = (solicitud = null) => ({
   sucursalId:      solicitud?.sucursalId    || '',
   tipoVisitaId:    solicitud?.tipoVisitaId  || '',
   tecnicoIds:      [],
+  tecnicoIdsIniciales: [],
   dispositivoIds:  solicitud?.dispositivoIds || [],
+  dispositivoIdsIniciales: solicitud?.dispositivoIds || [],
+  motivoCambio:    '',
   fechaProgramada: '',
   observaciones:   '',
 });
+
+/**
+ * Solicitudes pendientes y visitas programadas son editables por completo.
+ * Visitas en progreso solo permiten corregir dispositivos asociados.
+ */
+const canEditItem = (item) => {
+  if (item._type === 'solicitud') return item.estadoCodigo === 'PENDIENTE';
+  return item.esEditable || item.estadoCodigo === 'EN_PROGRESO';
+};
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 /**
  * Página de programación de visitas para coordinadores.
  * Muestra solicitudes PENDIENTE sin visita asignada + todas las visitas activas.
- * Permite programar (crear visita desde solicitud) o editar visitas no iniciadas.
+ * Permite programar (crear visita desde solicitud), editar visitas no iniciadas
+ * y corregir técnicos y dispositivos de visitas en progreso.
  */
 const ProgramacionVisitaPage = () => {
   const { user } = useAuth();
@@ -49,7 +68,7 @@ const ProgramacionVisitaPage = () => {
 
   // ── Remote data ────────────────────────────────────────────────────────────
   const { solicitudes, loading: loadingSol, fetchSolicitudes, updateSolicitud } = useSolicitudesVisita();
-  const { visitas, loading: loadingVis, saving, createVisita, updateVisita, cancelVisita } = useVisitas();
+  const { visitas, loading: loadingVis, saving, fetchVisitas, createVisita, updateVisita, cancelVisita } = useVisitas();
 
   // Ambas tablas (visita y solicitud_visita) referencian catalogo con tipo ESTADO_VISITA
   const { options: estadoOptions } = useCatalog('ESTADO_VISITA');
@@ -86,8 +105,11 @@ const ProgramacionVisitaPage = () => {
   const [draft, setDraft]               = useState(emptyDraft());
   const [filters, setFilters]           = useState({ cliente: [], sucursal: [], estado: [], tecnico: [], fechaDesde: '', fechaHasta: '' });
   const [viewingItem, setViewingItem]   = useState(null);
+  const [historial, setHistorial]       = useState([]);
+  const [savingDevices, setSavingDevices] = useState(false);
 
   const updateDraft = useCallback(patch => setDraft(prev => ({ ...prev, ...patch })), []);
+  const notify = useNotify();
 
   // Modal de éxito post-acción
   const [successModal, setSuccessModal] = useState({ open: false, visitaId: null, isEdit: false });
@@ -194,6 +216,7 @@ const ProgramacionVisitaPage = () => {
     } else {
       // visita existente editable
       const sol = solicitudes.find(s => s.id === item.solicitudId) || null;
+      const deviceIds = (sol?.dispositivoIds || item.dispositivos?.map(d => d.id) || []).map(String);
       setSolicitudOrigen(sol);
       setDraft({
         solicitudId:     item.solicitudId,
@@ -201,7 +224,10 @@ const ProgramacionVisitaPage = () => {
         sucursalId:      item.sucursalId,
         tipoVisitaId:    item.tipoVisitaId,
         tecnicoIds:      item.tecnicoIds || [],
-        dispositivoIds:  sol?.dispositivoIds || item.dispositivos?.map(d => d.id) || [],
+        tecnicoIdsIniciales: item.tecnicoIds || [],
+        dispositivoIds:  deviceIds,
+        dispositivoIdsIniciales: deviceIds,
+        motivoCambio:    '',
         fechaProgramada: item.fechaProgramada
           ? (() => {
               const d = new Date(item.fechaProgramada);
@@ -231,11 +257,76 @@ const ProgramacionVisitaPage = () => {
     setSolicitudOrigen(null);
     setDraft(emptyDraft());
     setViewingItem(null);
+    setHistorial([]);
   }, []);
 
   const handleSave = useCallback(async () => {
     if (!draft.fechaProgramada || draft.tecnicoIds.length === 0) {
-      // Light inline validation — no modal
+      return;
+    }
+
+    const current = editingVisitaId ? visitas.find(v => v.id === editingVisitaId) : null;
+    const inProgressEdit = current?.estadoCodigo === 'EN_PROGRESO';
+    const initialIds = draft.dispositivoIdsIniciales || [];
+    const nextIds = draft.dispositivoIds || [];
+    const sameDevices = [...initialIds].sort().join() === [...nextIds].sort().join();
+    const initialTecnicos = (draft.tecnicoIdsIniciales || []).map(String);
+    const nextTecnicos = (draft.tecnicoIds || []).map(String);
+    const sameTecnicos = [...initialTecnicos].sort().join() === [...nextTecnicos].sort().join();
+
+    if (inProgressEdit) {
+      if (nextIds.length === 0 || nextTecnicos.length === 0) return;
+      if ((!sameDevices || !sameTecnicos) && !draft.motivoCambio?.trim()) return;
+
+      if (!sameDevices || !sameTecnicos) {
+        const removed = initialIds.filter(id => !nextIds.includes(id));
+        const removedWithWork = removed.filter(id => current?.dispositivoIntervencionMap?.[id]);
+        if (removedWithWork.length > 0) {
+          const confirmed = await confirm({
+            title: 'Dispositivos con avance',
+            message: 'Uno o más dispositivos a retirar ya tienen trabajo registrado. Se ocultarán de la visita y el cambio quedará en el historial. ¿Continuar?',
+            confirmText: 'Sí, actualizar asignación',
+            cancelText: 'Volver',
+            type: 'warning',
+          });
+          if (!confirmed) return;
+        }
+
+        setSavingDevices(true);
+        try {
+          const motivo = draft.motivoCambio.trim();
+          if (!sameDevices) {
+            await syncDispositivosVisita({
+              visitaId: editingVisitaId,
+              solicitudId: draft.solicitudId,
+              newIds: nextIds,
+              usuarioId: user?.id,
+              motivo,
+            });
+          }
+          if (!sameTecnicos) {
+            await syncTecnicosVisita({
+              visitaId: editingVisitaId,
+              solicitudId: draft.solicitudId,
+              newIds: nextTecnicos,
+              usuarioId: user?.id,
+              motivo,
+            });
+          }
+          await Promise.all([fetchVisitas(), fetchSolicitudes()]);
+        } catch (err) {
+          notify('error', err.message || 'No se pudo actualizar la asignación.');
+          return;
+        } finally {
+          setSavingDevices(false);
+        }
+      }
+
+      setView('list');
+      setEditingVisitaId(null);
+      setSolicitudOrigen(null);
+      setDraft(emptyDraft());
+      setSuccessModal({ open: true, visitaId: editingVisitaId, isEdit: true });
       return;
     }
 
@@ -250,16 +341,27 @@ const ProgramacionVisitaPage = () => {
       coordinadorId:   user?.id,
     };
 
-    let savedId = null;
     if (editingVisitaId) {
       const ok = await updateVisita(editingVisitaId, {
         fechaProgramada: draft.fechaProgramada,
         observaciones:   draft.observaciones,
         tecnicoIds:      draft.tecnicoIds,
       });
-      // Sync dispositivos on the solicitud origen if changed
-      if (ok && draft.solicitudId) {
-        await updateSolicitud(draft.solicitudId, { dispositivoIds: draft.dispositivoIds }, []);
+      if (ok && draft.solicitudId && !sameDevices) {
+        try {
+          await syncDispositivosVisita({
+            visitaId: editingVisitaId,
+            solicitudId: draft.solicitudId,
+            newIds: nextIds,
+            usuarioId: user?.id,
+            motivo: draft.motivoCambio?.trim() || 'Ajuste en la programación',
+          });
+          await fetchSolicitudes();
+          await fetchVisitas();
+        } catch (err) {
+          notify('error', err.message || 'La visita se actualizó, pero no se pudieron guardar los dispositivos.');
+          return;
+        }
       }
       if (ok) {
         setView('list');
@@ -269,13 +371,11 @@ const ProgramacionVisitaPage = () => {
         setSuccessModal({ open: true, visitaId: editingVisitaId, isEdit: true });
       }
     } else {
-      // Sync devices on the solicitud before creating the visita
       if (draft.solicitudId) {
         await updateSolicitud(draft.solicitudId, { dispositivoIds: draft.dispositivoIds }, []);
       }
       const id = await createVisita(payload, estadoOptions);
       if (id) {
-        savedId = id;
         await fetchSolicitudes();
         setView('list');
         setSolicitudOrigen(null);
@@ -283,11 +383,10 @@ const ProgramacionVisitaPage = () => {
         setSuccessModal({ open: true, visitaId: id, isEdit: false });
       }
     }
-    void savedId;
   }, [
-    draft, editingVisitaId, user,
+    draft, editingVisitaId, user, visitas, confirm, notify,
     estadoOptions,
-    createVisita, updateVisita, updateSolicitud, fetchSolicitudes,
+    createVisita, updateVisita, updateSolicitud, fetchSolicitudes, fetchVisitas,
   ]);
 
   const handleRequestCancel = useCallback(async (item) => {
@@ -305,6 +404,21 @@ const ProgramacionVisitaPage = () => {
       message: ok ? null : 'No se pudo cancelar la visita. Intenta nuevamente.',
     });
   }, [confirm, cancelVisita, estadoOptions]);
+
+  const historialVisitaId = editingVisitaId
+    || (view === 'view' && viewingItem?._type === 'visita' ? viewingItem.id : null);
+
+  useEffect(() => {
+    if (!historialVisitaId) {
+      setHistorial([]);
+      return;
+    }
+    let cancelled = false;
+    fetchHistorialDispositivoVisita(historialVisitaId)
+      .then(rows => { if (!cancelled) setHistorial(rows); })
+      .catch(() => { if (!cancelled) setHistorial([]); });
+    return () => { cancelled = true; };
+  }, [historialVisitaId]);
 
   // ══════════════════════════════════════════════════════════════════════════
   // FORM VIEW — Programar / Editar
@@ -332,11 +446,13 @@ const ProgramacionVisitaPage = () => {
         updateDraft={updateDraft}
         onSave={handleSave}
         onCancel={handleCancel}
-        saving={saving}
+        saving={saving || savingDevices}
         isEditing={!!editingVisitaId}
         solicitudOrigen={solicitudOrigen}
         tecnicosOptions={tecnicosOptions}
         dispositivosDisponibles={dispositivosDisponibles}
+        inProgressEdit={!!editingVisitaId && visitas.find(v => v.id === editingVisitaId)?.estadoCodigo === 'EN_PROGRESO'}
+        historial={historial}
       />
     );
   }
@@ -351,6 +467,7 @@ const ProgramacionVisitaPage = () => {
         solicitudOrigen={solicitudOrigen}
         onBack={handleCancel}
         onEdit={handleSchedule}
+        historial={historial}
       />
     );
   }
@@ -405,14 +522,14 @@ const ProgramacionVisitaPage = () => {
       narrow: true,
       align: 'right',
       render: item => {
-        const canEdit = item._type === 'solicitud' ? item.estadoCodigo === 'PENDIENTE' : item.esEditable;
+        const canEdit = canEditItem(item);
         return (
           <div className="flex items-center justify-end gap-1">
             <button onClick={() => handleView(item)} className="p-2 hover:bg-blue-50 rounded-md transition-colors" title="Ver detalle">
               <Eye size={15} className="text-blue-600" />
             </button>
             {canEdit && (
-              <button onClick={() => handleSchedule(item)} className="p-2 hover:bg-green-50 rounded-md transition-colors" title={item._type === 'solicitud' ? 'Programar' : 'Editar'}>
+              <button onClick={() => handleSchedule(item)} className="p-2 hover:bg-green-50 rounded-md transition-colors" title={item._type === 'solicitud' ? 'Programar' : item.estadoCodigo === 'EN_PROGRESO' ? 'Editar asignación' : 'Editar'}>
                 <Edit size={15} className="text-green-600" />
               </button>
             )}
@@ -449,7 +566,7 @@ const ProgramacionVisitaPage = () => {
           const tipoCodigo   = item.tipoVisitaCodigo || '';
           const fechaDisplay = item._type === 'visita' ? item.fechaProgramada : item.fechaSugerida;
           const estadoCodigo = item.estadoCodigo || '';
-          const canEdit      = item._type === 'solicitud' ? estadoCodigo === 'PENDIENTE' : item.esEditable;
+          const canEdit      = canEditItem(item);
           return (
             <VisitaMobileCard
               visita={item}
@@ -460,7 +577,7 @@ const ProgramacionVisitaPage = () => {
               tecnicos={item._type === 'visita' ? (item.tecnicosNombres || []) : []}
               actions={[
                 { label: 'Ver', icon: Eye, onClick: () => handleView(item), colorClass: 'bg-blue-50 text-blue-700 hover:bg-blue-100' },
-                ...(canEdit ? [{ label: item._type === 'solicitud' ? 'Programar' : 'Editar', icon: Edit, onClick: () => handleSchedule(item), colorClass: 'bg-green-50 text-green-700 hover:bg-green-100' }] : []),
+                ...(canEdit ? [{ label: item._type === 'solicitud' ? 'Programar' : item.estadoCodigo === 'EN_PROGRESO' ? 'Editar asignación' : 'Editar', icon: Edit, onClick: () => handleSchedule(item), colorClass: 'bg-green-50 text-green-700 hover:bg-green-100' }] : []),
                 ...(item._type === 'visita' && item.esEditable ? [{ label: 'Cancelar', icon: Trash2, onClick: () => handleRequestCancel(item), colorClass: 'bg-red-50 text-red-700 hover:bg-red-100' }] : []),
               ]}
             />
