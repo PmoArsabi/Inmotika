@@ -103,7 +103,7 @@ const VisitCard = ({ visita, onClick }) => {
           />
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <TextSmall className="text-gray-300">{visita.id.slice(0, 8)}</TextSmall>
+          <TextSmall className="text-gray-300 font-mono">{visita.codigoRef || visita.id.slice(0, 8)}</TextSmall>
           <ChevronRight
             size={14}
             className="text-gray-300 group-hover:text-brand transition-colors"

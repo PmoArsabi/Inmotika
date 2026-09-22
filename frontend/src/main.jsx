@@ -7,14 +7,17 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import { NotificationProvider } from './context/NotificationContext.jsx'
 import { ConfirmProvider } from './context/ConfirmContext.jsx'
 import { MasterDataProvider } from './context/MasterDataContext.jsx'
+import { VisitasProvider } from './hooks/useVisitas.js'
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>
       <NotificationProvider>
         <ConfirmProvider>
           <MasterDataProvider initialData={{}}>
-            <App />
-            <Analytics />
+            <VisitasProvider>
+              <App />
+              <Analytics />
+            </VisitasProvider>
           </MasterDataProvider>
         </ConfirmProvider>
       </NotificationProvider>

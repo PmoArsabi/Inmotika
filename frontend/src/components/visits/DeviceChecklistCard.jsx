@@ -196,7 +196,7 @@ const PasoSection = ({ paso, execPaso, ejecucionActividades, actKey, pasoKey, on
   const doneActs     = actividades.filter(isResuelta).length;
   const omitidas     = actividades.filter(a => ejecucionActividades[actKey(a.id)]?.estado === 'omitida').length;
   const pasoCerrado  = actividades.length === 0 || actividades.every(isResuelta);
-  const [open, setOpen] = useState(!isLocked);
+  const [open, setOpen] = useState(false);
 
   const pasoConOmitidas = pasoCerrado && omitidas > 0;
 
@@ -525,7 +525,9 @@ const DeviceChecklistCard = ({
   onFueraDeServicioChange,
   onObservacionFinalChange,
 }) => {
-  const [open, setOpen] = useState(!isLocked);
+  // Colapsado por defecto: visitas con muchos dispositivos (10–100+) no montan
+  // formularios/evidencias de todos a la vez — solo al expandir.
+  const [open, setOpen] = useState(false);
   const [codigoEtiqueta, setCodigoEtiqueta] = useState(codigoEtiquetaInicial);
 
   // Construye la key compuesta para ejecucionActividades/ejecucionPasos.

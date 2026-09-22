@@ -38,7 +38,7 @@ const InfoRow = ({ icon: Icon, label, value }) => (
  * @param {{ initialVisitaId?: string|null, onInitialVisitaConsumed?: () => void }} props
  */
 const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed }) => {
-  const { visitas: visitasHook, loading: loadingVisitas, fetchVisitas } = useVisitas();
+  const { visitas: visitasHook, loading: loadingVisitas, enriching, withDevicePasos, fetchVisitas } = useVisitas();
   const notify   = useNotify();
   const { user } = useAuth();
   const isTecnico = user?.role === ROLES.TECNICO;
@@ -230,38 +230,40 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
 
   // ── Open execution view ──────────────────────────────────────────────────
   const handleOpenVisita = (visita) => {
+    // Inyectar pasos solo al abrir (en la lista los dispositivos van livianos)
+    const visitaConPasos = withDevicePasos(visita);
     // Construir mapa intervencionId por dispositivo:
     // - Si ya existe en BD (visita guardada previamente) → usar el ID real
     // - Si no → asignar un UUID temporal local para aislar las keys de estado
-    const knownMap = visita.dispositivoIntervencionMap || {};
+    const knownMap = visitaConPasos.dispositivoIntervencionMap || {};
     const localMap = {};
-    (visita.dispositivos || []).forEach(d => {
+    (visitaConPasos.dispositivos || []).forEach(d => {
       localMap[d.id] = knownMap[d.id] || crypto.randomUUID();
     });
     localIntervencionMapRef.current = localMap;
 
     // Dispositivos que ya tienen intervención guardada en BD se consideran ya guardados
     const alreadySaved = new Set(
-      Object.keys(visita.dispositivoIntervencionMap || {})
+      Object.keys(visitaConPasos.dispositivoIntervencionMap || {})
     );
 
     // Restaurar fueraDeServicioMap desde BD (dispositivoFdsMap) para que al recargar
     // los dispositivos fuera de servicio sigan mostrándose correctamente.
     const fdsMap = {};
-    const fdsSource = visita.dispositivoFdsMap || {};
+    const fdsSource = visitaConPasos.dispositivoFdsMap || {};
     Object.entries(fdsSource).forEach(([deviceId, fds]) => {
       if (fds.fueraDeServicio) {
         fdsMap[deviceId] = { active: true, motivo: fds.motivo || '' };
       }
     });
 
-    setActiveVisita(visita);
+    setActiveVisita(visitaConPasos);
     setSavedDeviceIds(alreadySaved);
-    setEjecucionPasos(visita.ejecucionPasos || {});
-    setEjecucionActividades(visita.ejecucionActividades || {});
+    setEjecucionPasos(visitaConPasos.ejecucionPasos || {});
+    setEjecucionActividades(visitaConPasos.ejecucionActividades || {});
     // Inicializar con evidencias ya subidas (preview = url pública) para mostrar imágenes guardadas
-    setDeviceEvidencias(visita.deviceEvidencias || {});
-    setObservacionFinal(visita.observacionFinal || '');
+    setDeviceEvidencias(visitaConPasos.deviceEvidencias || {});
+    setObservacionFinal(visitaConPasos.observacionFinal || '');
     setFueraDeServicioMap(fdsMap);
   };
 
@@ -280,6 +282,50 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialVisitaId, visitas, loadingVisitas]);
 
+  // Cuando el enrich llega (pasos/ejecución), actualizar la visita abierta.
+  // Sin esto, abrir en fase 1 deja "0/0 actividades" / "Sin pasos de protocolo".
+  useEffect(() => {
+    if (!activeVisita?.id) return;
+    const fresh = visitas.find(v => v.id === activeVisita.id);
+    if (!fresh) return;
+
+    const freshWithPasos = withDevicePasos(fresh);
+    const oldPasoCount = (activeVisita.dispositivos || []).reduce(
+      (n, d) => n + (d.pasos?.length || 0), 0,
+    );
+    const newPasoCount = (freshWithPasos.dispositivos || []).reduce(
+      (n, d) => n + (d.pasos?.length || 0), 0,
+    );
+    const hadNoExec = Object.keys(ejecucionActividades).length === 0
+      && Object.keys(fresh.ejecucionActividades || {}).length > 0;
+
+    if (newPasoCount <= oldPasoCount && !hadNoExec) return;
+
+    setActiveVisita(prev => ({
+      ...prev,
+      dispositivos: freshWithPasos.dispositivos,
+      codigoEtiquetaByDevice: fresh.codigoEtiquetaByDevice || prev.codigoEtiquetaByDevice,
+      dispositivoIntervencionMap: fresh.dispositivoIntervencionMap || prev.dispositivoIntervencionMap,
+      dispositivoFdsMap: fresh.dispositivoFdsMap || prev.dispositivoFdsMap,
+      deviceEvidencias: fresh.deviceEvidencias || prev.deviceEvidencias,
+      deviceProgress: fresh.deviceProgress || prev.deviceProgress,
+    }));
+
+    if (newPasoCount > oldPasoCount || hadNoExec) {
+      const knownMap = fresh.dispositivoIntervencionMap || {};
+      (freshWithPasos.dispositivos || []).forEach(d => {
+        if (knownMap[d.id]) localIntervencionMapRef.current[d.id] = knownMap[d.id];
+      });
+    }
+
+    if (hadNoExec) {
+      setEjecucionActividades(fresh.ejecucionActividades || {});
+      setEjecucionPasos(fresh.ejecucionPasos || {});
+      setDeviceEvidencias(fresh.deviceEvidencias || {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitas, activeVisita?.id, enriching, withDevicePasos]);
+
   const handleCloseVisita = () => {
     localChangesRef.current = { actividades: new Set(), pasos: new Set() };
     localIntervencionMapRef.current = {};
@@ -289,8 +335,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     setEjecucionActividades({});
     setDeviceEvidencias({});
     setObservacionFinal('');
-    // Refrescar la lista para que al volver se vean los estados actualizados
-    fetchVisitas();
+    // Sin refetch: el cache compartido ya tiene la lista; evita skeleton de varios segundos
   };
 
   // ── Update device-level evidencias ───────────────────────────────────────
@@ -318,7 +363,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
     try {
       await iniciarVisita(activeVisita.id);
       // Refrescar lista de fondo sin bloquear UI
-      fetchVisitas();
+      fetchVisitas({ silent: true });
     } catch (err) {
       console.error('[GestionVisitasPage] handleIniciar error:', err);
       // Revertir optimistic update en caso de error
@@ -422,7 +467,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
       } else {
         notify('success', 'Avance guardado correctamente.');
       }
-      fetchVisitas();
+      fetchVisitas({ silent: true });
     } catch (err) {
       console.error('[GestionVisitasPage] handleGuardarTodo error:', err);
       notify('error', err.message || 'No se pudo guardar el avance. Intenta de nuevo.');
@@ -493,7 +538,7 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
       localChangesRef.current.pasos = new Set(
         [...localChangesRef.current.pasos].filter(id => !devicePasoIds.has(id))
       );
-      fetchVisitas();
+      fetchVisitas({ silent: true });
     } catch (err) {
       console.error('[GestionVisitasPage] handleGuardarDispositivo error:', err);
       notify('error', err.message || 'No se pudo guardar el avance del dispositivo.');
@@ -570,7 +615,12 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
               <ArrowLeft size={16} />
             </button>
             <div>
-              <H2>{activeVisita.clienteNombre} — {activeVisita.sucursalNombre}</H2>
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <H2 className="mb-0">{activeVisita.clienteNombre} — {activeVisita.sucursalNombre}</H2>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 text-2xs font-mono font-bold text-gray-500 tracking-wide uppercase">
+                  {activeVisita.codigoRef || activeVisita.id?.slice(0, 8)}
+                </span>
+              </div>
               <TextSmall className="text-gray-500">
                 {activeVisita.tipoVisitaLabel || 'Sin tipo'} · {activeVisita.fechaProgramada ? new Date(activeVisita.fechaProgramada).toLocaleDateString('es-ES') : ''}
               </TextSmall>
@@ -604,6 +654,14 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
             )}
 
             {/* Device checklists — libre elección; bloqueado solo si otro dispositivo está en progreso */}
+            {enriching && (activeVisita.dispositivos || []).some(d => !(d.pasos?.length)) && (
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-blue-100 bg-blue-50">
+                <Clock size={16} className="text-blue-500 shrink-0 animate-pulse" />
+                <TextSmall className="text-blue-800">
+                  Cargando protocolos de los dispositivos…
+                </TextSmall>
+              </div>
+            )}
             {activeVisita.dispositivos?.length > 0
               ? activeVisita.dispositivos.map((device, idx) => {
                   const stat = deviceStats[idx];
@@ -855,28 +913,22 @@ const GestionVisitasPage = ({ initialVisitaId = null, onInitialVisitaConsumed })
   // LIST VIEW
   // ══════════════════════════════════════════════════════════════════════════
 
-  /** Calcula dispositivos completados (obligatorios) para una visita */
+  /** Usa progreso precalculado en el fetch (evita re-recorrer protocolos en cada render). */
   const getDeviceProgress = (visita) => {
-    const total = visita.dispositivos?.length || 0;
-    const completed = visita.dispositivos?.filter(d => {
-      // Dispositivo fuera de servicio guardado → se considera completado
-      if (visita.dispositivoFdsMap?.[d.id]?.fueraDeServicio &&
-          visita.dispositivoIntervencionMap?.[d.id]) return true;
-      const intervencionId = visita.dispositivoIntervencionMap?.[d.id];
-      const actKey = (actId) => intervencionId ? `${intervencionId}:${actId}` : actId;
-      return (d.pasos || []).length > 0 &&
-        (d.pasos || []).every(paso =>
-          (paso.actividades || []).length === 0 ||
-          (paso.actividades || []).every(a => {
-            const e = visita.ejecucionActividades?.[actKey(a.id)]?.estado;
-            return e === 'completada' || e === 'omitida';
-          })
-        );
-    }).length || 0;
-    return { total, completed };
+    if (visita.deviceProgress) return visita.deviceProgress;
+    return { total: visita.dispositivos?.length || 0, completed: 0 };
   };
 
   const columns = [
+    {
+      header: 'Código',
+      narrow: true,
+      render: visita => (
+        <TextSmall className="font-mono font-bold text-gray-500 tracking-wide">
+          {visita.codigoRef || visita.id?.slice(0, 8) || '—'}
+        </TextSmall>
+      ),
+    },
     {
       header: 'Tipo',
       render: visita => visita.tipoVisitaLabel || visita.tipoVisitaCodigo

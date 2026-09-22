@@ -1,12 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext, createElement } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
 import { notificarVisitaProgramada } from '../api/visitaApi';
 
+const VisitasContext = createContext(null);
+
 /**
  * @typedef {Object} Visita
  * @property {string} id - UUID de la visita
+ * @property {string} codigoRef - Código corto de referencia (8 chars del UUID)
  * @property {string|null} solicitudId - UUID de la solicitud origen
  * @property {string} clienteId
  * @property {string} clienteNombre
@@ -54,6 +57,91 @@ import { notificarVisitaProgramada } from '../api/visitaApi';
  * @property {string} label - Nombre legible
  */
 
+/**
+ * Ejecuta `.in(column, ids)` en lotes para evitar URLs/payloads enormes en PostgREST.
+ * @template T
+ * @param {() => import('@supabase/supabase-js').PostgrestFilterBuilder} buildQuery - factory sin `.in` aún
+ * @param {string} column
+ * @param {string[]} ids
+ * @param {number} [chunkSize=100]
+ * @returns {Promise<T[]>}
+ */
+const fetchInChunks = async (buildQuery, column, ids, chunkSize = 100) => {
+  if (!ids.length) return [];
+  /** @type {T[]} */
+  const out = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    const { data, error } = await buildQuery().in(column, chunk);
+    if (error) throw error;
+    out.push(...(data || []));
+  }
+  return out;
+};
+
+/**
+ * Normaliza URL de evidencia a path relativo del bucket.
+ * @param {string|null|undefined} url
+ * @returns {string|null|undefined}
+ */
+const toStoragePath = (url) => {
+  if (!url) return url;
+  if (url.startsWith('http')) {
+    const match = url.match(/\/object\/(?:public|sign)\/inmotika\/(.+?)(?:\?|$)/);
+    return match ? match[1] : url;
+  }
+  return url;
+};
+
+/**
+ * Progreso de dispositivos para la lista (precalculado; evita re-recorrer en cada render).
+ * Los pasos se resuelven por categoriaId para no duplicar protocolos en cada dispositivo.
+ */
+const computeDeviceProgress = (
+  dispositivos,
+  pasosByCatId,
+  ejecucionActividades = {},
+  dispositivoIntervencionMap = {},
+  dispositivoFdsMap = {},
+) => {
+  const total = dispositivos?.length || 0;
+  if (total === 0) return { total: 0, completed: 0 };
+  let completed = 0;
+  for (const d of dispositivos) {
+    if (dispositivoFdsMap?.[d.id]?.fueraDeServicio && dispositivoIntervencionMap?.[d.id]) {
+      completed += 1;
+      continue;
+    }
+    const pasos = (d.categoriaId && pasosByCatId?.get?.(d.categoriaId))
+      || (d.categoriaId && pasosByCatId?.[d.categoriaId])
+      || d.pasos
+      || [];
+    if (!pasos.length) continue;
+    const intervencionId = dispositivoIntervencionMap?.[d.id];
+    const actKey = (actId) => (intervencionId ? `${intervencionId}:${actId}` : actId);
+    const done = pasos.every(paso =>
+      (paso.actividades || []).length === 0
+      || (paso.actividades || []).every(a => {
+        const e = ejecucionActividades?.[actKey(a.id)]?.estado;
+        return e === 'completada' || e === 'omitida';
+      }),
+    );
+    if (done) completed += 1;
+  }
+  return { total, completed };
+};
+
+/** Shape liviano de dispositivo en la lista (sin pasos embebidos). */
+const toDeviceLite = (d) => ({
+  id: d.id,
+  label: d.id_inmotika || d.codigo_unico || d.modelo || d.serial || d.id,
+  serial: d.serial || null,
+  modelo: d.modelo || null,
+  idInmotika: d.id_inmotika || null,
+  categoriaId: d.categoria_id || null,
+  categoria: d.categoria?.nombre || null,
+});
+
 // ─── Mapper ───────────────────────────────────────────────────────────────────
 /**
  * Convierte una fila de Supabase en el shape Visita del frontend.
@@ -67,6 +155,8 @@ const mapRow = (row, tecnicoNameMap = new Map(), dispositivosBySolicitud = new M
   const dispositivos = dispositivosBySolicitud.get(row.solicitud_id) || [];
   return {
     id: row.id,
+    /** Código corto de referencia (primeros 8 del UUID) — visible en agenda, lista y seguimiento. */
+    codigoRef: row.id ? String(row.id).slice(0, 8) : '',
     solicitudId: row.solicitud_id || null,
     contratoId: row.contrato_id || null,
     clienteId: row.cliente_id || row.solicitud?.cliente_id || '',
@@ -98,24 +188,46 @@ const mapRow = (row, tecnicoNameMap = new Map(), dispositivosBySolicitud = new M
  * Solo Admin/Coordinador/Director puede crear, editar y cancelar visitas.
  * Técnicos asignados pueden verlas vía RLS.
  */
-export const useVisitas = () => {
+/**
+ * Estado compartido de visitas (un solo fetch para Schedule + Gestión + Programación).
+ * No exportar directamente: usar VisitasProvider + useVisitas().
+ */
+const useVisitasState = () => {
   const [visitas, setVisitas] = useState([]);
   const [loading, setLoading] = useState(true);
+  /** true mientras protocolos/ejecución se cargan en segundo plano tras la lista. */
+  const [enriching, setEnriching] = useState(false);
+  /** Protocolos por categoria_id — compartidos, no duplicados en cada dispositivo. */
+  const [pasosByCategoria, setPasosByCategoria] = useState({});
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
   const notify = useNotify();
   const notifyRef = useRef(notify);
   useEffect(() => { notifyRef.current = notify; });
   const userId = user?.id ?? null;
+  /** Descarta resultados de fetches obsoletos (StrictMode / refetch concurrente). */
+  const fetchGenRef = useRef(0);
 
-  // ── Fetch (2 pasos para evitar ambigüedad PostgREST en joins anidados) ───────
   /**
-   * Carga todas las visitas con sus relaciones. Paso 1: query principal con joins.
-   * Paso 2: batch fetch de nombres de perfil_usuario para técnicos asignados.
+   * Carga visitas en dos fases:
+   * 1) Lista usable (visitas + técnicos + dispositivos) → quita el skeleton.
+   * 2) Protocolos + estado de ejecución (detalle) en segundo plano.
+   *
+   * @param {{ silent?: boolean }} [opts] - silent: no muestra skeleton (refresco en background)
    */
-  const fetchVisitas = useCallback(async () => {
-    if (!userId) return;
-    setLoading(true);
+  const fetchVisitas = useCallback(async (opts = {}) => {
+    const silent = opts?.silent === true;
+    if (!userId) {
+      setVisitas([]);
+      setLoading(false);
+      setEnriching(false);
+      return;
+    }
+    const gen = ++fetchGenRef.current;
+    const isStale = () => gen !== fetchGenRef.current;
+
+    if (!silent) setLoading(true);
+    else setEnriching(true);
     try {
       // Paso 1: visitas con relaciones directas
       const { data: rows, error } = await supabase
@@ -155,9 +267,8 @@ export const useVisitas = () => {
         .order('fecha_programada', { ascending: false, nullsFirst: false });
 
       if (error) throw error;
+      if (isStale()) return null;
 
-      // Paso 2: obtener nombres de técnicos via tecnico.id → perfil_usuario join
-      // visita_tecnico.tecnico_id referencia tecnico.id (no perfil_usuario.id)
       const allTecnicoIds = [
         ...new Set(
           (rows || []).flatMap(r =>
@@ -165,37 +276,71 @@ export const useVisitas = () => {
           )
         ),
       ];
+      const allSolicitudIds = [
+        ...new Set((rows || []).map(r => r.solicitud_id).filter(Boolean)),
+      ];
 
-      // Paso 2a: obtener usuario_id de cada tecnico (sin join a perfil_usuario — evita
-      // que RLS bloquee el join cuando el caller es un contacto/cliente)
+      // Paso 2 + 3a en paralelo: técnicos y junction de dispositivos (sin embed)
+      const [tecRows, sdRows] = await Promise.all([
+        allTecnicoIds.length > 0
+          ? supabase.from('tecnico').select('id, usuario_id').in('id', allTecnicoIds).then(({ data, error: e }) => {
+              if (e) throw e;
+              return data || [];
+            })
+          : Promise.resolve([]),
+        allSolicitudIds.length > 0
+          ? fetchInChunks(
+              () => supabase.from('solicitud_dispositivo').select('solicitud_id,dispositivo_id').eq('activo', true),
+              'solicitud_id',
+              allSolicitudIds,
+            )
+          : Promise.resolve([]),
+      ]);
+
+      if (isStale()) return null;
+
       /** @type {Map<string,string>} tecnico.id → perfil_usuario.id */
       const tecnicoUsuarioMap = new Map();
-      if (allTecnicoIds.length > 0) {
-        const { data: tecRows } = await supabase
-          .from('tecnico')
-          .select('id, usuario_id')
-          .in('id', allTecnicoIds);
-        (tecRows || []).forEach(t => {
-          if (t.usuario_id) tecnicoUsuarioMap.set(t.id, t.usuario_id);
-        });
-      }
+      tecRows.forEach(t => {
+        if (t.usuario_id) tecnicoUsuarioMap.set(t.id, t.usuario_id);
+      });
 
-      // Paso 2b: obtener perfiles por usuario_id — perfil_usuario tiene using(true),
-      // cualquier usuario autenticado puede leer cualquier perfil
-      /** @type {Map<string,{nombres:string,apellidos:string,email:string,telefono:string|null,avatarUrl:string|null}>} */
-      const perfilMap = new Map();
       const allUsuarioIds = [...new Set(tecnicoUsuarioMap.values())];
-      if (allUsuarioIds.length > 0) {
-        const { data: perfiles } = await supabase
-          .from('perfil_usuario')
-          .select('id, nombres, apellidos, email, telefono, avatar_url')
-          .in('id', allUsuarioIds);
-        (perfiles || []).forEach(p => perfilMap.set(p.id, p));
-      }
+      const allDeviceIds = [...new Set(sdRows.map(sd => sd.dispositivo_id).filter(Boolean))];
 
-      /** @type {Map<string,{tecnicoId:string,usuarioId:string,nombres:string,apellidos:string,telefono:string|null,avatarUrl:string|null}>} */
-      let tecnicoProfileMap = new Map();
-      let tecnicoNameMap = new Map();
+      // Paso 2b + 3b en paralelo: perfiles y dispositivos
+      const [perfiles, dispositivosRows] = await Promise.all([
+        allUsuarioIds.length > 0
+          ? supabase
+              .from('perfil_usuario')
+              .select('id, nombres, apellidos, email, telefono, avatar_url')
+              .in('id', allUsuarioIds)
+              .then(({ data, error: e }) => {
+                if (e) throw e;
+                return data || [];
+              })
+          : Promise.resolve([]),
+        allDeviceIds.length > 0
+          ? fetchInChunks(
+              () => supabase
+                .from('dispositivo')
+                .select('id,id_inmotika,codigo_unico,modelo,serial,categoria_id,categoria:categoria_id(nombre)'),
+              'id',
+              allDeviceIds,
+            )
+          : Promise.resolve([]),
+      ]);
+
+      if (isStale()) return null;
+
+      /** @type {Map<string, object>} */
+      const perfilMap = new Map();
+      perfiles.forEach(p => perfilMap.set(p.id, p));
+
+      /** @type {Map<string,string>} */
+      const tecnicoNameMap = new Map();
+      /** @type {Map<string, object>} */
+      const tecnicoProfileMap = new Map();
       allTecnicoIds.forEach(tecId => {
         const usuarioId = tecnicoUsuarioMap.get(tecId);
         const p = usuarioId ? perfilMap.get(usuarioId) : null;
@@ -213,210 +358,242 @@ export const useVisitas = () => {
         });
       });
 
-      // Paso 3: batch fetch de dispositivos por solicitud_id (con categoria_id)
-      const allSolicitudIds = [
-        ...new Set((rows || []).map(r => r.solicitud_id).filter(Boolean)),
-      ];
+      /** @type {Map<string, object>} */
+      const dispositivoById = new Map();
+      dispositivosRows.forEach(d => dispositivoById.set(d.id, d));
 
-      /** @type {Array<{solicitud_id:string, dispositivo:{id,id_inmotika,codigo_unico,modelo,serial,categoria_id}}>} */
-      let rawDispositivos = [];
-      if (allSolicitudIds.length > 0) {
-        const { data: sdRows } = await supabase
-          .from('solicitud_dispositivo')
-          .select('solicitud_id,activo,dispositivo:dispositivo_id(id,id_inmotika,codigo_unico,modelo,serial,categoria_id,categoria:categoria_id(nombre))')
-          .in('solicitud_id', allSolicitudIds)
-          .eq('activo', true);
-        rawDispositivos = (sdRows || []).filter(sd => sd.dispositivo);
-      }
-
-      // Paso 4: cargar pasos de protocolo + actividades para las categorías encontradas
-      const allCategoriaIds = [
-        ...new Set(rawDispositivos.map(sd => sd.dispositivo.categoria_id).filter(Boolean)),
-      ];
-
-      /** @type {Map<string, Array>} categoriaId → pasos ordenados con actividades */
-      let pasosByCatId = new Map();
-      if (allCategoriaIds.length > 0) {
-        const { data: pasos } = await supabase
-          .from('paso_protocolo')
-          .select(`
-            id, descripcion, orden, categoria_id,
-            actividades:actividad_protocolo(id, descripcion, orden, activo)
-          `)
-          .in('categoria_id', allCategoriaIds)
-          .eq('activo', true)
-          .order('orden', { ascending: true });
-
-        (pasos || []).forEach(paso => {
-          const list = pasosByCatId.get(paso.categoria_id) || [];
-          list.push({
-            ...paso,
-            actividades: (paso.actividades || [])
-              .filter(a => a.activo !== false)
-              .sort((a, b) => (a.orden || 0) - (b.orden || 0))
-              .map(a => ({ id: a.id, descripcion: a.descripcion })),
-          });
-          pasosByCatId.set(paso.categoria_id, list);
-        });
-      }
-
-      // Construir mapa solicitud_id → dispositivos con pasos inyectados
       /** @type {Map<string, Array>} */
       let dispositivosBySolicitud = new Map();
-      rawDispositivos.forEach(sd => {
-        const d = sd.dispositivo;
-        const label = d.id_inmotika || d.codigo_unico || d.modelo || d.serial || d.id;
-        const pasos = d.categoria_id ? (pasosByCatId.get(d.categoria_id) || []) : [];
+      sdRows.forEach(sd => {
+        const d = dispositivoById.get(sd.dispositivo_id);
+        if (!d) return;
         const list = dispositivosBySolicitud.get(sd.solicitud_id) || [];
-        list.push({
-          id: d.id,
-          label,
-          serial: d.serial || null,
-          modelo: d.modelo || null,
-          idInmotika: d.id_inmotika || null,
-          categoriaId: d.categoria_id || null,
-          categoria: d.categoria?.nombre || null,
-          pasos,
-        });
+        list.push(toDeviceLite(d));
         dispositivosBySolicitud.set(sd.solicitud_id, list);
       });
 
-      // Paso 5: cargar estado de ejecución — para todas las visitas (incluso PROGRAMADA
-      // puede tener intervenciones si el técnico guardó avance antes del cambio de estado)
-      const visitaIds = (rows || []).map(r => r.id);
-      let ejecucionActividadMap = new Map(); // visitaId → { [actividadId]: { completada } }
-      let ejecucionPasoMap = new Map();      // visitaId → { [pasoProtocoloId]: { comentarios, fechaInicio, fechaFin } }
-      let evidenciasMap = new Map();         // visitaId → { [dispositivoId]: { etiqueta, fotos } }
-      let codigoEtiquetaMap = new Map();     // visitaId → { [dispositivoId]: codigoEtiqueta }
-      // dispositivoIntervencionMap: visitaId → { dispositivoId → intervencionId }
-      const dispositivoIntervencionMap = new Map();
-      // dispositivoFdsMap: visitaId → { dispositivoId → { fueraDeServicio, motivo } }
-      const dispositivoFdsMap = new Map();
+      // Fase 1: pintar lista (conteos de dispositivos correctos) sin esperar protocolos/ejecución
+      const emptyExec = {
+        ejecucionActividades: {},
+        ejecucionPasos: {},
+        deviceEvidencias: {},
+        codigoEtiquetaByDevice: {},
+        dispositivoIntervencionMap: {},
+        dispositivoFdsMap: {},
+      };
+      const listMapped = (rows || []).map(r => {
+        const base = mapRow(r, tecnicoNameMap, dispositivosBySolicitud, tecnicoProfileMap);
+        return {
+          ...base,
+          ...emptyExec,
+          observacionFinal: r.observacion_final || '',
+          deviceProgress: { total: base.dispositivos?.length || 0, completed: 0 },
+        };
+      });
+      setVisitas(listMapped);
+      if (!silent) setLoading(false);
+      setEnriching(true);
 
-      if (visitaIds.length > 0) {
-        // Cargar intervenciones para obtener IDs y código etiqueta
-        const { data: intervenciones } = await supabase
-          .from('intervencion')
-          .select('id, visita_id, dispositivo_id, codigo_etiqueta, observacion_final, fuera_de_servicio, motivo_fuera_de_servicio')
-          .in('visita_id', visitaIds)
-          .eq('activo', true);
+      // Fase 2: protocolos + ejecución. Si falla, la lista ya visible se mantiene.
+      try {
+        const allCategoriaIds = [
+          ...new Set(dispositivosRows.map(d => d.categoria_id).filter(Boolean)),
+        ];
+        /** @type {Map<string, Array>} */
+        let pasosByCatId = new Map();
+        if (allCategoriaIds.length > 0) {
+          const pasos = await fetchInChunks(
+            () => supabase
+              .from('paso_protocolo')
+              .select(`
+                id, descripcion, orden, categoria_id,
+                actividades:actividad_protocolo(id, descripcion, orden, activo)
+              `)
+              .eq('activo', true)
+              .order('orden', { ascending: true }),
+            'categoria_id',
+            allCategoriaIds,
+          );
+          if (isStale()) return listMapped;
 
-        const intervencionIds = (intervenciones || []).map(i => i.id);
-        const intervencionByVisita = new Map(); // intervencion_id → visita_id
-        (intervenciones || []).forEach(i => {
-          intervencionByVisita.set(i.id, i.visita_id);
-          if (i.codigo_etiqueta) {
-            const byDevice = codigoEtiquetaMap.get(i.visita_id) || {};
-            byDevice[i.dispositivo_id] = i.codigo_etiqueta;
-            codigoEtiquetaMap.set(i.visita_id, byDevice);
-          }
-          const dm = dispositivoIntervencionMap.get(i.visita_id) || {};
-          dm[i.dispositivo_id] = i.id;
-          dispositivoIntervencionMap.set(i.visita_id, dm);
-
-          const fds = dispositivoFdsMap.get(i.visita_id) || {};
-          fds[i.dispositivo_id] = { fueraDeServicio: !!i.fuera_de_servicio, motivo: i.motivo_fuera_de_servicio || null };
-          dispositivoFdsMap.set(i.visita_id, fds);
-        });
-
-        if (intervencionIds.length > 0) {
-          // Estado de actividades — key: "intervencionId:actividadId" para evitar
-          // colisiones entre dispositivos de la misma categoría que comparten actividad_id
-          const { data: actRows } = await supabase
-            .from('ejecucion_actividad')
-            .select('intervencion_id, actividad_id, estado_id, catalogo:estado_id(codigo), observacion')
-            .in('intervencion_id', intervencionIds);
-
-          (actRows || []).forEach(a => {
-            const vId = intervencionByVisita.get(a.intervencion_id);
-            if (!vId) return;
-            const catalogoCodigo = a.catalogo?.codigo || 'PENDIENTE';
-            const estadoInterno =
-              catalogoCodigo === 'COMPLETADA' ? 'completada' :
-              catalogoCodigo === 'INCOMPLETA' ? 'omitida'    : 'pendiente';
-            const map = ejecucionActividadMap.get(vId) || {};
-            map[`${a.intervencion_id}:${a.actividad_id}`] = { estado: estadoInterno, observacion: a.observacion || null };
-            ejecucionActividadMap.set(vId, map);
-          });
-
-          // Pasos — key: "intervencionId:pasoProtocoloId"
-          const { data: pasoRows } = await supabase
-            .from('ejecucion_paso')
-            .select('intervencion_id, paso_protocolo_id, comentarios, fecha_inicio, fecha_fin')
-            .in('intervencion_id', intervencionIds);
-
-          (pasoRows || []).forEach(p => {
-            const vId = intervencionByVisita.get(p.intervencion_id);
-            if (!vId) return;
-            const map = ejecucionPasoMap.get(vId) || {};
-            map[`${p.intervencion_id}:${p.paso_protocolo_id}`] = {
-              comentarios: p.comentarios || '',
-              fechaInicio: p.fecha_inicio,
-              fechaFin: p.fecha_fin,
-            };
-            ejecucionPasoMap.set(vId, map);
-          });
-
-          // Evidencias subidas — indexadas por dispositivo_id dentro de cada visita
-          const intervencionDispositivoMap = new Map(); // intervencion_id → dispositivo_id
-          (intervenciones || []).forEach(i => intervencionDispositivoMap.set(i.id, i.dispositivo_id));
-
-          const { data: evRows } = await supabase
-            .from('evidencia_intervencion')
-            .select('intervencion_id, url, numero_foto, es_etiqueta')
-            .in('intervencion_id', intervencionIds)
-            .eq('activo', true)
-            .order('numero_foto', { ascending: true });
-
-          // evidenciasMap: visitaId → { [dispositivoId]: { etiqueta, fotos } }
-          // Normaliza ev.url a path relativo para que SecureImage genere signed URL.
-          // Soporta paths ya relativos ("evidencias/...") y URLs públicas antiguas.
-          const toStoragePath = (url) => {
-            if (!url) return url;
-            if (url.startsWith('http')) {
-              // Extraer path después de "/object/public/inmotika/" o "/object/sign/inmotika/"
-              const match = url.match(/\/object\/(?:public|sign)\/inmotika\/(.+?)(?:\?|$)/);
-              return match ? match[1] : url;
-            }
-            return url; // Ya es path relativo
-          };
-
-          (evRows || []).forEach(ev => {
-            const vId = intervencionByVisita.get(ev.intervencion_id);
-            const dId = intervencionDispositivoMap.get(ev.intervencion_id);
-            if (!vId || !dId) return;
-            const path = toStoragePath(ev.url);
-            const byDevice = evidenciasMap.get(vId) || {};
-            const current = byDevice[dId] || { etiqueta: null, fotos: [] };
-            if (ev.es_etiqueta) {
-              current.etiqueta = { url: path, preview: path, file: null };
-            } else {
-              current.fotos.push({ url: path, preview: path, file: null });
-            }
-            byDevice[dId] = current;
-            evidenciasMap.set(vId, byDevice);
+          pasos.forEach(paso => {
+            const list = pasosByCatId.get(paso.categoria_id) || [];
+            list.push({
+              ...paso,
+              actividades: (paso.actividades || [])
+                .filter(a => a.activo !== false)
+                .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+                .map(a => ({ id: a.id, descripcion: a.descripcion })),
+            });
+            pasosByCatId.set(paso.categoria_id, list);
           });
         }
-      }
 
-      const mapped = (rows || []).map(r => ({
-        ...mapRow(r, tecnicoNameMap, dispositivosBySolicitud, tecnicoProfileMap),
-        ejecucionActividades: ejecucionActividadMap.get(r.id) || {},
-        ejecucionPasos: ejecucionPasoMap.get(r.id) || {},
-        deviceEvidencias: evidenciasMap.get(r.id) || {},
-        codigoEtiquetaByDevice: codigoEtiquetaMap.get(r.id) || {},
-        observacionFinal: r.observacion_final || '',
-        dispositivoIntervencionMap: dispositivoIntervencionMap.get(r.id) || {},
-        dispositivoFdsMap: dispositivoFdsMap.get(r.id) || {},
-      }));
-      setVisitas(mapped);
-      return mapped;
+        // Dispositivos livianos (sin pasos embebidos — se inyectan al abrir la visita)
+        dispositivosBySolicitud = new Map();
+        sdRows.forEach(sd => {
+          const d = dispositivoById.get(sd.dispositivo_id);
+          if (!d) return;
+          const list = dispositivosBySolicitud.get(sd.solicitud_id) || [];
+          list.push(toDeviceLite(d));
+          dispositivosBySolicitud.set(sd.solicitud_id, list);
+        });
+
+        if (!isStale()) {
+          setPasosByCategoria(Object.fromEntries(pasosByCatId));
+        }
+
+        const visitaIds = (rows || []).map(r => r.id);
+        let ejecucionActividadMap = new Map();
+        let ejecucionPasoMap = new Map();
+        let evidenciasMap = new Map();
+        let codigoEtiquetaMap = new Map();
+        const dispositivoIntervencionMap = new Map();
+        const dispositivoFdsMap = new Map();
+
+        if (visitaIds.length > 0) {
+          const intervenciones = await fetchInChunks(
+            () => supabase
+              .from('intervencion')
+              .select('id, visita_id, dispositivo_id, codigo_etiqueta, observacion_final, fuera_de_servicio, motivo_fuera_de_servicio')
+              .eq('activo', true),
+            'visita_id',
+            visitaIds,
+          );
+          if (isStale()) return listMapped;
+
+          const intervencionIds = intervenciones.map(i => i.id);
+          const intervencionByVisita = new Map();
+          intervenciones.forEach(i => {
+            intervencionByVisita.set(i.id, i.visita_id);
+            if (i.codigo_etiqueta) {
+              const byDevice = codigoEtiquetaMap.get(i.visita_id) || {};
+              byDevice[i.dispositivo_id] = i.codigo_etiqueta;
+              codigoEtiquetaMap.set(i.visita_id, byDevice);
+            }
+            const dm = dispositivoIntervencionMap.get(i.visita_id) || {};
+            dm[i.dispositivo_id] = i.id;
+            dispositivoIntervencionMap.set(i.visita_id, dm);
+
+            const fds = dispositivoFdsMap.get(i.visita_id) || {};
+            fds[i.dispositivo_id] = { fueraDeServicio: !!i.fuera_de_servicio, motivo: i.motivo_fuera_de_servicio || null };
+            dispositivoFdsMap.set(i.visita_id, fds);
+          });
+
+          if (intervencionIds.length > 0) {
+            const [actRows, pasoRows, evRows] = await Promise.all([
+              fetchInChunks(
+                () => supabase
+                  .from('ejecucion_actividad')
+                  .select('intervencion_id, actividad_id, estado_id, catalogo:estado_id(codigo), observacion'),
+                'intervencion_id',
+                intervencionIds,
+              ),
+              fetchInChunks(
+                () => supabase
+                  .from('ejecucion_paso')
+                  .select('intervencion_id, paso_protocolo_id, comentarios, fecha_inicio, fecha_fin'),
+                'intervencion_id',
+                intervencionIds,
+              ),
+              fetchInChunks(
+                () => supabase
+                  .from('evidencia_intervencion')
+                  .select('intervencion_id, url, numero_foto, es_etiqueta')
+                  .eq('activo', true)
+                  .order('numero_foto', { ascending: true }),
+                'intervencion_id',
+                intervencionIds,
+              ),
+            ]);
+            if (isStale()) return listMapped;
+
+            actRows.forEach(a => {
+              const vId = intervencionByVisita.get(a.intervencion_id);
+              if (!vId) return;
+              const catalogoCodigo = a.catalogo?.codigo || 'PENDIENTE';
+              const estadoInterno =
+                catalogoCodigo === 'COMPLETADA' ? 'completada' :
+                catalogoCodigo === 'INCOMPLETA' ? 'omitida'    : 'pendiente';
+              const map = ejecucionActividadMap.get(vId) || {};
+              map[`${a.intervencion_id}:${a.actividad_id}`] = { estado: estadoInterno, observacion: a.observacion || null };
+              ejecucionActividadMap.set(vId, map);
+            });
+
+            pasoRows.forEach(p => {
+              const vId = intervencionByVisita.get(p.intervencion_id);
+              if (!vId) return;
+              const map = ejecucionPasoMap.get(vId) || {};
+              map[`${p.intervencion_id}:${p.paso_protocolo_id}`] = {
+                comentarios: p.comentarios || '',
+                fechaInicio: p.fecha_inicio,
+                fechaFin: p.fecha_fin,
+              };
+              ejecucionPasoMap.set(vId, map);
+            });
+
+            const intervencionDispositivoMap = new Map();
+            intervenciones.forEach(i => intervencionDispositivoMap.set(i.id, i.dispositivo_id));
+
+            evRows.forEach(ev => {
+              const vId = intervencionByVisita.get(ev.intervencion_id);
+              const dId = intervencionDispositivoMap.get(ev.intervencion_id);
+              if (!vId || !dId) return;
+              const path = toStoragePath(ev.url);
+              const byDevice = evidenciasMap.get(vId) || {};
+              const current = byDevice[dId] || { etiqueta: null, fotos: [] };
+              if (ev.es_etiqueta) {
+                current.etiqueta = { url: path, preview: path, file: null };
+              } else {
+                current.fotos.push({ url: path, preview: path, file: null });
+              }
+              byDevice[dId] = current;
+              evidenciasMap.set(vId, byDevice);
+            });
+          }
+        }
+
+        if (isStale()) return listMapped;
+
+        const mapped = (rows || []).map(r => {
+          const base = mapRow(r, tecnicoNameMap, dispositivosBySolicitud, tecnicoProfileMap);
+          const ejecucionActividades = ejecucionActividadMap.get(r.id) || {};
+          const dispositivoIntervencionMapRow = dispositivoIntervencionMap.get(r.id) || {};
+          const dispositivoFdsMapRow = dispositivoFdsMap.get(r.id) || {};
+          return {
+            ...base,
+            ejecucionActividades,
+            ejecucionPasos: ejecucionPasoMap.get(r.id) || {},
+            deviceEvidencias: evidenciasMap.get(r.id) || {},
+            codigoEtiquetaByDevice: codigoEtiquetaMap.get(r.id) || {},
+            observacionFinal: r.observacion_final || '',
+            dispositivoIntervencionMap: dispositivoIntervencionMapRow,
+            dispositivoFdsMap: dispositivoFdsMapRow,
+            deviceProgress: computeDeviceProgress(
+              base.dispositivos,
+              pasosByCatId,
+              ejecucionActividades,
+              dispositivoIntervencionMapRow,
+              dispositivoFdsMapRow,
+            ),
+          };
+        });
+        setVisitas(mapped);
+        return mapped;
+      } catch (enrichErr) {
+        console.error('[useVisitas] enrich error (lista ya visible):', enrichErr);
+        return listMapped;
+      } finally {
+        if (!isStale()) setEnriching(false);
+      }
     } catch (err) {
       console.error('[useVisitas] fetch error:', err);
-      notifyRef.current('error', 'No se pudieron cargar las visitas programadas.');
+      if (!isStale()) {
+        notifyRef.current('error', 'No se pudieron cargar las visitas programadas.');
+        setLoading(false);
+        setEnriching(false);
+      }
       return null;
-    } finally {
-      setLoading(false);
     }
   }, [userId]);
 
@@ -659,13 +836,51 @@ export const useVisitas = () => {
     }
   }, [visitas, fetchVisitas, notify]);
 
+  /**
+   * Inyecta pasos de protocolo en los dispositivos de una visita (al abrir detalle).
+   * En la lista los dispositivos van sin pasos para no inflar el estado (~1MB+).
+   */
+  const withDevicePasos = useCallback((visita) => {
+    if (!visita) return visita;
+    return {
+      ...visita,
+      dispositivos: (visita.dispositivos || []).map(d => ({
+        ...d,
+        pasos: (d.categoriaId && pasosByCategoria[d.categoriaId]) || d.pasos || [],
+      })),
+    };
+  }, [pasosByCategoria]);
+
   return {
     visitas,
     loading,
+    enriching,
     saving,
+    pasosByCategoria,
+    withDevicePasos,
     fetchVisitas,
     createVisita,
     updateVisita,
     cancelVisita,
   };
+};
+
+/**
+ * Provider único: Schedule, Gestión y Programación comparten el mismo cache.
+ * Evita un refetch completo (~10s+) cada vez que el técnico abre una visita.
+ */
+export const VisitasProvider = ({ children }) => {
+  const value = useVisitasState();
+  return createElement(VisitasContext.Provider, { value }, children);
+};
+
+/**
+ * Hook de consumo. Debe usarse dentro de VisitasProvider.
+ */
+export const useVisitas = () => {
+  const ctx = useContext(VisitasContext);
+  if (!ctx) {
+    throw new Error('useVisitas must be used within a VisitasProvider');
+  }
+  return ctx;
 };

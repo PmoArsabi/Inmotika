@@ -38,8 +38,18 @@ const VisitaMobileCard = ({
       {/* ── Detalles con divide-y (mismo patrón que GenericListView) ── */}
       <div className="divide-y divide-gray-50 mb-4">
 
+        {/* Código de referencia */}
+        {(visita.codigoRef || visita.id) && (
+          <div className="flex items-start gap-3 py-2.5 first:pt-0">
+            <TextTiny className="text-gray-400 shrink-0 pt-px w-28 font-bold uppercase tracking-wide leading-tight">Código</TextTiny>
+            <TextSmall className="font-mono font-bold text-gray-500 tracking-wide flex-1">
+              {visita.codigoRef || String(visita.id).slice(0, 8)}
+            </TextSmall>
+          </div>
+        )}
+
         {/* Cliente */}
-        <div className="flex items-start gap-3 py-2.5 first:pt-0">
+        <div className="flex items-start gap-3 py-2.5">
           <TextTiny className="text-gray-400 shrink-0 pt-px w-28 font-bold uppercase tracking-wide leading-tight">Cliente</TextTiny>
           <div className="flex-1 min-w-0">
             <TextSmall className="font-bold text-gray-900">{visita.clienteNombre || '—'}</TextSmall>
