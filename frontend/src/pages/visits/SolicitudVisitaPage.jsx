@@ -4,6 +4,7 @@ import Card from '../../components/ui/Card';
 import GenericListView from '../../components/shared/GenericListView';
 import FilterBar from '../../components/shared/FilterBar';
 import { TextSmall, TextTiny } from '../../components/ui/Typography';
+import CodigoRef from '../../components/ui/CodigoRef';
 import ActionResultModal from '../../components/ui/ActionResultModal';
 import VisitStatusBadge from '../../components/visits/VisitStatusBadge';
 import { useSolicitudesVisita } from '../../hooks/useSolicitudesVisita';
@@ -32,7 +33,7 @@ const SolicitudVisitaPage = () => {
 
   const confirm = useConfirm();
 
-  const { solicitudes, loading, saving, createSolicitud, updateSolicitud, cancelSolicitud } = useSolicitudesVisita();
+  const { solicitudes, loading, saving, createSolicitud, updateSolicitud, cancelSolicitud, fetchDispositivosSolicitud } = useSolicitudesVisita();
   const { data } = useMasterData();
   const { options: tipoVisitaOptions } = useCatalog('TIPO_VISITA');
   const { options: estadoVisitaOptions } = useCatalog('ESTADO_VISITA');
@@ -199,15 +200,28 @@ const SolicitudVisitaPage = () => {
     setMode('create');
   };
 
-  const handleEdit = (sol) => {
-    setDraft(solicitudToDraft(sol));
+  const handleEdit = async (sol) => {
     setSelectedSol(sol);
     setMode('edit');
+    setDraft(solicitudToDraft(sol));
+    try {
+      const { dispositivoIds, dispositivosNombres } = await fetchDispositivosSolicitud(sol.id);
+      setDraft(prev => ({ ...prev, dispositivoIds, dispositivosNombres }));
+      setSelectedSol(prev => prev ? { ...prev, dispositivoIds, dispositivosNombres, dispositivoCount: dispositivoIds.length } : prev);
+    } catch (err) {
+      console.error('[SolicitudVisitaPage] load devices for edit:', err);
+    }
   };
 
-  const handleView = (sol) => {
+  const handleView = async (sol) => {
     setSelectedSol(sol);
     setMode('view');
+    try {
+      const { dispositivoIds, dispositivosNombres } = await fetchDispositivosSolicitud(sol.id);
+      setSelectedSol(prev => prev ? { ...prev, dispositivoIds, dispositivosNombres, dispositivoCount: dispositivoIds.length } : prev);
+    } catch (err) {
+      console.error('[SolicitudVisitaPage] load devices for view:', err);
+    }
   };
 
   // Siempre derivar desde el array reactivo para reflejar cambios de estado sin recargar
@@ -398,6 +412,11 @@ const SolicitudVisitaPage = () => {
 
   const columns = [
     {
+      header: 'Código',
+      narrow: true,
+      render: (sol) => <CodigoRef id={sol.id} />,
+    },
+    {
       header: 'Tipo',
       render: (sol) => (
         <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${tipoBg(sol.tipoVisitaCodigo)}`}>
@@ -434,7 +453,7 @@ const SolicitudVisitaPage = () => {
     {
       header: 'Dispositivos',
       render: (sol) => (
-        <TextSmall>{sol.dispositivoIds?.length || 0} dispositivo{sol.dispositivoIds?.length !== 1 ? 's' : ''}</TextSmall>
+        <TextSmall>{(sol.dispositivoCount ?? sol.dispositivoIds?.length ?? 0)} dispositivo{(sol.dispositivoCount ?? sol.dispositivoIds?.length ?? 0) !== 1 ? 's' : ''}</TextSmall>
       ),
     },
     {
@@ -482,6 +501,12 @@ const SolicitudVisitaPage = () => {
     <Card className="p-5 border border-gray-200 shadow-sm rounded-2xl">
       <div className="divide-y divide-gray-50 mb-4">
         <div className="flex items-start gap-3 py-2.5 first:pt-0">
+          <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Código</TextTiny>
+          <div className="flex-1 min-w-0">
+            <CodigoRef id={sol.id} />
+          </div>
+        </div>
+        <div className="flex items-start gap-3 py-2.5">
           <TextTiny className="text-gray-400 shrink-0 pt-0.5 w-28 font-bold uppercase tracking-wide leading-tight">Cliente</TextTiny>
           <div className="flex-1 min-w-0">
             <TextSmall className="font-bold text-gray-900">{sol.clienteNombre || '—'}</TextSmall>
@@ -548,6 +573,7 @@ const SolicitudVisitaPage = () => {
           loadingText="Cargando solicitudes..."
           emptyText="No hay solicitudes registradas. Crea la primera."
           filterFunction={(sol, q) =>
+            sol.id?.toLowerCase().includes(q) ||
             sol.clienteNombre?.toLowerCase().includes(q) ||
             sol.sucursalNombre?.toLowerCase().includes(q) ||
             sol.tipoVisitaLabel?.toLowerCase().includes(q) ||

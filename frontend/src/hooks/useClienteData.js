@@ -5,11 +5,12 @@ import { supabase } from '../utils/supabase';
 /**
  * Hook para obtener los datos del cliente/contacto del usuario logueado con rol CLIENTE.
  *
- * @param {{ enabled?: boolean, slim?: boolean, mode?: 'full'|'slim'|'corporate' }} [options]
+ * @param {{ enabled?: boolean, slim?: boolean, mode?: 'full'|'slim'|'corporate'|'dashboard' }} [options]
  *   - enabled: si false, no hace fetch.
  *   - slim / mode 'slim': selectores de solicitudes (mínimo).
  *   - mode 'corporate': Mis Datos — sin dispositivos ni contratos anidados.
- *   - mode 'full' (default): carga completa (inventario, dashboard, etc.).
+ *   - mode 'dashboard': tablero — cliente/sucursales ligeros + solo conteo de dispositivos.
+ *   - mode 'full' (default): carga completa (inventario, etc.).
  */
 export function useClienteData({ enabled = true, slim = false, mode } = {}) {
   const resolvedMode = mode || (slim ? 'slim' : 'full');
@@ -19,13 +20,14 @@ export function useClienteData({ enabled = true, slim = false, mode } = {}) {
     cliente: null,
     sucursales: [],
     dispositivos: [],
+    dispositivosCount: 0,
     loading: enabled,
   });
 
   useEffect(() => {
     if (!enabled || !user?.id) {
       if (!enabled) {
-        setState({ contacto: null, cliente: null, sucursales: [], dispositivos: [], loading: false });
+        setState({ contacto: null, cliente: null, sucursales: [], dispositivos: [], dispositivosCount: 0, loading: false });
       }
       return;
     }
@@ -36,7 +38,7 @@ export function useClienteData({ enabled = true, slim = false, mode } = {}) {
       setState(prev => ({ ...prev, loading: true }));
       try {
         const contactoSelect =
-          resolvedMode === 'slim'
+          resolvedMode === 'slim' || resolvedMode === 'dashboard'
             ? 'id, cliente_id, nombres, apellidos, email, contacto_sucursal(sucursal_id), cliente:cliente_id(id, razon_social)'
             : resolvedMode === 'corporate'
               ? 'id, cliente_id, nombres, apellidos, email, telefono_movil, contacto_sucursal(sucursal_id), cliente:cliente_id(id, razon_social, nit, dv, tipo_documento, direccion, ciudad, estado_depto, pais, logo_url)'
@@ -51,7 +53,7 @@ export function useClienteData({ enabled = true, slim = false, mode } = {}) {
         if (contactoErr) throw contactoErr;
 
         if (!contactoRow) {
-          if (!cancelled) setState({ contacto: null, cliente: null, sucursales: [], dispositivos: [], loading: false });
+          if (!cancelled) setState({ contacto: null, cliente: null, sucursales: [], dispositivos: [], dispositivosCount: 0, loading: false });
           return;
         }
 
@@ -60,14 +62,14 @@ export function useClienteData({ enabled = true, slim = false, mode } = {}) {
           .filter(Boolean);
 
         if (branchIds.length === 0) {
-          if (!cancelled) setState({ contacto: contactoRow, cliente: null, sucursales: [], dispositivos: [], loading: false });
+          if (!cancelled) setState({ contacto: contactoRow, cliente: null, sucursales: [], dispositivos: [], dispositivosCount: 0, loading: false });
           return;
         }
 
         const clienteId = contactoRow.cliente_id;
 
         const sucursalSelect =
-          resolvedMode === 'slim'
+          resolvedMode === 'slim' || resolvedMode === 'dashboard'
             ? 'id, nombre, cliente_id'
             : resolvedMode === 'corporate'
               ? 'id, nombre, cliente_id, direccion, ciudad, estado_depto, pais, es_principal'
@@ -75,19 +77,20 @@ export function useClienteData({ enabled = true, slim = false, mode } = {}) {
 
         // Nota: la tabla cliente no tiene columna `nombre` (solo razon_social).
         const clienteSelect =
-          resolvedMode === 'slim'
+          resolvedMode === 'slim' || resolvedMode === 'dashboard'
             ? 'id, razon_social'
             : resolvedMode === 'corporate'
               ? 'id, razon_social, nit, dv, tipo_documento, direccion, ciudad, estado_depto, pais, logo_url'
               : '*';
 
         const needsDevices = resolvedMode === 'full' || resolvedMode === 'slim';
+        const needsDeviceCount = resolvedMode === 'dashboard';
         const dispositivoSelect =
           resolvedMode === 'slim'
             ? 'id, sucursal_id, serial, id_inmotika, codigo_unico, modelo, categoria:categoria_id(nombre), marca:marca_id(nombre), proveedor:proveedor_id(nombre)'
             : '*, categoria:categoria_id(nombre), marca:marca_id(nombre), proveedor:proveedor_id(nombre), catalogo_estado_gestion:estado_gestion_id(nombre, codigo)';
 
-        const [sucursalRes, clienteRes, dispositivoRes] = await Promise.all([
+        const [sucursalRes, clienteRes, dispositivoRes, deviceCountRes] = await Promise.all([
           supabase.from('sucursal').select(sucursalSelect).in('id', branchIds),
           clienteId
             ? supabase.from('cliente').select(clienteSelect).eq('id', clienteId).maybeSingle()
@@ -95,6 +98,12 @@ export function useClienteData({ enabled = true, slim = false, mode } = {}) {
           needsDevices
             ? supabase.from('dispositivo').select(dispositivoSelect).in('sucursal_id', branchIds)
             : Promise.resolve({ data: [] }),
+          needsDeviceCount
+            ? supabase
+                .from('dispositivo')
+                .select('id', { count: 'exact', head: true })
+                .in('sucursal_id', branchIds)
+            : Promise.resolve({ count: null }),
         ]);
 
         if (cancelled) return;
@@ -111,11 +120,14 @@ export function useClienteData({ enabled = true, slim = false, mode } = {}) {
         const dispositivos = (dispositivoRes.data || []).filter(d =>
           sucursalIds.has(String(d.sucursal_id))
         );
+        const dispositivosCount = needsDeviceCount
+          ? (deviceCountRes.count ?? 0)
+          : dispositivos.length;
 
-        setState({ contacto: contactoRow, cliente, sucursales, dispositivos, loading: false });
+        setState({ contacto: contactoRow, cliente, sucursales, dispositivos, dispositivosCount, loading: false });
       } catch (e) {
         console.error('[useClienteData]', e);
-        if (!cancelled) setState({ contacto: null, cliente: null, sucursales: [], dispositivos: [], loading: false });
+        if (!cancelled) setState({ contacto: null, cliente: null, sucursales: [], dispositivos: [], dispositivosCount: 0, loading: false });
       }
     }
 

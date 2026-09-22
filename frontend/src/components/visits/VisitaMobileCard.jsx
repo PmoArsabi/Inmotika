@@ -1,6 +1,7 @@
 import { Eye, Edit2, Edit, Trash2 } from 'lucide-react';
 import Card from '../ui/Card';
 import { TextSmall, TextTiny } from '../ui/Typography';
+import CodigoRef from '../ui/CodigoRef';
 import VisitStatusBadge from './VisitStatusBadge';
 import { TechnicianChipList } from '../ui/TechnicianChip';
 
@@ -42,9 +43,9 @@ const VisitaMobileCard = ({
         {(visita.codigoRef || visita.id) && (
           <div className="flex items-start gap-3 py-2.5 first:pt-0">
             <TextTiny className="text-gray-400 shrink-0 pt-px w-28 font-bold uppercase tracking-wide leading-tight">Código</TextTiny>
-            <TextSmall className="font-mono font-bold text-gray-500 tracking-wide flex-1">
-              {visita.codigoRef || String(visita.id).slice(0, 8)}
-            </TextSmall>
+            <div className="flex-1 min-w-0">
+              <CodigoRef id={visita.id} codigo={visita.codigoRef} />
+            </div>
           </div>
         )}
 

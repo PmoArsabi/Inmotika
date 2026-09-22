@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { H3, TextSmall, TextTiny } from '../../components/ui/Typography';
 import Button from '../../components/ui/Button';
+import CodigoRef from '../../components/ui/CodigoRef';
 import VisitaMobileCard from '../../components/visits/VisitaMobileCard';
 import { ProgramacionForm, ProgramacionDetalle } from '../../modules/visits/ProgramacionForm';
 import GenericListView from '../../components/shared/GenericListView';
@@ -477,6 +478,11 @@ const ProgramacionVisitaPage = () => {
   // ══════════════════════════════════════════════════════════════════════════
 
   const progColumns = [
+    {
+      header: 'Código',
+      narrow: true,
+      render: item => <CodigoRef id={item.id} codigo={item.codigoRef} />,
+    },
     {
       header: 'Tipo',
       render: item => {

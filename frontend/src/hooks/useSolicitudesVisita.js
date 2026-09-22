@@ -37,15 +37,22 @@ import { syncSolicitudDispositivos } from '../api/solicitudDispositivoApi';
 // ─── Mapper ───────────────────────────────────────────────────────────────────
 /**
  * Convierte una fila de Supabase en el shape del frontend.
- * Los nombres de dispositivos se inyectan después via mergeDeviceNames().
+ * En lista suele venir solo el count de dispositivos; los IDs/nombres
+ * se cargan al abrir detalle/edición.
  * @param {Object} row
- * @param {Map<string,string>} deviceNameMap - dispositivo_id → nombre
+ * @param {Map<string,string>} [deviceInfoMap] - dispositivo_id → nombre
  * @returns {SolicitudVisita}
  */
 const mapRow = (row, deviceInfoMap = new Map()) => {
-  const deviceIds = (row.solicitud_dispositivo || [])
-    .filter(sd => sd.activo !== false)
-    .map(sd => sd.dispositivo_id);
+  const sd = row.solicitud_dispositivo || [];
+  // PostgREST count embed: [{ count: N }]
+  const countEmbed = sd.length === 1 && sd[0] && typeof sd[0].count === 'number'
+    ? sd[0].count
+    : null;
+  const deviceIds = countEmbed === null
+    ? sd.filter(s => s.activo !== false && s.dispositivo_id).map(s => s.dispositivo_id)
+    : [];
+  const dispositivoCount = countEmbed !== null ? countEmbed : deviceIds.length;
   return {
     id: row.id,
     clienteId: row.cliente_id || '',
@@ -63,6 +70,7 @@ const mapRow = (row, deviceInfoMap = new Map()) => {
     estadoCodigo: row.estado?.codigo || '',
     estadoLabel: row.estado?.nombre || '',
     dispositivoIds: deviceIds,
+    dispositivoCount,
     dispositivosNombres: deviceIds.map(id => deviceInfoMap.get(id) || id),
   };
 };
@@ -89,7 +97,8 @@ export const useSolicitudesVisita = () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Paso 1: solicitudes con sus relaciones directas (sin subembeds en junction)
+      // Lista liviana: count de dispositivos en vez de embeber todos los IDs
+      // (una solicitud puede tener 100+ dispositivos → payload enorme).
       const { data: rows, error } = await supabase
         .from('solicitud_visita')
         .select(`
@@ -106,45 +115,17 @@ export const useSolicitudesVisita = () => {
           sucursal:sucursal_id(nombre),
           tipo_visita:tipo_visita_id(codigo,nombre),
           estado:estado_id(codigo,nombre),
-          solicitud_dispositivo(dispositivo_id,activo)
+          solicitud_dispositivo(count)
         `)
         .order('fecha_solicitud', { ascending: false });
 
       if (error) throw error;
 
-      // Pintar lista de inmediato (conteos de dispositivos ya vienen del junction)
-      const mapped = (rows || []).map(r => mapRow(r));
-      setSolicitudes(mapped);
-      setLoading(false);
-
-      // Paso 2 (no bloquea la lista): nombres de dispositivos para detalle/edición
-      const allDeviceIds = [
-        ...new Set(
-          (rows || []).flatMap(r =>
-            (r.solicitud_dispositivo || [])
-              .filter(sd => sd.activo !== false)
-              .map(sd => sd.dispositivo_id)
-          )
-        ),
-      ];
-
-      if (allDeviceIds.length === 0) return;
-
-      const { data: devices } = await supabase
-        .from('dispositivo')
-        .select('id,serial,id_inmotika,codigo_unico,modelo')
-        .in('id', allDeviceIds);
-
-      const deviceInfoMap = new Map();
-      (devices || []).forEach(d => {
-        const label = d.serial || d.id_inmotika || d.codigo_unico || d.modelo || d.id;
-        deviceInfoMap.set(d.id, label);
-      });
-
-      setSolicitudes((rows || []).map(r => mapRow(r, deviceInfoMap)));
+      setSolicitudes((rows || []).map(r => mapRow(r)));
     } catch (err) {
       console.error('[useSolicitudesVisita] fetch error:', err);
       notify('error', 'No se pudieron cargar las solicitudes de visita.');
+    } finally {
       setLoading(false);
     }
   }, [user, notify]);
@@ -153,18 +134,67 @@ export const useSolicitudesVisita = () => {
     fetchSolicitudes();
   }, [fetchSolicitudes]);
 
-  // Refrescar cuando otro usuario cambia el estado de una solicitud (ej: técnico finaliza visita)
+  // Refrescar con debounce cuando cambia el estado (evita refetch en cascada)
   useEffect(() => {
+    let timer = null;
     const channel = supabase
       .channel('solicitud_visita_estado')
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'solicitud_visita' },
-        () => { fetchSolicitudes(); }
+        () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => { fetchSolicitudes(); }, 800);
+        }
       )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
   }, [fetchSolicitudes]);
+
+  /**
+   * Carga IDs y nombres de dispositivos de una solicitud (detalle / edición).
+   * @param {string} solicitudId
+   * @returns {Promise<{ dispositivoIds: string[], dispositivosNombres: string[] }>}
+   */
+  const fetchDispositivosSolicitud = useCallback(async (solicitudId) => {
+    if (!solicitudId) return { dispositivoIds: [], dispositivosNombres: [] };
+
+    const { data: sdRows, error: sdErr } = await supabase
+      .from('solicitud_dispositivo')
+      .select('dispositivo_id')
+      .eq('solicitud_id', solicitudId)
+      .eq('activo', true);
+    if (sdErr) throw sdErr;
+
+    const dispositivoIds = (sdRows || []).map(r => r.dispositivo_id).filter(Boolean);
+    if (dispositivoIds.length === 0) {
+      return { dispositivoIds: [], dispositivosNombres: [] };
+    }
+
+    const { data: devices, error: dErr } = await supabase
+      .from('dispositivo')
+      .select('id,serial,id_inmotika,codigo_unico,modelo')
+      .in('id', dispositivoIds);
+    if (dErr) throw dErr;
+
+    const nameMap = new Map();
+    (devices || []).forEach(d => {
+      nameMap.set(d.id, d.serial || d.id_inmotika || d.codigo_unico || d.modelo || d.id);
+    });
+    const dispositivosNombres = dispositivoIds.map(id => nameMap.get(id) || id);
+
+    // Mantener la lista sincronizada si la solicitud ya está en estado
+    setSolicitudes(prev => prev.map(s => (
+      s.id === solicitudId
+        ? { ...s, dispositivoIds, dispositivosNombres, dispositivoCount: dispositivoIds.length }
+        : s
+    )));
+
+    return { dispositivoIds, dispositivosNombres };
+  }, []);
 
   // ── Create ─────────────────────────────────────────────────────────────────
   /**
@@ -344,6 +374,7 @@ export const useSolicitudesVisita = () => {
     loading,
     saving,
     fetchSolicitudes,
+    fetchDispositivosSolicitud,
     createSolicitud,
     updateSolicitud,
     cancelSolicitud,

@@ -4,6 +4,7 @@ import GenericListView from '../../components/shared/GenericListView';
 import FilterBar from '../../components/shared/FilterBar';
 import ActionResultModal from '../../components/ui/ActionResultModal';
 import { TextSmall, TextTiny } from '../../components/ui/Typography';
+import CodigoRef from '../../components/ui/CodigoRef';
 import { getInformesEnRevision } from '../../api/informeApi';
 import { matchesDateRange } from '../../utils/dateFilter';
 import { isPlazoDirectorVencido, tiempoRestanteDirector } from '../../utils/informePlazo';
@@ -94,6 +95,11 @@ const ValidacionInformePage = () => {
 
   const columns = useMemo(() => [
     {
+      header: 'Código',
+      narrow: true,
+      render: inf => <CodigoRef id={inf.visita_id} />,
+    },
+    {
       header: 'Cliente / Sucursal',
       render: inf => (
         <div>
@@ -176,6 +182,7 @@ const ValidacionInformePage = () => {
         emptyIcon={ClipboardCheck}
         searchPlaceholder="Buscar por cliente o sucursal…"
         filterFunction={(inf, q) =>
+          inf.visita_id?.toLowerCase().includes(q) ||
           inf.cliente_nombre.toLowerCase().includes(q) ||
           inf.sucursal_nombre.toLowerCase().includes(q)
         }
