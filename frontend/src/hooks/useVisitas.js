@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNotify } from '../context/NotificationContext';
 import { notificarVisitaProgramada } from '../api/visitaApi';
+import { ROLES } from '../utils/constants';
 
 const VisitasContext = createContext(null);
 
@@ -225,14 +226,50 @@ const useVisitasState = () => {
     }
     const gen = ++fetchGenRef.current;
     const isStale = () => gen !== fetchGenRef.current;
+    const isTecnico = user?.role === ROLES.TECNICO;
 
     if (!silent) setLoading(true);
     else setEnriching(true);
     try {
-      // Paso 1: visitas con relaciones directas
-      const { data: rows, error } = await supabase
-        .from('visita')
-        .select(`
+      // Técnico: filtrar por asignación explícita.
+      // 1) IDs de visitas del técnico  2) fetch de esas visitas (con todos los visita_tecnico).
+      // Evita el full-scan + RLS fila a fila sobre toda la tabla `visita`.
+      let tecnicoIdFiltro = null;
+      /** @type {string[]|null} */
+      let visitaIdsFiltro = null;
+      if (isTecnico) {
+        const { data: tecRow, error: tecErr } = await supabase
+          .from('tecnico')
+          .select('id')
+          .eq('usuario_id', userId)
+          .eq('activo', true)
+          .maybeSingle();
+        if (tecErr) throw tecErr;
+        tecnicoIdFiltro = tecRow?.id || null;
+        if (!tecnicoIdFiltro) {
+          setVisitas([]);
+          if (!silent) setLoading(false);
+          setEnriching(false);
+          return [];
+        }
+
+        const { data: asignaciones, error: asgErr } = await supabase
+          .from('visita_tecnico')
+          .select('visita_id')
+          .eq('tecnico_id', tecnicoIdFiltro);
+        if (asgErr) throw asgErr;
+
+        visitaIdsFiltro = [...new Set((asignaciones || []).map(a => a.visita_id).filter(Boolean))];
+        if (visitaIdsFiltro.length === 0) {
+          setVisitas([]);
+          if (!silent) setLoading(false);
+          setEnriching(false);
+          return [];
+        }
+      }
+
+      // Select liviano: cliente/sucursal/tipo desde la visita (sin nest profundo de solicitud).
+      const visitaSelect = `
           id,
           solicitud_id,
           contrato_id,
@@ -249,22 +286,20 @@ const useVisitasState = () => {
           cliente:cliente_id(razon_social),
           sucursal:sucursal_id(nombre,ciudad),
           tipo_visita:tipo_visita_id(codigo,nombre),
-          solicitud:solicitud_id(
-            id,
-            motivo,
-            fecha_sugerida,
-            cliente_id,
-            sucursal_id,
-            tipo_visita_id,
-            estado_id,
-            cliente:cliente_id(razon_social),
-            sucursal:sucursal_id(nombre,ciudad),
-            tipo_visita:tipo_visita_id(codigo,nombre)
-          ),
           estado:estado_id(codigo,nombre),
           visita_tecnico(tecnico_id,es_lider)
-        `)
+        `;
+
+      let visitaQuery = supabase
+        .from('visita')
+        .select(visitaSelect)
         .order('fecha_programada', { ascending: false, nullsFirst: false });
+
+      if (visitaIdsFiltro) {
+        visitaQuery = visitaQuery.in('id', visitaIdsFiltro);
+      }
+
+      const { data: rows, error } = await visitaQuery;
 
       if (error) throw error;
       if (isStale()) return null;
@@ -280,7 +315,7 @@ const useVisitasState = () => {
         ...new Set((rows || []).map(r => r.solicitud_id).filter(Boolean)),
       ];
 
-      // Paso 2 + 3a en paralelo: técnicos y junction de dispositivos (sin embed)
+      // Paso 2 + 3a en paralelo: técnicos y junction (solo IDs — basta para el conteo de la lista)
       const [tecRows, sdRows] = await Promise.all([
         allTecnicoIds.length > 0
           ? supabase.from('tecnico').select('id, usuario_id').in('id', allTecnicoIds).then(({ data, error: e }) => {
@@ -306,30 +341,18 @@ const useVisitasState = () => {
       });
 
       const allUsuarioIds = [...new Set(tecnicoUsuarioMap.values())];
-      const allDeviceIds = [...new Set(sdRows.map(sd => sd.dispositivo_id).filter(Boolean))];
 
-      // Paso 2b + 3b en paralelo: perfiles y dispositivos
-      const [perfiles, dispositivosRows] = await Promise.all([
-        allUsuarioIds.length > 0
-          ? supabase
-              .from('perfil_usuario')
-              .select('id, nombres, apellidos, email, telefono, avatar_url')
-              .in('id', allUsuarioIds)
-              .then(({ data, error: e }) => {
-                if (e) throw e;
-                return data || [];
-              })
-          : Promise.resolve([]),
-        allDeviceIds.length > 0
-          ? fetchInChunks(
-              () => supabase
-                .from('dispositivo')
-                .select('id,id_inmotika,codigo_unico,modelo,serial,categoria_id,categoria:categoria_id(nombre)'),
-              'id',
-              allDeviceIds,
-            )
-          : Promise.resolve([]),
-      ]);
+      // Perfiles de técnicos (nombres en las tarjetas)
+      const perfiles = allUsuarioIds.length > 0
+        ? await supabase
+            .from('perfil_usuario')
+            .select('id, nombres, apellidos, email, telefono, avatar_url')
+            .in('id', allUsuarioIds)
+            .then(({ data, error: e }) => {
+              if (e) throw e;
+              return data || [];
+            })
+        : [];
 
       if (isStale()) return null;
 
@@ -358,21 +381,25 @@ const useVisitasState = () => {
         });
       });
 
-      /** @type {Map<string, object>} */
-      const dispositivoById = new Map();
-      dispositivosRows.forEach(d => dispositivoById.set(d.id, d));
-
+      // Dispositivos livianos solo con id (conteo en agenda). Detalle en fase 2.
       /** @type {Map<string, Array>} */
       let dispositivosBySolicitud = new Map();
       sdRows.forEach(sd => {
-        const d = dispositivoById.get(sd.dispositivo_id);
-        if (!d) return;
+        if (!sd.dispositivo_id) return;
         const list = dispositivosBySolicitud.get(sd.solicitud_id) || [];
-        list.push(toDeviceLite(d));
+        list.push({
+          id: sd.dispositivo_id,
+          label: sd.dispositivo_id,
+          serial: null,
+          modelo: null,
+          idInmotika: null,
+          categoriaId: null,
+          categoria: null,
+        });
         dispositivosBySolicitud.set(sd.solicitud_id, list);
       });
 
-      // Fase 1: pintar lista (conteos de dispositivos correctos) sin esperar protocolos/ejecución
+      // Fase 1: pintar lista YA (visitas + conteo dispositivos + técnicos)
       const emptyExec = {
         ejecucionActividades: {},
         ejecucionPasos: {},
@@ -394,8 +421,34 @@ const useVisitasState = () => {
       if (!silent) setLoading(false);
       setEnriching(true);
 
-      // Fase 2: protocolos + ejecución. Si falla, la lista ya visible se mantiene.
+      // Fase 2: detalle de dispositivos + protocolos + ejecución
       try {
+        const allDeviceIds = [...new Set(sdRows.map(sd => sd.dispositivo_id).filter(Boolean))];
+        const dispositivosRows = allDeviceIds.length > 0
+          ? await fetchInChunks(
+              () => supabase
+                .from('dispositivo')
+                .select('id,id_inmotika,codigo_unico,modelo,serial,categoria_id,categoria:categoria_id(nombre)'),
+              'id',
+              allDeviceIds,
+            )
+          : [];
+
+        if (isStale()) return listMapped;
+
+        /** @type {Map<string, object>} */
+        const dispositivoById = new Map();
+        dispositivosRows.forEach(d => dispositivoById.set(d.id, d));
+
+        dispositivosBySolicitud = new Map();
+        sdRows.forEach(sd => {
+          const d = dispositivoById.get(sd.dispositivo_id);
+          if (!d) return;
+          const list = dispositivosBySolicitud.get(sd.solicitud_id) || [];
+          list.push(toDeviceLite(d));
+          dispositivosBySolicitud.set(sd.solicitud_id, list);
+        });
+
         const allCategoriaIds = [
           ...new Set(dispositivosRows.map(d => d.categoria_id).filter(Boolean)),
         ];
@@ -428,16 +481,6 @@ const useVisitasState = () => {
             pasosByCatId.set(paso.categoria_id, list);
           });
         }
-
-        // Dispositivos livianos (sin pasos embebidos — se inyectan al abrir la visita)
-        dispositivosBySolicitud = new Map();
-        sdRows.forEach(sd => {
-          const d = dispositivoById.get(sd.dispositivo_id);
-          if (!d) return;
-          const list = dispositivosBySolicitud.get(sd.solicitud_id) || [];
-          list.push(toDeviceLite(d));
-          dispositivosBySolicitud.set(sd.solicitud_id, list);
-        });
 
         if (!isStale()) {
           setPasosByCategoria(Object.fromEntries(pasosByCatId));
@@ -595,7 +638,7 @@ const useVisitasState = () => {
       }
       return null;
     }
-  }, [userId]);
+  }, [userId, user?.role]);
 
   useEffect(() => {
     fetchVisitas();

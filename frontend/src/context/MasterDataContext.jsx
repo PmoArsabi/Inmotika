@@ -2,8 +2,17 @@ import React, { createContext, useContext, useState, useCallback, useMemo, useEf
 import { supabase } from '../utils/supabase';
 import { useAuth } from './AuthContext';
 import { toClientDraft, toBranchDraft, toContactDraft, toDeviceDraft } from '../utils/entityMappers';
+import { ROLES } from '../utils/constants';
 
 const MasterDataContext = createContext();
+
+/** Colecciones vacías — técnico no usa configuración/inventario master. */
+const EMPTY_MASTER = {
+  clientes: [],
+  contactos: [],
+  dispositivos: [],
+  categorias: [],
+};
 
 export const MasterDataProvider = ({ children, initialData = {} }) => {
   const [data, setData] = useState(initialData);
@@ -130,6 +139,9 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
     }));
   }, []);
 
+  const { user } = useAuth();
+  const isTecnico = user?.role === ROLES.TECNICO;
+
   /**
    * Reloads master data from Supabase.
    *
@@ -143,6 +155,13 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
    * refreshData('dispositivos') // reload only devices after a status change
    */
   const refreshData = useCallback(async (key) => {
+    // Técnico no consume master data; evita cargas accidentales desde realtime/UI.
+    if (user?.role === ROLES.TECNICO) {
+      setData(prev => ({ ...prev, ...EMPTY_MASTER }));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       setError(null);
@@ -187,20 +206,28 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
     } finally {
       setLoading(false);
     }
-  }, [loadClientes, loadContactos, loadDispositivos, loadCategorias, loadEstadosInactivos, updateCollection]);
+  }, [loadClientes, loadContactos, loadDispositivos, loadCategorias, loadEstadosInactivos, updateCollection, user?.role]);
 
-  const { user } = useAuth();
-
-  // Carga inicial al autenticarse
+  // Carga inicial al autenticarse.
+  // TECNICO solo usa Tablero / Gestión Visitas / Mensajes → no necesita master data
+  // (clientes, contactos, inventario completo). Evita el SELECT pesado de dispositivo (~5s).
   useEffect(() => {
-    if (user) refreshData();
-  }, [refreshData, user]);
+    if (!user) return;
+    if (isTecnico) {
+      setData(prev => ({ ...prev, ...EMPTY_MASTER }));
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    refreshData();
+  }, [refreshData, user, isTecnico]);
 
   // Realtime: invalida colecciones cuando otro usuario hace cambios en BD.
   // Se usa debounce de 1.5s para evitar condiciones de carrera con operaciones
   // de guardado locales que también modifican las mismas tablas.
+  // Técnico no suscribe: no consume esas colecciones.
   useEffect(() => {
-    if (!user) return;
+    if (!user || isTecnico) return;
 
     const timers = {};
     const debounced = (key, fn) => () => {
@@ -234,7 +261,7 @@ export const MasterDataProvider = ({ children, initialData = {} }) => {
       Object.values(timers).forEach(clearTimeout);
       supabase.removeChannel(channel);
     };
-  }, [user, refreshData]);
+  }, [user, isTecnico, refreshData]);
 
   const value = useMemo(() => ({
     data,
