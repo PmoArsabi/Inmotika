@@ -82,6 +82,8 @@ const TipoBadge = ({ label }) => {
  */
 const VisitCard = ({ visita, onClick }) => {
   const isCompleted = visita.estadoCodigo === 'COMPLETADA';
+  const totalDevices = visita.deviceProgress?.total ?? visita.dispositivos?.length ?? 0;
+  const completedDevices = visita.deviceProgress?.completed ?? 0;
 
   return (
     <button
@@ -128,14 +130,15 @@ const VisitCard = ({ visita, onClick }) => {
         <span>{formatVisitDate(visita.fechaProgramada)}</span>
       </div>
 
-      {/* Bottom row: technicians + devices */}
+      {/* Bottom row: technicians + devices (mismo avance que Gestión: completados/total) */}
       <div className="flex items-center justify-between border-t border-gray-50 pt-3 gap-4 flex-wrap">
         <TechnicianChipList names={visita.tecnicosNombres} max={3} />
         <div className="flex items-center gap-1 text-xs font-bold text-gray-400 shrink-0">
           <Cpu size={12} />
           <span>
-            {visita.dispositivos?.length ?? 0}{' '}
-            {(visita.dispositivos?.length ?? 0) === 1 ? 'dispositivo' : 'dispositivos'}
+            {totalDevices > 0
+              ? `${completedDevices}/${totalDevices}`
+              : '0 dispositivos'}
           </span>
         </div>
       </div>

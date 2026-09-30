@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useMasterData } from '../../context/MasterDataContext';
 import { useAuth } from '../../context/AuthContext';
 import { ROLE_HIERARCHY, ROLES } from '../../utils/constants';
-import { Plus, UserPlus } from 'lucide-react';
+import { Plus, UserPlus, Search } from 'lucide-react';
 import ModuleHeader from '../../components/ui/ModuleHeader';
 import Card from '../../components/ui/Card';
 import FilterBar from '../../components/shared/FilterBar';
@@ -259,11 +259,23 @@ const UsersPage = ({ setData }) => {
             filters={filterDefs}
             values={filters}
             onChange={setFilters}
-            searchPlaceholder="Buscar por nombre o email..."
-            searchValue={search}
-            onSearchChange={setSearch}
-            totalItems={usuarios.length}
-            filteredCount={filteredUsers.length}
+            leadingSlot={
+              <div className="flex flex-col gap-0.5">
+                <span className="text-2xs font-semibold uppercase tracking-wider text-gray-500 leading-none px-0.5">
+                  Buscar
+                </span>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Nombre o correo..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full h-10 pl-9 pr-3 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all text-gray-700 placeholder:text-gray-400"
+                  />
+                </div>
+              </div>
+            }
           />
         }
       />

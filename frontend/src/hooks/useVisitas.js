@@ -440,12 +440,26 @@ const useVisitasState = () => {
         const dispositivoById = new Map();
         dispositivosRows.forEach(d => dispositivoById.set(d.id, d));
 
+        // Conservar stub de fase 1 si el detalle de `dispositivo` no vuelve (RLS / borrado):
+        // así el conteo de la lista no cae a 0 mientras Gestión sigue mostrando N.
         dispositivosBySolicitud = new Map();
         sdRows.forEach(sd => {
+          if (!sd.dispositivo_id) return;
           const d = dispositivoById.get(sd.dispositivo_id);
-          if (!d) return;
           const list = dispositivosBySolicitud.get(sd.solicitud_id) || [];
-          list.push(toDeviceLite(d));
+          list.push(
+            d
+              ? toDeviceLite(d)
+              : {
+                  id: sd.dispositivo_id,
+                  label: sd.dispositivo_id,
+                  serial: null,
+                  modelo: null,
+                  idInmotika: null,
+                  categoriaId: null,
+                  categoria: null,
+                },
+          );
           dispositivosBySolicitud.set(sd.solicitud_id, list);
         });
 
